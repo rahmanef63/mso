@@ -1,5 +1,6 @@
 import path from "node:path";
 import process from "node:process";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 function skillRows(skillsData) {
   return Array.isArray(skillsData?.skills) ? skillsData.skills : [];
@@ -31,11 +32,12 @@ function skillStateVisual(state, C) {
   return { marker: "◇", label: "ready", color: C.blue };
 }
 
-export function beginSkillInvocation(session, skill, C) {
+export function beginSkillInvocation(session, skill, C, options = {}) {
   if (!skill) return;
   session.activeSkill = skill;
   const scope = skill.project?.name ? `project ${skill.project.name}` : "global";
-  console.log(`${C.c}${C.bold}◆ skill /${skill.name} invoking${C.reset}${C.dim} · ${scope} · ${skill.trust || "trusted"}${C.reset}`);
+  const { print } = createPrinter({ session, colors: C, write: options?.print });
+  print(`${C.c}${C.bold}◆ skill /${skill.name} invoking${C.reset}${C.dim} · ${scope} · ${skill.trust || "trusted"}${C.reset}`);
 }
 
 export function endSkillInvocation(session, skill) {
@@ -114,16 +116,18 @@ export async function loadSlashSkill(api, sessionId, skill) {
 }
 
 
-export function printSkillChoices(rows, C) {
+export function printSkillChoices(rows, C, options = {}) {
   if (!rows?.length) return;
-  console.log(`${C.warn}skill name is project-specific or ambiguous; choose one exact id:${C.reset}`);
+  const { print } = createPrinter({ colors: C, session: options?.session, write: options?.print });
+  print(`${C.warn}skill name is project-specific or ambiguous; choose one exact id:${C.reset}`);
   for (const skill of rows.slice(0, 20)) {
     const project = skill.project?.name ? ` · ${skill.project.name}` : " · global";
-    console.log(`  /skill ${skill.id}${project}`);
+    print(`  /skill ${skill.id}${project}`);
   }
 }
 
-export function printSkills(session, C, query = "", cwd = process.cwd()) {
+export function printSkills(session, C, query = "", cwd = process.cwd(), options = {}) {
+  const { print } = createPrinter({ session, colors: C, write: options?.print });
   const all = skillRows(session.state.skills);
   const q = query.trim().toLowerCase();
   const current = currentSkillProject(session.state.skills, cwd);
@@ -136,7 +140,7 @@ export function printSkills(session, C, query = "", cwd = process.cwd()) {
     const bp = current && b.project?.id === current.id ? 0 : b.project ? 2 : 1;
     return ap - bp || String(a.name || a.id).localeCompare(String(b.name || b.id));
   });
-  if (current) console.log(`${C.bold}Current project skills:${C.reset} ${current.name} · ${current.path}`);
+  if (current) print(`${C.bold}Current project skills:${C.reset} ${current.name} · ${current.path}`);
   const visible = rows.slice(0, 80);
   for (const skill of visible) {
     const scope = skill.project?.name ? `project:${skill.project.name}` : "global";
@@ -146,8 +150,8 @@ export function printSkills(session, C, query = "", cwd = process.cwd()) {
     const description = skill.description
       ? ` — ${String(skill.description).replace(/[\r\n\t]+/g, " ").slice(0, 120)}`
       : "";
-    console.log(`  ${visual.color}${visual.marker} /${skill.name}${C.reset}  ${C.dim}${visual.label} · ${scope}${trust ? ` · ${trust}` : ""}${C.reset}${description}`);
+    print(`  ${visual.color}${visual.marker} /${skill.name}${C.reset}  ${C.dim}${visual.label} · ${scope}${trust ? ` · ${trust}` : ""}${C.reset}${description}`);
   }
-  if (rows.length > visible.length) console.log(`${C.dim}… ${rows.length - visible.length} more; refine with /skills <query>${C.reset}`);
-  console.log(`${C.dim}Use /<skill> [prompt], or /skill <exact-id> [prompt] for an ambiguous project skill.${C.reset}`);
+  if (rows.length > visible.length) print(`${C.dim}… ${rows.length - visible.length} more; refine with /skills <query>${C.reset}`);
+  print(`${C.dim}Use /<skill> [prompt], or /skill <exact-id> [prompt] for an ambiguous project skill.${C.reset}`);
 }

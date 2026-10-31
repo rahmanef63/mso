@@ -8,9 +8,11 @@ import { handleFilesCommand } from "./mso-agent-files.mjs";
 import { printSkills } from "./mso-agent-skills.mjs";
 import { state } from "./mso-agent-api.mjs";
 import { C } from "./mso-agent-runtime.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 export async function handleInspectCommand(ctx, cmd, args) {
   const { rl, session, runCli, C: colors = C } = ctx;
+  const { print } = createPrinter(ctx);
   switch (cmd) {
     case "/status":
     case "/context":
@@ -22,7 +24,7 @@ export async function handleInspectCommand(ctx, cmd, args) {
     case "/permission": {
       const direct = args.length ? permissionMode(args.join(" ")) : null;
       if (args.length && !direct) {
-        console.log("usage: /permission [ask|auto-write|yolo]");
+        print("usage: /permission [ask|auto-write|yolo]");
         return "handled";
       }
       if (direct) session.permission = direct.id;
@@ -41,7 +43,7 @@ export async function handleInspectCommand(ctx, cmd, args) {
           session.permission =
             permissionMode(selected)?.id || session.permission;
       }
-      console.log(`permission ${session.permission}`);
+      print(`permission ${session.permission}`);
       return "handled";
     }
     case "/statusbar": {
@@ -49,7 +51,7 @@ export async function handleInspectCommand(ctx, cmd, args) {
       if (value === "off") session.statusBar = false;
       else if (value === "on") session.statusBar = true;
       else session.statusBar = !session.statusBar;
-      console.log(`status bar ${session.statusBar ? "on" : "off"}`);
+      print(`status bar ${session.statusBar ? "on" : "off"}`);
       return "handled";
     }
     case "/models":
@@ -74,7 +76,7 @@ export async function handleInspectCommand(ctx, cmd, args) {
       return "refresh";
     case "/provider":
       if (!args[0])
-        console.log("usage: /provider dokploy|cloudflare|hostinger");
+        print("usage: /provider dokploy|cloudflare|hostinger");
       else runCli(["provider", "set", args[0]]);
       session.state = await state();
       return "refresh";
@@ -83,7 +85,7 @@ export async function handleInspectCommand(ctx, cmd, args) {
       return "handled";
     case "/tools":
       for (const tool of session.state.tools)
-        console.log(`  ${String(tool.scope).padEnd(5)} ${tool.name}`);
+        print(`  ${String(tool.scope).padEnd(5)} ${tool.name}`);
       return "handled";
     case "/files":
       await handleFilesCommand(args, session);

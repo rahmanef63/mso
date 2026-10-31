@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 // Supported actions and human descriptions. Actions without reachable handlers are excluded.
 export const ACTIONS = {
@@ -110,8 +111,7 @@ function settle(bindings, warnings, filePath) {
  * @returns {{ bindings: Record<string, string>, warnings: string[] }}
  */
 export function loadKeybinds({ path: filePath = defaultKeybindsPath(), readFile = readTextFile } = {}) {
-  const defaults = defaultKeybinds();
-  const warnings = [];
+  const defaults = defaultKeybinds(), warnings = [];
   let raw = "";
   try {
     raw = readFile(filePath, "utf8");
@@ -190,30 +190,30 @@ export function formatKeybindTable(bindings, { colors = {} } = {}) {
 
 export async function handleKeybindCommand(ctx, args = []) {
   const { C: colors = {} } = ctx;
+  const { print, printBlock } = createPrinter(ctx);
   const sub = String(args[0] || "").toLowerCase().trim();
   const filePath = defaultKeybindsPath();
 
   if (sub === "reset") {
     const { bindings } = resetKeybinds({ path: filePath });
-    console.log(`reset keybinds to defaults from ${filePath}`);
-    console.log(formatKeybindTable(bindings, { colors }));
+    print(`reset keybinds to defaults from ${filePath}`);
+    printBlock(formatKeybindTable(bindings, { colors }));
     return "handled";
   }
 
   if (sub === "conflicts") {
     const conflicts = detectConflicts(getKeybinds());
-    if (!conflicts.length) {
-      console.log("no keybind conflicts detected");
-    } else {
-      console.log(`${colors.warn || ""}keybind conflicts detected:${colors.reset || ""}`);
-      for (const item of conflicts) console.log(`  "${item.key}" bound to: ${item.actions.join(", ")}`);
+    if (!conflicts.length) print("no keybind conflicts detected");
+    else {
+      print(`${colors.warn || ""}keybind conflicts detected:${colors.reset || ""}`);
+      for (const item of conflicts) print(`  "${item.key}" bound to: ${item.actions.join(", ")}`);
     }
     return "handled";
   }
 
   const warnings = getKeybindWarnings();
-  for (const w of warnings) console.log(`${colors.warn || ""}warning:${colors.reset || ""} ${w}`);
-  console.log(`config: ${filePath}`);
-  console.log(formatKeybindTable(getKeybinds(), { colors }));
+  for (const w of warnings) print(`${colors.warn || ""}warning:${colors.reset || ""} ${w}`);
+  print(`config: ${filePath}`);
+  printBlock(formatKeybindTable(getKeybinds(), { colors }));
   return "handled";
 }

@@ -3,6 +3,7 @@ import path from "node:path";
 import { projectHistoryForModel } from "./mso-agent-context.mjs";
 import { addProviderUsage } from "../lib/ai/provider-usage.mjs";
 import { todoStatusChip } from "./mso-agent-todos.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 function compactNumber(value) {
   const n = Number(value || 0);
@@ -119,13 +120,14 @@ function detailedStatus(session, cwd = process.cwd()) {
   };
 }
 
-export function printDetailedStatus(session, C, cwd = process.cwd()) {
+export function printDetailedStatus(session, C, cwd = process.cwd(), options = {}) {
   const row = detailedStatus(session, cwd);
-  console.log(`${C.bold}MSO Agent status${C.reset}`);
-  console.log(`  model      ${row.provider}/${row.model}`);
-  console.log(`  auth       ${row.providerAuth}`);
-  console.log(`  context    ~${row.contextEstimatedTokens}${row.contextWindow ? ` / ${row.contextWindow} (${row.contextPercent}%)` : " / ?"}${row.contextOmittedRows ? ` · ${row.contextOmittedRows} older rows projected out` : ""}`);
-  if (row.sessionCompactThresholdTokens) console.log(`  session    ~${row.sessionEstimatedTokens} / ${row.sessionCompactThresholdTokens} stored · lifetime ~${row.sessionLifetimeEstimatedTokens} · ${row.sessionCompactionCount} compactions · ${row.sessionArchiveCount} archives`);
+  const { print } = createPrinter({ session, colors: C, write: options?.print });
+  print(`${C.bold}MSO Agent status${C.reset}`);
+  print(`  model      ${row.provider}/${row.model}`);
+  print(`  auth       ${row.providerAuth}`);
+  print(`  context    ~${row.contextEstimatedTokens}${row.contextWindow ? ` / ${row.contextWindow} (${row.contextPercent}%)` : " / ?"}${row.contextOmittedRows ? ` · ${row.contextOmittedRows} older rows projected out` : ""}`);
+  if (row.sessionCompactThresholdTokens) print(`  session    ~${row.sessionEstimatedTokens} / ${row.sessionCompactThresholdTokens} stored · lifetime ~${row.sessionLifetimeEstimatedTokens} · ${row.sessionCompactionCount} compactions · ${row.sessionArchiveCount} archives`);
   if ((row.providerReportedUsage.totalTokens ?? 0) > 0 || (row.providerReportedUsage.inputTokens ?? 0) > 0 || (row.providerReportedUsage.outputTokens ?? 0) > 0) {
     const u = row.providerReportedUsage;
     const parts = [
@@ -137,15 +139,15 @@ export function printDetailedStatus(session, C, cwd = process.cwd()) {
       u.reasoningTokens != null ? `${u.reasoningTokens} reasoning` : null,
       u.accountingMode ? `mode ${u.accountingMode}` : null,
     ].filter(Boolean);
-    console.log(`  tokens     ${parts.join(" · ")}`);
-  } else console.log("  tokens     provider has not reported usage in this process; context remains estimated");
-  if (row.skill) console.log(`  skill      ${row.skill.state} /${row.skill.name}`);
-  console.log(`  permission ${row.permission}`);
-  console.log(`  turns      ${row.turns}`);
-  console.log(`  session    ${row.session}`);
-  console.log(`  name       @${row.name || "agent"}`);
-  console.log(`  title      ${row.title || "MSO Agent session"}`);
-  console.log(`  cwd        ${row.cwd}`);
-  if (row.artifacts?.directory) console.log(`  temp       ${row.artifacts.directory}`);
-  if (row.artifacts?.manifestPath) console.log(`  artifacts  ${row.artifacts.manifestPath}`);
+    print(`  tokens     ${parts.join(" · ")}`);
+  } else print("  tokens     provider has not reported usage in this process; context remains estimated");
+  if (row.skill) print(`  skill      ${row.skill.state} /${row.skill.name}`);
+  print(`  permission ${row.permission}`);
+  print(`  turns      ${row.turns}`);
+  print(`  session    ${row.session}`);
+  print(`  name       @${row.name || "agent"}`);
+  print(`  title      ${row.title || "MSO Agent session"}`);
+  print(`  cwd        ${row.cwd}`);
+  if (row.artifacts?.directory) print(`  temp       ${row.artifacts.directory}`);
+  if (row.artifacts?.manifestPath) print(`  artifacts  ${row.artifacts.manifestPath}`);
 }

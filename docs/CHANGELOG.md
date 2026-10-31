@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` one print sink, so command output lands in the panel instead of on top of it
 - `tui` a right-hand side pane for todos, the last diff and changed files (#198)
 - `tui` mouse wheel scrolling and tab clicks, only inside the alternate screen (#197)
 - `tui` a transcript viewport with a scrollbar, so the alternate screen has a reason (#193)
@@ -17,8 +18,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `tui` the two bugs a real pty found, and the test that found them
-- `tui` the two bugs a real pty found, both invisible to the unit tests
+- `tui` the two bugs a real pty found, and the test that found them (#201)
 - `ci` apply the same parser workaround to the last two mock call sites (#196)
 - `ci` stop the semgrep scan failing on a generic argument in a test mock (#195)
 

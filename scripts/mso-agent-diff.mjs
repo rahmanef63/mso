@@ -3,6 +3,7 @@ import { C } from "./mso-agent-runtime.mjs";
 import { api } from "./mso-agent-api.mjs";
 import { sectionBlock } from "./mso-agent-layout.mjs";
 import { safeErrorSummary } from "./mso-agent-errors.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 export function diffLineCap(rows = process.stdout?.rows || 24) {
   const terminalRows = Number(rows) || 24;
@@ -104,9 +105,9 @@ export async function handleDiffCommand(session, args = [], options = {}) {
   const positional = args.filter((arg) => arg !== "--full" && !arg.startsWith("-"));
   let actionRef = positional[0]?.trim() || null;
   const sessionId = session?.agentSession?.id;
-  const print = options.print || console.log;
-  const error = options.error || console.error;
   const colors = options.colors || C;
+  const print = options.print || createPrinter({ session, colors }).printBlock;
+  const error = options.error || console.error;
   const fetchApi = options.api || api;
 
   if (!sessionId) {

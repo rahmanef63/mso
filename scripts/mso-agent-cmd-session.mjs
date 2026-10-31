@@ -13,19 +13,21 @@ import { handleKeybindCommand } from "./mso-agent-keybinds.mjs";
 import { visibleSessionRows } from "./mso-agent-sessions.mjs";
 import { tabsToSwitch } from "./mso-agent-chrome.mjs";
 import { cyclePane, paneKinds } from "./mso-agent-pane.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 export async function handleTodos(ctx, args = []) {
   const { C: colors = C } = ctx;
+  const { print, printBlock } = createPrinter(ctx);
   const state = latestTodos();
   if (!state || (!state.items?.length && !state.summary)) {
-    console.log("no todo list in this session yet: the agent writes one with todo_write");
+    print("no todo list in this session yet: the agent writes one with todo_write");
     return "handled";
   }
   const showAll = args.includes("--all");
   const maxItems = showAll ? Number.POSITIVE_INFINITY : 12;
   const block = formatTodoBlock(state, { colors, maxItems });
-  if (block) console.log(block);
-  else console.log("no todo list in this session yet: the agent writes one with todo_write");
+  if (block) printBlock(block);
+  else print("no todo list in this session yet: the agent writes one with todo_write");
   return "handled";
 }
 
@@ -40,25 +42,26 @@ export async function switchToSession(rl, session, sessionId) {
 
 export async function handleTabs(ctx, args = []) {
   const { rl, session, C: colors = C } = ctx;
+  const { print } = createPrinter(ctx);
   const rows = visibleSessionRows(await listCliSessions(20));
   if (!args.length) {
     if (!rows.length) {
-      console.log("No active sessions.");
+      print("No active sessions.");
       return "handled";
     }
-    console.log(`${colors.bold || ""}Sessions${colors.reset || ""}`);
+    print(`${colors.bold || ""}Sessions${colors.reset || ""}`);
     rows.forEach((row, idx) => {
       const isCurrent = String(row.id) === String(session?.agentSession?.id);
       const mark = isCurrent ? `${colors.blue || ""}${colors.bold || ""}●${colors.reset || ""}` : " ";
       const name = `@${row.name || "agent"}`;
       const title = row.title || "MSO Agent session";
-      console.log(`  ${mark} ${idx + 1}. ${name} · ${title}${isCurrent ? " (current)" : ""}`);
+      print(`  ${mark} ${idx + 1}. ${name} · ${title}${isCurrent ? " (current)" : ""}`);
     });
     return "handled";
   }
   const target = tabsToSwitch(rows, args);
   if (!target) {
-    console.log(`could not resolve session: ${args.join(" ")}`);
+    print(`could not resolve session: ${args.join(" ")}`);
     return "handled";
   }
   await switchToSession(rl, session, target.id);
@@ -67,21 +70,22 @@ export async function handleTabs(ctx, args = []) {
 
 export async function handlePane(ctx, args = []) {
   const { session, C: colors = C } = ctx;
+  const { print } = createPrinter(ctx);
   const kinds = paneKinds();
   if (!args.length) {
     const current = session?.paneKind || "off";
     const next = cyclePane(current);
     if (session) session.paneKind = next;
-    console.log(`${colors.c || ""}side pane: ${next}${colors.reset || ""}`);
+    print(`${colors.c || ""}side pane: ${next}${colors.reset || ""}`);
     return "handled";
   }
   const requested = String(args[0]).toLowerCase();
   if (kinds.includes(requested)) {
     if (session) session.paneKind = requested;
-    console.log(`${colors.c || ""}side pane: ${requested}${colors.reset || ""}`);
+    print(`${colors.c || ""}side pane: ${requested}${colors.reset || ""}`);
     return "handled";
   }
-  console.log(`usage: /pane [todos|diff|files|off] (current: ${session?.paneKind || "off"})`);
+  print(`usage: /pane [todos|diff|files|off] (current: ${session?.paneKind || "off"})`);
   return "handled";
 }
 
@@ -99,6 +103,7 @@ export async function handleSessionCommand(ctx, cmd, args) {
     return handleTabs(ctx, args);
   }
   const { rl, session, C: colors = C } = ctx;
+  const { print } = createPrinter(ctx);
   switch (cmd) {
     case "/new":
       await startNewSession(rl, session, args.join(" "));
@@ -116,19 +121,19 @@ export async function handleSessionCommand(ctx, cmd, args) {
       return "refresh";
     case "/rename": {
       const name = args.join(" ").trim();
-      if (!name) console.log("usage: /rename <short-name>");
+      if (!name) print("usage: /rename <short-name>");
       else {
         const renamed = await renameCurrentSessionName(session, name);
-        console.log(`${colors.c}✓ session name: @${renamed}${colors.reset}`);
+        print(`${colors.c}✓ session name: @${renamed}${colors.reset}`);
       }
       return "handled";
     }
     case "/title": {
       const title = args.join(" ").trim();
-      if (!title) console.log("usage: /title <session name>");
+      if (!title) print("usage: /title <session name>");
       else {
         const renamed = await renameCurrentSession(session, title);
-        console.log(`${colors.c}✓ session title: ${renamed}${colors.reset}`);
+        print(`${colors.c}✓ session title: ${renamed}${colors.reset}`);
       }
       return "handled";
     }
@@ -150,10 +155,10 @@ export async function handleSessionCommand(ctx, cmd, args) {
         const before = res?.beforeTokens ?? 0;
         const after = res?.afterTokens ?? before;
         if (res?.archived) {
-          console.log(`${colors.c}compacted context: ${before} → ${after} tokens (archive written)${colors.reset}`);
+          print(`${colors.c}compacted context: ${before} → ${after} tokens (archive written)${colors.reset}`);
         } else {
           const reason = res?.archiveReason || "context already minimal";
-          console.log(`${colors.dim}${reason}: ${before} → ${after} tokens (no archive written)${colors.reset}`);
+          print(`${colors.dim}${reason}: ${before} → ${after} tokens (no archive written)${colors.reset}`);
         }
       } catch (error) {
         console.error(`${colors.err}${error instanceof Error ? error.message : String(error)}${colors.reset}`);
@@ -170,7 +175,7 @@ export async function handleSessionCommand(ctx, cmd, args) {
       });
       rl.replaceHistory([]);
       await persistSession(session);
-      console.log("conversation and prompt history cleared.");
+      print("conversation and prompt history cleared.");
       return "handled";
     case "/exit":
     case "/quit":
