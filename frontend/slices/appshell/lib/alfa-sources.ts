@@ -1,6 +1,9 @@
 "use client";
 
 import type { MentionItem } from "./mentions";
+import { triggerAlfaLoader } from "./alfa-loader";
+
+export { registerAlfaLoader } from "./alfa-loader";
 
 // Completion sources for the composer's @ and / menus. Same seam as the runner and
 // for the same reason: agents live in the assistant slice's localStorage store and
@@ -24,17 +27,6 @@ let sources: AlfaSources = NO_SOURCES;
 
 const subs = new Set<() => void>();
 let version = 0;
-
-// The consumer's source module is worth ~88 KB of chunk (tool catalog, its run()
-// closures, agent presets) and NOTHING renders it until an AI composer exists. So
-// the consumer registers a LOADER instead of importing eagerly, and the first
-// composer render is what pulls it in.
-let loader: (() => void | Promise<void>) | null = null;
-let loaderStarted = false;
-
-export function registerAlfaLoader(fn: () => void | Promise<void>): void {
-  loader = fn;
-}
 
 export function registerAlfaSources(next: AlfaSources): void {
   sources = next;
@@ -61,12 +53,6 @@ export function alfaSourcesVersion(): number {
 }
 
 export function alfaSources(): AlfaSources {
-  if (loader && !loaderStarted) {
-    loaderStarted = true;
-    // Fire and forget: the loader calls registerAlfaSources, which notifies.
-    void Promise.resolve(loader()).catch(() => {
-      loaderStarted = false; // a failed chunk may succeed on the next open
-    });
-  }
+  triggerAlfaLoader();
   return sources;
 }

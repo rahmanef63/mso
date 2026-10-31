@@ -50,7 +50,8 @@ if grep -Ei "(^|[[:space:]])warnings?[: ]|⚠" "$MSO_VERIFY_BUILD_LOG"; then
 fi
 
 echo "== verify: eager shell bundle budget"
-node scripts/check-bundle.mjs
+# The build described this exact archive, so the stale-build guard must not fire here.
+MSO_BUNDLE_BUILD_IS_CURRENT=1 node scripts/check-bundle.mjs
 
 echo "== verify 2/3: Playwright Chromium runtime"
 if ! node scripts/ensure-playwright-browser.mjs; then

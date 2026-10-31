@@ -39,7 +39,19 @@ run "architecture"       node scripts/check-architecture.mjs
 run "docs"               node scripts/check-docs.mjs
 run "changelog"          node scripts/gen-changelog.mjs --check
 run "contrast"           node scripts/check-contrast.mjs
-run "bundle budget"      node scripts/check-bundle.mjs
+# Fast mode has no build of its own: `.next` belongs to whatever was built last, so it
+# can only REPORT bytes (`--report-only`) here. Enforcement happens against a build of
+# this tree — `verify-build.sh` in full mode, and `bundle:check` in CI right after the
+# production build step.
+# Byte budgets only mean something against a build of THIS tree. Fast mode has no build
+# of its own — `.next` belongs to whatever was built last — so it can only REPORT bytes
+# here. Full mode enforces them inside `verify-build.sh`, against the out-of-tree build
+# it just made; CI does the same with `bundle:check` right after `bun run build`.
+if [ "$MODE" = "fast" ]; then
+  run "bundle bytes (report)" node scripts/check-bundle.mjs --report-only
+else
+  skip "bundle budget"     "enforced against the out-of-tree build by verify-build.sh"
+fi
 run "instance guard"     node scripts/check-instance-literals.mjs
 run "audit strict"       node scripts/audit.mjs --strict
 run "ci contract"        node --test scripts/ci/contract.node.mjs

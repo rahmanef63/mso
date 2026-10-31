@@ -2,8 +2,8 @@
 
 import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AgentMsg } from "../lib/host";
-import type { ChatMessage } from "@/features/appshell";
-import { clearAlfaRunState, newAlfaApprovalSession } from "@/features/appshell";
+import type { ChatMessage } from "@/features/appshell/alfa";
+import { clearAlfaRunState, newAlfaApprovalSession } from "@/features/appshell/alfa";
 
 type LoadArg = { id: string; title?: string; createdAt: number; messages: unknown[]; history: unknown[] };
 

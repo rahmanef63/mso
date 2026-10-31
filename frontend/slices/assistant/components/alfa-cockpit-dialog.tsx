@@ -3,7 +3,8 @@
 import { Activity, Brain, Bot, Cpu, FolderGit2, RefreshCw, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ResponsiveDialog, openWindow, sendToAlfa } from "@/features/appshell";
+import { ResponsiveDialog, openWindow } from "@/features/appshell";
+import { sendToAlfa } from "@/features/appshell/alfa";
 import type { AlfaCockpitData, HostSkillRow } from "../lib/cockpit-types";
 import { HostSkillsSection } from "./host-skills-section";
 import { ModelQuickControl } from "./model-quick-control";
