@@ -8,21 +8,14 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `ci` three security scanners that actually run, and lanes that fail closed (#210)
 - `tui` the panel is the default, and the banner lives in the transcript (#209)
-
-**Fixed**
-
-- `docs` regenerate the changelog after the date rolled over
-
-**Docs**
-
-- `contributing` how to run the CI work locally before opening a PR
-- `gates` the green full run, and the parallel-run trap
 
 ## 2026-10-31
 
 **Added**
 
+- `tui` a suspended panel really leaves the alternate screen, so an approval is readable
 - `tui` install the print sink the last change forgot, and migrate the modules that still print (#206)
 - `tui` a suspended panel really leaves the alternate screen, so an approval is readable (#205)
 - `tui` mid-turn writes go into the panel, and prompts suspend it instead of fighting it (#204)
