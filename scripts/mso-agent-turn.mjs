@@ -19,6 +19,9 @@ import { parseTodoCall, printTodoBlock, rememberTodos } from "./mso-agent-todos.
 
 function lazyAssistantOutput(session, options = {}) {
   if (options.quiet) return null;
+  // The alternate-screen panel installs a sink so streamed text lands in the viewport buffer
+  // instead of being appended to scrollback that is not visible.
+  if (session?.streamSink) return session.streamSink;
   let opened = false;
   return {
     write(value) {
