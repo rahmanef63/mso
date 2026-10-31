@@ -1,3 +1,5 @@
+import { withPanelSuspended } from "./mso-agent-turn-print.mjs";
+
 const SECRET_KEY = /(api[_-]?key|token|secret|password|passwd|credential|cookie|authorization|private[_-]?key)/i;
 const SECRET_TEXT = /((?:api[_-]?key|token|secret|password|passwd|credential|authorization)\s*[=:]\s*)[^\s,;]+|\bBearer\s+[^\s,;]+/gi;
 
@@ -53,19 +55,22 @@ export function approvalDetailLines(tool, input, approval) {
   ];
 }
 
-export async function requestExactToolApproval(rl, { tool, input = {}, approval, onCancel = null, signal = null, colors = {}, print = console.log }) {
-  let focused = false;
-  const dim = colors.dim || "", reset = colors.reset || "", blue = colors.blue || "", bold = colors.bold || "";
-  const status = () => `${blue}${bold}${approvalStatusLine(tool, input, focused)}${reset}${dim}  · Tab focus · Enter details${reset} `;
-  const opened = await rl.question(status, {
-    history: false,
-    onCancel,
-    onTab: () => { focused = true; },
+export async function requestExactToolApproval(rl, { tool, input = {}, approval, onCancel = null, signal = null, colors = {}, print = console.log, screenLoop = null }) {
+  const loop = screenLoop || rl?.screenLoop;
+  return withPanelSuspended(loop, async () => {
+    let focused = false;
+    const dim = colors.dim || "", reset = colors.reset || "", blue = colors.blue || "", bold = colors.bold || "";
+    const status = () => `${blue}${bold}${approvalStatusLine(tool, input, focused)}${reset}${dim}  · Tab focus · Enter details${reset} `;
+    const opened = await rl.question(status, {
+      history: false,
+      onCancel,
+      onTab: () => { focused = true; },
+    });
+    if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("turn interrupted");
+    if (opened === null) return false;
+    for (const line of approvalDetailLines(tool, input, approval)) print(line);
+    const decision = String(await rl.question("  decision [allow/deny] › ", { history: false, onCancel }) ?? "").trim().toLowerCase();
+    if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("turn interrupted");
+    return decision === "allow";
   });
-  if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("turn interrupted");
-  if (opened === null) return false;
-  for (const line of approvalDetailLines(tool, input, approval)) print(line);
-  const decision = String(await rl.question("  decision [allow/deny] › ", { history: false, onCancel }) ?? "").trim().toLowerCase();
-  if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("turn interrupted");
-  return decision === "allow";
 }

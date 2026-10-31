@@ -16,6 +16,7 @@ import { oneShotApproves } from "./mso-agent-oneshot.mjs";
 import { reasoningLine } from "./mso-agent-reasoning.mjs";
 import { parseEditResult, printEditDiff } from "./mso-agent-edit-diff.mjs";
 import { parseTodoCall, printTodoBlock, rememberTodos } from "./mso-agent-todos.mjs";
+import { turnPrinter } from "./mso-agent-turn-print.mjs";
 
 function lazyAssistantOutput(session, options = {}) {
   if (options.quiet) return null;
@@ -39,9 +40,7 @@ function lazyAssistantOutput(session, options = {}) {
  * hard-coded 10; now `OS_AGENT_MAX_ROUNDS` (default 1000 = no practical cap). */
 export function agentRoundLimit() {
   const configured = Number(process.env.OS_AGENT_MAX_ROUNDS);
-  return Number.isFinite(configured) && configured > 0
-    ? Math.trunc(configured)
-    : 1000;
+  return Number.isFinite(configured) && configured > 0 ? Math.trunc(configured) : 1000;
 }
 
 export async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null, options = {}) {
@@ -58,12 +57,11 @@ export async function executeTool(rl, tool, call, agentSession, permission = "as
   if (!approved) {
     if (options.approvalScope) return { ok: false, result: "denied by user" };
     const approvalState = options.approvalState || null;
-    if (approvalState) approvalState.pendingApproval = {
-      tool: tool.name, scope: tool.scope, digest: approval?.digest || null, createdAt: new Date().toISOString(),
-    };
+    if (approvalState) approvalState.pendingApproval = { tool: tool.name, scope: tool.scope, digest: approval?.digest || null, createdAt: new Date().toISOString() };
     try {
+      const screenLoop = options.screenLoop || approvalState?.screenLoop;
       approved = await requestExactToolApproval(rl, {
-        tool, input: call.input || {}, approval, onCancel: onInterrupt, signal, colors: C,
+        tool, input: call.input || {}, approval, onCancel: onInterrupt, signal, colors: C, screenLoop,
       });
       if (approvalState) approvalState.pendingApproval = null;
     } catch (error) {
@@ -72,7 +70,7 @@ export async function executeTool(rl, tool, call, agentSession, permission = "as
     }
   } else if (needsApprovalDigest && !options.quiet && !options.approvalScope) {
     if (options.activity) options.activity.label(tool);
-    else console.log(`${C.c}${C.bold}[${tool.scope}]${C.reset} ${tool.name}`);
+    else (options.print || console.log)(`${C.c}${C.bold}[${tool.scope}]${C.reset} ${tool.name}`);
   }
   if (!approved) return { ok: false, result: "denied by user" };
   if (!options.quiet) {
@@ -127,9 +125,10 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
     })).begin();
   const roundLimit = agentRoundLimit();
   beginSkillInvocation(session, skillContext, C);
+  const print = options.print || turnPrinter(session);
   const turnStream = options.streamTurn || streamTurn;
   const toolExecutor = options.executeTool || executeTool;
-  const toolOptions = { ...options, activity };
+  const toolOptions = { ...options, activity, print, screenLoop: options.screenLoop || session?.screenLoop };
   let workSectionPrinted = false;
   try {
     for (let turn = 0; turn < roundLimit; turn++) {
@@ -151,7 +150,7 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
       session.lastElapsedMs = Date.now() - startedAt;
       if (!options.quiet && session.showReasoning !== false) {
         const line = reasoningLine(result.usage);
-        if (line) console.log(`${C.dim}${line}${C.reset}`);
+        if (line) print(`${C.dim}${line}${C.reset}`);
       }
       session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
       if (!result.toolUses.length) {
@@ -177,7 +176,7 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
       session.history.push({ role: "tool", results });
     }
     activity?.finish(completedReceipt(calls, session.lastElapsedMs));
-    if (!options.quiet) console.log(`${C.warn}turn limit reached; ask to continue if needed.${C.reset}`);
+    if (!options.quiet) print(`${C.warn}turn limit reached; ask to continue if needed.${C.reset}`);
     return { text: finalText, calls, rounds, usage: session.usage, elapsedMs: session.lastElapsedMs, turnLimitReached: true };
   } catch (error) {
     if (signal?.aborted || isAbortError(error)) session.history.splice(historyCheckpoint);
@@ -200,15 +199,16 @@ export async function runInteractiveRound(rl, session, skillContext, interrupts,
   const signal = interrupts.beginTurn();
   await localBridge?.setState("busy");
   let roundResult = null;
+  const print = turnPrinter(session);
   try {
-    roundResult = await agentRound(rl, session, skillContext, signal, () => interrupts.interruptCurrent());
+    roundResult = await agentRound(rl, session, skillContext, signal, () => interrupts.interruptCurrent(), { print });
     await persistSession(session);
   } catch (error) {
     if (signal.aborted || isAbortError(error)) {
-      console.log(`${C.dim}turn interrupted.${C.reset}`);
+      print(`${C.dim}turn interrupted.${C.reset}`);
     } else {
       const journal = error?.turnJournal || { calls: roundResult?.calls || [] };
-      const state = renderInteractionFailure(error, session, journal, C);
+      const state = renderInteractionFailure(error, session, journal, C, print);
       if (isRecoverableInteractionError(error)) session.history.push(recoverableHistoryRow(state));
     }
     await persistSession(session).catch(() => undefined);
