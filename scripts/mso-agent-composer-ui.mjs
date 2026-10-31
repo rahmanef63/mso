@@ -5,6 +5,20 @@ export const CURSOR_UP = (n) => n > 0 ? `\x1b[${n}A` : "";
 export const CURSOR_DOWN = (n) => n > 0 ? `\x1b[${n}B` : "";
 export const CURSOR_RIGHT = (n) => n > 0 ? `\x1b[${n}C` : "";
 export const CLEAR_SCREEN = "\x1b[2J\x1b[H";
+export const PROMPT_ROWS = 3;
+
+// Clamps composer rows:
+// - At least PROMPT_ROWS (3) so clearing/erasing draft does not bounce the panel.
+// - At most terminalRows - 4, which still leaves room for the chrome block and one transcript row.
+//   A quarter of the terminal would be 3 rows on a 12 row terminal, and a 6 line draft is exactly
+//   the case that overflows there, so the fraction was the wrong bound: it made the fix inert
+//   where it was needed.
+export function clampPromptRows(rows, terminalRows) {
+  const termRows = Math.max(6, Number(terminalRows || 24));
+  const maxRows = Math.max(PROMPT_ROWS, termRows - 4);
+  return clamp(Number(rows) || 0, PROMPT_ROWS, maxRows);
+}
+
 const plain = (value) => String(value ?? "").replace(/\x1b\[[0-9;]*m/g, "");
 export const chars = (value) => Array.from(String(value ?? ""));
 export const width = (value) => chars(plain(value)).length;
