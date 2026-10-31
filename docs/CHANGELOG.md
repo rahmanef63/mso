@@ -8,6 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` install the print sink the last change forgot, and migrate the modules that still print
+- `tui` a suspended panel really leaves the alternate screen, so an approval is readable (#205)
 - `tui` mid-turn writes go into the panel, and prompts suspend it instead of fighting it (#204)
 - `tui` the composer reports its height, so the panel stops guessing how much to reserve (#203)
 - `tui` one print sink, so command output lands in the panel instead of on top of it (#202)
@@ -20,15 +22,9 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `gates` enforce the byte budget against a build of this tree
 - `tui` the two bugs a real pty found, and the test that found them (#201)
 - `ci` apply the same parser workaround to the last two mock call sites (#196)
 - `ci` stop the semgrep scan failing on a generic argument in a test mock (#195)
-
-**Faster**
-
-- `shell` take 26.7 KiB gzip off the eager graph
-- `shell` pick one artwork variant instead of letting CSS hide two
 
 **Changed**
 

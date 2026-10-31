@@ -118,14 +118,11 @@ export function mountScreenLoop({
     paint();
   };
 
-  // Streaming text goes into the buffer and repaints, so a long answer does not wait for the turn
-  // to end before it becomes visible.
-  session.streamSink = {
-    write(chunk) {
-      appendStream(viewport, chunk);
-      paint();
-    },
-  };
+  // Streaming text goes into the buffer and repaints, so a long answer does not wait for the turn to
+  // end before it becomes visible. Command output arrives as whole lines instead of chunks, so it is
+  // committed immediately rather than left as a partial line.
+  session.streamSink = { write(chunk) { appendStream(viewport, chunk); paint(); } };
+  session.printSink = (line) => { appendStream(viewport, `${String(line ?? "")}\n`); commitStream(viewport); paint(); };
 
   const onResize = () => {
     viewport.rows = output.rows || 24;
@@ -198,6 +195,7 @@ export function mountScreenLoop({
       hook.dispose();
       disableMouse(output);
       if (session.streamSink) delete session.streamSink;
+      if (session.printSink) delete session.printSink;
       if (session.onComposerRows) delete session.onComposerRows;
       if (session.screenLoop) delete session.screenLoop;
       // The panel owns the whole screen, so the inline transcript is repainted once on the way out
