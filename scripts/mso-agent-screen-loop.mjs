@@ -1,6 +1,7 @@
 import process from "node:process";
-import { chromeLines } from "./mso-agent-chrome.mjs";
+import { chromeLines, tabAtPoint } from "./mso-agent-chrome.mjs";
 import { composerSeparator } from "./mso-agent-layout.mjs";
+import { disableMouse, enableMouse, handleMouse, parseMouseChunk } from "./mso-agent-mouse.mjs";
 import { writeFrame } from "./mso-agent-screen.mjs";
 import { transcriptLines } from "./mso-agent-transcript.mjs";
 import {
@@ -18,8 +19,8 @@ import { renderViewport } from "./mso-agent-viewport-render.mjs";
 const PROMPT_ROWS = 3;
 
 /**
- * Owns the alternate-screen panel: the transcript viewport, its chrome, and the key interception
- * that scrolls it. Everything here is inert when the alternate screen is off, so the inline path
+ * Owns the alternate-screen panel: the transcript viewport, its chrome, and key and mouse
+ * interception. Everything here is inert when the alternate screen is off, so the inline path
  * keeps running exactly as it did before this module existed.
  *
  * @param {{
@@ -29,6 +30,7 @@ const PROMPT_ROWS = 3;
  *   input?: any,
  *   colors?: any,
  *   getSessions?: () => Array<any>,
+ *   onTabClick?: (sessionId: string) => void | Promise<void>,
  * }} options
  */
 export function mountScreenLoop({
@@ -38,6 +40,7 @@ export function mountScreenLoop({
   input = process.stdin,
   colors = {},
   getSessions = () => [],
+  onTabClick,
 } = {}) {
   if (!enabled || !session) {
     return {
@@ -48,6 +51,15 @@ export function mountScreenLoop({
       dispose() {},
     };
   }
+
+  enableMouse(output);
+
+  const onTeardown = () => { disableMouse(output); };
+  const detach = (target, event, listener) => {
+    if (typeof target?.off === "function") target.off(event, listener);
+    else if (typeof target?.removeListener === "function") target.removeListener(event, listener);
+  };
+  ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => process.on?.(sig, onTeardown));
 
   const viewport = createViewport({ rows: output.rows || 24 });
   let painted = [];
@@ -66,9 +78,12 @@ export function mountScreenLoop({
       rows: null,
     });
     const separator = composerSeparator(session, colors, cols);
+    const hasSep = typeof separator === "string" && separator.length > 0;
     // The separator belongs to the panel in this mode; the composer is told to draw none.
-    const panel = [typeof separator === "string" ? separator : "", ...chrome].filter((line) => line.length > 0);
-    return { cols, rows, panel, viewRows: Math.max(0, rows - panel.length - PROMPT_ROWS) };
+    const panel = [hasSep ? separator : "", ...chrome].filter((line) => line.length > 0);
+    const viewRows = Math.max(0, rows - panel.length - PROMPT_ROWS);
+    const tabRowY = viewRows + (hasSep ? 1 : 0);
+    return { cols, rows, panel, viewRows, tabRowY };
   };
 
   // Repaints from the top of the screen and leaves the cursor where the composer expects to start,
@@ -104,16 +119,58 @@ export function mountScreenLoop({
   };
   output.on?.("resize", onResize);
 
+  const dispatchMouse = (event) => {
+    if (!event) return false;
+    if (event.kind === "wheel") {
+      if (handleMouse(viewport, event, { rows: geometry().viewRows })) { paint(); return true; }
+      return false;
+    }
+    if (event.kind === "click") {
+      const { cols, tabRowY } = geometry();
+      if (event.y === tabRowY) {
+        const targetId = tabAtPoint(getSessions(), session?.agentSession?.id, { x: event.x, y: event.y, width: cols, tabRow: tabRowY });
+        if (targetId && typeof onTabClick === "function") {
+          Promise.resolve(onTabClick(targetId)).then(paint).catch(() => {});
+          return true;
+        }
+      }
+      return true;
+    }
+    return false;
+  };
+
   // readline emits keypress on stdin, and the composer is one of its listeners. Intercepting emit
-  // is the only way to consume a key before the composer acts on it without growing the composer,
-  // which sits at its line ceiling.
+  // is the only way to consume keys and mouse sequences before the composer acts on them without
+  // growing the composer, which sits at its line ceiling.
   originalEmit = input.emit;
   if (typeof originalEmit === "function") {
     keysPatched = true;
     input.emit = function patchedEmit(event, ...args) {
-      if (event === "keypress" && args[1] && handleViewportKey(viewport, args[1], { rows: geometry().viewRows })) {
-        paint();
-        return true;
+      if (event === "data" && args[0]) {
+        const chunk = typeof args[0] === "string" ? args[0] : (args[0] instanceof Buffer ? args[0].toString("utf8") : "");
+        if (chunk.includes("\x1b[<")) {
+          const events = parseMouseChunk(chunk);
+          if (events.length > 0) {
+            for (const ev of events) dispatchMouse(ev);
+            const stripped = chunk.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+            if (!stripped) return true;
+            args[0] = typeof args[0] === "string" ? stripped : Buffer.from(stripped, "utf8");
+          }
+        }
+      }
+      if (event === "keypress") {
+        const seq = args[1]?.sequence || (typeof args[0] === "string" ? args[0] : "");
+        if (typeof seq === "string" && seq.startsWith("\x1b[<")) {
+          const events = parseMouseChunk(seq);
+          if (events.length > 0) {
+            for (const ev of events) dispatchMouse(ev);
+            return true;
+          }
+        }
+        if (args[1] && handleViewportKey(viewport, args[1], { rows: geometry().viewRows })) {
+          paint();
+          return true;
+        }
       }
       return Reflect.apply(originalEmit, this, [event, ...args]);
     };
@@ -128,8 +185,10 @@ export function mountScreenLoop({
     sync,
     follow: () => resetFollow(viewport),
     dispose() {
+      ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => detach(process, sig, onTeardown));
       output.off?.("resize", onResize);
       if (keysPatched) input.emit = originalEmit;
+      disableMouse(output);
       if (session.streamSink) delete session.streamSink;
       // The panel owns the whole screen, so the inline transcript is repainted once on the way out
       // instead of leaving the alternate buffer's last frame on screen.

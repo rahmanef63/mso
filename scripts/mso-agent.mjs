@@ -21,6 +21,7 @@ import { pendingImageBlock } from "./mso-agent-image.mjs";
 import { altScreenRequested, startAltScreen } from "./mso-agent-altscreen.mjs";
 import { visibleSessionRows } from "./mso-agent-sessions.mjs";
 import { chromeLines } from "./mso-agent-chrome.mjs";
+import { switchToSession } from "./mso-agent-cmd-session.mjs";
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -64,7 +65,21 @@ async function main() {
     const refreshSessions = () => { listCliSessions(20).then((rows) => { recentSessions = visibleSessionRows(rows); }).catch(() => {}); };
     refreshSessions();
     const chromeFooter = () => chromeLines({ session, sessions: recentSessions, activeId: session?.agentSession?.id, colors: C, width: process.stdout.columns, rows: process.stdout.rows });
-    const screenLoop = mountScreenLoop({ session, enabled: altScreen.ok, output: process.stdout, input: process.stdin, colors: C, getSessions: () => recentSessions });
+    const screenLoop = mountScreenLoop({
+      session,
+      enabled: altScreen.ok,
+      output: process.stdout,
+      input: process.stdin,
+      colors: C,
+      getSessions: () => recentSessions,
+      onTabClick: async (targetId) => {
+        if (!targetId || targetId === session?.agentSession?.id) return;
+        await switchToSession(rl, session, targetId);
+        if (localBridge) await localBridge.syncSession();
+        refreshSessions();
+        screenLoop.sync();
+      },
+    });
     rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onToggleStatusBar: () => { session.statusBar = !session.statusBar; screenLoop.paint(); } }); syncPromptHistory(rl, session);
     let inboundRequestQueued = false;
     localBridge = new LocalAgentBridge({

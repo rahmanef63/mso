@@ -2,18 +2,24 @@ import { cellWidth, clean, fitCells } from "./tui/cells.mjs";
 import { composerFooter } from "./mso-agent-layout.mjs";
 
 /**
- * Formats a single physical row containing session tabs.
- * Active session is marked with a bullet and undimmed; inactive tabs are dimmed.
- * When tabs exceed available width, excess items are dropped from the middle and
- * replaced with a visible +N marker so the row never wraps and breaks row arithmetic.
- *
- * @param {Array<any>} sessions
- * @param {string|number|null} [activeId]
- * @param {{ colors?: any, width?: number }} [options]
- * @returns {string}
+ * Formats a single physical row containing session tabs and performs hit testing.
+ * Extracted layout model ensures tabRow and tabAtPoint stay in exact agreement.
  */
-export function tabRow(sessions, activeId = null, { colors = {}, width = 80 } = {}) {
-  if (!Array.isArray(sessions) || sessions.length === 0) return "";
+function makeSegments(itemsList) {
+  let col = 0;
+  const segments = [];
+  for (const it of itemsList) {
+    if (!it) continue;
+    segments.push({ type: it.type || "tab", id: it.id, start: col, end: col + it.width, styled: it.styled });
+    col += it.width + 2;
+  }
+  return segments;
+}
+
+export function tabLayout(sessions, activeId = null, { colors = {}, width = 80 } = {}) {
+  if (!Array.isArray(sessions) || sessions.length === 0) {
+    return { segments: [], maxWidth: Math.max(1, Number(width) || 80) };
+  }
   const maxWidth = Math.max(1, Number(width) || 80);
   const sep = "  ";
 
@@ -29,15 +35,13 @@ export function tabRow(sessions, activeId = null, { colors = {}, width = 80 } = 
     const isActive = activeId != null && (String(activeId) === id || String(activeId).replace(/^@/, "") === name);
     const marker = isActive ? "● " : "";
     const plainText = `${marker}@${name}`;
-    const styled = isActive
-      ? `${cBold}${cBlue}${marker}@${name}${cReset}`
-      : `${cDim}@${name}${cReset}`;
+    const styled = isActive ? `${cBold}${cBlue}${marker}@${name}${cReset}` : `${cDim}@${name}${cReset}`;
     return { id, name, isActive, plainText, styled, width: cellWidth(plainText) };
   });
 
   const fullPlain = items.map((it) => it.plainText).join(sep);
   if (cellWidth(fullPlain) <= maxWidth) {
-    return items.map((it) => it.styled).join(sep);
+    return { segments: makeSegments(items), maxWidth };
   }
 
   // Dropping from the middle keeps both endpoints visible while indicating hidden tabs.
@@ -47,6 +51,7 @@ export function tabRow(sessions, activeId = null, { colors = {}, width = 80 } = 
     const kept = items.length - dropped;
     const markerText = `+${dropped}`;
     const markerStyled = `${cDim}${markerText}${cReset}`;
+    const markerWidth = cellWidth(markerText);
 
     // Candidate splits between left and right items.
     // When an active tab exists, prefer splits that preserve the active tab.
@@ -56,11 +61,9 @@ export function tabRow(sessions, activeId = null, { colors = {}, width = 80 } = 
       const preservesActive = activeIdx < 0 || activeIdx < l || r > (items.length - 1 - activeIdx);
       if (preservesActive) candidateSplits.push(l);
     }
-    // Fall back to all splits if none could preserve active with this kept count.
     if (candidateSplits.length === 0) {
       for (let l = 0; l <= kept; l++) candidateSplits.push(l);
     }
-    // Sort by proximity to balanced halves to drop symmetrically from the middle.
     candidateSplits.sort((a, b) => Math.abs(a - kept / 2) - Math.abs(b - kept / 2));
 
     for (const leftCount of candidateSplits) {
@@ -75,19 +78,52 @@ export function tabRow(sessions, activeId = null, { colors = {}, width = 80 } = 
       ].filter(Boolean).join(sep);
 
       if (cellWidth(candidatePlain) <= maxWidth) {
-        const candidateStyled = [
-          ...leftItems.map((it) => it.styled),
-          markerStyled,
-          ...rightItems.map((it) => it.styled),
-        ].filter(Boolean).join(sep);
-        return candidateStyled;
+        const marker = { type: "marker", text: markerText, styled: markerStyled, width: markerWidth };
+        return { segments: makeSegments([...leftItems, marker, ...rightItems]), maxWidth };
       }
     }
   }
 
   // Fallback for extremely constrained terminal widths: show single active or first tab truncated.
   const fallbackItem = activeIdx >= 0 ? items[activeIdx] : items[0];
-  return fitCells(fallbackItem.styled, maxWidth, { pad: false });
+  const truncatedStyled = fitCells(fallbackItem.styled, maxWidth, { pad: false });
+  return {
+    segments: [{ type: "tab", id: fallbackItem.id, start: 0, end: Math.min(fallbackItem.width, maxWidth), styled: truncatedStyled }],
+    maxWidth,
+  };
+}
+
+/**
+ * One physical row of session tabs. The active tab is undimmed and bulleted; when the tabs do not
+ * fit, the middle is dropped with a +N marker rather than wrapping, because a wrapped tab row
+ * breaks the reserved-row arithmetic the composer depends on.
+ *
+ * @param {Array<any>} sessions
+ * @param {string|number|null} [activeId]
+ * @param {{ colors?: any, width?: number }} [options]
+ * @returns {string}
+ */
+export function tabRow(sessions, activeId = null, options = {}) {
+  const { segments } = tabLayout(sessions, activeId, options);
+  return segments.map((s) => s.styled).join("  ");
+}
+
+/**
+ * @param {Array<any>} sessions
+ * @param {string|number|null} [activeId]
+ * @param {any} [point]
+ * @param {any} [options]
+ * @returns {string|null}
+ */
+export function tabAtPoint(sessions, activeId = null, point = {}, options = {}) {
+  const opts = typeof point === "object" && point !== null ? point : options;
+  const x = typeof point === "number" ? point : Number(opts?.x) || 0;
+  const y = typeof opts?.y === "number" ? opts.y : 0;
+  const tabRowY = typeof opts?.tabRow === "number" ? opts.tabRow : (typeof opts?.row === "number" ? opts.row : 0);
+  if (y !== tabRowY) return null;
+  const { segments } = tabLayout(sessions, activeId, opts);
+  const hit = segments.find((s) => s.type === "tab" && x >= s.start && x < s.end);
+  return hit ? hit.id : null;
 }
 
 /**

@@ -28,6 +28,15 @@ export async function handleTodos(ctx, args = []) {
   return "handled";
 }
 
+// Reuses the existing resume path and clears cached todos so the status
+// chip never reflects a different session after switching.
+export async function switchToSession(rl, session, sessionId) {
+  if (!sessionId) return false;
+  await resumeInto(rl, session, sessionId);
+  clearTodos();
+  return true;
+}
+
 export async function handleTabs(ctx, args = []) {
   const { rl, session, C: colors = C } = ctx;
   const rows = visibleSessionRows(await listCliSessions(20));
@@ -51,10 +60,7 @@ export async function handleTabs(ctx, args = []) {
     console.log(`could not resolve session: ${args.join(" ")}`);
     return "handled";
   }
-  // Reuses the existing resume path and clears cached todos so the status
-  // chip never reflects a different session after switching.
-  await resumeInto(rl, session, target.id);
-  clearTodos();
+  await switchToSession(rl, session, target.id);
   return "refresh";
 }
 
