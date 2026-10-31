@@ -37,13 +37,12 @@ export function mountScreenLoop({
 } = {}) {
   if (!enabled || !session) {
     return {
-      active: false,
-      paint() {},
-      sync() {},
-      follow() {},
+      active: false, session: null,
+      paint() {}, sync() {}, suspend() {}, resume() {}, follow() {}, dispose() {},
+      // Geometry and the row reservation stay callable with the panel off, so the entrypoint wires
+      // them unconditionally instead of branching on whether the flag is set.
       geometry() { return { cols: 80, rows: 24, panel: [], viewRows: 0, tabRowY: 0, pWidth: 0, transWidth: 80, kind: null, promptRows: PROMPT_ROWS }; },
       setPromptRows() {},
-      dispose() {},
     };
   }
 
@@ -52,7 +51,7 @@ export function mountScreenLoop({
   const onTeardown = () => { disableMouse(output); };
   const detach = (target, event, listener) => {
     if (typeof target?.off === "function") target.off(event, listener);
-    else if (typeof target?.removeListener === "function") target.removeListener(event, listener);
+    else target?.removeListener?.(event, listener);
   };
   ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => process.on?.(sig, onTeardown));
 
@@ -126,10 +125,22 @@ export function mountScreenLoop({
     },
   };
 
-  const onResize = () => {
-    viewport.rows = output.rows || 24;
-    sync();
+  let savedSink = null;
+  const suspend = () => {
+    if (session?.streamSink) {
+      savedSink = session.streamSink;
+      delete session.streamSink;
+    }
   };
+  const resume = () => {
+    if (savedSink && session) {
+      session.streamSink = savedSink;
+      savedSink = null;
+    }
+    paint();
+  };
+
+  const onResize = () => { viewport.rows = output.rows || 24; sync(); };
   output.on?.("resize", onResize);
 
   const dispatchMouse = (event) => {
@@ -192,10 +203,13 @@ export function mountScreenLoop({
   setLines(viewport, transcriptLines(session, { colors, width: geometry().transWidth }));
   paint();
 
-  return {
+  const loop = {
     active: true,
+    session,
     paint,
     sync,
+    suspend,
+    resume,
     follow: () => resetFollow(viewport),
     geometry,
     setPromptRows,
@@ -206,9 +220,15 @@ export function mountScreenLoop({
       disableMouse(output);
       if (session.streamSink) delete session.streamSink;
       if (session.onComposerRows) delete session.onComposerRows;
+      if (session.screenLoop === loop) delete session.screenLoop;
       // The panel owns the whole screen, so the inline transcript is repainted once on the way out
       // instead of leaving the alternate buffer's last frame on screen.
       painted = [];
     },
   };
+  session.screenLoop = loop;
+  return loop;
 }
+
+export function suspendScreenLoop(loop) { loop?.suspend?.(); }
+export function resumeScreenLoop(loop) { loop?.resume?.(); }

@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` the composer reports its height, so the panel stops guessing how much to reserve
+- `tui` the composer reports its height, so the panel stops guessing how much to reserve (#203)
 - `tui` one print sink, so command output lands in the panel instead of on top of it (#202)
 - `tui` a right-hand side pane for todos, the last diff and changed files (#198)
 - `tui` mouse wheel scrolling and tab clicks, only inside the alternate screen (#197)
