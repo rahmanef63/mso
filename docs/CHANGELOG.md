@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` a right-hand side pane for todos, the last diff and changed files
+- `tui` a right-hand side pane for todos, the last diff and changed files (#198)
 - `tui` mouse wheel scrolling and tab clicks, only inside the alternate screen (#197)
 - `tui` a transcript viewport with a scrollbar, so the alternate screen has a reason (#193)
 - `tui` an alternate screen behind a flag, with teardown on every exit path (#192)
@@ -28,6 +28,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `api` every route now has a test — 117 of 117
 - `api` cover 30 more routes, and close the one fs route with no rate limit
+
+**Docs**
+
+- `tui` name the four things between here and an alternate screen default
 
 ## 2026-10-30
 
