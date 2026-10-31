@@ -595,7 +595,7 @@ those two, and mouse/scrollbar/splits are additive after M5.
 | M5 | Alternate screen behind a flag, with teardown | DONE | PR #192; default off; teardown on exit, signals, execve, spawnSync |
 | M6 | Transcript viewport and scrollbar | DONE | PR #193; 2000-line cap, follow mode, PgUp/PgDn/Ctrl+G/End, entrypoint 218 to 196 lines |
 | M7 | Mouse | DONE | SGR 1000/1006 extended mode, wheel scrolls viewport, tab clicks switch session |
-| M8 | Split panes, then flip the alt screen default | NOT STARTED | needs M6 and M7 |
+| M8 | Split panes, then flip the alt screen default | IN PROGRESS | panel landed, default flip NOT done |
 
 Adjacent work that landed while this plan was being executed, and belongs to the same goal:
 `feat/agent-jobs-view` (#183, `/jobs` for background subagents) and `feat/tui-keybinds` (#182,

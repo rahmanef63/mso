@@ -12,6 +12,7 @@ import { clearTodos, formatTodoBlock, latestTodos } from "./mso-agent-todos.mjs"
 import { handleKeybindCommand } from "./mso-agent-keybinds.mjs";
 import { visibleSessionRows } from "./mso-agent-sessions.mjs";
 import { tabsToSwitch } from "./mso-agent-chrome.mjs";
+import { cyclePane, paneKinds } from "./mso-agent-pane.mjs";
 
 export async function handleTodos(ctx, args = []) {
   const { C: colors = C } = ctx;
@@ -64,9 +65,32 @@ export async function handleTabs(ctx, args = []) {
   return "refresh";
 }
 
+export async function handlePane(ctx, args = []) {
+  const { session, C: colors = C } = ctx;
+  const kinds = paneKinds();
+  if (!args.length) {
+    const current = session?.paneKind || "off";
+    const next = cyclePane(current);
+    if (session) session.paneKind = next;
+    console.log(`${colors.c || ""}side pane: ${next}${colors.reset || ""}`);
+    return "handled";
+  }
+  const requested = String(args[0]).toLowerCase();
+  if (kinds.includes(requested)) {
+    if (session) session.paneKind = requested;
+    console.log(`${colors.c || ""}side pane: ${requested}${colors.reset || ""}`);
+    return "handled";
+  }
+  console.log(`usage: /pane [todos|diff|files|off] (current: ${session?.paneKind || "off"})`);
+  return "handled";
+}
+
 export async function handleSessionCommand(ctx, cmd, args) {
   if (cmd === "/todos") {
     return handleTodos(ctx, args);
+  }
+  if (cmd === "/pane") {
+    return handlePane(ctx, args);
   }
   if (cmd === "/keybind" || cmd === "/keybinds") {
     return handleKeybindCommand(ctx, args);

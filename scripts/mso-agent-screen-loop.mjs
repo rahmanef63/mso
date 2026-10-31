@@ -13,6 +13,7 @@ import {
   setLines,
 } from "./mso-agent-viewport.mjs";
 import { renderViewport } from "./mso-agent-viewport-render.mjs";
+import { paneLines, paneWidth } from "./mso-agent-pane.mjs";
 
 // Rows kept below the panel for the composer prompt. The composer paints its own rows and cannot
 // report them back, so the panel reserves a fixed block instead of guessing per repaint.
@@ -83,16 +84,21 @@ export function mountScreenLoop({
     const panel = [hasSep ? separator : "", ...chrome].filter((line) => line.length > 0);
     const viewRows = Math.max(0, rows - panel.length - PROMPT_ROWS);
     const tabRowY = viewRows + (hasSep ? 1 : 0);
-    return { cols, rows, panel, viewRows, tabRowY };
+    const kind = session?.paneKind && session.paneKind !== "off" ? session.paneKind : null;
+    const pWidth = kind ? paneWidth(cols) : 0;
+    const transWidth = cols - pWidth;
+    return { cols, rows, panel, viewRows, tabRowY, pWidth, transWidth, kind };
   };
 
   // Repaints from the top of the screen and leaves the cursor where the composer expects to start,
   // because the composer paints relative to the cursor and cannot be told where to begin.
   const paint = () => {
     if (output?.isTTY !== true) return;
-    const { cols, panel, viewRows } = geometry();
-    const body = renderViewport(viewport, { colors, width: cols, rows: viewRows });
-    const frame = [...body, ...panel, ""];
+    const { panel, viewRows, pWidth, transWidth, kind } = geometry();
+    const body = renderViewport(viewport, { colors, width: transWidth, rows: viewRows });
+    const side = pWidth > 0 ? paneLines({ kind, session, colors, width: pWidth, rows: viewRows }) : [];
+    const joined = pWidth > 0 ? body.map((line, i) => `${line}${side[i] || ""}`) : body;
+    const frame = [...joined, ...panel, ""];
     output.write("\x1b[H");
     painted = writeFrame(output, painted, frame);
     output.write(`\x1b[${frame.length};1H`);
@@ -100,7 +106,7 @@ export function mountScreenLoop({
 
   const sync = () => {
     commitStream(viewport);
-    setLines(viewport, transcriptLines(session, { colors, width: output.columns || 80 }));
+    setLines(viewport, transcriptLines(session, { colors, width: geometry().transWidth }));
     paint();
   };
 
@@ -115,7 +121,7 @@ export function mountScreenLoop({
 
   const onResize = () => {
     viewport.rows = output.rows || 24;
-    paint();
+    sync();
   };
   output.on?.("resize", onResize);
 
@@ -176,7 +182,7 @@ export function mountScreenLoop({
     };
   }
 
-  setLines(viewport, transcriptLines(session, { colors, width: output.columns || 80 }));
+  setLines(viewport, transcriptLines(session, { colors, width: geometry().transWidth }));
   paint();
 
   return {
