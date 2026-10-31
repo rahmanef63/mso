@@ -223,6 +223,19 @@ tail -f ~/.mso/self-update.log     # success ends with UPDATE OK
 A direct manual build-and-replace remains available for recovery, but it bypasses the
 release gates and should not be the normal path.
 
+**Committing by hand instead of through `ship`.** The changelog lists commit subjects, so it
+can only be regenerated *after* the commit exists — which means any commit touching `docs/`
+leaves `docs/CHANGELOG.md` stale by default. Run `node scripts/gen-changelog.mjs` and commit
+the result **before** considering the change finished, not after the gate tells you: every
+`docs/` commit here has cost an extra round trip for forgetting exactly this. `ship` does it
+for you by folding the regenerated file into the same commit with `--amend`; if you commit by
+hand, expect two commits or one extra `--amend`.
+
+A `docs/`-only commit is not exempt. The generator lists every commit subject except the ones
+that only regenerate this file, so a commit that edits prose still adds a line and still leaves
+`docs/CHANGELOG.md` stale. That is precisely how this rule got written: three separate
+`docs/`-only commits in one session each needed a second commit to regenerate the file.
+
 **`bun run build` now refuses when a live Next/MSO runtime serves the same checkout.**
 `next start` loads the build manifest at boot; overwriting `.next` under the live
 process makes the already-served HTML reference chunk hashes that no longer exist on
