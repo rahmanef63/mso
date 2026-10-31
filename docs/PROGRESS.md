@@ -41,7 +41,124 @@ you just ran. The same is true of `pgrep -f "gates-12.sh"`. Use
 `pgrep -af "node .*vitest" | grep -v "bash -c"` to see what is actually running, or the check will
 insist the worktree is busy forever.
 
+## 2026-10-31: the LCP lever in the handover was the wrong lever
 
+The handover said the cheapest untried LCP lever was taking wallpaper artwork off the critical
+path. Measured first, and it is not a lever at all. Mobile's LCP element is
+`IMG.shell-artwork-macos` — app-icon artwork, 60x60 — while the wallpaper is a CSS background.
+Emptying **every** image byte on the live build (artwork + wallpaper, 331 KB) moved LCP
+3020 -> 2996 ms, inside the noise band. LCP is bound to `lastJs` (~2.75 s) plus mount cost.
+
+Method note that cost a run: `route.abort()` on image requests makes the browser retry, so the
+first experiment showed 47 -> 179 requests and looked like a regression. `route.fulfill()` with a
+1x1 body measures what was intended.
+
+### What the images actually cost
+
+Three `<img>` per app tile (default, macOS, Windows), two always hidden by CSS. Mobile: **231**
+artwork `<img>` in the DOM for **77** displayed, **370,926** bytes across **47** requests, with
+`/app-icons` 71,526 + `/app-icons/macos` 159,258 + `/app-icons/windows` 81,784 — two of three
+families never painting.
+
+The three-variant markup was justified by a comment claiming SSR would guess the shell.
+`curl /` returns **zero** `shell-artwork` occurrences, so none of it is server-rendered and
+`useActiveShell()` already knows the answer at render time. Now one `<img>` per tile: 77/29 in
+the DOM, 19 image requests, 217,616 bytes mobile. No CSS change.
+
+### Eager graph: -26.7 KiB gzip
+
+Three things sat in the first-load bundle without being needed to paint:
+
+| What | Why it was dead weight |
+|---|---|
+| Alfa/chat surface re-exported from `appshell/index.ts` | all 14 consumers are lazy (`chat-panel`, `chat-transcript`, `inspector`, `alfa-sheet`, `use-host-commands`, `os-settings`) |
+| auth panels in `auth/index.ts` | consumed only by `/login`, `install`, `login-page`, `os-settings` |
+| widgets + shortcut-help via static imports | `search`/`control-center`/`inspector` already used `DeferredSurface` |
+
+Moved to `@/features/appshell/alfa` and `frontend/slices/auth/panels.ts`; widgets and
+shortcut-help now defer through the same primitive while their hooks (registry, context menu,
+command palette, the ⌘/ wrapper handler) stay eager.
+
+```
+entry    141.2 -> 114.5 KiB gzip   (416.8 -> 326.5 KiB raw, 13 -> 12 files)
+initial  270.8 -> 244.0 KiB gzip   (850.5 -> 760.2 KiB raw, 18 -> 17 files)
+```
+
+**Lock-screen was deliberately not deferred.** `organization/bundle-boundary.test.ts` pins it
+because it owns the idle auto-lock timer; deferring it means auto-lock does not arm until someone
+opens the lock screen. A security regression is not worth ~4 KiB.
+
+### LCP, against a pristine-HEAD control build
+
+Both sides under `releaseFixture`, 5 interleaved runs. Comparing against the live `:4005` first was
+misleading: it serves real data, and fixture-vs-fixture is the only honest pair.
+
+| surface | head | this branch | delta |
+|---|---|---|---|
+| desktop | 3332 ms | 3160 ms | -172 ms |
+| mobile | 3076 ms | 2872 ms | -204 ms |
+| mounted | 2592 / 2562 | 2409 / 2439 | -183 / -123 ms |
+
+`lastJs` reads *higher* (2846 -> 3105) because deferred chunks now download after mount instead
+of before it. Behaviour re-checked against the old build: ⌘/ still opens the cheat sheet and
+closes on both Escape and a second ⌘/, mobile still renders 4 widget cards, desktop 3, CLS
+unchanged (0.0005 vs 0.001 desktop, 0 both mobile).
+
+### The gate could not read the new budget
+
+Tightening the budget exposed a gate reading the wrong tree. `.next` is never built in place
+here, so it belongs to whatever was built last — usually a different commit. `gates-12.sh full`
+ran `check-bundle` *before* `verify-build.sh`, and fast mode ran it with no build at all, so a
+lowered budget failed against bytes describing history and read like a regression.
+
+Fixed: `check-bundle` now detects a stale build and says so; fast mode reports bytes without
+enforcing; full mode leaves enforcement to `verify-build.sh` against its own out-of-tree build;
+`bundle-budget.json` drops to entry 119,540 / initial 252,219 with the same +2.0 % arithmetic.
+
+### Two security jobs were red on `main` before this branch
+
+Both fail identically on `main` (`41214069060`):
+
+- **Gitleaks** — two findings, same fixture line of
+  `app/api/internal/socket-policy/route.test.ts`:
+  `"test-secret-at-least-32-characters-long-policy-key"`. The route module is mocked in that same
+  file, so nothing leaves the process. Allowlisted by exact commit/file/rule/line after verifying
+  with the pinned scanner the workflow uses: `leaks found: 2` -> `no leaks found`.
+- **OSV** — `minimatch@3.1.5` and `@10.2.6`, one medium advisory (GHSA-g3hv-75wg-m249, glob-parts
+  amplification, CVSS 6.9). **Left unfixed on purpose:** the patch is `minimatch@11.0.1`, which is
+  ESM-only, and `@typescript-eslint/typescript-estree` needs the 10.x line. Forcing it is a
+  breaking dependency change and does not belong in a perf PR.
+
+### Traps that cost real time, again
+
+1. **Worked on someone else's branch.** The working tree was on `fix/tui-pty-bugs`, not `main`, and
+   three commits landed there. Recovered: that branch was reset to its original `0425ec8c` (its
+   TUI work was already identical to `origin/main` #201, so nothing was lost) and the commits moved
+   to `perf/eager-graph-artwork` rebased onto `origin/main`.
+2. **A `git add` in a shared working tree swept six throwaway probe scripts into another track's
+   commit** (`80adb801`). Removed in `860b4c07`. The lesson is not "commit faster" — it is that a
+   second track committing in the same tree will `add` whatever is lying around.
+3. **`/tmp` filled to 99 %** with three out-of-tree builds at 2.3 GB each. `production build`
+   failed with `Failed to write upload` in the 200 MiB E2E, which looks exactly like a code bug.
+   The pristine-HEAD control failed identically until `/tmp` was cleaned. The handover warned
+   about this one.
+4. **Running the gitleaks container with `-v "$PWD:/repo"` left 67 files in `.git` owned by root**,
+   because it is a partial clone (`blob:none`) and git inside the container promisor-fetched and
+   rewrote refs. `sudo` needs a password here. Fixed with
+   `docker run --rm -v "$PWD/.git:/g" alpine chown -R 1000:1000 /g`; `git fsck --connectivity-only`
+   clean afterwards. Use `-v "$PWD/.git:/repo/.git:ro"` next time, or a `--user "$(id -u)"` flag.
+
+### Open
+
+- **PR #207** — 6 commits on `perf/eager-graph-artwork`, head `46939338`. `Verify`, `Native host
+  (macOS)` and `Native host (Windows)` all green on the previous head `82a3af55`.
+- **CI never fired for `46939338`**: `actions/runs?head_sha=...` returns 0, and PR #205 kept
+  reporting the older head even after the ref moved. #205 was closed (reopening is rejected by
+  the API) and #207 opened fresh, which did pick up the right head. **The missing workflow
+  triggers on the latest head are unexplained — start there.**
+- `perf-baseline.json` not regenerated: host load sat between 7 and 19 all session, so the
+  numbers do not deserve to become a baseline. Regenerate on an idle host.
+- Phase 5 (full SvelteKit swap) untouched, still needs the owner's 8-12 month decision.
 
 ## 2026-10-31: every route has a test, and the workflow conflict that made each PR slow
 
