@@ -1,11 +1,13 @@
+"use client";
+
 // MSO app artwork.
 //
 // Raster app artwork is intentionally WebP. Toolbar/menu/control glyphs stay
 // vector (Lucide), while app icons are allowed to carry richer platform-specific
 // illustration. macOS and Windows do NOT share the same art direction: the shell
-// chooses the correct image through data-shell CSS. Mobile intentionally reuses
+// chooses the correct image via useActiveShell(). Mobile intentionally reuses
 // those families: iOS = macOS artwork, Android = Windows artwork.
-import type { AppIconComponent } from "@/features/appshell";
+import { useActiveShell, type AppIconComponent } from "@/features/appshell";
 
 /** An official third-party brand mark is shell-invariant by definition. */
 function officialMark(src: string): AppIconComponent {
@@ -22,20 +24,28 @@ function officialMark(src: string): AppIconComponent {
 function platformMark(fallback: string, macos: string, windows: string): AppIconComponent {
   const Mark: AppIconComponent = ({ className: cls }) => {
     const size = cls ?? "size-full";
-    // All three variants are in the markup because the shell family is only known
-    // after hydration (SSR would guess, and a guess here is a hydration mismatch).
-    // What the markup CAN say without guessing: these are decorative. So the hidden
-    // variants are low priority and never blocking, and the visible one is decoded
-    // asynchronously. The download itself is left to the browser: `loading="lazy"`
-    // here would demote the very image mobile measures LCP on.
+    const { id: shellId } = useActiveShell();
+
+    let src = fallback;
+    let variant = "default";
+    if (shellId === "macos" || shellId === "ios") {
+      src = macos;
+      variant = "macos";
+    } else if (shellId === "windows" || shellId === "android") {
+      src = windows;
+      variant = "windows";
+    }
+
     return (
       <span className={`shell-platform-mark relative block ${size}`} aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={fallback} alt="" className="shell-artwork shell-artwork-default" draggable={false} decoding="async" fetchPriority="low" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={macos} alt="" className="shell-artwork shell-artwork-macos" draggable={false} decoding="async" fetchPriority="low" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={windows} alt="" className="shell-artwork shell-artwork-windows" draggable={false} decoding="async" fetchPriority="low" />
+        <img
+          src={src}
+          alt=""
+          className={`shell-artwork shell-artwork-${variant}`}
+          draggable={false}
+          decoding="async"
+        />
       </span>
     );
   };
