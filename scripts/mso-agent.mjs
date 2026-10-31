@@ -83,7 +83,7 @@ async function main() {
         screenLoop.sync();
       },
     });
-    rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onToggleStatusBar: () => { session.statusBar = !session.statusBar; screenLoop.paint(); } }); syncPromptHistory(rl, session);
+    rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onRows: (rows) => screenLoop.setPromptRows(rows), onToggleStatusBar: () => { session.statusBar = !session.statusBar; screenLoop.paint(); } }); syncPromptHistory(rl, session);
     let inboundRequestQueued = false;
     localBridge = new LocalAgentBridge({
       session,

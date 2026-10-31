@@ -4,20 +4,11 @@ import { composerSeparator } from "./mso-agent-layout.mjs";
 import { disableMouse, enableMouse, handleMouse, parseMouseChunk } from "./mso-agent-mouse.mjs";
 import { writeFrame } from "./mso-agent-screen.mjs";
 import { transcriptLines } from "./mso-agent-transcript.mjs";
-import {
-  appendStream,
-  commitStream,
-  createViewport,
-  handleViewportKey,
-  resetFollow,
-  setLines,
-} from "./mso-agent-viewport.mjs";
+import { appendStream, commitStream, createViewport, handleViewportKey, resetFollow, setLines } from "./mso-agent-viewport.mjs";
 import { renderViewport } from "./mso-agent-viewport-render.mjs";
 import { paneLines, paneWidth } from "./mso-agent-pane.mjs";
-
-// Rows kept below the panel for the composer prompt. The composer paints its own rows and cannot
-// report them back, so the panel reserves a fixed block instead of guessing per repaint.
-const PROMPT_ROWS = 3;
+import { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
+export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 
 /**
  * Owns the alternate-screen panel: the transcript viewport, its chrome, and key and mouse
@@ -42,6 +33,7 @@ export function mountScreenLoop({
   colors = {},
   getSessions = () => [],
   onTabClick,
+  composer = null,
 } = {}) {
   if (!enabled || !session) {
     return {
@@ -49,6 +41,8 @@ export function mountScreenLoop({
       paint() {},
       sync() {},
       follow() {},
+      geometry() { return { cols: 80, rows: 24, panel: [], viewRows: 0, tabRowY: 0, pWidth: 0, transWidth: 80, kind: null, promptRows: PROMPT_ROWS }; },
+      setPromptRows() {},
       dispose() {},
     };
   }
@@ -66,28 +60,41 @@ export function mountScreenLoop({
   let painted = [];
   let keysPatched = false;
   let originalEmit = null;
+  let promptReservation = PROMPT_ROWS;
 
-  const geometry = () => {
+  const setPromptRows = (rows) => {
+    // When the composer reports its painted row count, clamp it so the panel
+    // never jumps on erase (0) and never gets pushed off screen by tall drafts.
+    const termRows = Math.max(6, Number(output.rows) || 24);
+    const clamped = clampPromptRows(rows, termRows);
+    if (clamped !== promptReservation) {
+      promptReservation = clamped;
+      paint();
+    }
+  };
+
+  if (composer) {
+    if (typeof composer.onRows === "function") composer.onRows(setPromptRows);
+    else composer.onRows = setPromptRows;
+  }
+  if (session) {
+    session.onComposerRows = setPromptRows;
+  }
+
+  const geometry = (reservation = promptReservation) => {
     const cols = Math.max(20, Number(output.columns) || 80);
     const rows = Math.max(6, Number(output.rows) || 24);
-    const chrome = chromeLines({
-      session,
-      sessions: getSessions(),
-      activeId: session.agentSession?.id,
-      colors,
-      width: cols,
-      rows: null,
-    });
+    const chrome = chromeLines({ session, sessions: getSessions(), activeId: session.agentSession?.id, colors, width: cols, rows: null });
     const separator = composerSeparator(session, colors, cols);
     const hasSep = typeof separator === "string" && separator.length > 0;
     // The separator belongs to the panel in this mode; the composer is told to draw none.
     const panel = [hasSep ? separator : "", ...chrome].filter((line) => line.length > 0);
-    const viewRows = Math.max(0, rows - panel.length - PROMPT_ROWS);
+    const viewRows = Math.max(0, rows - panel.length - reservation);
     const tabRowY = viewRows + (hasSep ? 1 : 0);
     const kind = session?.paneKind && session.paneKind !== "off" ? session.paneKind : null;
     const pWidth = kind ? paneWidth(cols) : 0;
     const transWidth = cols - pWidth;
-    return { cols, rows, panel, viewRows, tabRowY, pWidth, transWidth, kind };
+    return { cols, rows, panel, viewRows, tabRowY, pWidth, transWidth, kind, promptRows: reservation };
   };
 
   // Repaints from the top of the screen and leaves the cursor where the composer expects to start,
@@ -190,12 +197,15 @@ export function mountScreenLoop({
     paint,
     sync,
     follow: () => resetFollow(viewport),
+    geometry,
+    setPromptRows,
     dispose() {
       ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => detach(process, sig, onTeardown));
       output.off?.("resize", onResize);
       if (keysPatched) input.emit = originalEmit;
       disableMouse(output);
       if (session.streamSink) delete session.streamSink;
+      if (session.onComposerRows) delete session.onComposerRows;
       // The panel owns the whole screen, so the inline transcript is repainted once on the way out
       // instead of leaving the alternate buffer's last frame on screen.
       painted = [];

@@ -8,19 +8,24 @@ import { chars, clamp, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT
 export { completionWindow, inputLayout, inputViewport, verticalCursor } from "./mso-agent-composer-ui.mjs";
 
 export class AgentComposer {
-  constructor({ input = process.stdin, output = process.stdout, colors, keybinds = null, onToggleStatusBar = null }) {
+  constructor({ input = process.stdin, output = process.stdout, colors, keybinds = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null) }) {
     this.input = input; this.output = output; this.C = colors;
-    this.keybinds = keybinds; this.onToggleStatusBar = onToggleStatusBar;
-    this.history = []; this.closed = false; this._cancelCurrent = null; this._notifyCurrent = null;
+    this.keybinds = keybinds; this.onToggleStatusBar = onToggleStatusBar; this._onRows = onRows;
+    this.history = []; this.closed = false; this._cancelCurrent = null; this._notifyCurrent = null; this._rowCount = 0;
     readline.emitKeypressEvents(this.input);
   }
 
-  async question(prompt, { complete = null, history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null, onToggleStatusBar = null } = {}) {
+  rowCount() { return this._rowCount; }
+  onRows(cb) { if (typeof cb === "function") this._onRows = cb; return this; }
+
+  async question(prompt, { complete = null, history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null) } = {}) {
     if (this.closed) return null;
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
       let value = "", cursor = 0, selected = 0, reservedRows = 0, paintedLines = [], lastCursorRow = 0;
       let dismissed = false, historyIndex = null, draft = "", settled = false, verticalColumn = null;
+      const rowCallback = onRows || this._onRows;
+      const setRows = (n) => { if (this._rowCount !== n) { this._rowCount = n; if (typeof rowCallback === "function") rowCallback(n); } };
       const promptText = () => String(typeof prompt === "function" ? prompt() : prompt);
       const separatorText = () => String(typeof separator === "function" ? separator() : (separator || ""));
       const wasRaw = Boolean(input.isRaw);
@@ -29,7 +34,7 @@ export class AgentComposer {
       // Reserve physical rows only when the frame grows. Redraws diff row-by-row in place
       // without emitting LF/CRLF, keeping terminal scrollback clean.
       const reserve = (rows) => { reservedRows = reserveComposerRows(output, reservedRows, rows); };
-      const erase = () => { cursorHome(output, lastCursorRow); eraseFrame(output, paintedLines); paintedLines = []; lastCursorRow = 0; reservedRows = 0; };
+      const erase = () => { cursorHome(output, lastCursorRow); eraseFrame(output, paintedLines); paintedLines = []; lastCursorRow = 0; reservedRows = 0; setRows(0); };
       const render = () => {
         cursorHome(output, lastCursorRow);
         const currentPrompt = promptText(), promptWidth = width(currentPrompt), items = matches();
@@ -48,6 +53,7 @@ export class AgentComposer {
         ];
         reserve(Math.max(0, frameHeight(lines) - 1));
         withCursorHidden(output, () => { paintedLines = writeFrame(output, paintedLines, lines); });
+        setRows(paintedLines.length);
         if (layout.cursorRow) output.write(CURSOR_DOWN(layout.cursorRow));
         output.write(`\r${CURSOR_RIGHT(promptWidth + layout.cursorCol)}`);
         lastCursorRow = layout.cursorRow;
@@ -57,8 +63,7 @@ export class AgentComposer {
         if (this._cancelCurrent === cancel) this._cancelCurrent = null;
         if (this._notifyCurrent === notify) this._notifyCurrent = null;
         if (typeof output.off === "function") output.off("resize", onResize);
-        if (typeof input.setRawMode === "function") input.setRawMode(wasRaw);
-        input.pause();
+        if (typeof input.setRawMode === "function") input.setRawMode(wasRaw); input.pause();
       };
       const finish = (result, echo = true, displayValue = value) => {
         if (settled) return;
@@ -66,10 +71,7 @@ export class AgentComposer {
         erase();
         if (echo) output.write(`${promptText()}${displayValue}\r\n`);
         cleanup();
-        if (history && result?.trim()) {
-          this.history.unshift(result);
-          if (this.history.length > 100) this.history.length = 100;
-        }
+        if (history && result?.trim()) { this.history.unshift(result); if (this.history.length > 100) this.history.length = 100; }
         resolve(result);
       };
       const cancel = (echo = true) => {
@@ -96,8 +98,7 @@ export class AgentComposer {
         resumeActiveActivity();
         return true;
       };
-      this._cancelCurrent = cancel;
-      this._notifyCurrent = notify;
+      this._cancelCurrent = cancel; this._notifyCurrent = notify;
       const edit = (next, nextCursor) => {
         value = next; cursor = clamp(nextCursor, 0, chars(value).length);
         selected = 0; dismissed = false; historyIndex = null; verticalColumn = null;
@@ -183,8 +184,7 @@ export class AgentComposer {
 
       input.on("keypress", onKey);
       if (typeof output.on === "function") output.on("resize", onResize);
-      input.resume();
-      if (typeof input.setRawMode === "function") input.setRawMode(true);
+      input.resume(); if (typeof input.setRawMode === "function") input.setRawMode(true);
       const separatorRow = separatorText();
       if (separatorRow) output.write(`${separatorRow}\r\n`);
       render();
