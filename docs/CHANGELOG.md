@@ -22,6 +22,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` allow the socket-policy route-test fixture in the history scan
 - `tui` the two bugs a real pty found, and the test that found them (#201)
 - `ci` apply the same parser workaround to the last two mock call sites (#196)
 - `ci` stop the semgrep scan failing on a generic argument in a test mock (#195)
@@ -37,7 +38,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
-- `tui` a handover for the panel track, so a pause costs nothing
+- `progress` record the LCP measurement, the eager-graph trim and the traps
+- `tui` a handover for the panel track, so a pause costs nothing (#208)
 - handover for the next session, plus the entry this session was missing
 - `tui` name the four things between here and an alternate screen default (#199)
 
