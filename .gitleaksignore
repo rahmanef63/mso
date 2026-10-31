@@ -62,3 +62,9 @@ ab663bb5ea26be4fb3e4f640e7224c46c23fa7f7:lib/infra/convex-migrate.test.ts:generi
 1c323375d11dc3a31b9269047a417641715ee146:lib/infra/convex-migrate.test.ts:generic-api-key:149
 1b38855e6bd1c0c15de2246bf7b77600758fdccc:lib/infra/connection-registry.test.ts:generic-api-key:43
 1b38855e6bd1c0c15de2246bf7b77600758fdccc:lib/infra/convex-migrate.test.ts:generic-api-key:149
+
+# Reviewed socket-policy route-test fixture. A 48-char string that only ever reaches the
+# route's own header/body assertions; the route module is mocked in the same file, so no
+# request leaves the process. Scoped to the exact commit, file, rule and line.
+3bf32e81b7f4fcae1acfc2daf2dd6e09672125f1:app/api/internal/socket-policy/route.test.ts:generic-api-key:13
+f7191783360a273a874d99a2caf456ce149ec39a:app/api/internal/socket-policy/route.test.ts:generic-api-key:13
