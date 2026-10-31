@@ -105,16 +105,43 @@ Both fail identically on `main` (`41214069060`):
    `docker run --rm -v "$PWD/.git:/g" alpine chown -R 1000:1000 /g`; `git fsck --connectivity-only`
    clean afterwards. Use `-v "$PWD/.git:/repo/.git:ro"` next time, or a `--user "$(id -u)"` flag.
 
+### Why CI looks silent on a feature branch — it is not broken
+
+I recorded "the missing workflow triggers on the latest head are unexplained". That was wrong,
+and worth correcting rather than leaving in the record: it was a misread trigger configuration,
+not a GitHub fault.
+
+`.github/workflows/ci.yml` triggers on `push.branches: [main, "security/**"]` and on
+`pull_request.branches: [main]`. A push to any other branch therefore fires **nothing**. Every CI
+run this branch ever got arrived through the `pull_request` event, one per PR head push. Over the
+last 30 CI runs on the repo, 13 are `push` and all 13 are `main`.
+
+So "CI stopped firing after `b2cffa6a`" means exactly one thing: no PR head was pushed after that
+commit. Local commits that are not pushed are not part of any PR, so there is nothing for GitHub
+to test. Nothing is stuck. The corollary is the useful part: **the only way to get CI on a
+non-main branch is to move that branch's PR head**, and a rebase that stays local changes nothing.
+
+`workflow_dispatch` exists in the same file, but it **cannot stand in for push-triggered CI here**:
+a dispatched run executes against the workflow file on the ref you dispatch *at* — which for
+GitHub UI and the API means a ref that already exists on the remote. Since the whole point is to
+test commits that have not been pushed, dispatching can only ever test what is already visible to
+GitHub, i.e. the same `7c4569ae` the PR already shows. It is useful to re-run a flaky job on an
+existing ref, not as evidence for unpushed work. The `pull_request` run is the proof, and it needs
+the push first.
+
 ### Open
 
-- **PR #207** — 6 commits on `perf/eager-graph-artwork`, head `46939338`. `Verify`, `Native host
-  (macOS)` and `Native host (Windows)` all green on the previous head `82a3af55`.
-- **CI never fired for `46939338`**: `actions/runs?head_sha=...` returns 0, and PR #205 kept
-  reporting the older head even after the ref moved. #205 was closed (reopening is rejected by
-  the API) and #207 opened fresh, which did pick up the right head. **The missing workflow
-  triggers on the latest head are unexplained — start there.**
-- `perf-baseline.json` not regenerated: host load sat between 7 and 19 all session, so the
-  numbers do not deserve to become a baseline. Regenerate on an idle host.
+- **PR #207** — branch `perf/eager-graph-artwork`. Remote head is `7c4569ae` (7 commits, CI green
+  on `Verify`, `Native host` macOS + Windows, `CodeQL`, `Dependency Review`); local is rebased
+  further onto `origin/main` and **not pushed**, so the PR still reports the older head and stays
+  `mergeable_state: dirty` against a `main` that has moved. Pushing it is a force-push and needs
+  the owner's explicit go-ahead.
+- **`perf-baseline.json` was regenerated after all** (commit `ba13b20b`), on an idle host: desktop
+  LCP 3222 → 3044 ms / TBT 164 → 81 ms, mobile LCP 3054 → 2740 ms / TBT 132 → 81 ms. An earlier
+  revision of this entry said it had been skipped because load sat between 7 and 19; the harness
+  was then taught to wait for load1 < 1.5 and to discard runs whose own recorded load exceeded it,
+  one of four attempts was discarded that way, and the median of the three clean runs is what is
+  committed.
 - Phase 5 (full SvelteKit swap) untouched, still needs the owner's 8-12 month decision.
 
 ## 2026-10-31: every route has a test, and the workflow conflict that made each PR slow
