@@ -599,26 +599,39 @@ those two, and mouse/scrollbar/splits are additive after M5.
 
 ### 8.1 What remains before the alternate screen can be the default
 
-The pane landed and the flag works, but the default is still `off`. That is not caution about the
-renderer, which is now complete. It is that a great deal of the TUI still prints instead of painting:
+The renderer itself is complete: frames, chrome, viewport, mouse, side pane, and a real pty test
+(`scripts/mso-agent-pty.e2e.test.ts`) that drives the actual binary and asserts the painted frame,
+a SIGWINCH resize, Ctrl+C and SIGTERM teardown. That pty test immediately found two defects no
+fake-TTY unit test could see, both fixed: a `ReferenceError` in the `finally` block on every exit,
+and a SIGTERM handler that released the screen and then left the process running forever.
 
-1. **26 modules print with `console.log`** under `scripts/mso-agent*.mjs` and
-   `scripts/mso-agent-cmd-*.mjs` (help, inspect, parity, jobs, todos, files, diff, edit diff,
-   approval UI, mentions, skills, status, layout). In the alternate screen a `console.log` writes at
-   the cursor, which is inside the frame the loop owns, so the next repaint fights it and a line can
-   survive in the wrong row. They need one print sink that appends to the viewport in panel mode and
-   prints as before in inline mode.
-2. **The composer reserves a fixed number of rows** (`PROMPT_ROWS` in
-   `scripts/mso-agent-screen-loop.mjs`), because the composer paints its own rows and cannot report
-   them. A wrapped draft taller than that reservation overlaps the panel. The composer has to expose
-   its current row count, or the loop has to own the draft rendering.
-3. **Prompts and foreground subagents take over the composer area** (`promptApproval` in
-   `scripts/mso-agent-approval-ui.mjs`, `runForegroundSubagent`). They are line oriented, so in panel
-   mode they would need to be painted into the viewport and answered through the same key path.
-4. **Turn-level failures bypass the stream sink**: `renderInteractionFailure` writes directly, so an
-   error raised mid-turn would land outside the frame.
+What still keeps the default at `off`:
 
-Until those four are done, `--altscreen` stays a development switch, and `--oneshot`, non-TTY and CI
+1. **DONE** - print sink. `scripts/mso-agent-print.mjs` routes command output through
+   `session.printSink` when the panel is active; 12 command modules migrated, each with zero
+   `console.log` left. Deliberately still printing directly, because they own interactive takeover
+   or sit at the line ceiling: `mso-agent-session-ui.mjs`, `mso-agent-layout.mjs`,
+   `mso-agent-mentions.mjs`, `mso-agent-local-commands.mjs`, `mso-agent-subagent.mjs`,
+   `mso-agent-approval-ui.mjs`, `mso-agent-activity.mjs`.
+2. **DONE** - the composer reports its painted row count through `onRows`, and the loop reserves
+   that instead of a fixed 3. The cap is terminal rows minus 4, not a quarter of the terminal: a
+   quarter of 12 rows is 3, which made the fix inert in exactly the case it existed for.
+3. **CEILING, documented** - approval prompts and foreground subagents are suspended, not
+   reimplemented. `withPanelSuspended` detaches the sink, lets the prompt run on the normal
+   terminal, then repaints. Answering inside the viewport would mean a second input mode
+   duplicating the composer's key handling.
+4. **DONE** - mid-turn writes go through `turnPrinter`, so `renderInteractionFailure`, the
+   interrupted-turn notice and the reasoning lines land in the viewport instead of at the cursor.
+
+Remaining before a default flip, and these are not renderer work:
+
+- The suspended paths in item 3 are correct but ugly: the panel blinks for every approval. Flipping
+  the default makes them visible on every tool call, so it is worth deciding whether to accept the
+  blink or build the in-panel input mode first.
+- `mso-agent-subagent.mjs` and `mso-agent-mentions.mjs` still print directly and are reached during
+  a normal turn.
+
+Until those are settled, `--altscreen` stays a development switch, and `--oneshot`, non-TTY and CI
 remain excluded by `altScreenRequested` regardless of the flag.
 
 Adjacent work that landed while this plan was being executed, and belongs to the same goal:

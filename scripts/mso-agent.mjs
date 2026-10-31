@@ -36,6 +36,9 @@ async function main() {
   if (altScreen.requested && !altScreen.ok) {
     console.warn(`${C.dim}mso agent: alternate screen not enabled (${altScreen.reason})${C.reset}`);
   }
+  // Declared out here, not inside the try: the finally block disposes them, and a `const` inside
+  // the try is not in scope there. A ReferenceError in finally replaced the real exit status.
+  let screenLoop = null;
   let screen = null; let session = null; let rl = null;
   let localBridge = null; let onSigint = null; let restartRequested = false;
   try {
@@ -65,7 +68,7 @@ async function main() {
     const refreshSessions = () => { listCliSessions(20).then((rows) => { recentSessions = visibleSessionRows(rows); }).catch(() => {}); };
     refreshSessions();
     const chromeFooter = () => chromeLines({ session, sessions: recentSessions, activeId: session?.agentSession?.id, colors: C, width: process.stdout.columns, rows: process.stdout.rows });
-    const screenLoop = mountScreenLoop({
+    screenLoop = mountScreenLoop({
       session,
       enabled: altScreen.ok,
       output: process.stdout,

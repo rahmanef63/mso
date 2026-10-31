@@ -123,8 +123,19 @@ export function installTeardown({
   const proc = processRef || signalSource || process;
   const sigs = signalSource || processRef || process;
 
-  const onTeardown = () => {
+  // Signals that terminate the process by default. Attaching a listener REPLACES that default, so
+  // without re-raising, a SIGTERM would release the screen and then leave the agent running forever
+  // with no way out short of SIGKILL. Only re-raised when this is the real process, never for an
+  // injected emitter in a test.
+  const terminating = new Map([["SIGTERM", 143], ["SIGHUP", 129]]);
+  const onTeardown = (signal) => {
     leaveScreen(output);
+    if (!terminating.has(signal) || proc !== process) return;
+    // Re-raising the signal would be caught again by any other listener still attached to it (the
+    // screen loop installs its own SIGTERM handler to turn mouse reporting off), which is the exact
+    // hang this fixes. Exit explicitly instead, on the next tick so every other listener for this
+    // signal still runs first. The code is the shell convention: 128 plus the signal number.
+    setImmediate(() => process.exit(terminating.get(signal)));
   };
 
   const cleanups = [];
@@ -141,10 +152,10 @@ export function installTeardown({
     });
   };
 
-  attach(proc, "exit", onTeardown);
-  attach(sigs, "SIGINT", onTeardown);
-  attach(sigs, "SIGTERM", onTeardown);
-  attach(sigs, "SIGHUP", onTeardown);
+  attach(proc, "exit", () => onTeardown(null));
+  attach(sigs, "SIGINT", () => onTeardown("SIGINT"));
+  attach(sigs, "SIGTERM", () => onTeardown("SIGTERM"));
+  attach(sigs, "SIGHUP", () => onTeardown("SIGHUP"));
 
   return {
     dispose() {

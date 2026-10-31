@@ -17,6 +17,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `tui` the two bugs a real pty found, and the test that found them
+- `tui` the two bugs a real pty found, both invisible to the unit tests
 - `ci` apply the same parser workaround to the last two mock call sites (#196)
 - `ci` stop the semgrep scan failing on a generic argument in a test mock (#195)
 
