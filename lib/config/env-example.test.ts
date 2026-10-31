@@ -23,6 +23,9 @@ const NOT_A_KNOB: Record<string, string> = {
   NODE_ENV: "standard Node/Next process mode; artifact maintenance starts only in production",
   NEXT_PUBLIC_BUILD_ID: "injected by next.config.mjs at build time",
   MSO_RUNTIME_INSTANCE_ID: "injected by the installer-managed service to prove restart readiness",
+  // Set by scripts/verify-build.sh in the out-of-tree archive it just built, so the
+  // bundle budget knows those bytes describe that source rather than a stale .next.
+  MSO_BUNDLE_BUILD_IS_CURRENT: "set by scripts/verify-build.sh for its own out-of-tree build; never user configuration",
   // Private launcher-to-agent handoff. scripts/mso-cli-agent.sh owns these; users
   // should configure the public CLI knobs instead of persisting these in .env.local.
   MSO_AGENT_BASE: "internal mso-cli-agent launcher handoff for the selected loopback API base",
