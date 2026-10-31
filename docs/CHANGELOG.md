@@ -19,6 +19,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `baseline` regenerate on an idle host, which the old one was not
 
+**Docs**
+
+- `progress` correct why CI looks silent on a feature branch
+
 ## 2026-10-31
 
 **Added**
