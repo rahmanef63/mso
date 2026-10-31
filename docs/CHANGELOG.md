@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` mouse wheel scrolling and tab clicks, only inside the alternate screen
+- `tui` a right-hand side pane for todos, the last diff and changed files
+- `tui` mouse wheel scrolling and tab clicks, only inside the alternate screen (#197)
 - `tui` a transcript viewport with a scrollbar, so the alternate screen has a reason (#193)
 - `tui` an alternate screen behind a flag, with teardown on every exit path (#192)
 - `tui` a tab row and a footer that stay put, painted through the frame writer (#191)
