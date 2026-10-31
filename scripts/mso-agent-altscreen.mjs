@@ -21,31 +21,31 @@ export function altScreenRequested({
   const args = Array.isArray(argv) ? argv : [];
   const environment = env || {};
 
-  const requested = Boolean(
-    args.includes("--altscreen") ||
-    args.includes("--alt-screen") ||
-    environment.MSO_ALT_SCREEN === "1" ||
-    environment.MSO_ALTSCREEN === "1"
-  );
-
-  if (!requested) {
-    return { ok: false, enabled: false, requested: false, reason: "not_requested" };
+  // The panel is the default now. Inline mode is the opt OUT, because a user who wants their
+  // terminal's own scrollback has no other way to ask for it. `requested` still distinguishes "the
+  // default" from "asked and refused" so the entrypoint only warns when the user actually asked.
+  const declined = args.includes("--no-altscreen") || environment.MSO_ALT_SCREEN === "0" || environment.MSO_ALTSCREEN === "0";
+  const explicit = args.includes("--altscreen") || args.includes("--alt-screen")
+    || environment.MSO_ALT_SCREEN === "1" || environment.MSO_ALTSCREEN === "1";
+  const requested = explicit || !declined;
+  if (declined) {
+    return { ok: false, enabled: false, requested: false, reason: "declined" };
   }
 
   if (isTTY !== true) {
-    return { ok: false, enabled: false, requested: true, reason: "not_tty" };
+    return { ok: false, enabled: false, requested, reason: "not_tty" };
   }
 
   const ci = environment.CI;
   if (Boolean(ci && ci !== "0" && ci !== "false")) {
-    return { ok: false, enabled: false, requested: true, reason: "ci_environment" };
+    return { ok: false, enabled: false, requested, reason: "ci_environment" };
   }
 
   if (args.includes("--oneshot") || args.includes("-z")) {
-    return { ok: false, enabled: false, requested: true, reason: "oneshot_mode" };
+    return { ok: false, enabled: false, requested, reason: "oneshot_mode" };
   }
 
-  return { ok: true, enabled: true, requested: true, reason: null };
+  return { ok: true, enabled: true, requested, reason: null };
 }
 
 // Enters alternate screen mode idempotently.

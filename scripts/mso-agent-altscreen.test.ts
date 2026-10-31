@@ -21,25 +21,26 @@ class FakeOutput {
 }
 
 describe("MSO Agent alternate screen manager", () => {
-  it("no flag, no TTY, CI set, and one-shot mode each return false with a distinct reason", () => {
-    const noFlag = altScreenRequested({ argv: [], env: {}, isTTY: true });
-    expect(noFlag.ok).toBe(false);
-    expect(noFlag.reason).toBe("not_requested");
+  it("no TTY, CI, one-shot and an explicit opt out each refuse with their own reason", () => {
+    // The panel is the default, so the interesting cases are the four ways to be refused rather than
+    // the four ways to ask for it.
+    const declined = altScreenRequested({ argv: ["--no-altscreen"], env: {}, isTTY: true });
+    expect(declined.ok).toBe(false);
+    expect(declined.reason).toBe("declined");
 
-    const noTty = altScreenRequested({ argv: ["--altscreen"], env: {}, isTTY: false });
+    const noTty = altScreenRequested({ argv: [], env: {}, isTTY: false });
     expect(noTty.ok).toBe(false);
     expect(noTty.reason).toBe("not_tty");
 
-    const ciSet = altScreenRequested({ argv: ["--altscreen"], env: { CI: "true" }, isTTY: true });
+    const ciSet = altScreenRequested({ argv: [], env: { CI: "true" }, isTTY: true });
     expect(ciSet.ok).toBe(false);
     expect(ciSet.reason).toBe("ci_environment");
 
-    const oneShot = altScreenRequested({ argv: ["--altscreen", "--oneshot", "inspect"], env: {}, isTTY: true });
+    const oneShot = altScreenRequested({ argv: ["--oneshot", "inspect"], env: {}, isTTY: true });
     expect(oneShot.ok).toBe(false);
     expect(oneShot.reason).toBe("oneshot_mode");
 
-    const reasons = [noFlag.reason, noTty.reason, ciSet.reason, oneShot.reason];
-    expect(new Set(reasons).size).toBe(4);
+    expect(new Set([declined.reason, noTty.reason, ciSet.reason, oneShot.reason]).size).toBe(4);
   });
 
   it("the flag plus a TTY returns true", () => {
@@ -48,11 +49,16 @@ describe("MSO Agent alternate screen manager", () => {
     expect(result.reason).toBe(null);
   });
 
-  it("default is OFF and behaviour is byte-identical with no writes", () => {
+  it("the panel is the default, and opting out writes nothing", () => {
+    const onByDefault = altScreenRequested({ argv: [], env: {}, isTTY: true });
+    expect(onByDefault.ok).toBe(true);
+
+    // Opting out must be silent, not merely inactive: a user asking for their own scrollback should
+    // not have escape sequences written at them.
     const output = new FakeOutput();
-    const result = altScreenRequested({ argv: [], env: {}, isTTY: true });
-    expect(result.ok).toBe(false);
-    if (result.ok) enterScreen(output);
+    const declined = altScreenRequested({ argv: ["--no-altscreen"], env: {}, isTTY: true });
+    expect(declined.ok).toBe(false);
+    if (declined.ok) enterScreen(output);
     expect(output.chunks.length).toBe(0);
   });
 

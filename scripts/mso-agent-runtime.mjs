@@ -9,8 +9,8 @@ import { buildMemoryContext } from "../lib/agent/memory-context.mjs";
 import { latestIntentText } from "../lib/orchestration/capability-catalog.mjs";
 export { C, MSO_TITLE_ART } from "./mso-agent-ui.mjs";
 
-export function printBanner(s, agentSession) {
-  return printAgentBanner(s, agentSession, { base: BASE, version: VERSION });
+export function printBanner(s, agentSession, options = {}) {
+  return printAgentBanner(s, agentSession, { base: BASE, version: VERSION, ...options });
 }
 
 function sessionSystem(agentSession, skillContext = null, memoryContext = null) {

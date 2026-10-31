@@ -19,6 +19,7 @@ import { pathToFileURL } from "node:url";
 import { createQueue, dequeue } from "./mso-agent-queue.mjs";
 import { pendingImageBlock } from "./mso-agent-image.mjs";
 import { altScreenRequested, startAltScreen } from "./mso-agent-altscreen.mjs";
+import { captureBanner } from "./mso-agent-banner-lines.mjs";
 import { visibleSessionRows } from "./mso-agent-sessions.mjs";
 import { chromeLines } from "./mso-agent-chrome.mjs";
 import { switchToSession } from "./mso-agent-cmd-session.mjs";
@@ -51,7 +52,7 @@ async function main() {
       : (permissionMode(restartUi.permission)?.id || "ask");
     const [s, agentSession] = await Promise.all([state(), startupSession(requested, restartSessionId)]);
     if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
-    printBanner(s, agentSession);
+    const bannerLines = altScreen.ok ? captureBanner(printBanner, s, agentSession, { keep: 4 }) : (printBanner(s, agentSession), null);
     session = {
       state: s,
       agentSession,
@@ -75,6 +76,7 @@ async function main() {
       input: process.stdin,
       colors: C,
       getSessions: () => recentSessions,
+      preamble: () => bannerLines,
       onTabClick: async (targetId) => {
         if (!targetId || targetId === session?.agentSession?.id) return;
         await switchToSession(rl, session, targetId);
