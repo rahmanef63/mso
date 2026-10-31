@@ -123,8 +123,20 @@ export function installTeardown({
   const proc = processRef || signalSource || process;
   const sigs = signalSource || processRef || process;
 
-  const onTeardown = () => {
+  // Signals that terminate the process by default. Attaching a listener REPLACES that default, so
+  // without re-raising, a SIGTERM would release the screen and then leave the agent running forever
+  // with no way out short of SIGKILL. Only re-raised when this is the real process, never for an
+  // injected emitter in a test.
+  const terminating = new Set(["SIGTERM", "SIGHUP"]);
+  const onTeardown = (signal) => {
     leaveScreen(output);
+    if (!terminating.has(signal) || proc !== process) return;
+    try {
+      process.removeListener(signal, onTeardown);
+      process.kill(process.pid, signal);
+    } catch {
+      process.exit(1);
+    }
   };
 
   const cleanups = [];
@@ -141,10 +153,10 @@ export function installTeardown({
     });
   };
 
-  attach(proc, "exit", onTeardown);
-  attach(sigs, "SIGINT", onTeardown);
-  attach(sigs, "SIGTERM", onTeardown);
-  attach(sigs, "SIGHUP", onTeardown);
+  attach(proc, "exit", () => onTeardown(null));
+  attach(sigs, "SIGINT", () => onTeardown("SIGINT"));
+  attach(sigs, "SIGTERM", () => onTeardown("SIGTERM"));
+  attach(sigs, "SIGHUP", () => onTeardown("SIGHUP"));
 
   return {
     dispose() {
