@@ -595,7 +595,31 @@ those two, and mouse/scrollbar/splits are additive after M5.
 | M5 | Alternate screen behind a flag, with teardown | DONE | PR #192; default off; teardown on exit, signals, execve, spawnSync |
 | M6 | Transcript viewport and scrollbar | DONE | PR #193; 2000-line cap, follow mode, PgUp/PgDn/Ctrl+G/End, entrypoint 218 to 196 lines |
 | M7 | Mouse | DONE | SGR 1000/1006 extended mode, wheel scrolls viewport, tab clicks switch session |
-| M8 | Split panes, then flip the alt screen default | IN PROGRESS | panel landed, default flip NOT done |
+| M8 | Split panes, then flip the alt screen default | PARTIAL | PR #198; right-hand pane for todos, diff, files. Default flip NOT done, blockers in 8.1 |
+
+### 8.1 What remains before the alternate screen can be the default
+
+The pane landed and the flag works, but the default is still `off`. That is not caution about the
+renderer, which is now complete. It is that a great deal of the TUI still prints instead of painting:
+
+1. **26 modules print with `console.log`** under `scripts/mso-agent*.mjs` and
+   `scripts/mso-agent-cmd-*.mjs` (help, inspect, parity, jobs, todos, files, diff, edit diff,
+   approval UI, mentions, skills, status, layout). In the alternate screen a `console.log` writes at
+   the cursor, which is inside the frame the loop owns, so the next repaint fights it and a line can
+   survive in the wrong row. They need one print sink that appends to the viewport in panel mode and
+   prints as before in inline mode.
+2. **The composer reserves a fixed number of rows** (`PROMPT_ROWS` in
+   `scripts/mso-agent-screen-loop.mjs`), because the composer paints its own rows and cannot report
+   them. A wrapped draft taller than that reservation overlaps the panel. The composer has to expose
+   its current row count, or the loop has to own the draft rendering.
+3. **Prompts and foreground subagents take over the composer area** (`promptApproval` in
+   `scripts/mso-agent-approval-ui.mjs`, `runForegroundSubagent`). They are line oriented, so in panel
+   mode they would need to be painted into the viewport and answered through the same key path.
+4. **Turn-level failures bypass the stream sink**: `renderInteractionFailure` writes directly, so an
+   error raised mid-turn would land outside the frame.
+
+Until those four are done, `--altscreen` stays a development switch, and `--oneshot`, non-TTY and CI
+remain excluded by `altScreenRequested` regardless of the flag.
 
 Adjacent work that landed while this plan was being executed, and belongs to the same goal:
 `feat/agent-jobs-view` (#183, `/jobs` for background subagents) and `feat/tui-keybinds` (#182,
