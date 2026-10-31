@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { C } from "./mso-agent-runtime.mjs";
 import { BASE, CLI, api, state } from "./mso-agent-api.mjs";
+import { leaveScreen } from "./mso-agent-altscreen.mjs";
 import {
   loadSlashSkill,
   printSkillChoices,
@@ -21,6 +22,8 @@ import { handleJobsCommand } from "./mso-agent-jobs.mjs";
 export { SHARE_UNAVAILABLE_MESSAGE, buildExportArgv };
 
 function runCli(args) {
+  // Releases the alternate screen buffer before handing the terminal to an interactive child process.
+  leaveScreen();
   const result = spawnSync(CLI, args, {
     stdio: "inherit",
     env: { ...process.env, MSO_BASE: BASE },
