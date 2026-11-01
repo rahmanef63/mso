@@ -2,7 +2,14 @@ import { GOOGLE_CONNECTION_UI_SCRIPT } from "./google-connection-ui";
 import { PROJECT_MCP_UI_SCRIPT } from "./project-mcp-ui";
 export { CONNECTION_MANAGER_STYLE } from "./connection-ui-style";
 import { PROVIDER_ICON_PATHS } from "./provider-icons";
-export const CONNECTION_MANAGER_SCRIPT=GOOGLE_CONNECTION_UI_SCRIPT+PROJECT_MCP_UI_SCRIPT+`const PROVIDER_ICON_PATHS=${JSON.stringify(PROVIDER_ICON_PATHS)};`+String.raw`
+import { MSO_LOGO_SVG } from "@/lib/presentation/logo";
+
+const MSO_BRAND_ICON_SVG = MSO_LOGO_SVG
+  .replace(/\s*role="img"/, "")
+  .replace(/\s*aria-label="[^"]*"/, "")
+  .replace("<svg", '<svg aria-hidden="true"');
+
+export const CONNECTION_MANAGER_SCRIPT=GOOGLE_CONNECTION_UI_SCRIPT+PROJECT_MCP_UI_SCRIPT+`const PROVIDER_ICON_PATHS=${JSON.stringify(PROVIDER_ICON_PATHS)};const MSO_LOGO_SVG=${JSON.stringify(MSO_BRAND_ICON_SVG)};`+String.raw`
 function mountConnectionManager(root,catalog,bridge,initial={}){
   let disposed=false,sequence=0,snapshot=initial.snapshot||{users:[],connections:[],bindings:[]},user=initial.user||snapshot.user||null,provider=catalog.find(p=>p.id===initial.provider)||catalog.find(p=>p.id==="github")||catalog[0];
   let detail,status,container,sidebarPanel,sidebarBackdrop,sidebarToggle,navButtons=[],navMode=["variables","ai-providers"].includes(initial.section)?initial.section:"provider",sidebarOpen=false;
@@ -58,7 +65,7 @@ function mountConnectionManager(root,catalog,bridge,initial={}){
     const shell=n("div",undefined,"integration-settings-shell");
     sidebarBackdrop=b("",()=>setSidebar(false),"integration-sidebar-backdrop");sidebarBackdrop.hidden=true;sidebarBackdrop.setAttribute("aria-label","Close Integrations sections");
     sidebarPanel=n("aside",undefined,"integration-settings-sidebar");sidebarPanel.id="integration-settings-sidebar";sidebarPanel.dataset.open="false";
-    const sidebarHeader=n("div",undefined,"integration-sidebar-header"),brand=n("div",undefined,"integration-sidebar-brand"),brandIcon=n("span","M","integration-brand-icon"),brandCopy=n("span");brandCopy.append(n("strong","MSO"),n("small","Integrations"));brand.append(brandIcon,brandCopy);
+    const sidebarHeader=n("div",undefined,"integration-sidebar-header"),brand=n("div",undefined,"integration-sidebar-brand"),brandIcon=n("span",undefined,"integration-brand-icon"),brandCopy=n("span");brandIcon.setAttribute("aria-hidden","true");const brandSvg=typeof DOMParser!=="undefined"?new DOMParser().parseFromString(MSO_LOGO_SVG,"image/svg+xml").documentElement:null;if(brandSvg)brandIcon.append(brandSvg);brandCopy.append(n("strong","MSO"),n("small","Integrations"));brand.append(brandIcon,brandCopy);
     const search=n("input");search.type="search";search.placeholder="Search";search.setAttribute("aria-label","Search integrations");
     const owner=choicePicker("Credential owner",snapshot.users.map(row=>({id:row.id,text:row.label+" · "+row.id+(row.isDefault?" · default":"")})),user,row=>{user=row.id;remember();void reload()});
     sidebarHeader.append(brand,search,owner.wrap);sidebarPanel.append(sidebarHeader);sidebarPanel.addEventListener("keydown",event=>{if(event.key==="Escape"&&sidebarOpen){event.preventDefault();setSidebar(false)}});

@@ -68,3 +68,11 @@ it("declares the integration container query on .integration so manager, setup, 
   expect(INTEGRATION_FORM_STYLE).toContain("@container integration (max-width:37.5rem)");
   expect(INTEGRATION_FORM_STYLE).toMatch(/@container\s+integration[^{]*\{[^}]*\.setup-grid\{[^}]*grid-template-columns:1fr/);
 });
+
+it("renders the authentic MSO brand logo mark rather than a fallback initial in the sidebar header (antislop R-20, R-23)", () => {
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('<svg aria-hidden=\\"true\\"');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("M138 150 L238 150 L292 179 L374 179");
+  expect(CONNECTION_MANAGER_SCRIPT).not.toContain('n("span","M","integration-brand-icon")');
+  expect(CONNECTION_MANAGER_STYLE).toContain("width:var(--brand-size);height:var(--brand-size)");
+  expect(CONNECTION_MANAGER_STYLE).toContain(".integration .integration-brand-icon svg{display:block;width:100%;height:100%}");
+});
