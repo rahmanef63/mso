@@ -7,10 +7,10 @@ import { handleSessionCommand } from "./mso-agent-cmd-session.mjs";
 describe("mso-agent-pane", () => {
   it("cyclePane wraps through every kind and handles unknown fallback", () => {
     const kinds = paneKinds();
-    expect(kinds).toEqual(["todos", "diff", "files", "off"]);
+    expect(kinds).toEqual(["todos", "diff", "files", "mcp", "context", "off"]);
     expect(cyclePane("todos")).toBe("diff");
     expect(cyclePane("diff")).toBe("files");
-    expect(cyclePane("files")).toBe("off");
+    expect(cyclePane("files")).toBe("mcp");
     expect(cyclePane("off")).toBe("todos");
     expect(cyclePane("unknown")).toBe("todos");
   });
