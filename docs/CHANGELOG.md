@@ -27,6 +27,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Faster**
 
+- `shell` re-encode the wallpapers without downscaling them
 - `shell` ship artwork at the size it renders, not 256x256
 - `shell` defer the lock curtain, keeping its timer eager
 
