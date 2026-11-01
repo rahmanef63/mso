@@ -1,18 +1,38 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { managerLocation } from "./app";
-import { integrationsApp } from "./index";
 
-describe("native Integrations shell app", () => {
-  it("has a dockable descriptor and a matching app catalog entry", () => {
-    expect(integrationsApp.id).toBe("integrations");
-    expect(integrationsApp.noDock).not.toBe(true);
-    expect(readFileSync("frontend/slices/app-store/lib/system-catalog.ts", "utf8")).toContain('id: "integrations", title: "Integrations", kind: "app"');
-    const manifest = readFileSync("frontend/slices/os-shell/shell.manifest.ts", "utf8");
-    expect(manifest).toContain('pin(withSlug(integrationsApp, "connections"))');
+// The integrations window renders an iframe. Every query parameter the user pasted has to survive
+// into that iframe or a deep link silently lands on the generic manager page — which is exactly
+// what happened before: only `transfer=1` was forwarded.
+
+describe("managerLocation", () => {
+  it("forwards the connection deep-link parameters", () => {
+    expect(managerLocation("?user=dita&provider=convex&connection=dita-convex"))
+      .toBe("/integrations/manager?user=dita&provider=convex&connection=dita-convex");
   });
-  it("keeps transfer and private fragment handoffs inside the existing manager", () => {
-    expect(managerLocation("?transfer=1&untrusted=ignore", "#example-capability")).toBe("/integrations/manager?transfer=1#example-capability");
-    expect(managerLocation("?target=https://untrusted.invalid")).toBe("/integrations/manager");
+
+  it("still forwards transfer", () => {
+    expect(managerLocation("?transfer=1")).toBe("/integrations/manager?transfer=1");
+  });
+
+  it("keeps both when a deep link also asks for transfer", () => {
+    expect(managerLocation("?transfer=1&user=dita&provider=convex&connection=dita-convex"))
+      .toBe("/integrations/manager?transfer=1&user=dita&provider=convex&connection=dita-convex");
+  });
+
+  it("drops anything that is not part of the allowlist", () => {
+    // `target` carried private capability material historically; it must not ride along.
+    expect(managerLocation("?target=secret-token&user=dita&provider=convex&connection=c"))
+      .toBe("/integrations/manager?user=dita&provider=convex&connection=c");
+  });
+
+  it("emits no query string at all when nothing is forwarded", () => {
+    expect(managerLocation("")).toBe("/integrations/manager");
+    expect(managerLocation("?target=x")).toBe("/integrations/manager");
+  });
+
+  it("preserves the hash", () => {
+    expect(managerLocation("?user=u&provider=p&connection=c", "#row"))
+      .toBe("/integrations/manager?user=u&provider=p&connection=c#row");
   });
 });

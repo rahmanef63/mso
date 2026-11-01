@@ -8,5 +8,6 @@ export {
 } from "./convex-canonical";
 
 export { getConvexEnvPresence } from "./convex-env-presence";
+export { setConvexEnv, setConvexEnvs, removeConvexEnvs } from "./convex-env-write";
 
 export { deployConvexCloudProject, importConvexCloudSnapshot } from "./convex-cloud-runner";
