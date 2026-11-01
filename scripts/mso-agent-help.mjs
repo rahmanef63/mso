@@ -36,6 +36,7 @@ export const HELP_LINES = [
   "  /delegate <target> <job> correlated local task; else remote A2A peer",
   "  /spawn [--name N] [--scope S] <job> run foreground isolated subagent in this session",
   "  /jobs [id|cancel <id>]  list background subagent jobs, inspect, or cancel",
+  "  /terminal [cmd]         open shell or run command in real terminal",
   "  /inbox                  show native local agent messages for this session",
   "  /skills [query]         browse available slash skills",
   "  /skill <id> [prompt]    select exact skill id (ambiguity escape hatch)",
