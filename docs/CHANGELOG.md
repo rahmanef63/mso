@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` mcp and context pane kinds, with an honest unknown (#225)
 - `tui` /terminal hands the real terminal to a shell or a one-shot command (#224)
 - `skills` add mso-agent-fleet for Orca + OpenCode fan-out (#217)
 - `ci` three security scanners that actually run, and lanes that fail closed (#210)
