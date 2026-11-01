@@ -15,7 +15,14 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `integrations` safe secret layout, real landmarks, and a sidebar that closes
+- `integrations` show the real MSO logo, and activate the dead container query
+- `integrations` WCAG contrast, 44px tap targets, and no em dashes in UI copy
 - `convex` write env over HTTP with the deployment key, and fix the regional host
+
+**Changed**
+
+- `integrations` move the inlined assets out, back under the 220-line ratchet
 
 ## 2026-11-01
 
