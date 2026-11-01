@@ -25,11 +25,23 @@ export const width = (value) => chars(plain(value)).length;
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export function reserveComposerRows(output, reservedRows, rows) {
-  if (rows <= reservedRows) return reservedRows;
-  if (reservedRows) output.write(CURSOR_DOWN(reservedRows));
-  for (let i = reservedRows; i < rows; i++) output.write("\r\n");
-  output.write(`${CURSOR_UP(rows)}\r`);
-  return rows;
+  const current = Math.max(0, Number(reservedRows) || 0);
+  const target = Math.max(0, Number(rows) || 0);
+  if (target === current) return current;
+  if (!output || typeof output.write !== "function") return target;
+  if (target > current) {
+    if (current) output.write(CURSOR_DOWN(current));
+    for (let i = current; i < target; i++) output.write("\r\n");
+    output.write(`${CURSOR_UP(target)}\r`);
+    return target;
+  }
+  // Shrink symmetrically. Moving down to the OLD extent and clearing upward releases the rows the
+  // frame no longer uses. Without this a closed completion menu left its rows reserved forever, so
+  // the prompt never moved back up and a gap sat above it.
+  if (current) output.write(CURSOR_DOWN(current));
+  for (let i = current; i > target; i--) output.write(`\r${CLEAR_LINE}${CURSOR_UP(1)}`);
+  output.write(`${CURSOR_UP(target)}\r`);
+  return target;
 }
 
 export function eraseComposerRows(output, reservedRows) {

@@ -14,6 +14,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `tui` let the composer reservation shrink, so Esc really closes the menu
 - `tui` stop the panel erasing the slash menu, and keep the banner ASCII art (#221)
 - `security` validate the model half of a provider/model ref
 - `security` read only .message from a caught error, never stringify it
