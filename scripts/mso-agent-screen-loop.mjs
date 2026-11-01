@@ -3,6 +3,7 @@ import { chromeLines, tabAtPoint } from "./mso-agent-chrome.mjs";
 import { composerSeparator } from "./mso-agent-layout.mjs";
 import { disableMouse, enableMouse, handleMouse } from "./mso-agent-mouse.mjs";
 import { installInputHook } from "./mso-agent-input-hook.mjs";
+import { createPanelSuspension } from "./mso-agent-panel-suspend.mjs";
 import { writeFrame } from "./mso-agent-screen.mjs";
 import { transcriptLines } from "./mso-agent-transcript.mjs";
 import { appendStream, commitStream, createViewport, handleViewportKey, resetFollow, setLines } from "./mso-agent-viewport.mjs";
@@ -66,7 +67,6 @@ export function mountScreenLoop({
   const viewport = createViewport({ rows: output.rows || 24 });
   let painted = [];
   let promptReservation = PROMPT_ROWS;
-  let savedSink = null;
 
   const setPromptRows = (rows) => {
     // When the composer reports its painted row count, clamp it so the panel never jumps on erase
@@ -153,22 +153,6 @@ export function mountScreenLoop({
     return false;
   };
 
-  // A line oriented prompt needs the terminal to itself, so the sink is detached for the duration
-  // and the panel repaints afterwards. Building an in-panel input mode would mean a second
-  // implementation of the composer's key handling.
-  const suspend = () => {
-    if (!session.streamSink) return;
-    savedSink = session.streamSink;
-    delete session.streamSink;
-  };
-  const resume = () => {
-    if (savedSink) {
-      session.streamSink = savedSink;
-      savedSink = null;
-    }
-    paint();
-  };
-
   const hook = installInputHook({
     input,
     onKey: (key) => {
@@ -178,6 +162,12 @@ export function mountScreenLoop({
     },
     onMouse: (event) => dispatchMouse(event),
   });
+
+  const panelSuspend = createPanelSuspension({
+    session, output, hook, onRepaint: paint, onReset: () => { painted = []; },
+  });
+  const suspend = panelSuspend.suspend;
+  const resume = panelSuspend.resume;
 
   setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth })));
   paint();
