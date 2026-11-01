@@ -23,6 +23,11 @@ export const SETTINGS = [
     description: "Dynamic status bar at bottom of prompt", default: "on",
     values: ["on", "off"], keywords: ["status", "bar", "statusbar"],
   },
+  {
+    category: "Session", key: "minwidth", path: "session.pane_min_columns",
+    description: "Minimum terminal width to show side pane", default: 100,
+    min: 60, max: 200, keywords: ["minwidth", "min_columns", "pane_min_columns"],
+  },
 ];
 
 let cachedState = null;
@@ -81,6 +86,12 @@ export function loadSettings({ path: filePath = defaultSettingsPath(), readFile 
       if (entry.values && !entry.values.includes(val)) {
         warnings.push(`invalid value "${val}" for ${entry.key}, falling back to default "${entry.default}"`);
         resolved[entry.key] = entry.default;
+      } else if (typeof entry.min === "number" && typeof entry.max === "number") {
+        // Enforce numeric range so terminal narrowness cannot collapse or dominate the transcript
+        const num = Number(val);
+        const bad = !Number.isFinite(num) || num < entry.min || num > entry.max;
+        if (bad) warnings.push(`invalid value "${val}" for ${entry.key}, falling back to default "${entry.default}"`);
+        resolved[entry.key] = bad ? entry.default : Math.round(num);
       } else {
         resolved[entry.key] = val;
       }
