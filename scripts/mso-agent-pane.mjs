@@ -1,8 +1,9 @@
 import { border, paneRow } from "./tui/cells.mjs";
 import { latestTodos } from "./mso-agent-todos.mjs";
 import { parseEditResult } from "./mso-agent-edit-diff.mjs";
+import { formatContextContent, formatMcpContent } from "./mso-agent-pane-context.mjs";
 
-const KINDS = ["todos", "diff", "files", "off"];
+const KINDS = ["todos", "diff", "files", "mcp", "context", "off"];
 
 export function paneKinds() {
   return [...KINDS];
@@ -70,7 +71,7 @@ function resolveFiles(files, session) {
   return list;
 }
 
-function formatKindContent({ kind, session, todos, lastDiff, files }) {
+function formatKindContent({ kind, session, todos, lastDiff, files, mcpServers }) {
   if (kind === "todos") {
     const state = resolveTodos(todos, session);
     const items = Array.isArray(state?.items) ? state.items : [];
@@ -106,6 +107,14 @@ function formatKindContent({ kind, session, todos, lastDiff, files }) {
     return { title: "Changed files", emptyText: null, rows: fileList.map((f) => ({ text: f, tone: "normal" })) };
   }
 
+  if (kind === "mcp") {
+    return formatMcpContent({ session, mcpServers });
+  }
+
+  if (kind === "context") {
+    return formatContextContent({ session });
+  }
+
   return { title: "Pane off", emptyText: "pane is off", rows: [] };
 }
 
@@ -127,6 +136,7 @@ function styleTone(line, tone, { colors, cDim, cCyan, cErr, cBlue, cBold }) {
  *   todos?: any,
  *   lastDiff?: any,
  *   files?: any,
+ *   mcpServers?: any,
  *   colors?: any,
  *   width?: number,
  *   rows?: number,
@@ -138,6 +148,7 @@ export function paneLines({
   todos = null,
   lastDiff = null,
   files = null,
+  mcpServers = null,
   colors = {},
   width = 40,
   rows = 24,
@@ -157,7 +168,14 @@ export function paneLines({
     cBlue: hasColors ? (colors.blue || "") : "",
   };
 
-  const { title, emptyText, rows: contentRows } = formatKindContent({ kind, session, todos, lastDiff, files });
+  const { title, emptyText, rows: contentRows } = formatKindContent({
+    kind,
+    session,
+    todos,
+    lastDiff,
+    files,
+    mcpServers,
+  });
   const topBorder = palette.cDim ? `${palette.cDim}${border(widths, "top")}${palette.cReset}` : border(widths, "top");
   const midBorder = palette.cDim ? `${palette.cDim}${border(widths, "mid")}${palette.cReset}` : border(widths, "mid");
   const botBorder = palette.cDim ? `${palette.cDim}${border(widths, "bottom")}${palette.cReset}` : border(widths, "bottom");
