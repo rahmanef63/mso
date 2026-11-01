@@ -18,6 +18,7 @@ export const HELP_LINES = [
   "  /todos [--all]          show session checklist from todo_write",
   "  /pane [kind]            cycle or set side pane (todos, diff, files, off)",
   "  /keybind [sub]          view keybindings (sub: reset, conflicts)",
+  "  /settings [key] [val]   view or set TUI preferences (sub: reset)",
   "  /compact                force context compaction and archive history",
   "  /statusbar [on|off]     toggle compact dynamic status line",
   "  /reasoning [on|off]     toggle per-turn reasoning token metrics (/reasoning on|off)",

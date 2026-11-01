@@ -19,6 +19,7 @@ import { handleInspectCommand } from "./mso-agent-cmd-inspect.mjs";
 import { handleSessionCommand } from "./mso-agent-cmd-session.mjs";
 import { handleJobsCommand } from "./mso-agent-jobs.mjs";
 import { handleTerminalCommand } from "./mso-agent-cmd-terminal.mjs";
+import { handleSettingsCommand } from "./mso-agent-cmd-settings.mjs";
 import { createPrinter } from "./mso-agent-print.mjs";
 
 export { SHARE_UNAVAILABLE_MESSAGE, buildExportArgv };
@@ -105,6 +106,7 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
 
   if (cmd === "/jobs") return handleJobsCommand(ctx, args);
   if (cmd === "/terminal" || cmd === "/term") return handleTerminalCommand(ctx, args);
+  if (cmd === "/settings" || cmd === "/setting") return handleSettingsCommand(ctx, args);
 
   switch (cmd) {
     case "/help":
