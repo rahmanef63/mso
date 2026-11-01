@@ -14,7 +14,13 @@ describe("shell graph loading boundaries", () => {
     expect(read("components/shared/graph-canvas.tsx")).toContain('import "@xyflow/react/dist/style.css"');
   });
   it("keeps lock protection, notification plumbing and clipboard capture eager", () => {
-    expect(read("frontend/slices/appshell/features/lock-screen/index.ts")).toContain('from "./components/lock-screen"');
+    // The invariant is that auto-lock is ARMED at boot, not that the curtain's markup ships in the
+    // first-load bundle. The timer moved to appshell/provider (useIdleAutoLock) precisely so the
+    // presentation can be deferred without deferring the protection.
+    expect(read("frontend/slices/appshell/provider/app-shell.tsx")).toContain("useIdleAutoLock()");
+    expect(read("frontend/slices/appshell/lib/use-idle-auto-lock.ts")).toContain("setTimeout(lock");
+    expect(read("frontend/slices/appshell/lib/use-idle-auto-lock.ts")).toContain("autoLockMinutes");
+    expect(read("frontend/slices/appshell/features/lock-screen/index.ts")).not.toContain('from "./components/lock-screen"');
     expect(read("frontend/slices/appshell/features/notifications/index.ts")).toContain('from "./components/toast-host"');
     const clipboard = read("frontend/slices/appshell/features/clipboard/components/clipboard-overlay.tsx");
     expect(clipboard).toContain("useEffect(() => startClipboardCapture(), [])");

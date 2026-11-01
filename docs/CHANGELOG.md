@@ -14,7 +14,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `tui` stop the panel erasing the slash menu, and keep the banner ASCII art
+- `tui` stop the panel erasing the slash menu, and keep the banner ASCII art (#221)
 - `security` validate the model half of a provider/model ref
 - `security` read only .message from a caught error, never stringify it
 - `ci` check out full history, or the changelog gate fails on every run
@@ -24,6 +24,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `docs` regenerate the changelog after the #215 squash (#216)
 - `security` one patched minimatch, a working scanner lane, and an honest perf baseline (#215)
 - `tui` an approval prompt must leave the alternate screen, or it is erased before it is read (#213)
+
+**Faster**
+
+- `shell` ship artwork at the size it renders, not 256x256
+- `shell` defer the lock curtain, keeping its timer eager
 
 ## 2026-10-31
 

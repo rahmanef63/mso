@@ -3,6 +3,7 @@
 import { useEffect, useMemo, type ComponentType, type ReactNode } from "react";
 import { OsDesktop } from "../components/desktop";
 import { configureWindowTitle, startWindowTitleSync } from "../lib/window-title";
+import { useIdleAutoLock } from "../lib/use-idle-auto-lock";
 import { AppRegistryProvider } from "../lib/registry";
 import { ResponsiveProvider } from "../responsive/responsive-provider";
 import { BrandProvider } from "../registry/brand";
@@ -41,6 +42,10 @@ export function AppShell({ manifest }: { manifest: ShellManifest }) {
     configureWindowTitle({ suffix: manifest.brand.name });
     startWindowTitleSync();
   }, [manifest.brand.name]);
+
+  // Idle auto-lock is armed here, not in the lock-screen component: the component may be
+  // deferred for bundle reasons, its protection may not.
+  useIdleAutoLock();
   const providers = features
     .map((f) => f.provider)
     .filter((p): p is ComponentType<{ children: ReactNode }> => Boolean(p));

@@ -40,20 +40,25 @@ describe("Eager bundle boundaries", () => {
     expect(alfaBarrel).toContain("alfa-run-state");
   });
 
-  it("defers widgets and shortcut-help while keeping lock-screen eager for security boundary", () => {
+  it("defers widgets, shortcut-help and the lock-screen curtain, but never the auto-lock timer", () => {
     const widgetsIndex = readFileSync("frontend/slices/appshell/features/widgets/index.ts", "utf8");
     const shortcutIndex = readFileSync("frontend/slices/appshell/features/shortcut-help/index.ts", "utf8");
     const lockIndex = readFileSync("frontend/slices/appshell/features/lock-screen/index.ts", "utf8");
-    const lockScreenSource = readFileSync("frontend/slices/appshell/features/lock-screen/components/lock-screen.tsx", "utf8");
+    const provider = readFileSync("frontend/slices/appshell/provider/app-shell.tsx", "utf8");
+    const timer = readFileSync("frontend/slices/appshell/lib/use-idle-auto-lock.ts", "utf8");
 
     expect(widgetsIndex).toContain("DeferredDesktopWidgets");
     expect(widgetsIndex).toContain("DeferredMobileWidgets");
     expect(shortcutIndex).toContain("DeferredShortcutHelp");
 
-    // Security invariant: lock-screen remains eagerly mounted to preserve idle auto-lock
-    // as enforced by frontend/slices/organization/bundle-boundary.test.ts
-    expect(lockIndex).toContain('from "./components/lock-screen"');
-    expect(lockScreenSource).toContain("autoLockMinutes");
-    expect(lockScreenSource).toContain("setTimeout(lock");
+    // Security invariant, restated: the curtain may be deferred because it is only presentation.
+    // The idle timer must stay eager, mounted from the shell provider that always renders.
+    expect(lockIndex).toContain("DeferredLockScreen");
+    expect(lockIndex).not.toContain('from "./components/lock-screen"');
+    expect(provider).toContain("useIdleAutoLock()");
+    expect(timer).toContain("autoLockMinutes");
+    expect(timer).toContain("setTimeout(lock");
+    // And the deferred wrapper must still gate on the lock state, not mount unconditionally.
+    expect(readFileSync("frontend/slices/appshell/features/lock-screen/deferred.tsx", "utf8")).toContain("useLocked()");
   });
 });
