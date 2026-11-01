@@ -59,4 +59,36 @@ describe("changelog staleness gate", () => {
     expect(fresh.status, "after regenerating the gate must pass").toBe(0);
     expect(fresh.stdout + fresh.stderr).toMatch(/current/i);
   });
+
+  // A squash merge appends " (#NNN)" to the subject, so the same change can land in
+  // history twice on one day — once as the original commit, once as the squash that
+  // replaced it. Listing it twice is what made this file stale after every squash.
+  it("collapses a squash duplicate but keeps a PR number that stands alone", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-changelog-squash-"));
+    roots.push(root);
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, "scripts/gen-changelog.mjs"), readFileSync(path.join(ROOT, "scripts/gen-changelog.mjs")));
+
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const commit = (file: string, subject: string) => {
+      writeFileSync(path.join(root, file), file);
+      git("init", "-q");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "add", "-A");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", subject);
+    };
+    git("init", "-q");
+    // Same change, twice: the original and the squash that replaced it.
+    commit("a.txt", "feat(x): a real change");
+    commit("b.txt", "feat(x): a real change (#999)");
+    // A different change whose PR number is its only occurrence.
+    commit("c.txt", "feat(y): only once (#777)");
+
+    expect(spawnSync(process.execPath, ["scripts/gen-changelog.mjs"], { cwd: root, encoding: "utf8" }).status).toBe(0);
+    const out = readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
+
+    expect(out.match(/a real change/g)?.length, "the duplicate must appear once").toBe(1);
+    expect(out, "the collapsed line drops the PR suffix").not.toContain("a real change (#999)");
+    expect(out, "a lone PR number must survive, it links the line to its discussion").toContain("only once (#777)");
+  });
 });

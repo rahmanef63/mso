@@ -89,6 +89,25 @@ for (const [date, list] of byDay) {
   );
 }
 
+// A squash merge appends " (#NNN)" to the subject, so the same change can appear twice
+// on one day: once as the original commits, once as the squashed commit that replaced
+// them. The bare number tells the reader nothing the line does not already say, so when
+// a subject with a PR number collides with the same subject without one, keep the bare
+// form. Only collisions are touched — a PR number that is the only occurrence survives,
+// because it is the one fact linking a line to its discussion.
+for (const [date, list] of byDay) {
+  const bare = new Set(list.filter((c) => !/\(#\d+\)$/.test(c.subject)).map((c) => c.subject));
+  const hasPrSuffix = (s) => /^(.*\S)\s+\(#\d+\)$/.exec(s);
+  byDay.set(
+    date,
+    list.filter((c) => {
+      const m = hasPrSuffix(c.subject);
+      // Keep the suffixed row only when nothing bare describes the same change.
+      return !(m && bare.has(m[1]));
+    }),
+  );
+}
+
 const days = [...byDay.keys()].sort().reverse().slice(0, MAX_DAYS);
 const out = [
   "# Changelog",
