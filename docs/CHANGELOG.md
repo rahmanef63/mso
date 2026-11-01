@@ -11,11 +11,27 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `ci` three security scanners that actually run, and lanes that fail closed (#210)
 - `tui` the panel is the default, and the banner lives in the transcript (#209)
 
+**Fixed**
+
+- `tui` an approval prompt must leave the alternate screen, or it is erased before it is read (#213)
+- `tooling` align the postcss override with its devDependency, so npx runs
+- `ci` give semgrep a writable HOME, which --user removed
+- `ci` run every security scanner as the runner's uid, not root
+- `deps` one minimatch, the patched one, via the existing override block
+
+**Faster**
+
+- `baseline` regenerate on an idle host, which the old one was not
+
+**Docs**
+
+- `dev` regenerate the changelog before the commit, not after the gate
+- `progress` correct why CI looks silent on a feature branch
+
 ## 2026-10-31
 
 **Added**
 
-- `tui` a suspended panel really leaves the alternate screen, so an approval is readable
 - `tui` install the print sink the last change forgot, and migrate the modules that still print (#206)
 - `tui` a suspended panel really leaves the alternate screen, so an approval is readable (#205)
 - `tui` mid-turn writes go into the panel, and prompts suspend it instead of fighting it (#204)
@@ -30,6 +46,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` allow the socket-policy route-test fixture in the history scan
 - `tui` the two bugs a real pty found, and the test that found them (#201)
 - `ci` apply the same parser workaround to the last two mock call sites (#196)
 - `ci` stop the semgrep scan failing on a generic argument in a test mock (#195)
@@ -45,6 +62,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `progress` record the LCP measurement, the eager-graph trim and the traps
 - `tui` a handover for the panel track, so a pause costs nothing (#208)
 - handover for the next session, plus the entry this session was missing
 - `tui` name the four things between here and an alternate screen default (#199)

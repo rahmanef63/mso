@@ -108,11 +108,12 @@
     "node-pty"
   ],
   "overrides": {
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.29",
     "nanoid": "^3.3.18",
     "js-yaml": "^4.3.2",
     "micromatch": "npm:picomatch@2.3.2",
-    "zod": "^4.6.6"
+    "zod": "^4.6.6",
+    "minimatch": "^11.0.3"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

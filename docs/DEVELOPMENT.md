@@ -179,6 +179,27 @@ TypeScript 7. Remove an ignore only after the isolated candidate passes typechec
 checks, and the out-of-tree production build. This is a compatibility hold, not a permanent version
 pin and not an exemption from Dependabot security updates.
 
+### Security scanners run as your own uid, never as root
+
+Every `docker run` in `.github/workflows/security-core.yml` and any local reproduction of one needs
+`--user "$(id -u):$(id -g)"`. This is not tidiness.
+
+This repository is a **partial clone** (`blob:none` in `.git/config`). Run gitleaks as root against
+a read-write mount and its `git` sees missing blobs, decides the repo is corrupt, promisor-fetches
+during the scan, and rewrites refs and logs — as root. Observed once: 67 files under `.git` became
+root-owned, `git commit` then failed with `unable to append to '.git/logs/HEAD': Permission denied`,
+and `sudo` here needs an interactive password.
+
+Recovery, without sudo, when it does happen:
+
+```
+docker run --rm -v "$PWD/.git:/g" alpine chown -R "$(id -u):$(id -g)" /g
+git fsck --no-progress --connectivity-only   # dangling commits are normal; errors are not
+```
+
+Prefer `:ro` on the mount for scanners that only read, and `--network=none` for gitleaks, which
+never needs the network once the clone is complete.
+
 ## Deploy — and the build hazard ⚠️
 
 mso deploys via **systemd on the VPS**, not `git push` (no webhook, no Dokploy/
@@ -201,6 +222,19 @@ tail -f ~/.mso/self-update.log     # success ends with UPDATE OK
 
 A direct manual build-and-replace remains available for recovery, but it bypasses the
 release gates and should not be the normal path.
+
+**Committing by hand instead of through `ship`.** The changelog lists commit subjects, so it
+can only be regenerated *after* the commit exists — which means any commit touching `docs/`
+leaves `docs/CHANGELOG.md` stale by default. Run `node scripts/gen-changelog.mjs` and commit
+the result **before** considering the change finished, not after the gate tells you: every
+`docs/` commit here has cost an extra round trip for forgetting exactly this. `ship` does it
+for you by folding the regenerated file into the same commit with `--amend`; if you commit by
+hand, expect two commits or one extra `--amend`.
+
+A `docs/`-only commit is not exempt. The generator lists every commit subject except the ones
+that only regenerate this file, so a commit that edits prose still adds a line and still leaves
+`docs/CHANGELOG.md` stale. That is precisely how this rule got written: three separate
+`docs/`-only commits in one session each needed a second commit to regenerate the file.
 
 **`bun run build` now refuses when a live Next/MSO runtime serves the same checkout.**
 `next start` loads the build manifest at boot; overwriting `.next` under the live
