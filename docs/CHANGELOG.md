@@ -16,6 +16,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `contributing` how to run the CI work locally before opening a PR
 - `gates` the green full run, and the parallel-run trap
 
 ## 2026-10-31
