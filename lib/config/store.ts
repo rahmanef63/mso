@@ -62,6 +62,20 @@ export function safeProviderId(value: string): string {
   return value;
 }
 
+// A model id is not free text: it is spliced into a provider request body and, on some
+// providers, into a path. Nothing validated the model half of a `provider/model` ref — only the
+// provider was checked — so a config value could carry anything into an outbound request.
+// Deliberately permissive about the shapes real catalogues use (OpenRouter's `vendor/model`,
+// `:free` suffixes, dots and underscores) and strict about everything else.
+const MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:\/-]{0,199}$/;
+
+export function safeModelId(value: string): string {
+  if (!MODEL_ID_RE.test(value) || RESERVED_RECORD_KEYS.has(value) || value.includes("..")) {
+    throw new Error("invalid model id");
+  }
+  return value;
+}
+
 function recordValue<T>(record: Record<string, T> | undefined, key: string): T | undefined {
   return Object.entries(record ?? {}).find(([name]) => name === key)?.[1];
 }
@@ -98,7 +112,11 @@ export async function writeConfig(patch: OsConfig, tenant?: string): Promise<voi
 export async function resolveModelRef(tenant?: string): Promise<string> {
   const c = await readConfig(tenant);
   const provider = safeProviderId(c.provider || DEFAULT_PROVIDER);
-  return `${provider}/${c.model || defaultModelFor(provider)}`;
+  // Validated here as well as at the parse boundary, because this is the path a stored config
+  // takes into an outbound request. Throwing on a bad value is correct: the caller turns it into
+  // a 400, and a model id that cannot be sent is not a model id.
+  const model = safeModelId(c.model || defaultModelFor(provider));
+  return `${provider}/${model}`;
 }
 
 export function hostCredentialStore() {

@@ -83,3 +83,47 @@ describe("config record safety", () => {
     expect(Object.prototype).not.toHaveProperty("custom-two");
   });
 });
+
+// The provider half of a `provider/model` ref was validated; the model half was not, so a stored
+// config value could carry arbitrary text into an outbound request body. CodeQL flagged that as
+// js/file-access-to-http (config -> model id -> request). This pins the validation, and the
+// legitimate catalogue shapes it must keep accepting.
+describe("model id safety", () => {
+  it("accepts the shapes real catalogues use", async () => {
+    const { safeModelId } = await load();
+    for (const ok of [
+      "gpt-6.1-sol",
+      "claude-opus-5-5-high",
+      "meta-llama/llama-4-405b",       // OpenRouter vendor/model
+      "deepseek-v4.1-flash:free",      // OpenRouter :free suffix
+      "Qwen2.5_Coder_32B",
+      "o4-mini",
+    ]) {
+      expect(safeModelId(ok), ok).toBe(ok);
+    }
+  });
+
+  it("rejects anything that would travel into a request", async () => {
+    const { safeModelId } = await load();
+    for (const bad of [
+      "",                                  // empty
+      " model",                            // leading space
+      "model\ninjected",                   // newline
+      "model\r\nX-Injected: 1",            // header-ish injection
+      "../../etc/passwd",                  // traversal
+      "a/../b",
+      "model?x=1",                         // query injection
+      "model#frag",
+      "__proto__",                         // reserved
+      "x".repeat(201),                     // over the length cap
+    ]) {
+      expect(() => safeModelId(bad), JSON.stringify(bad)).toThrow(/invalid model id/);
+    }
+  });
+
+  it("rejects a bad stored model before it reaches a request", async () => {
+    const { writeConfig, resolveModelRef } = await load();
+    await writeConfig({ provider: "custom-one", model: "bad\nmodel" });
+    await expect(resolveModelRef()).rejects.toThrow(/invalid model id/);
+  });
+});
