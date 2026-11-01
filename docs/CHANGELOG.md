@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `docs` collapse squash duplicates in the changelog instead of listing twice
 - `ci` run the changelog gate in CI, where it was never running
 - `docs` regenerate the changelog, and stop squash merges from re-breaking it
 - `docs` regenerate the changelog after the #215 squash (#216)
