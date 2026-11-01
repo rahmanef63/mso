@@ -13,7 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `docs` regenerate the changelog after the #215 squash
+- `docs` regenerate the changelog after the #215 squash (#216)
 - `security` one patched minimatch, a working scanner lane, and an honest perf baseline (#215)
 - `tui` an approval prompt must leave the alternate screen, or it is erased before it is read (#213)
 
