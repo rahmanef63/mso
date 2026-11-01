@@ -1,5 +1,5 @@
 import process from "node:process";
-import { chromeLines, tabAtPoint } from "./mso-agent-chrome.mjs";
+import { chromeLines, tabAtPoint, tabRailLines, tabRailWidth } from "./mso-agent-chrome.mjs";
 import { composerSeparator } from "./mso-agent-layout.mjs";
 import { disableMouse, enableMouse, handleMouse } from "./mso-agent-mouse.mjs";
 import { installInputHook } from "./mso-agent-input-hook.mjs";
@@ -26,7 +26,9 @@ export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
  *   colors?: any,
  *   getSessions?: () => Array<any>,
  *   onTabClick?: (sessionId: string) => void | Promise<void>,
+ *   composer?: any,
  *   preamble?: (() => Array<string> | null) | null,
+ *   tabsLayout?: string | null,
  * }} options
  */
 export function mountScreenLoop({
@@ -39,6 +41,7 @@ export function mountScreenLoop({
   onTabClick,
   composer = null,
   preamble = null,
+  tabsLayout = null,
 } = {}) {
   if (!enabled || !session) {
     return {
@@ -49,7 +52,7 @@ export function mountScreenLoop({
       suspend() {},
       resume() {},
       follow() {},
-      geometry() { return { cols: 80, rows: 24, panel: [], viewRows: 0, tabRowY: 0, pWidth: 0, transWidth: 80, kind: null, promptRows: PROMPT_ROWS }; },
+      geometry() { return { cols: 80, rows: 24, panel: [], viewRows: 0, tabRowY: 0, pWidth: 0, transWidth: 80, railWidth: 0, kind: null, promptRows: PROMPT_ROWS }; },
       setPromptRows() {},
       dispose() {},
     };
@@ -90,27 +93,31 @@ export function mountScreenLoop({
   const geometry = (reservation = promptReservation) => {
     const cols = Math.max(20, Number(output.columns) || 80);
     const rows = Math.max(6, Number(output.rows) || 24);
-    const chrome = chromeLines({ session, sessions: getSessions(), activeId: session.agentSession?.id, colors, width: cols, rows: null });
+    const isVertical = (tabsLayout || session?.tabsLayout || session?.tabLayout) === "vertical";
+    const railWidth = isVertical ? tabRailWidth(cols) : 0;
+    const chromeSessions = railWidth > 0 ? [] : getSessions();
+    const chrome = chromeLines({ session, sessions: chromeSessions, activeId: session.agentSession?.id, colors, width: cols, rows: null });
     const separator = composerSeparator(session, colors, cols);
     const hasSep = typeof separator === "string" && separator.length > 0;
     // The separator belongs to the panel in this mode; the composer is told to draw none.
     const panel = [hasSep ? separator : "", ...chrome].filter((line) => line.length > 0);
     const viewRows = Math.max(0, rows - panel.length - reservation);
-    const tabRowY = viewRows + (hasSep ? 1 : 0);
+    const tabRowY = railWidth > 0 ? -1 : viewRows + (hasSep ? 1 : 0);
     const kind = session?.paneKind && session.paneKind !== "off" ? session.paneKind : null;
     const pWidth = kind ? paneWidth(cols) : 0;
-    const transWidth = cols - pWidth;
-    return { cols, rows, panel, viewRows, tabRowY, pWidth, transWidth, kind, promptRows: reservation };
+    const transWidth = cols - pWidth - railWidth;
+    return { cols, rows, panel, viewRows, tabRowY, pWidth, transWidth, railWidth, kind, promptRows: reservation };
   };
 
   // Repaints from the top of the screen and leaves the cursor where the composer expects to start,
   // because the composer paints relative to the cursor and cannot be told where to begin.
   const paint = () => {
     if (output?.isTTY !== true) return;
-    const { panel, viewRows, pWidth, transWidth, kind } = geometry();
+    const { panel, viewRows, pWidth, transWidth, railWidth, kind } = geometry();
     const body = renderViewport(viewport, { colors, width: transWidth, rows: viewRows });
     const side = pWidth > 0 ? paneLines({ kind, session, colors, width: pWidth, rows: viewRows }) : [];
-    const joined = pWidth > 0 ? body.map((line, i) => `${line}${side[i] || ""}`) : body;
+    const rail = railWidth > 0 ? tabRailLines(getSessions(), session?.agentSession?.id, { colors, width: railWidth, rows: viewRows }) : [];
+    const joined = body.map((line, i) => `${rail[i] || ""}${line}${side[i] || ""}`);
     const frame = [...joined, ...panel, ""];
     output.write("\x1b[H");
     painted = writeFrame(output, painted, frame);
@@ -142,13 +149,14 @@ export function mountScreenLoop({
       return false;
     }
     if (event.kind === "click") {
-      const { cols, tabRowY } = geometry();
-      if (event.y === tabRowY) {
-        const targetId = tabAtPoint(getSessions(), session?.agentSession?.id, { x: event.x, y: event.y, width: cols, tabRow: tabRowY });
-        if (targetId && typeof onTabClick === "function") {
-          Promise.resolve(onTabClick(targetId)).then(paint).catch(() => {});
-          return true;
-        }
+      const { cols, tabRowY, railWidth, viewRows } = geometry();
+      const hitOpts = railWidth > 0
+        ? { x: event.x, y: event.y, width: railWidth, rows: viewRows, orientation: "vertical" }
+        : { x: event.x, y: event.y, width: cols, tabRow: tabRowY, orientation: "horizontal" };
+      const targetId = tabAtPoint(getSessions(), session?.agentSession?.id, hitOpts);
+      if (targetId && typeof onTabClick === "function") {
+        Promise.resolve(onTabClick(targetId)).then(paint).catch(() => {});
+        return true;
       }
       return true;
     }
