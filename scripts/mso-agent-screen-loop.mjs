@@ -71,12 +71,14 @@ export function mountScreenLoop({
   const setPromptRows = (rows) => {
     // When the composer reports its painted row count, clamp it so the panel never jumps on erase
     // and never gets pushed off screen by a tall draft.
+    //
+    // Deliberately does NOT repaint here. The composer calls this WHILE it is painting its own draft
+    // and completion menu, so painting the panel from home would erase both: pressing "/" showed the
+    // draft and the whole command menu vanish. The reservation is still updated, and the next
+    // keypress or sync repaints with the new geometry.
     const termRows = Math.max(6, Number(output.rows) || 24);
     const clamped = clampPromptRows(rows, termRows);
-    if (clamped !== promptReservation) {
-      promptReservation = clamped;
-      paint();
-    }
+    if (clamped !== promptReservation) promptReservation = clamped;
   };
 
   if (composer) {

@@ -8,10 +8,12 @@ export function withPreamble(preamble, lines) {
 }
 
 // Collects banner output through printAgentBanner's injectable print, so nothing is written to the
-// terminal before the panel owns it. `keep` trims the result to its last few non-empty lines: the
-// full banner is 31 lines on a 100 column terminal, which would occupy most of a 30 row viewport and
-// push the conversation out. The tail is the part that carries information (tools, skills, how to get
-// help), so the artwork is what goes.
+// terminal before the panel owns it.
+//
+// Do NOT trim this. An earlier version kept only the last four lines on the theory that a 31 line
+// banner crowds a 30 row viewport. In practice the banner is transcript content and scrolls away
+// like anything else, so trimming it removed the ASCII art, which is the first thing the banner
+// prints and the thing that makes the app look like itself.
 export function captureBanner(printBanner, s, agentSession, { keep = 0 } = {}) {
   const lines = [];
   printBanner(s, agentSession, { print: (line = "") => lines.push(String(line)) });

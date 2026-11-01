@@ -52,7 +52,7 @@ async function main() {
       : (permissionMode(restartUi.permission)?.id || "ask");
     const [s, agentSession] = await Promise.all([state(), startupSession(requested, restartSessionId)]);
     if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
-    const bannerLines = altScreen.ok ? captureBanner(printBanner, s, agentSession, { keep: 4 }) : (printBanner(s, agentSession), null);
+    const bannerLines = altScreen.ok ? captureBanner(printBanner, s, agentSession) : (printBanner(s, agentSession), null);
     session = {
       state: s,
       agentSession,
