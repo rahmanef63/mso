@@ -126,7 +126,7 @@ export function mountScreenLoop({
 
   const sync = () => {
     commitStream(viewport);
-    setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth })));
+    setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" })));
     paint();
   };
 
@@ -179,7 +179,7 @@ export function mountScreenLoop({
   const suspend = panelSuspend.suspend;
   const resume = panelSuspend.resume;
 
-  setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth })));
+  setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" })));
   paint();
 
   const loop = {

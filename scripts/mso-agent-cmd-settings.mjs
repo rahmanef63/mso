@@ -23,6 +23,8 @@ export async function handleSettingsCommand(ctx, args = []) {
     if (session) {
       if (settings.pane) session.paneKind = settings.pane;
       if (settings.statusbar) session.statusBar = settings.statusbar === "on";
+      if (settings.grouping) session.grouping = settings.grouping;
+      session.screenLoop?.sync?.();
     }
     print(`reset settings to defaults from ${filePath}`);
     printBlock(formatSettingsTable(SETTINGS, settings, { colors, width }));
@@ -71,6 +73,11 @@ export async function handleSettingsCommand(ctx, args = []) {
   if (session) {
     if (entry.key === "pane") session.paneKind = requestedValue;
     if (entry.key === "statusbar") session.statusBar = requestedValue === "on";
+    if (entry.key === "grouping") {
+      session.grouping = requestedValue;
+      // Repaint immediately so grouping change reflects on screen without restart
+      session.screenLoop?.sync?.();
+    }
   }
 
   print(`${colors.cyan || ""}setting ${entry.key} = ${requestedValue}${colors.reset || ""}`);
@@ -84,4 +91,5 @@ export function applySettings(session, settings = getSettings()) {
   if (!session || !settings) return;
   if (settings.pane) session.paneKind = settings.pane;
   if (settings.statusbar) session.statusBar = settings.statusbar === "on";
+  if (settings.grouping) session.grouping = settings.grouping;
 }

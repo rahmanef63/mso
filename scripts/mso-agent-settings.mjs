@@ -23,6 +23,11 @@ export const SETTINGS = [
     description: "Dynamic status bar at bottom of prompt", default: "on",
     values: ["on", "off"], keywords: ["status", "bar", "statusbar"],
   },
+  {
+    category: "Session", key: "grouping", path: "session.grouping",
+    description: "Collapse repeated tool calls in transcript", default: "none",
+    values: ["none", "auto"], keywords: ["group", "grouping", "collapse"],
+  },
 ];
 
 let cachedState = null;
