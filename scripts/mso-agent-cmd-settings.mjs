@@ -23,6 +23,8 @@ export async function handleSettingsCommand(ctx, args = []) {
     if (session) {
       if (settings.pane) session.paneKind = settings.pane;
       if (settings.statusbar) session.statusBar = settings.statusbar === "on";
+      // Propagate verbosity to session so status footer updates immediately
+      if (settings.verbosity) session.verbosity = settings.verbosity;
     }
     print(`reset settings to defaults from ${filePath}`);
     printBlock(formatSettingsTable(SETTINGS, settings, { colors, width }));
@@ -71,6 +73,8 @@ export async function handleSettingsCommand(ctx, args = []) {
   if (session) {
     if (entry.key === "pane") session.paneKind = requestedValue;
     if (entry.key === "statusbar") session.statusBar = requestedValue === "on";
+    // Propagate verbosity to session so status footer updates immediately
+    if (entry.key === "verbosity") session.verbosity = requestedValue;
   }
 
   print(`${colors.cyan || ""}setting ${entry.key} = ${requestedValue}${colors.reset || ""}`);
@@ -84,4 +88,6 @@ export function applySettings(session, settings = getSettings()) {
   if (!session || !settings) return;
   if (settings.pane) session.paneKind = settings.pane;
   if (settings.statusbar) session.statusBar = settings.statusbar === "on";
+  // Apply saved verbosity preference to session at startup
+  if (settings.verbosity) session.verbosity = settings.verbosity;
 }

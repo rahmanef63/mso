@@ -23,6 +23,12 @@ export const SETTINGS = [
     description: "Dynamic status bar at bottom of prompt", default: "on",
     values: ["on", "off"], keywords: ["status", "bar", "statusbar"],
   },
+  {
+    category: "Session", key: "verbosity", path: "session.verbosity",
+    // Honesty rule: controls footer density only, not transcript detail
+    description: "Status footer density (low, medium, high); does not affect transcript detail", default: "high",
+    values: ["low", "medium", "high"], keywords: ["verbosity", "status", "footer", "density"],
+  },
 ];
 
 let cachedState = null;
