@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` the opencode-inspired batch, nine branches in one change
 - `tui` pin a pane slot without losing the cycle (#229)
 - `tui` a preferences registry, and settings that survive a restart (#231)
 - `tui` a vertical tab rail, from the same layout the horizontal row uses (#230)

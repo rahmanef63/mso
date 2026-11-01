@@ -11,19 +11,8 @@ import {
 
 // Preferences registry: non-keybind TUI preferences with live behavior today.
 // Evaluated candidates without active consumers are omitted to avoid phantom settings.
-export const SETTINGS = [
-  {
-    category: "Session", key: "pane", path: "session.pane",
-    description: "Side pane content to display", default: "off",
-    values: ["todos", "diff", "files", "mcp", "context", "off"],
-    keywords: ["sidebar", "panel", "paneKind"],
-  },
-  {
-    category: "Session", key: "statusbar", path: "session.status_bar",
-    description: "Dynamic status bar at bottom of prompt", default: "on",
-    values: ["on", "off"], keywords: ["status", "bar", "statusbar"],
-  },
-];
+import { SETTINGS } from "./mso-agent-settings-entries.mjs";
+export { SETTINGS };
 
 let cachedState = null;
 const readTextFile = /** @type {(p: string, enc?: string) => string} */ ((p, enc = "utf8") => fs.readFileSync(p, enc));
@@ -81,6 +70,12 @@ export function loadSettings({ path: filePath = defaultSettingsPath(), readFile 
       if (entry.values && !entry.values.includes(val)) {
         warnings.push(`invalid value "${val}" for ${entry.key}, falling back to default "${entry.default}"`);
         resolved[entry.key] = entry.default;
+      } else if (typeof entry.min === "number" && typeof entry.max === "number") {
+        // Enforce numeric range so terminal narrowness cannot collapse or dominate the transcript
+        const num = Number(val);
+        const bad = !Number.isFinite(num) || num < entry.min || num > entry.max;
+        if (bad) warnings.push(`invalid value "${val}" for ${entry.key}, falling back to default "${entry.default}"`);
+        resolved[entry.key] = bad ? entry.default : Math.round(num);
       } else {
         resolved[entry.key] = val;
       }
