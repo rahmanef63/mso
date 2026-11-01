@@ -20,6 +20,7 @@ import { createQueue, dequeue } from "./mso-agent-queue.mjs";
 import { pendingImageBlock } from "./mso-agent-image.mjs";
 import { altScreenRequested, startAltScreen } from "./mso-agent-altscreen.mjs";
 import { captureBanner } from "./mso-agent-banner-lines.mjs";
+import { applySettings } from "./mso-agent-cmd-settings.mjs";
 import { visibleSessionRows } from "./mso-agent-sessions.mjs";
 import { chromeLines } from "./mso-agent-chrome.mjs";
 import { switchToSession } from "./mso-agent-cmd-session.mjs";
@@ -64,6 +65,7 @@ async function main() {
       // Ephemeral queue: held only in memory for this TUI process and not persisted to server state.
       queue: createQueue(),
     };
+    applySettings(session); // Saved preferences, applied before the first frame.
     let recentSessions = session.agentSession ? [session.agentSession] : [];
     // Refreshed after a switch, not per keystroke: a tab row must not cost a network call per render.
     const refreshSessions = () => { listCliSessions(20).then((rows) => { recentSessions = visibleSessionRows(rows); }).catch(() => {}); };
