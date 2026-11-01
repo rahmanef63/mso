@@ -33,6 +33,7 @@ export function tabLayout(sessions, activeId = null, { colors = {}, width = 80 }
     const name = rawName || "agent";
     const id = String(s?.id || s?.agentSession?.id || "");
     const isActive = activeId != null && (String(activeId) === id || String(activeId).replace(/^@/, "") === name);
+    // State marker omitted: single glyph cannot honestly reflect activity without live background signals.
     const marker = isActive ? "● " : "";
     const plainText = `${marker}@${name}`;
     const styled = isActive ? `${cBold}${cBlue}${marker}@${name}${cReset}` : `${cDim}@${name}${cReset}`;
