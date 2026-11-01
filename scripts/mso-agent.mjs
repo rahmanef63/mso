@@ -136,7 +136,7 @@ async function main() {
       else if (action === "interrupt") rl.cancelCurrent({ echo: false });
     };
     process.on("SIGINT", onSigint);
-    const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd(), session);
+    const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd(), session, { settings: true, sessions: () => recentSessions });
     while (true) {
       if (interrupts.exitRequested) break;
       if (inboundRequestQueued) {
