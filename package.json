@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node scripts/check-test-toolchain.mjs && vitest run",
     "coverage": "node scripts/check-test-toolchain.mjs && vitest run --coverage",
-    "check": "node scripts/check-cycles.mjs && node scripts/check-architecture.mjs && node scripts/check-docs.mjs && node scripts/gen-comparison.mjs --check && node scripts/check-contrast.mjs && bun scripts/check-skill-flows.mjs && bun run check:instance-literals && bun run test:ci && bun run parity:nakama && bun run test:parity",
+    "check": "node scripts/check-cycles.mjs && node scripts/check-architecture.mjs && node scripts/check-docs.mjs && node scripts/gen-comparison.mjs --check && node scripts/gen-changelog.mjs --check && node scripts/check-contrast.mjs && bun scripts/check-skill-flows.mjs && bun run check:instance-literals && bun run test:ci && bun run parity:nakama && bun run test:parity",
     "audit": "node scripts/audit.mjs",
     "verify": "bun run typecheck && bun run lint && bun run coverage && bun run check && bun run audit",
     "pr:preflight": "bash scripts/pr-preflight.sh --full",
