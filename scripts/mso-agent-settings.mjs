@@ -23,6 +23,12 @@ export const SETTINGS = [
     description: "Dynamic status bar at bottom of prompt", default: "on",
     values: ["on", "off"], keywords: ["status", "bar", "statusbar"],
   },
+  {
+    category: "Tabs", key: "layout", path: "tabs.layout",
+    description: "Tab bar layout orientation", default: "horizontal",
+    values: ["horizontal", "vertical"],
+    keywords: ["sidebar", "rail", "tabs", "tabLayout"],
+  },
 ];
 
 let cachedState = null;

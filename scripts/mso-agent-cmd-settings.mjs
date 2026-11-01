@@ -23,6 +23,9 @@ export async function handleSettingsCommand(ctx, args = []) {
     if (session) {
       if (settings.pane) session.paneKind = settings.pane;
       if (settings.statusbar) session.statusBar = settings.statusbar === "on";
+      // Propagate reset tab layout so the running screen loop repaints with defaults
+      const tabsLayout = settings["tabs.layout"] ?? settings.layout;
+      if (tabsLayout) session.tabsLayout = tabsLayout;
     }
     print(`reset settings to defaults from ${filePath}`);
     printBlock(formatSettingsTable(SETTINGS, settings, { colors, width }));
@@ -71,6 +74,8 @@ export async function handleSettingsCommand(ctx, args = []) {
   if (session) {
     if (entry.key === "pane") session.paneKind = requestedValue;
     if (entry.key === "statusbar") session.statusBar = requestedValue === "on";
+    // Sync tab rail orientation immediately so users see layout change without restart
+    if (entry.key === "layout") session.tabsLayout = requestedValue;
   }
 
   print(`${colors.cyan || ""}setting ${entry.key} = ${requestedValue}${colors.reset || ""}`);
@@ -84,4 +89,7 @@ export function applySettings(session, settings = getSettings()) {
   if (!session || !settings) return;
   if (settings.pane) session.paneKind = settings.pane;
   if (settings.statusbar) session.statusBar = settings.statusbar === "on";
+  // The screen loop reads session.tabsLayout to switch between horizontal row and vertical rail
+  const tabsLayout = settings["tabs.layout"] ?? settings.layout;
+  if (tabsLayout) session.tabsLayout = tabsLayout;
 }
