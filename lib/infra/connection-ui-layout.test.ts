@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { CONNECTION_MANAGER_SCRIPT } from "./connection-ui";
 import { CONNECTION_MANAGER_STYLE } from "./connection-ui-style";
 import { INTEGRATION_BROWSER_SCRIPT } from "./setup-browser";
+import { INTEGRATION_FORM_STYLE } from "./setup-ui";
 
 it("uses the Settings master/detail navigation contract", () => {
   expect(CONNECTION_MANAGER_SCRIPT).toContain('aria-label","Integrations sections"');
@@ -54,8 +55,16 @@ it("exposes the demo-user panel and a reveal-only secret control", () => {
   expect(CONNECTION_MANAGER_SCRIPT).toContain('"/api/v1/integrations"');
   expect(CONNECTION_MANAGER_SCRIPT).toContain('mode:"reveal"');
   expect(CONNECTION_MANAGER_SCRIPT).toContain('navigator.clipboard.writeText');
-  expect(CONNECTION_MANAGER_SCRIPT).toContain('"Revealed — this read is logged."');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('"Revealed. This read is logged."');
   expect(CONNECTION_MANAGER_SCRIPT).toContain('setTimeout(clear,30000)');
   // The demo password is masked until asked for, exactly like a stored key.
   expect(CONNECTION_MANAGER_SCRIPT).toContain('secretControl({demoId:row.id,key:"password"');
+});
+
+it("declares the integration container query on .integration so manager, setup, and transfer stay responsive", () => {
+  expect(CONNECTION_MANAGER_STYLE).toContain(".integration{container:integration / inline-size");
+  expect(CONNECTION_MANAGER_STYLE).not.toContain(".integration.manager{container:integration");
+  expect(INTEGRATION_FORM_STYLE).toContain(".integration{container:integration / inline-size");
+  expect(INTEGRATION_FORM_STYLE).toContain("@container integration (max-width:37.5rem)");
+  expect(INTEGRATION_FORM_STYLE).toMatch(/@container\s+integration[^{]*\{[^}]*\.setup-grid\{[^}]*grid-template-columns:1fr/);
 });
