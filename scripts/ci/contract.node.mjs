@@ -4,7 +4,7 @@ import { mkdtemp, rm, readFile, stat, symlink, writeFile, mkdir } from 'node:fs/
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { planFor, verdict, exitFor } from './plan.mjs';
+import { anchorMounts, planFor, verdict, exitFor } from './plan.mjs';
 import { executeStep, childEnvironment } from './process.mjs';
 import { acquireLocks, privateDirectory } from './store.mjs';
 import { runPipeline, inspectRepository } from './runner.mjs';
@@ -20,10 +20,27 @@ test('fixed plans reject arbitrary shell/profile input', () => {
   assert.equal(planFor('verify').length, 4);
   assert.equal(planFor('verify').at(-1).args[0], 'scripts/gates.sh');
 });
-test('security lanes remain visibly blocked, not waived', () => {
-  assert.equal(planFor('security').length, 6);
-  assert(planFor('security').every((step) => step.blocked));
-  assert.equal(planFor('release').length, 10);
+test('security lanes are executable or visibly blocked, never silently waived', () => {
+  const security = planFor('security');
+  const runnable = security.filter((step) => !step.blocked);
+  const blocked = security.filter((step) => step.blocked);
+  // Three scanners run against pinned digests; everything else must say out loud that it is blocked.
+  assert.deepEqual(runnable.map((step) => step.id), ['semgrep', 'gitleaks', 'osv']);
+  assert.equal(blocked.length, 7);
+  assert(blocked.every((step) => typeof step.blocked === 'string' && step.blocked.length > 20));
+  assert.equal(planFor('release').length, 14);
+});
+test('docker lanes pin image digests instead of mutable tags', () => {
+  for (const step of planFor('security').filter((s) => !s.blocked)) {
+    const image = step.args[4];
+    assert.match(image, /@sha256:[a-f0-9]{64}$/, `${step.id} must pin a digest`);
+  }
+});
+test('docker mounts are anchored to the verified repository root', () => {
+  const steps = anchorMounts(planFor('security'), '/verified/root');
+  const mounts = steps.filter((s) => !s.blocked).map((s) => s.args[3]);
+  assert.deepEqual(mounts, ['/verified/root:/src:ro', '/verified/root:/repo', '/verified/root:/src:ro']);
+  assert(!JSON.stringify(steps).includes('"./:/'), 'no unanchored relative mount may survive');
 });
 test('empty, partial and not-run evidence never passes', () => {
   assert.equal(verdict([]), 'BLOCKED');
@@ -86,11 +103,17 @@ test('first failure stops later steps but retains a report', () => fixture(async
   assert.equal(count, 1); assert.equal(result.exitCode, 1);
   assert.deepEqual(result.report.steps.map((s) => s.status), ['FAIL', 'NOT_RUN', 'NOT_RUN', 'NOT_RUN']);
 }));
-test('blocked security never starts commands', () => fixture(async (root) => {
-  let calls = 0;
-  const result = await runPipeline({ repo: root, expectedSha: sha, profile: 'release', stateRoot: root }, { inspect, execute: async () => { calls++; return pass(); } });
-  assert.equal(calls, 0); assert.equal(result.exitCode, 2);
-  assert.equal(result.report.steps.filter((s) => s.status === 'BLOCKED').length, 6);
+test('a blocked lane never runs, and never turns the verdict into a pass', () => fixture(async (root) => {
+  const ran = [];
+  const result = await runPipeline({ repo: root, expectedSha: sha, profile: 'release', stateRoot: root }, { inspect, execute: async (step) => { ran.push(step.id); return pass(); } });
+  // Executable lanes do run, so a partial migration still produces evidence.
+  assert.deepEqual(ran, ['native-module', 'installer-bootstrap', 'installer-core', 'repository-gates', 'semgrep', 'gitleaks', 'osv']);
+  // But seven blocked lanes keep the whole run BLOCKED: unrun is never green.
+  assert.equal(result.report.steps.filter((s) => s.status === 'BLOCKED').length, 7);
+  assert.equal(result.report.status, 'BLOCKED');
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.report.releaseEligible, false);
+  assert.equal(result.report.deployed, false);
 }));
 test('preflight failure is persisted', () => fixture(async (root) => {
   const result = await runPipeline({ repo: root, expectedSha: sha, profile: 'verify', stateRoot: root }, { inspect: async () => { throw new Error('Checkout is dirty'); } });

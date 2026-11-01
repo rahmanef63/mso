@@ -4,11 +4,25 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-01
+
+**Added**
+
+- `tui` the panel is the default, and the banner lives in the transcript (#209)
+
+**Fixed**
+
+- `docs` regenerate the changelog after the date rolled over
+
+**Docs**
+
+- `contributing` how to run the CI work locally before opening a PR
+- `gates` the green full run, and the parallel-run trap
+
 ## 2026-10-31
 
 **Added**
 
-- `tui` the panel is the default, and the banner lives in the transcript
 - `tui` install the print sink the last change forgot, and migrate the modules that still print (#206)
 - `tui` a suspended panel really leaves the alternate screen, so an approval is readable (#205)
 - `tui` mid-turn writes go into the panel, and prompts suspend it instead of fighting it (#204)
@@ -1515,30 +1529,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `deps` hold incompatible toolchain majors
 - `deps` migrate to lucide-react 1.33.0
-
-## 2026-08-28
-
-**Added**
-
-- `operations` add evidence-backed comparison and delegated control
-- `mcp` add bounded async exec jobs
-
-**Fixed**
-
-- `security` remediate hosted CodeQL findings
-- `security` remediate ultimate assurance findings
-- `security` resolve full assurance findings
-- `security` raise complete component scan budget
-- `security` keep Codex scan state private
-- `security` block recursive credential relocation
-
-**Chores**
-
-- `deps` bump actions/setup-python from 6.3.0 to 7.0.0
-- `deps` bump zaproxy/action-baseline
-- `deps` bump actions/setup-node from 6.5.0 to 7.0.0
-- `deps` bump actions/upload-artifact from 4.6.2 to 7.0.1
-- `deps` bump ossf/scorecard-action in the actions-minor-patch group
-- `deps-dev` bump the development-minor-patch group with 4 updates
-- `deps` bump the production-minor-patch group with 4 updates
-- `security` update Codex Security to 0.1.21

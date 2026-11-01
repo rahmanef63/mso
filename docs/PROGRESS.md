@@ -1,3 +1,48 @@
+## 2026-11-01: the green full run, and the parallel-run trap
+
+`bash scripts/gates-12.sh full` on the TUI panel branch: **passed=16, failed=0, skipped=1**. The
+single skip is `bundle budget`, which is enforced by `verify-build.sh` inside the same run rather
+than twice, so a skip there means the out-of-tree build already checked it.
+
+**The red runs before it were not real.** Two `gates-12.sh full` invocations were left running in
+the same worktree at once. They do not fail cleanly, they corrupt each other:
+
+- `tests + coverage` failed because both wrote the coverage output directory and removed it from
+  under the other, so vitest reported a script error rather than a threshold miss.
+- `production build` failed with "verification failed during mandatory release E2E" because
+  `verify-build.sh` copies the tree into `/tmp` per run, and two copies exhausted the 9.8 GB tmpfs.
+  The real error was `cp: error writing ... No space left on device`, three lines above the
+  verification message.
+
+Both passed once a single run had the machine to itself. A killed run also leaves `verify-build.sh`
+orphaned with `ppid 1`, still holding a `/tmp` tree, so killing the gate is not enough to free the
+disk: check for survivors before starting another.
+
+**Rule: one `gates-12.sh` run per worktree, never in parallel, not even `fast` alongside `full`.**
+They share `/tmp/gate-out.txt` and `/tmp` itself, so the outputs describe each other's failures.
+
+**The coverage numbers, from one run alone.** `bun run coverage` with no other vitest in the worktree
+and the stale `coverage/` directory removed first: **964 test files, 6,278 tests, all passing**;
+statements 53.72%, branches 50.47%, functions 42.63%, lines 57.5% against thresholds of 42 / 40 / 32 /
+43.5. The earlier failure was never a threshold miss. It was vitest refusing to start:
+
+```
+The coverage report directory ".../mso-flip/coverage" is already in use by another Vitest process
+(pid ...). Running coverage for multiple Vitest processes in the same directory at the same time is
+not supported, because they would delete each other's reports.
+```
+
+That message names the cause precisely, so it is worth reading before assuming a regression: vitest
+detects the collision itself.
+
+**One more trap, in the tooling rather than the code.** `pgrep -f "vitest run --coverage"` always
+reports a live process, because the pattern matches the `bash -c` wrapper line that *is* the command
+you just ran. The same is true of `pgrep -f "gates-12.sh"`. Use
+`pgrep -af "node .*vitest" | grep -v "bash -c"` to see what is actually running, or the check will
+insist the worktree is busy forever.
+
+
+
 ## 2026-10-31: every route has a test, and the workflow conflict that made each PR slow
 
 Route test coverage went from **59 of 117 to 117 of 117**. No route in the repository is
