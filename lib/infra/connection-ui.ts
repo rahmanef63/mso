@@ -1,15 +1,9 @@
 import { GOOGLE_CONNECTION_UI_SCRIPT } from "./google-connection-ui";
 import { PROJECT_MCP_UI_SCRIPT } from "./project-mcp-ui";
 export { CONNECTION_MANAGER_STYLE } from "./connection-ui-style";
-import { PROVIDER_ICON_PATHS } from "./provider-icons";
-import { MSO_LOGO_SVG } from "@/lib/presentation/logo";
+import { CONNECTION_MANAGER_ASSETS } from "./connection-ui-assets";
 
-const MSO_BRAND_ICON_SVG = MSO_LOGO_SVG
-  .replace(/\s*role="img"/, "")
-  .replace(/\s*aria-label="[^"]*"/, "")
-  .replace("<svg", '<svg aria-hidden="true"');
-
-export const CONNECTION_MANAGER_SCRIPT=GOOGLE_CONNECTION_UI_SCRIPT+PROJECT_MCP_UI_SCRIPT+`const PROVIDER_ICON_PATHS=${JSON.stringify(PROVIDER_ICON_PATHS)};const MSO_LOGO_SVG=${JSON.stringify(MSO_BRAND_ICON_SVG)};`+String.raw`
+export const CONNECTION_MANAGER_SCRIPT=GOOGLE_CONNECTION_UI_SCRIPT+PROJECT_MCP_UI_SCRIPT+CONNECTION_MANAGER_ASSETS+String.raw`
 function mountConnectionManager(root,catalog,bridge,initial={}){
   let disposed=false,sequence=0,snapshot=initial.snapshot||{users:[],connections:[],bindings:[]},user=initial.user||snapshot.user||null,provider=catalog.find(p=>p.id===initial.provider)||catalog.find(p=>p.id==="github")||catalog[0];
   let detail,status,container,sidebarPanel,sidebarBackdrop,sidebarToggle,content,ro,navButtons=[],navMode=["variables","ai-providers"].includes(initial.section)?initial.section:"provider",sidebarOpen=false;
