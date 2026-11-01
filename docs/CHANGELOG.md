@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `skills` add mso-agent-fleet for Orca + OpenCode fan-out
 - `ci` three security scanners that actually run, and lanes that fail closed (#210)
 - `tui` the panel is the default, and the banner lives in the transcript (#209)
 
