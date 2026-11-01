@@ -14,6 +14,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` validate the model half of a provider/model ref
+- `security` read only .message from a caught error, never stringify it
 - `ci` check out full history, or the changelog gate fails on every run
 - `docs` collapse squash duplicates in the changelog instead of listing twice
 - `ci` run the changelog gate in CI, where it was never running

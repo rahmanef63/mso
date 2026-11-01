@@ -1,4 +1,5 @@
 import { json } from "@/lib/api/route";
+import { clientMessage, errorMessage } from "@/lib/host/error-message";
 import { isOrganizationFlowAction } from "@/lib/contracts/organization-flow";
 import { getSessionContext } from "@/lib/auth/require-session";
 import { roleAtLeast } from "@/lib/auth/roles";
@@ -18,11 +19,14 @@ import { organizationRuntime, resolveOrganizationSeat } from "@/lib/agent/organi
 
 const headers = { "Cache-Control": "private, no-store" };
 
+// `fail` is called two ways in this file: with a caught error, and with a literal code the
+// route chose ("operator_required", "owner_required"). Keeping them on separate paths is what
+// stops a propagated string from reaching a response body — see lib/host/error-message.ts.
 const fail = (error: unknown, status = 400) =>
-  json(
-    { error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500) },
-    { status, headers },
-  );
+  json({ error: errorMessage(error) }, { status, headers });
+
+const failCode = (code: string, status = 400) =>
+  json({ error: clientMessage(code) }, { status, headers });
 
 async function auth(minimum: "viewer" | "operator" | "owner" = "viewer") {
   const context = await getSessionContext();
@@ -32,7 +36,7 @@ async function auth(minimum: "viewer" | "operator" | "owner" = "viewer") {
 
 export async function getOrganizationResponse(req: Request): Promise<Response> {
   const session = await auth("viewer");
-  if (!session) return fail("unauthorized", 401);
+  if (!session) return failCode("unauthorized", 401);
   try {
     const chart = await getOrganizationChart();
     const url = new URL(req.url);
@@ -61,12 +65,12 @@ export async function getOrganizationResponse(req: Request): Promise<Response> {
 
 export async function handleOrganizationAction(req: Request): Promise<Response> {
   const session = await auth("operator");
-  if (!session) return fail("operator_required", 403);
+  if (!session) return failCode("operator_required", 403);
   try {
     const body = await readSetupJson(req, 2 * 1024 * 1024);
     const action = String(body.action || "");
     if (rateLimited(`organization:${action}:${session.context.session.device_id}`, 40, 60_000)) {
-      return fail("rate_limited", 429);
+      return failCode("rate_limited", 429);
     }
     const revision = String(body.expected_revision || "");
     if (!revision) throw new Error("expected_revision is required");
@@ -82,7 +86,7 @@ export async function handleOrganizationAction(req: Request): Promise<Response> 
     } else if (isOrganizationFlowAction(action)) {
       chart = await mutateOrganizationFlow(revision, action, (body.data ?? {}) as Record<string, unknown>, { principal: session.principal });
     } else if (action === "replace") {
-      if (!roleAtLeast(session.context.role, "owner")) return fail("owner_required", 403);
+      if (!roleAtLeast(session.context.role, "owner")) return failCode("owner_required", 403);
       chart = await replaceOrganization(revision, body.chart as never, "exec");
     } else {
       throw new Error("unknown organization action");
