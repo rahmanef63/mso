@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` mcp and context pane kinds, with an honest unknown
+- `tui` mcp and context pane kinds, with an honest unknown (#225)
 - `tui` /terminal hands the real terminal to a shell or a one-shot command (#224)
 - `skills` add mso-agent-fleet for Orca + OpenCode fan-out (#217)
 - `ci` three security scanners that actually run, and lanes that fail closed (#210)
@@ -16,6 +16,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `assets` refresh the wallpaper cache hashes, and gate them
 - `tui` let the composer reservation shrink, so Esc really closes the menu (#223)
 - `tui` stop the panel erasing the slash menu, and keep the banner ASCII art (#221)
 - `security` validate the model half of a provider/model ref
@@ -30,6 +31,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Faster**
 
+- `shell` re-encode the wallpapers without downscaling them
 - `shell` ship artwork at the size it renders, not 256x256
 - `shell` defer the lock curtain, keeping its timer eager
 

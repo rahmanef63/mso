@@ -55,3 +55,10 @@ __pycache__/
 
 # Isolated fake HOME for tenancy regression tests; never stage generated state.
 .tenant-test-home/
+
+# lib/forge/forge.test.ts creates its fixture with mkdtemp(process.cwd(), ".mso-forge-test-"),
+# inside the repo on purpose: the Docker sandbox bind-mounts the project by realpath, and a
+# /tmp path is a different filesystem here. A suite killed by SIGPIPE (piped through `head`)
+# never reaches afterEach, so the dir survives — as an untracked change that blocks
+# scripts/pr-preflight.sh. Ignoring the pattern keeps that from looking like a real file.
+.mso-forge-test-*/
