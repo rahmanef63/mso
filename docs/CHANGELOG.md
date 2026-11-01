@@ -14,6 +14,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `tui` stop the panel erasing the slash menu, and keep the banner ASCII art
 - `security` validate the model half of a provider/model ref
 - `security` read only .message from a caught error, never stringify it
 - `ci` check out full history, or the changelog gate fails on every run
