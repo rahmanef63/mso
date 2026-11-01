@@ -42,7 +42,7 @@ export const HELP_LINES = [
   "  /skills [query]         browse available slash skills",
   "  /skill <id> [prompt]    select exact skill id (ambiguity escape hatch)",
   "  /<skill> [prompt]       select for next message, or run prompt now",
-  "  /queue [sub|prompt]     queue follow-up prompt; list, run, or clear",
+  "  /queue [drop|clear|prompt] list, drop, clear, or queue follow-up prompts",
   "  /stash [pop|clear|text] park prompt; /stash pop prints stashed prompt to terminal",
   "  /image <path>           attach a local image to the next prompt",
   "  /clear                  clear this session conversation",

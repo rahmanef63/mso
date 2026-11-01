@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` pin a pane slot without losing the cycle
+- `tui` /queue, so waiting prompts are visible instead of held in memory only
+- `tui` pin a pane slot without losing the cycle (#229)
 - `tui` a preferences registry, and settings that survive a restart (#231)
 - `tui` a vertical tab rail, from the same layout the horizontal row uses (#230)
 
