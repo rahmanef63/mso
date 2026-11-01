@@ -25,6 +25,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `security` one patched minimatch, a working scanner lane, and an honest perf baseline (#215)
 - `tui` an approval prompt must leave the alternate screen, or it is erased before it is read (#213)
 
+**Faster**
+
+- `shell` defer the lock curtain, keeping its timer eager
+
 ## 2026-10-31
 
 **Added**
