@@ -20,6 +20,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `integrations` WCAG contrast, 44px tap targets, and no em dashes in UI copy
 - `convex` write env over HTTP with the deployment key, and fix the regional host
 
+**Changed**
+
+- `integrations` move the inlined assets out, back under the 220-line ratchet
+
 ## 2026-11-01
 
 **Added**
