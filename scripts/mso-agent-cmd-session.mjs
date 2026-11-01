@@ -12,6 +12,7 @@ import { clearTodos, formatTodoBlock, latestTodos } from "./mso-agent-todos.mjs"
 import { handleKeybindCommand } from "./mso-agent-keybinds.mjs";
 import { visibleSessionRows } from "./mso-agent-sessions.mjs";
 import { tabsToSwitch } from "./mso-agent-chrome.mjs";
+import { sessionTable } from "./mso-agent-session-list.mjs";
 import { cyclePane, paneKinds } from "./mso-agent-pane.mjs";
 import { createPrinter } from "./mso-agent-print.mjs";
 
@@ -45,18 +46,13 @@ export async function handleTabs(ctx, args = []) {
   const { print } = createPrinter(ctx);
   const rows = visibleSessionRows(await listCliSessions(20));
   if (!args.length) {
-    if (!rows.length) {
-      print("No active sessions.");
-      return "handled";
-    }
-    print(`${colors.bold || ""}Sessions${colors.reset || ""}`);
-    rows.forEach((row, idx) => {
-      const isCurrent = String(row.id) === String(session?.agentSession?.id);
-      const mark = isCurrent ? `${colors.blue || ""}${colors.bold || ""}●${colors.reset || ""}` : " ";
-      const name = `@${row.name || "agent"}`;
-      const title = row.title || "MSO Agent session";
-      print(`  ${mark} ${idx + 1}. ${name} · ${title}${isCurrent ? " (current)" : ""}`);
+    const width = Number(ctx.width || process.stdout.columns) || 80;
+    const lines = sessionTable(rows, {
+      colors,
+      width,
+      activeId: session?.agentSession?.id,
     });
+    for (const line of lines) print(line);
     return "handled";
   }
   const target = tabsToSwitch(rows, args);
