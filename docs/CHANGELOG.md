@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` a vertical tab rail, from the same layout the horizontal row uses (#230)
 - `integrations` write Convex deployment env, and an addressable connection reference
 
 **Fixed**
