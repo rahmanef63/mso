@@ -17,23 +17,12 @@ export function stateOf(row, now = Date.now()) {
   }
 
   // Explicit failure or error status takes precedence.
-  if (row.error || ["error", "errored", "failed"].includes(String(row.status || ""))) {
-    return { state: "errored", label: "errored" };
-  }
-
+  if (row.error || ["error", "errored", "failed"].includes(String(row.status || ""))) return { state: "errored", label: "errored" };
   // Explicit waiting or prompt-ready state.
-  if (["waiting", "waiting for input"].includes(String(row.status || ""))) {
-    return { state: "waiting", label: "waiting for input" };
-  }
-
+  if (["waiting", "waiting for input"].includes(String(row.status || ""))) return { state: "waiting", label: "waiting for input" };
   // Explicit running or busy status flag.
-  if (["working", "busy", "running"].includes(String(row.status || ""))) {
-    return { state: "working", label: "working" };
-  }
-
-  if (row.status === "idle") {
-    return { state: "idle", label: "idle" };
-  }
+  if (["working", "busy", "running"].includes(String(row.status || ""))) return { state: "working", label: "working" };
+  if (row.status === "idle") return { state: "idle", label: "idle" };
 
   // In the absence of an explicit status flag, derive state from the last recorded update.
   const rawTime = row.updatedAt || row.createdAt;
@@ -114,15 +103,9 @@ export function sessionTable(rows, { colors = {}, width = 80, activeId = null, n
   const nameW = Math.max(8, Math.min(16, Math.floor(available * 0.26)));
   const titleW = Math.max(4, available - nameW - stateW - actW);
 
-  const cBold = colors?.bold || "";
-  const cBlue = colors?.blue || "";
-  const cDim = colors?.dim || "";
-  const cReset = colors?.reset || "";
-
-  const hName = formatCell("  NAME", nameW);
-  const hTitle = formatCell("TITLE", titleW);
-  const hState = formatCell("STATE", stateW);
-  const hAct = formatCell("ACTIVITY", actW);
+  const cBold = colors?.bold || "", cBlue = colors?.blue || "", cDim = colors?.dim || "", cReset = colors?.reset || "";
+  const hName = formatCell("  NAME", nameW), hTitle = formatCell("TITLE", titleW);
+  const hState = formatCell("STATE", stateW), hAct = formatCell("ACTIVITY", actW);
 
   const headerLine = cBold
     ? `${cBold}${hName.visible}${cReset}${hName.pad}${sep}${cBold}${hTitle.visible}${cReset}${hTitle.pad}${sep}${cBold}${hState.visible}${cReset}${hState.pad}${sep}${cBold}${hAct.visible}${cReset}${hAct.pad}`
@@ -143,28 +126,87 @@ export function sessionTable(rows, { colors = {}, width = 80, activeId = null, n
     const stamp = row?.updatedAt || row?.createdAt;
     const actText = stamp ? formatSessionModified(stamp, now) : "unknown";
 
-    const cellName = formatCell(nameText, nameW);
-    const cellTitle = formatCell(titleText, titleW);
-    const cellState = formatCell(stateInfo.label, stateW);
-    const cellAct = formatCell(actText, actW);
-
+    const cellName = formatCell(nameText, nameW), cellTitle = formatCell(titleText, titleW);
+    const cellState = formatCell(stateInfo.label, stateW), cellAct = formatCell(actText, actW);
     const sc = stateColor(stateInfo.state, colors);
 
-    const nameStyled = isCurrent && cBold
-      ? `${cBold}${cBlue}${cellName.visible}${cReset}${cellName.pad}`
-      : `${cellName.visible}${cellName.pad}`;
-    const titleStyled = isCurrent && cBold
-      ? `${cBold}${cellTitle.visible}${cReset}${cellTitle.pad}`
-      : `${cellTitle.visible}${cellTitle.pad}`;
-    const stateStyled = sc && cReset
-      ? `${sc}${cellState.visible}${cReset}${cellState.pad}`
-      : `${cellState.visible}${cellState.pad}`;
-    const actStyled = cDim && cReset
-      ? `${cDim}${cellAct.visible}${cReset}${cellAct.pad}`
-      : `${cellAct.visible}${cellAct.pad}`;
+    const nameStyled = isCurrent && cBold ? `${cBold}${cBlue}${cellName.visible}${cReset}${cellName.pad}` : `${cellName.visible}${cellName.pad}`;
+    const titleStyled = isCurrent && cBold ? `${cBold}${cellTitle.visible}${cReset}${cellTitle.pad}` : `${cellTitle.visible}${cellTitle.pad}`;
+    const stateStyled = sc && cReset ? `${sc}${cellState.visible}${cReset}${cellState.pad}` : `${cellState.visible}${cellState.pad}`;
+    const actStyled = cDim && cReset ? `${cDim}${cellAct.visible}${cReset}${cellAct.pad}` : `${cellAct.visible}${cellAct.pad}`;
 
     lines.push(`${nameStyled}${sep}${titleStyled}${sep}${stateStyled}${sep}${actStyled}`);
   });
 
   return lines;
 }
+
+/**
+ * Pure predicate determining whether a session row needs attention.
+ * A session needs attention if its derived state is "working" (updated within the
+ * threshold) or carries an explicit error state ("errored").
+ * We intentionally exclude "unknown": missing activity data means we do not know,
+ * and jumping to a session on a guess is the dishonesty the table avoids.
+ *
+ * @param {any} row
+ * @param {number} [now]
+ * @returns {boolean}
+ */
+export function needsAttention(row, _now = Date.now()) {
+  // Deliberately does NOT use stateOf. That function derives working/idle from updatedAt, and updatedAt
+  // is written at turn COMPLETION, not during a turn (persistSession runs at the end, see
+  // docs/AGENT-ACTIVITY-SIGNAL.md). So the timestamp derivation is inverted: a session whose turn just
+  // ended reads as working for 60 seconds, and a session streaming for three minutes reads as idle.
+  // Jumping on that would send the user to the wrong session, which is worse than not jumping.
+  //
+  // Only an explicit status is trusted here, because only an explicit status came from the server
+  // saying so. Absent one, the honest answer is "cannot tell", and this returns false.
+  if (!row || typeof row !== "object") return false;
+  const status = String(row.status || "");
+  if (row.error || ["error", "errored", "failed"].includes(status)) return true;
+  return ["working", "busy", "running"].includes(status);
+}
+
+/**
+ * Honest description of why the session was selected, avoiding unearned certainty.
+ *
+ * @param {any} row
+ * @param {number} [now]
+ * @returns {string}
+ */
+export function attentionReason(row) {
+  // Reports the reason needsAttention returned true, and nothing else. It must not mention a
+  // timestamp, because needsAttention does not consider timestamps: saying "updated 12s ago" would
+  // imply the jump was based on freshness, which is the inverted signal this deliberately avoids.
+  if (!row || typeof row !== "object") return "unknown";
+  if (row.error || ["error", "errored", "failed"].includes(String(row.status || ""))) {
+    return `status: ${row.status || "errored"}`;
+  }
+  return `status: ${String(row.status || "working")}`;
+}
+
+/**
+ * Stable pure resolution of the next or previous session needing attention.
+ * Walks forward or backward from the active session index, wrapping once.
+ *
+ * @param {Array<any>} rows
+ * @param {string | number | null} [activeId]
+ * @param {"next" | "prev" | "previous"} [direction]
+ * @param {number} [now]
+ * @returns {any | null}
+ */
+export function findAttentionSession(rows, activeId = null, direction = "next", now = Date.now()) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const isPrev = direction === "prev" || direction === "previous";
+  const currentIdx = rows.findIndex((r) => isSessionActive(r, activeId));
+  const count = rows.length;
+  const start = currentIdx >= 0 ? currentIdx : (isPrev ? 0 : -1);
+  const limit = currentIdx >= 0 ? count - 1 : count;
+  for (let step = 1; step <= limit; step++) {
+    const offset = isPrev ? -step : step;
+    const idx = ((start + offset) % count + count) % count;
+    if (needsAttention(rows[idx], now)) return rows[idx];
+  }
+  return null;
+}
+

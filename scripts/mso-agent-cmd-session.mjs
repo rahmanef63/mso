@@ -1,10 +1,6 @@
 import {
-  persistSession,
-  renameCurrentSession,
-  renameCurrentSessionName,
-  resumeInto,
-  startNewSession,
-  resumePicker,
+  persistSession, renameCurrentSession, renameCurrentSessionName,
+  resumeInto, startNewSession, resumePicker,
 } from "./mso-agent-session-ui.mjs";
 import { api, listCliSessions, state } from "./mso-agent-api.mjs";
 import { C } from "./mso-agent-runtime.mjs";
@@ -12,9 +8,10 @@ import { clearTodos, formatTodoBlock, latestTodos } from "./mso-agent-todos.mjs"
 import { handleKeybindCommand } from "./mso-agent-keybinds.mjs";
 import { visibleSessionRows } from "./mso-agent-sessions.mjs";
 import { tabsToSwitch } from "./mso-agent-chrome.mjs";
-import { sessionTable } from "./mso-agent-session-list.mjs";
+import { attentionReason, findAttentionSession, sessionTable } from "./mso-agent-session-list.mjs";
 import { cyclePane, paneKinds } from "./mso-agent-pane.mjs";
 import { createPrinter } from "./mso-agent-print.mjs";
+import { clean } from "./tui/cells.mjs";
 
 export async function handleTodos(ctx, args = []) {
   const { C: colors = C } = ctx;
@@ -44,16 +41,27 @@ export async function switchToSession(rl, session, sessionId) {
 export async function handleTabs(ctx, args = []) {
   const { rl, session, C: colors = C } = ctx;
   const { print } = createPrinter(ctx);
-  const rows = visibleSessionRows(await listCliSessions(20));
+  const rows = visibleSessionRows(ctx.sessions || await listCliSessions(20));
   if (!args.length) {
     const width = Number(ctx.width || process.stdout.columns) || 80;
-    const lines = sessionTable(rows, {
-      colors,
-      width,
-      activeId: session?.agentSession?.id,
-    });
+    const lines = sessionTable(rows, { colors, width, activeId: session?.agentSession?.id });
     for (const line of lines) print(line);
     return "handled";
+  }
+  const sub = String(args[0] || "").toLowerCase();
+  if (sub === "next" || sub === "prev" || sub === "previous") {
+    const activeId = session?.agentSession?.id;
+    const now = Number(ctx.now) || Date.now();
+    const target = findAttentionSession(rows, activeId, sub, now);
+    if (!target) {
+      print("no sessions need attention");
+      return "handled";
+    }
+    const rawName = clean(target?.name || target?.agentSession?.name || "agent").replace(/^@/, "");
+    const reason = attentionReason(target, now);
+    print(`${colors.c || ""}jumped to @${rawName} (${reason})${colors.reset || ""}`);
+    await switchToSession(rl, session, target.id);
+    return "refresh";
   }
   const target = tabsToSwitch(rows, args);
   if (!target) {
@@ -116,18 +124,10 @@ export async function handlePane(ctx, args = []) {
 }
 
 export async function handleSessionCommand(ctx, cmd, args) {
-  if (cmd === "/todos") {
-    return handleTodos(ctx, args);
-  }
-  if (cmd === "/pane") {
-    return handlePane(ctx, args);
-  }
-  if (cmd === "/keybind" || cmd === "/keybinds") {
-    return handleKeybindCommand(ctx, args);
-  }
-  if (cmd === "/tabs" || cmd === "/tab") {
-    return handleTabs(ctx, args);
-  }
+  if (cmd === "/todos") return handleTodos(ctx, args);
+  if (cmd === "/pane") return handlePane(ctx, args);
+  if (cmd === "/keybind" || cmd === "/keybinds") return handleKeybindCommand(ctx, args);
+  if (cmd === "/tabs" || cmd === "/tab") return handleTabs(ctx, args);
   const { rl, session, C: colors = C } = ctx;
   const { print } = createPrinter(ctx);
   switch (cmd) {
@@ -193,12 +193,7 @@ export async function handleSessionCommand(ctx, cmd, args) {
     }
     case "/clear":
       clearTodos();
-      Object.assign(session, {
-        history: [],
-        pendingSkill: null,
-        activeSkill: null,
-        lastInvokedSkill: null,
-      });
+      Object.assign(session, { history: [], pendingSkill: null, activeSkill: null, lastInvokedSkill: null });
       rl.replaceHistory([]);
       await persistSession(session);
       print("conversation and prompt history cleared.");

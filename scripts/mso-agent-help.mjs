@@ -6,7 +6,7 @@ export const HELP_LINES = [
   "  /restart                soft-reload Agent runtime; keep this session",
   "  /session [query]        open picker or resume latest/index/id/@name/title (alias: /sessions)",
   "  /resume [query]         alias-style resume command; bare opens same picker",
-  "  /tabs [n|name]          list session tabs or switch by index or @name",
+  "  /tabs [n|name|next|prev] list tabs, switch by index/@name, or jump active",
   "  /rename <name>          rename the short @agent handle",
   "  /title <text>           rename the session title/description",
   "  /export [ref] [--out f] export session transcript to stdout or a file",
