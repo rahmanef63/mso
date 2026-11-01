@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Fleet Orchestration"
+  short_description: "Fan out Orca + OpenCode workers from MSO"
+  default_prompt: "Use $mso-agent-fleet to split this request into supervised Orca worktrees and OpenCode sessions, then verify each stream."
