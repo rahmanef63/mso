@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `integrations` write Convex deployment env, and an addressable connection reference
 
+**Fixed**
+
+- `convex` write env over HTTP with the deployment key, and fix the regional host
+
 ## 2026-11-01
 
 **Added**
