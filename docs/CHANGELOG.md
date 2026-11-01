@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` /tabs as a table, with real activity and no invented idle
+- `tui` /tabs as a table, with real activity and no invented idle (#226)
 - `tui` mcp and context pane kinds, with an honest unknown (#225)
 - `tui` /terminal hands the real terminal to a shell or a one-shot command (#224)
 - `skills` add mso-agent-fleet for Orca + OpenCode fan-out (#217)

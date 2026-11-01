@@ -1,4 +1,5 @@
 import { isGoogleProvider, GOOGLE_APP_PROVIDER, googlePublicOrigin } from "./google-native-config";
+import { integrationDeepLink } from "./connection-reference";
 import { bindGoogleApp, disconnectGoogle, runNativeGoogle, nativeGoogleStatus, googleOperations } from "./google-native";
 import { integrationManage } from "./connection-manage";
 import { integrationQuery, withIntegrationSelection, resolveIntegration, directConnectionValues } from "./connection-service";
@@ -7,7 +8,7 @@ import { composioKeyKind } from "./composio";
 import { callComposioConnectTool, listComposioConnectTools } from "./composio-connect";
 import { IntegrationError, identity, metadataOnly, type ConnectionSelector } from "./identity";
 import { importConvexCliPersonalConnection } from "./convex-cli-import";
-import { listConvexCustomDomains, ensureConvexCustomDomain, getConvexCanonicalUrls, setConvexCanonicalUrl, getConvexEnvPresence, deployConvexCloudProject, importConvexCloudSnapshot } from "./convex-cloud";
+import { listConvexCustomDomains, ensureConvexCustomDomain, getConvexCanonicalUrls, setConvexCanonicalUrl, getConvexEnvPresence, setConvexEnv, deployConvexCloudProject, importConvexCloudSnapshot } from "./convex-cloud";
 import { CONVEX_OPERATION_SUPPORT } from "./types";
 import { doctorInfraProvider, ensureDokployProject, listDokployApplications, listDokployDeployments, readDokployDeploymentLogs, listDokployGitProviders, listDokployGithubRepositories, ensureDokployGithubApplication, ensureDokployApplicationDomain, recoverDokployPublicGithubToHttpsGit, deployDokployApplication, configureDokployDockerfileBuild, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
 import { isInfraProviderId, canonicalProviderId, resolveProviderId, convexDeploymentKind } from "./catalog";
@@ -30,7 +31,7 @@ export async function manageIntegrationAction(raw:Record<string,unknown>){
     if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
     if(Object.keys(a).some(k=>!["action","confirm","user","provider","connection"].includes(k)))throw new IntegrationError("invalid_management_fields");
     const route=await resolveIntegration(String(a.provider),selectionFrom(a));
-    return{user:route.user,provider:a.provider,connection:route.id,authorization:"owner-browser-required",openPath:googlePublicOrigin()+"/integrations?"+new URLSearchParams({provider:String(a.provider),user:route.user,connection:route.id})};
+    return{user:route.user,provider:a.provider,connection:route.id,authorization:"owner-browser-required",openPath:integrationDeepLink(googlePublicOrigin(),{user:route.user,provider:String(a.provider),connection:route.id})};
   }
   if(a.action!=="connection.authorize")return integrationManage(a);
   if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
@@ -47,10 +48,14 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     // Spread first so the operation itself and the confirmation flag cannot be overridden.
     return integrationManage({...demoArgs as Record<string,unknown>,action:operation,confirm:a.confirm===true});
   }
-  if(operation==="dokploy.application.publicEnv.upsert"){
+  if(operation==="dokploy.application.publicEnv.upsert"||operation==="convex.env.set"){
     const {arguments:operationArgs,...meta}=a;metadataOnly(meta);
     const args=operationArgs;if(!args||typeof args!=="object"||Array.isArray(args))throw new IntegrationError("invalid_tool_arguments");
-    if(Object.keys(args).some(k=>!["applicationId","key","value","redeploy"].includes(k)))throw new IntegrationError("invalid_tool_arguments");
+    if(operation==="convex.env.set"){
+      if(Object.keys(args).some(k=>!["deploymentName","name","value","projectPath"].includes(k)))throw new IntegrationError("invalid_tool_arguments");
+    }else{
+      if(Object.keys(args).some(k=>!["applicationId","key","value","redeploy"].includes(k)))throw new IntegrationError("invalid_tool_arguments");
+    }
   }else metadataOnly(a);
   if(Object.keys(a).some(k=>!["user","provider","connection","operation","arguments","tool","confirm"].includes(k)))throw new IntegrationError("invalid_execution_fields");
   const user=identity(a.user,"user"),provider=identity(a.provider,"provider"),connection=identity(a.connection,"connection"),selection={user,connection};
@@ -87,6 +92,7 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     "convex.customDomain.ensure":{provider:"convex",fields:["deploymentName","domain","requestDestination"],run:()=>ensureConvexCustomDomain(args as {deploymentName:string;domain:string;requestDestination:"convexCloud"|"convexSite"})},
     "convex.canonical.get":{provider:"convex",fields:["deploymentName"],run:()=>getConvexCanonicalUrls(String((args as Record<string,unknown>).deploymentName))},
     "convex.env.presence":{provider:"convex",fields:["deploymentName","names"],run:()=>getConvexEnvPresence(args as {deploymentName:string;names:string[]})},
+    "convex.env.set":{provider:"convex",fields:["deploymentName","name","value","projectPath"],run:()=>setConvexEnv(args as {deploymentName?:string;name:string;value:string;projectPath?:string})},
     "convex.canonical.set":{provider:"convex",fields:["deploymentName","requestDestination","url"],run:()=>setConvexCanonicalUrl(args as {deploymentName:string;requestDestination:"convexCloud"|"convexSite";url?:string|null})},
     "convex.project.deploy":{provider:"convex",fields:["deploymentName","projectPath"],run:()=>deployConvexCloudProject(args as {deploymentName:string;projectPath:string})},
     "convex.snapshot.import":{provider:"convex",fields:["deploymentName","projectPath","snapshotPath","mode"],run:()=>importConvexCloudSnapshot(args as {deploymentName:string;projectPath:string;snapshotPath:string;mode:"replace-all"|"append"})},

@@ -97,6 +97,7 @@ describe("integration connection registry", () => {
       "convex.customDomain.ensure",
       "convex.customDomains.list",
       "convex.env.presence",
+      "convex.env.set",
       "convex.project.deploy",
       "convex.snapshot.import",
     ]);

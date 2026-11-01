@@ -3,6 +3,7 @@ import { isGoogleProvider, GOOGLE_APP_PROVIDER, googleRedirectUri, googlePublicO
 import { canonicalProviderId, convexDeploymentKind, listInfraProviderDefinitions, getInfraProviderDefinition, resolveProviderId } from "./catalog";
 import { setupFields, setupGuidance, setupMethods, type SetupMethod } from "./setup-guidance";
 import { IntegrationError, type ConnectionSource, type IntegrationConnection } from "./identity";
+import { integrationReference } from "./connection-reference";
 /** Convex keeps every pre-collapse method id; `admin` is the self-hosted shape. */
 const CONVEX_METHODS = ["personal", "deployment", "admin"] as const;
 /**
@@ -62,7 +63,7 @@ function sourceLabel(provider:string,id:ConnectionSource){
 export function connectionCatalog(){return listInfraProviderDefinitions().map(p=>({id:p.id,title:p.title,description:p.description,...googleCatalogInfo(p.id),sources:connectionSources(p.id).map(id=>({id,label:sourceLabel(p.id,id),methods:connectionMethods(p.id,id)}))}));}
 export function connectionSummary(user:string,c:IntegrationConnection,isDefault=false,values:Record<string,string>=c.values){
   const method=connectionMethod(c.provider,c.source,c.authMethod),missing=method.fields.filter(f=>f.required&&!values[f.key]).map(f=>f.key);
-  return {user,id:c.id,label:c.label,provider:c.provider,source:c.source,authMethod:c.authMethod,scope:c.scope,revision:c.revision,isDefault,missing,fields:method.fields.map(f=>({...f,stored:Boolean(values[f.key])})),state:c.source==="direct"?(missing.length?"incomplete":c.lastCheck?(c.lastCheck.revision===c.revision?c.lastCheck.result:"configured"):c.verifiedAt?"verified":"configured"):c.external?.status??"authorization-required",verifiedAt:c.verifiedAt??null,lastCheck:c.lastCheck?.revision===c.revision?c.lastCheck:null,sharedFrom:c.sharedFrom??null,external:c.external??null};
+  return {user,id:c.id,label:c.label,provider:c.provider,reference:integrationReference({user,provider:c.provider,connection:c.id}),source:c.source,authMethod:c.authMethod,scope:c.scope,revision:c.revision,isDefault,missing,fields:method.fields.map(f=>({...f,stored:Boolean(values[f.key])})),state:c.source==="direct"?(missing.length?"incomplete":c.lastCheck?(c.lastCheck.revision===c.revision?c.lastCheck.result:"configured"):c.verifiedAt?"verified":"configured"):c.external?.status??"authorization-required",verifiedAt:c.verifiedAt??null,lastCheck:c.lastCheck?.revision===c.revision?c.lastCheck:null,sharedFrom:c.sharedFrom??null,external:c.external??null};
 }
 export const composioDefinition=(provider:string)=>COMPOSIO[provider];
 export const nativeDefinition=(provider:string)=>NATIVE[provider];

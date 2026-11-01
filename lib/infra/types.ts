@@ -24,6 +24,7 @@ export const CONVEX_OPERATION_IDS = [
   "convex.canonical.get",
   "convex.canonical.set",
   "convex.env.presence",
+  "convex.env.set",
   "convex.project.deploy",
   "convex.snapshot.import",
 ] as const;
@@ -78,6 +79,12 @@ export const CONVEX_OPERATION_SUPPORT: readonly ConvexOperationSupport[] = [
     cloud: "supported",
     selfHosted: "unsupported",
     reason: "Reads environment names with an ephemeral deploy key minted by the Convex Cloud management API; no self-hosted equivalent is wired yet.",
+  },
+  {
+    operation: "convex.env.set",
+    cloud: "supported",
+    selfHosted: "unsupported",
+    reason: "Sets environment variables with an ephemeral deploy key minted by the Convex Cloud management API; no self-hosted equivalent is wired yet.",
   },
   {
     operation: "convex.project.deploy",
