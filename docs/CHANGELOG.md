@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-02
+
+**Added**
+
+- `integrations` write Convex deployment env, and an addressable connection reference
+
 ## 2026-11-01
 
 **Added**
@@ -1529,20 +1535,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Docs**
 
 - `security` disclose scorecard posture gaps
-
-## 2026-08-29
-
-**Fixed**
-
-- `security` keep path sinks in validated branches
-- `security` make root containment explicit
-- `security` close follow-up CodeQL flows
-
-**Docs**
-
-- `comparison` use explicit SEO-friendly ratings
-
-**Chores**
-
-- `deps` hold incompatible toolchain majors
-- `deps` migrate to lucide-react 1.33.0
