@@ -25,6 +25,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: `bun run check` includes `gen-changelog --check`, which rebuilds the
+          # changelog from `git log`. The default fetch-depth of 1 hides all but the newest
+          # commit, so that gate sees a one-line history and fails every run — a false red
+          # that reads exactly like a stale file.
+          fetch-depth: 0
 
       - name: Setup bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2

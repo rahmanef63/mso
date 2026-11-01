@@ -8,12 +8,15 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `skills` add mso-agent-fleet for Orca + OpenCode fan-out
+- `skills` add mso-agent-fleet for Orca + OpenCode fan-out (#217)
 - `ci` three security scanners that actually run, and lanes that fail closed (#210)
 - `tui` the panel is the default, and the banner lives in the transcript (#209)
 
 **Fixed**
 
+- `ci` check out full history, or the changelog gate fails on every run
+- `docs` collapse squash duplicates in the changelog instead of listing twice
+- `ci` run the changelog gate in CI, where it was never running
 - `docs` regenerate the changelog, and stop squash merges from re-breaking it
 - `docs` regenerate the changelog after the #215 squash (#216)
 - `security` one patched minimatch, a working scanner lane, and an honest perf baseline (#215)
