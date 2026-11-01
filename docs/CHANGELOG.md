@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` a vertical tab rail, from the same layout the horizontal row uses
+- `tui` a preferences registry, and settings that survive a restart
+- `tui` a vertical tab rail, from the same layout the horizontal row uses (#230)
 
 ## 2026-11-01
 
