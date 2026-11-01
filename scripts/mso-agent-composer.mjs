@@ -16,6 +16,7 @@ export class AgentComposer {
   }
 
   rowCount() { return this._rowCount; }
+  reservedRows() { return this._reservedRows || 0; }
   onRows(cb) { if (typeof cb === "function") this._onRows = cb; return this; }
 
   async question(prompt, { complete = null, history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null) } = {}) {
@@ -33,7 +34,9 @@ export class AgentComposer {
       const matches = () => dismissed || !complete ? [] : complete(value) || [];
       // Reserve physical rows only when the frame grows. Redraws diff row-by-row in place
       // without emitting LF/CRLF, keeping terminal scrollback clean.
-      const reserve = (rows) => { reservedRows = reserveComposerRows(output, reservedRows, rows); };
+      // Mirrored on the instance so a test can assert the reservation came back down after an overlay
+      // closes; otherwise the shrink is only visible as terminal side effects.
+      const reserve = (rows) => { reservedRows = this._reservedRows = reserveComposerRows(output, reservedRows, rows); };
       const erase = () => { cursorHome(output, lastCursorRow); eraseFrame(output, paintedLines); paintedLines = []; lastCursorRow = 0; reservedRows = 0; setRows(0); };
       const render = () => {
         cursorHome(output, lastCursorRow);
