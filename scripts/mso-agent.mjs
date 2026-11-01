@@ -6,6 +6,7 @@ import { slashCompletionItems } from "./mso-agent-slash.mjs";
 import { persistSession, restartSessionArg, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
 import { C, printBanner } from "./mso-agent-runtime.mjs";
 import { listCliSessions, state } from "./mso-agent-api.mjs";
+import { fetchMcpServers } from "./mso-agent-mcp-servers.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
 import { nextPermissionMode, permissionMode } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
@@ -40,8 +41,7 @@ async function main() {
   }
   // Declared out here, not inside the try: the finally block disposes them, and a `const` inside
   // the try is not in scope there. A ReferenceError in finally replaced the real exit status.
-  let screenLoop = null;
-  let screen = null; let session = null; let rl = null;
+  let screenLoop = null; let screen = null; let session = null; let rl = null;
   let localBridge = null; let onSigint = null; let restartRequested = false;
   try {
     screen = startAltScreen({ requested: altScreen, output: process.stdout });
@@ -51,12 +51,13 @@ async function main() {
     const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg))
       ? "yolo"
       : (permissionMode(restartUi.permission)?.id || "ask");
-    const [s, agentSession] = await Promise.all([state(), startupSession(requested, restartSessionId)]);
+    const [s, agentSession, mcpServers] = await Promise.all([state(), startupSession(requested, restartSessionId), fetchMcpServers()]);
     if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
     const bannerLines = altScreen.ok ? captureBanner(printBanner, s, agentSession) : (printBanner(s, agentSession), null);
     session = {
       state: s,
       agentSession,
+      mcpServers,
       history: Array.isArray(agentSession.history) ? agentSession.history : [],
       pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
       titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
