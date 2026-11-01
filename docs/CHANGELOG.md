@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `tui` an approval prompt must leave the alternate screen, or it is erased before it is read (#213)
 - `tooling` align the postcss override with its devDependency, so npx runs
 - `ci` give semgrep a writable HOME, which --user removed
 - `ci` run every security scanner as the runner's uid, not root
