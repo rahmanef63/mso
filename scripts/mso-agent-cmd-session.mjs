@@ -70,18 +70,48 @@ export async function handlePane(ctx, args = []) {
   const kinds = paneKinds();
   if (!args.length) {
     const current = session?.paneKind || "off";
+    // When pinned, do not advance the slot; report the pinned slot to the user.
+    if (session?.panePinned) {
+      print(`${colors.c || ""}side pane: ${current} (pinned)${colors.reset || ""}`);
+      return "handled";
+    }
     const next = cyclePane(current);
     if (session) session.paneKind = next;
     print(`${colors.c || ""}side pane: ${next}${colors.reset || ""}`);
     return "handled";
   }
   const requested = String(args[0]).toLowerCase();
+  if (requested === "pin") {
+    // Pin locks the active slot (or requested slot argument) so cycling does not move away.
+    // When pane is off, default to the first slot so pinning always presents a visible pane.
+    const slot = args[1] ? String(args[1]).toLowerCase() : null;
+    let target = slot && kinds.includes(slot) && slot !== "off" ? slot : session?.paneKind;
+    if (!target || target === "off") target = kinds[0] || "todos";
+    if (session) {
+      session.paneKind = target;
+      session.panePinned = true;
+    }
+    print(`${colors.c || ""}side pane: ${target} (pinned)${colors.reset || ""}`);
+    return "handled";
+  }
+  if (requested === "unpin") {
+    // Unpin restores regular cycling without altering the currently visible slot.
+    if (session) session.panePinned = false;
+    const current = session?.paneKind || "off";
+    print(`${colors.c || ""}side pane: ${current} (unpinned)${colors.reset || ""}`);
+    return "handled";
+  }
   if (kinds.includes(requested)) {
-    if (session) session.paneKind = requested;
+    // Setting an explicit kind restores the standard non-pinned cycling behaviour.
+    // Setting "off" clears both the pane and the pin because a hidden pin is invisible state.
+    if (session) {
+      session.paneKind = requested;
+      session.panePinned = false;
+    }
     print(`${colors.c || ""}side pane: ${requested}${colors.reset || ""}`);
     return "handled";
   }
-  print(`usage: /pane [todos|diff|files|off] (current: ${session?.paneKind || "off"})`);
+  print(`usage: /pane [todos|diff|files|mcp|context|off|pin|unpin] (current: ${session?.paneKind || "off"})`);
   return "handled";
 }
 

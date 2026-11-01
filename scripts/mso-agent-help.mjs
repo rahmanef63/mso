@@ -16,7 +16,7 @@ export const HELP_LINES = [
   "  /context                alias for /status",
   "  /diff [ref] [--full]    show diff viewer panel for artifact write action",
   "  /todos [--all]          show session checklist from todo_write",
-  "  /pane [kind]            cycle or set side pane (todos, diff, files, off)",
+  "  /pane [kind|pin|unpin]  cycle, set, or pin side pane (todos, diff, files, off)",
   "  /keybind [sub]          view keybindings (sub: reset, conflicts)",
   "  /settings [key] [val]   view or set TUI preferences (sub: reset)",
   "  /compact                force context compaction and archive history",

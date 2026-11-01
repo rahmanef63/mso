@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` a preferences registry, and settings that survive a restart
+- `tui` pin a pane slot without losing the cycle
+- `tui` a preferences registry, and settings that survive a restart (#231)
 - `tui` a vertical tab rail, from the same layout the horizontal row uses (#230)
 
 ## 2026-11-01
