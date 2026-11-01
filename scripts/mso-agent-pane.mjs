@@ -9,9 +9,18 @@ export function paneKinds() {
   return [...KINDS];
 }
 
-export function cyclePane(kind) {
+export function cyclePane(kind, { pinned = false } = {}) {
+  // When pinned, cyclePane keeps the current slot so user-selected content does not cycle away.
+  if (pinned) return kind;
   const idx = KINDS.indexOf(kind);
   return idx === -1 ? KINDS[0] : KINDS[(idx + 1) % KINDS.length];
+}
+
+// Pure formatter that appends a [pinned] marker so the title shows cycling is locked.
+export function formatPaneTitle(title, { pinned = false } = {}) {
+  const base = String(title || "");
+  if (!pinned || !base) return base;
+  return `${base} [pinned]`;
 }
 
 // Side pane width: floor 30 preserves readability; ceiling 50 avoids crowding
@@ -24,8 +33,7 @@ export function paneWidth(columns, { minColumns = 100 } = {}) {
 
 function resolveTodos(todos, session) {
   if (todos != null) return todos;
-  if (session?.todos != null) return session.todos;
-  return latestTodos();
+  return session?.todos != null ? session.todos : latestTodos();
 }
 
 function resolveDiff(lastDiff, session) {
@@ -106,15 +114,8 @@ function formatKindContent({ kind, session, todos, lastDiff, files, mcpServers }
     if (!fileList.length) return { title: "Changed files", emptyText: "no changed files", rows: [] };
     return { title: "Changed files", emptyText: null, rows: fileList.map((f) => ({ text: f, tone: "normal" })) };
   }
-
-  if (kind === "mcp") {
-    return formatMcpContent({ session, mcpServers });
-  }
-
-  if (kind === "context") {
-    return formatContextContent({ session });
-  }
-
+  if (kind === "mcp") return formatMcpContent({ session, mcpServers });
+  if (kind === "context") return formatContextContent({ session });
   return { title: "Pane off", emptyText: "pane is off", rows: [] };
 }
 
@@ -140,6 +141,7 @@ function styleTone(line, tone, { colors, cDim, cCyan, cErr, cBlue, cBold }) {
  *   colors?: any,
  *   width?: number,
  *   rows?: number,
+ *   pinned?: boolean | null,
  * }} [options]
  */
 export function paneLines({
@@ -152,6 +154,7 @@ export function paneLines({
   colors = {},
   width = 40,
   rows = 24,
+  pinned = null,
 } = {}) {
   const r = Math.max(0, Number(rows) || 0), w = Math.max(0, Number(width) || 0);
   if (r === 0 || w === 0) return [];
@@ -159,13 +162,9 @@ export function paneLines({
 
   const widths = [w - 2], hasColors = Boolean(colors && Object.keys(colors).length > 0);
   const palette = {
-    colors,
-    cDim: hasColors ? (colors.dim || "") : "",
-    cReset: hasColors ? (colors.reset || "") : "",
-    cBold: hasColors ? (colors.bold || "") : "",
-    cCyan: hasColors ? (colors.cyan || colors.c || "") : "",
-    cErr: hasColors ? (colors.err || "") : "",
-    cBlue: hasColors ? (colors.blue || "") : "",
+    colors, cDim: hasColors ? (colors.dim || "") : "", cReset: hasColors ? (colors.reset || "") : "",
+    cBold: hasColors ? (colors.bold || "") : "", cCyan: hasColors ? (colors.cyan || colors.c || "") : "",
+    cErr: hasColors ? (colors.err || "") : "", cBlue: hasColors ? (colors.blue || "") : "",
   };
 
   const { title, emptyText, rows: contentRows } = formatKindContent({
@@ -176,10 +175,13 @@ export function paneLines({
     files,
     mcpServers,
   });
+  // Pinned state can be passed directly or read from session. Off pane is never marked pinned.
+  const isPinned = pinned != null ? Boolean(pinned) : Boolean(session?.panePinned);
+  const displayTitle = formatPaneTitle(title, { pinned: isPinned && kind !== "off" });
   const topBorder = palette.cDim ? `${palette.cDim}${border(widths, "top")}${palette.cReset}` : border(widths, "top");
   const midBorder = palette.cDim ? `${palette.cDim}${border(widths, "mid")}${palette.cReset}` : border(widths, "mid");
   const botBorder = palette.cDim ? `${palette.cDim}${border(widths, "bottom")}${palette.cReset}` : border(widths, "bottom");
-  const titleRow = palette.cBold ? `${palette.cBold}${paneRow([title], widths)}${palette.cReset}` : paneRow([title], widths);
+  const titleRow = palette.cBold ? `${palette.cBold}${paneRow([displayTitle], widths)}${palette.cReset}` : paneRow([displayTitle], widths);
 
   if (r === 1) return [titleRow];
   if (r === 2) return [topBorder, botBorder];
