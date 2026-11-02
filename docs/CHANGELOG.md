@@ -14,6 +14,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `integrations` restore three fixes a later PR silently reverted, and follow the shell theme
 
+**Tests**
+
+- `integrations` parse each inline script, not one greedy concatenation
+
 ## 2026-11-02
 
 **Added**
