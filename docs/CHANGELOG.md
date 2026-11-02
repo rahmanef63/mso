@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` restore the three modules #249 dropped, with their wiring
 - `tui` opencode batch two, six capabilities and five honest refusals (#249)
 - `tui` the opencode-inspired batch, nine branches in one change (#241)
 - `tui` pin a pane slot without losing the cycle (#229)

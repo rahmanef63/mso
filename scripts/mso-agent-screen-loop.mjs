@@ -11,6 +11,7 @@ import { renderViewport } from "./mso-agent-viewport-render.mjs";
 import { paneLines } from "./mso-agent-pane.mjs";
 import { withPreamble } from "./mso-agent-banner-lines.mjs";
 import { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
+import { createCompactionWatcher } from "./mso-agent-compaction.mjs";
 export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 
 /**
@@ -56,17 +57,18 @@ export function mountScreenLoop({
     };
   }
 
+  // Gated: with the setting off, nothing is written, so the terminal keeps its own text selection.
   let mouseEnabled = isMouseEnabled(mouse, session);
   if (mouseEnabled) enableMouse(output);
-
   const onTeardown = () => { disableMouse(output); };
   const detach = (target, event, listener) => {
     if (typeof target?.off === "function") target.off(event, listener);
-    else if (typeof target?.removeListener === "function") target.removeListener(event, listener);
+    else target?.removeListener?.(event, listener);
   };
   ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => process.on?.(sig, onTeardown));
 
   const viewport = createViewport({ rows: output.rows || 24 });
+  const compaction = createCompactionWatcher(session);
   let painted = [];
   let promptReservation = PROMPT_ROWS;
 
@@ -107,7 +109,9 @@ export function mountScreenLoop({
 
   const sync = () => {
     commitStream(viewport);
-    setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" })));
+    compaction.check(session, { colors });
+    const trans = transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" });
+    setLines(viewport, withPreamble(preamble?.() ?? null, [...trans, ...compaction.lines(colors)]));
     paint();
   };
 
@@ -117,10 +121,7 @@ export function mountScreenLoop({
   session.streamSink = { write(chunk) { appendStream(viewport, chunk); paint(); } };
   session.printSink = (line) => { appendStream(viewport, `${String(line ?? "")}\n`); commitStream(viewport); paint(); };
 
-  const onResize = () => {
-    viewport.rows = output.rows || 24;
-    sync();
-  };
+  const onResize = () => { viewport.rows = output.rows || 24; sync(); };
   output.on?.("resize", onResize);
 
   const dispatchMouse = (event) => {
@@ -161,7 +162,8 @@ export function mountScreenLoop({
   });
   const { suspend, resume } = panelSuspend;
 
-  setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" })));
+  const initLines = transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" });
+  setLines(viewport, withPreamble(preamble?.() ?? null, [...initLines, ...compaction.lines(colors)]));
   paint();
 
   const loop = {
@@ -186,6 +188,7 @@ export function mountScreenLoop({
       output.off?.("resize", onResize);
       hook.dispose();
       disableMouse(output);
+      compaction.reset();
       delete session.streamSink; delete session.printSink;
       delete session.onComposerRows; delete session.screenLoop;
       // The panel owns the whole screen, so the inline transcript is repainted once on the way out
