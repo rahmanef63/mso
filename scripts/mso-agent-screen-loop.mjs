@@ -11,11 +11,10 @@ import { renderViewport } from "./mso-agent-viewport-render.mjs";
 import { paneLines } from "./mso-agent-pane.mjs";
 import { withPreamble } from "./mso-agent-banner-lines.mjs";
 import { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
+import { createCommandLines } from "./mso-agent-command-lines.mjs";
 import { createCompactionWatcher } from "./mso-agent-compaction.mjs";
 import { createAttentionNotifier } from "./mso-agent-attention.mjs";
 import { createClickHintReporter, createMcpRefresher } from "./mso-agent-panel-effects.mjs";
-import { createPrinter } from "./mso-agent-print.mjs";
-import { formatClickHint, shouldShowClickHint } from "./mso-agent-click-hint.mjs";
 export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 
 /**
@@ -65,6 +64,7 @@ export function mountScreenLoop({
   });
   let painted = [];
   let promptReservation = PROMPT_ROWS;
+  const command = createCommandLines();
 
   const setPromptRows = (rows) => {
     // Clamps reservation without repainting immediately; repainting while composer
@@ -108,18 +108,19 @@ export function mountScreenLoop({
     commitStream(viewport);
     compaction.check(session, { colors });
     const trans = transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" });
-    setLines(viewport, withPreamble(preamble?.() ?? null, [...trans, ...compaction.lines(colors)]));
+    // Command output is composed here rather than appended straight into the viewport, because the next
+    // sync rebuilds the line list from history and would drop anything that lived only in the viewport.
+    setLines(viewport, withPreamble(preamble?.() ?? null, [...trans, ...command.lines, ...compaction.lines(colors)]));
     paint();
     // Background session attention: evaluated on sync when sessions list changes
     attentionNotifier.notify(getSessions());
     triggerMcpRefresh();
   };
 
-  // Streaming text goes into the buffer and repaints, so a long answer does not wait for the turn to
-  // end before it becomes visible. Command output arrives as whole lines instead of chunks, so it is
-  // committed immediately rather than left as a partial line.
+  // Streaming repaints per chunk, so a long answer shows as it arrives instead of at turn end.
   session.streamSink = { write(chunk) { appendStream(viewport, chunk); paint(); } };
-  session.printSink = (line) => { appendStream(viewport, `${String(line ?? "")}\n`); commitStream(viewport); paint(); };
+  // Re-composed on every sync, because the transcript is rebuilt from history and would drop it.
+  session.printSink = (line) => { command.push(line); sync(); };
 
   const onResize = () => { viewport.rows = output.rows || 24; sync(); };
   output.on?.("resize", onResize);
@@ -169,7 +170,7 @@ export function mountScreenLoop({
   const resume = () => { panelSuspend.resume(); attentionNotifier.resume(); };
 
   const initLines = transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" });
-  setLines(viewport, withPreamble(preamble?.() ?? null, [...initLines, ...compaction.lines(colors)]));
+  setLines(viewport, withPreamble(preamble?.() ?? null, [...initLines, ...command.lines, ...compaction.lines(colors)]));
   paint();
 
   const loop = {

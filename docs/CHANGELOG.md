@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `tui` the panel no longer scrolls itself away, and command output survives
 - `integrations` restore three fixes a later PR silently reverted, and follow the shell theme
 - `integrations` the iOS zoom fix targeted a selector the page does not use
 
@@ -19,6 +20,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `integrations` parse each inline script, not one greedy concatenation
 - `config` document MSO_EVIDENCE_DIR, the evidence harness output path
+
+**Chores**
+
+- regenerate changelog after merging main
+- regenerate changelog
 
 ## 2026-11-02
 

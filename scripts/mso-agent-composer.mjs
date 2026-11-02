@@ -19,7 +19,7 @@ export class AgentComposer {
   reservedRows() { return this._reservedRows || 0; }
   onRows(cb) { if (typeof cb === "function") this._onRows = cb; return this; }
 
-  async question(prompt, { complete = null, history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null) } = {}) {
+  async question(prompt, { complete = /** @type {((value: string) => Array<any>) | null} */ (null), history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null) } = {}) {
     if (this.closed) return null;
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
@@ -32,11 +32,9 @@ export class AgentComposer {
       const wasRaw = Boolean(input.isRaw);
 
       const matches = () => dismissed || !complete ? [] : complete(value) || [];
-      // Reserve physical rows only when the frame grows. Redraws diff row-by-row in place
-      // without emitting LF/CRLF, keeping terminal scrollback clean.
-      // Mirrored on the instance so a test can assert the reservation came back down after an overlay
-      // closes; otherwise the shrink is only visible as terminal side effects.
-      const reserve = (rows) => { reservedRows = this._reservedRows = reserveComposerRows(output, reservedRows, rows); };
+      // Panel mode owns every row, so the height is reported to it and the instance mirror is what a
+      // test reads. Growing with CRLF here would scroll the panel itself off the top of the screen.
+      const reserve = (rows) => { reservedRows = this._reservedRows = rowCallback ? rows : reserveComposerRows(output, reservedRows, rows); };
       const erase = () => { cursorHome(output, lastCursorRow); eraseFrame(output, paintedLines); paintedLines = []; lastCursorRow = 0; reservedRows = 0; setRows(0); };
       const render = () => {
         cursorHome(output, lastCursorRow);
