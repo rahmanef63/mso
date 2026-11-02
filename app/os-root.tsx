@@ -66,7 +66,7 @@ export function OsRoot({
       <QuicklinksProvider>
         <A11yCommands />
         <a
-          href="#main-content"
+          href="#shell-main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[var(--z-skip-link)] focus:rounded-md focus:bg-foreground focus:px-3 focus:py-2 focus:text-background focus:outline-2 focus:outline-ring"
         >
           Skip to main content

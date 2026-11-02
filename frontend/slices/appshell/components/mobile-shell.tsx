@@ -155,7 +155,7 @@ export function MobileShell() {
       {/* --sai-top (notch/Dynamic-Island floor) now comes from the shared
           [data-shell="ios"] rule in globals.css — one source of truth for both
           touch shells, inherited by every iOS surface (home, nav, spotlight). */}
-      <div className={cn("absolute inset-0 z-[10] flex flex-col", locked && "invisible")} inert={locked || undefined}>
+      <div id="shell-main" role="main" tabIndex={-1} className={cn("absolute inset-0 z-[10] flex flex-col", locked && "invisible")} inert={locked || undefined}>
       <div
         data-slot="system-status-host"
         data-status-placement="ios-status-bar"

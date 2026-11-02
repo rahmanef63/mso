@@ -63,6 +63,9 @@ function WindowsShell() {
           an interactive live wallpaper is active it goes click-through so the
           wallpaper gets empty-desktop clicks; windows stay interactive. */}
       <section
+        id="shell-main"
+        role="main"
+        tabIndex={-1}
         className={cn("absolute inset-0 z-[10]", interactive && "pointer-events-none [&>*]:pointer-events-auto")}
         // Any right-click not inside a window opens the desktop menu (icons/widgets
         // stopPropagation; windows carry [data-window]). Generalizes the old strict
