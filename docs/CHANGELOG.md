@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` opencode batch two, six capabilities and five honest refusals
 - `tui` the opencode-inspired batch, nine branches in one change (#241)
 - `tui` pin a pane slot without losing the cycle (#229)
 - `tui` a preferences registry, and settings that survive a restart (#231)
@@ -16,6 +17,9 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `changelog` stop listing automated dependency bumps
+- `integrations` follow the host theme, and stop iOS zooming the search field
+- `integrations` keyboard-operable confirmation, visible transfer errors, and wrapping status
 - `integrations` safe secret layout, real landmarks, and a sidebar that closes
 - `integrations` show the real MSO logo, and activate the dead container query
 - `integrations` WCAG contrast, 44px tap targets, and no em dashes in UI copy
@@ -24,6 +28,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Changed**
 
 - `integrations` move the inlined assets out, back under the 220-line ratchet
+
+**Tests**
+
+- `integrations` check every inline script, not one greedy match
 
 **Docs**
 
@@ -194,12 +202,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `infra` make Convex fixtures unambiguously synthetic for the secret scanner
 - `e2e` select the collapsed Convex card in the release journey
 
-**Build**
-
-- `deps` bump the actions-minor-patch group with 3 updates (#159)
-- `deps` bump the production-minor-patch group with 16 updates (#157)
-- `deps-dev` bump the test-toolchain group with 2 updates (#156)
-
 ## 2026-10-26
 
 **Docs**
@@ -280,15 +282,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `assistant` accept OpenAI-shaped {content} messages and harden recall
 - `build` keep convex CLI config path out of asset tracing
-
-## 2026-10-19
-
-**Build**
-
-- `deps` bump the production-minor-patch group across 1 directory with 15 updates
-- `deps-dev` bump the test-toolchain group across 1 directory with 2 updates
-- `deps` bump the actions-minor-patch group with 6 updates
-- `deps-dev` bump the development-minor-patch group with 3 updates
 
 ## 2026-10-18
 
@@ -405,12 +398,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `e2e` right-click the desktop from its measured box
 - `e2e` scope workflow directory assertions to the panel
-
-**Build**
-
-- `deps-dev` bump the development-minor-patch group with 3 updates
-- `deps` bump the production-minor-patch group with 15 updates
-- `deps-dev` bump the test-toolchain group with 2 updates
 
 ## 2026-10-12
 
@@ -567,10 +554,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-10-05
 
-**Chores**
-
-- `deps-dev` bump simple-icons
-
 **CI**
 
 - preserve strict audit and require native audit and shell journeys
@@ -586,12 +569,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `appearance` version immutable default wallpaper URLs
 - `appearance` refine default 27 desktop wallpapers
 - `security` clear unfixed dependency and Semgrep audit gates
-
-**Chores**
-
-- `deps` bump the actions-minor-patch group with 3 updates
-- `deps` bump the production-minor-patch group with 5 updates
-- `deps-dev` bump the test-toolchain group with 2 updates
 
 ## 2026-10-02
 
@@ -646,13 +623,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `host` exercise native macOS and Windows candidate build
 - `projects` isolate count and deadline continuation budgets
-
-**Chores**
-
-- `deps-dev` bump the development-minor-patch group across 1 directory with 3 updates
-- `deps` bump the actions-minor-patch group with 3 updates
-- `deps` bump the production-minor-patch group with 5 updates
-- `deps-dev` bump the test-toolchain group with 2 updates
 
 ## 2026-09-27
 
@@ -827,11 +797,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `mcp` negotiate native app ui
 
-**Chores**
-
-- `deps-dev` bump the development-minor-patch group with 3 updates
-- `deps` bump the production-minor-patch group with 4 updates
-
 ## 2026-09-20
 
 **Added**
@@ -944,11 +909,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `ci` document independent runner state directory
 - `security` document the hosted passive scan target
 
-**Chores**
-
-- `deps-dev` bump @types/node
-- `deps` bump the production-minor-patch group across 1 directory with 7 updates
-
 ## 2026-09-17
 
 **Added**
@@ -996,9 +956,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Chores**
 
-- `deps` bump the actions-minor-patch group with 3 updates
-- `deps-dev` bump postcss in the development-minor-patch group
-- `deps` bump the production-minor-patch group with 7 updates
 - `release` bump app version to 0.2.18
 - `release` bump app version to 0.2.17
 
@@ -1499,12 +1456,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `mcp` mark guided setup shipped
 
-**Chores**
-
-- `deps` bump aquasecurity/trivy-action (#32)
-- `deps` bump actions/checkout from 6.1.0 to 7.0.1 (#31)
-- `deps-dev` bump @types/react-dom (#29)
-
 ## 2026-08-30
 
 **Added**
@@ -1554,3 +1505,20 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Docs**
 
 - `security` disclose scorecard posture gaps
+
+## 2026-08-29
+
+**Fixed**
+
+- `security` keep path sinks in validated branches
+- `security` make root containment explicit
+- `security` close follow-up CodeQL flows
+
+**Docs**
+
+- `comparison` use explicit SEO-friendly ratings
+
+**Chores**
+
+- `deps` hold incompatible toolchain majors
+- `deps` migrate to lucide-react 1.33.0

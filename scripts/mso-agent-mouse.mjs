@@ -134,31 +134,62 @@ export function parseMouseChunk(chunk) {
 
 /**
  * Handles mouse wheel scrolling for the transcript viewport.
- * Wheel up scrolls up by 3 lines; wheel down scrolls down by 3 lines.
+ * Wheel step defaults to 3 lines, configurable via options or session scrollSpeed.
  * Returns true when the event was consumed.
  *
  * @param {any} scroll
  * @param {any} event
- * @param {{ rows?: number, onScroll?: (offset: number) => void }} [options]
+ * @param {{ rows?: number, onScroll?: (offset: number) => void, step?: number, speed?: number, session?: any }} [options]
  * @returns {boolean}
  */
-export function handleMouse(scroll, event, { rows, onScroll } = {}) {
+export function handleMouse(scroll, event, { rows, onScroll, step, speed, session } = {}) {
   if (!scroll || !event || event.kind !== "wheel") return false;
+
+  // Viewport is line-based: fractional rows are impossible in a terminal cell grid.
+  // We clamp step to integer range [1, 10] matching opencode bounds without pretending sub-line precision.
+  const rawStep = step ?? speed ?? session?.scrollSpeed ?? scroll?.scrollSpeed ?? 3;
+  const numStep = Number(rawStep);
+  const resolvedStep = Number.isFinite(numStep) && numStep >= 1 ? Math.min(10, Math.floor(numStep)) : 3;
 
   if (event.button === "up") {
     const maxOffset = Array.isArray(scroll?.lines) && scroll.lines.length > 0
       ? Math.max(0, getAllLines(scroll).length - Math.max(1, Number(rows ?? scroll.rows) || 1))
       : Number.POSITIVE_INFINITY;
-    scroll.offset = Math.min(maxOffset, (scroll.offset || 0) + 3);
+    scroll.offset = Math.min(maxOffset, (scroll.offset || 0) + resolvedStep);
     if (typeof onScroll === "function") onScroll(scroll.offset);
     return true;
   }
 
   if (event.button === "down") {
-    scroll.offset = Math.max(0, (scroll.offset || 0) - 3);
+    scroll.offset = Math.max(0, (scroll.offset || 0) - resolvedStep);
     if (typeof onScroll === "function") onScroll(scroll.offset);
     return true;
   }
 
   return false;
 }
+
+/**
+ * Resolves whether mouse reporting is enabled given a setting/option and/or session.
+ * Default is true ("on") to match existing behavior; only explicit "off" or false disables.
+ *
+ * @param {any} [setting]
+ * @param {any} [session]
+ * @returns {boolean}
+ */
+export function isMouseEnabled(setting, session) {
+  const val = setting ?? session?.mouse;
+  return val !== "off" && val !== false;
+}
+
+/**
+ * Synchronizes mouse reporting state on an output stream.
+ *
+ * @param {any} output
+ * @param {boolean} enabled
+ * @returns {boolean}
+ */
+export function setMouseReporting(output, enabled) {
+  return enabled ? enableMouse(output) : disableMouse(output);
+}
+

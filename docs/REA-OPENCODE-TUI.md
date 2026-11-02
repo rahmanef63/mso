@@ -112,6 +112,11 @@ Note the split: `sidebar.context` is context usage, `sidebar.limit` is quota/rat
 `sidebar.mcp` is MCP server state. MSO's `context` pane currently merges context usage and provider
 identity, and has no quota concept.
 
+### Permanent refusal of limit and footer slots
+
+- **`limit`**: Refused. The context pane already displays the model context window limit: `scripts/mso-agent-pane-context.mjs:86-97` renders `tokens: ~${compactTokens(ctx.used)} / ${compactTokens(ctx.limit)}` along with `renderProportionBar(ctx.percent, 12)` (sourced from `scripts/mso-agent-status.mjs:28-37` contextStatus `modelMeta.context`). Adding a separate `limit` slot for context window tokens would duplicate this number. A provider quota, rate limit, or balance number does not exist on sessions: checked `scripts/mso-agent-status.mjs:72-107` (`statusParts`), and search across the codebase (`lib/`, `app/api/v1/`, `scripts/`) reveals only unrelated domain checks (`lib/read-admission.ts:17-18`, `lib/camoufox/http.ts:24,36`, `lib/infra/portable/export-grant.ts:14`, `lib/infra/google-api.ts:54`, `lib/infra/demo-credentials.ts:183`, `lib/infra/convex-migrate.ts:114-115`, `lib/infra/google-oauth-http.ts:19`, `lib/infra/store.ts:64-65`, `lib/capabilities/rate-limit.ts:17`, `lib/workflow/types.ts:4,69`). No provider quota, remaining balance, or rate limit is tracked or loaded on MSO sessions.
+- **`footer`**: Refused. The terminal panel already has a persistent status footer row rendered by `chromeLines` in `scripts/mso-agent-chrome.mjs:160-181`, which calls `composerFooter` in `scripts/mso-agent-layout.mjs:49-60` to display `statusParts(session)` (mode, provider/model, context tokens/limit, total tokens, turns, elapsed, cwd). A sidebar footer slot would be a third location for the same information, stealing vertical space from sidebar content.
+
 ## 4. Session status, and how tabs indicate it
 
 `tabs.indicators` = `status` (default) | `numbers`. The description: *"whether tabs show status icons or
@@ -177,7 +182,7 @@ is the constraint that decides whether we may take it at all.
 | 4 | **`session.tab.next_unread`** | The tab click and `/tabs <n>` switch paths must stay one function (`switchToSession`), including the todo-cache clear |
 | 5 | **Surface the queued prompts** | `session.queue` already exists in memory and is drained per turn. Showing it must not change drain order or let a queued prompt jump the approval gate |
 
-Three specific refusals, each because taking it would cost capability:
+Four specific refusals, each because taking it would cost capability or fake fidelity:
 
 - **The OpenTUI engine.** MSO's renderer is line-based and dependency-free; the whole reason it exists is
   that `ink` drags 23 packages and `@opentui/core` needs Node 26.4 while the repo supports 22.12+. Layout
@@ -190,6 +195,14 @@ Three specific refusals, each because taking it would cost capability:
   inside the TUI. MSO's `/terminal` (PR #224) hands the *user* the real terminal via the suspend path. They
   solve different problems, and replacing ours with theirs would remove the ability to drop into a real
   shell mid-session, including for things the agent should not mediate.
+- **`session.image_preview` / `prompt.image_preview`.** opencode relies on OpenTUI's native graphics
+  protocols (Kitty graphics probe and transport, Sixel graphics detection, half-block fallback) supported
+  by terminals like Kitty, Ghostty, or WezTerm. MSO's renderer is a character-cell line painter
+  (`writeFrame`, `cellWidth`) with no graphics escape generator or image protocol. Today an attached image
+  becomes plaintext in the prompt (`pendingImageBlock` emits `--- ATTACHED IMAGES ---` followed by paths).
+  Adding a preview toggle without a terminal image protocol would either produce a fake ASCII placeholder
+  or lie about terminal capability. A real preview requires a terminal image protocol (Kitty graphics or
+  Sixel), an image escape multiplexer in the painter, and terminal emulator support.
 
 ## 8. Reproducing this
 

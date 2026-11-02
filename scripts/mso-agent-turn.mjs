@@ -10,7 +10,6 @@ import { approvesTool } from "./mso-agent-permissions.mjs";
 import { api, C, streamTurn } from "./mso-agent-runtime.mjs";
 import { completedReceipt } from "./mso-agent-ui.mjs";
 import { compactConsumedReadToolResults } from "./mso-agent-context.mjs";
-import { persistSession } from "./mso-agent-session-ui.mjs";
 import { addUsage } from "./mso-agent-status.mjs";
 import { oneShotApproves } from "./mso-agent-oneshot.mjs";
 import { reasoningLine } from "./mso-agent-reasoning.mjs";
@@ -51,18 +50,14 @@ export async function executeTool(rl, tool, call, agentSession, permission = "as
     try { approval = canonicalAgentApproval(tool.name, call.input || {}); }
     catch (error) { return { ok: false, result: `cannot safely approve tool call: ${error instanceof Error ? error.message : String(error)}` }; }
   }
-  let approved = options.approvalScope
-    ? oneShotApproves(options.approvalScope, tool.scope)
-    : approvesTool(permission, tool.scope);
+  let approved = options.approvalScope ? oneShotApproves(options.approvalScope, tool.scope) : approvesTool(permission, tool.scope);
   if (!approved) {
     if (options.approvalScope) return { ok: false, result: "denied by user" };
     const approvalState = options.approvalState || null;
     if (approvalState) approvalState.pendingApproval = { tool: tool.name, scope: tool.scope, digest: approval?.digest || null, createdAt: new Date().toISOString() };
     try {
       const screenLoop = options.screenLoop || approvalState?.screenLoop;
-      approved = await requestExactToolApproval(rl, {
-        tool, input: call.input || {}, approval, onCancel: onInterrupt, signal, colors: C, screenLoop,
-      });
+      approved = await requestExactToolApproval(rl, { tool, input: call.input || {}, approval, onCancel: onInterrupt, signal, colors: C, screenLoop });
       if (approvalState) approvalState.pendingApproval = null;
     } catch (error) {
       if (signal?.aborted || isAbortError(error)) { if (approvalState) approvalState.pendingApproval = null; }
@@ -129,8 +124,7 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
       // Live row while the first token is in flight: a provider wait reads as work.
       activity?.waiting("thinking");
       const result = await turnStream(
-        session.history, session.state.tools, session.agentSession, skillContext, signal,
-        session.state.modelMeta?.context, lazyAssistantOutput(session, toolOptions),
+        session.history, session.state.tools, session.agentSession, skillContext, signal, session.state.modelMeta?.context, lazyAssistantOutput(session, toolOptions),
       );
       // The current model round has consumed all prior read-tool payloads that were
       // still inside its projected context. Persist only bounded replay envelopes
@@ -160,9 +154,7 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
       const results = [];
       for (const call of result.toolUses) {
         const tool = session.state.tools.find((row) => row.name === call.name);
-        const outcome = await toolExecutor(rl, tool, call, session.agentSession, session.permission, signal, onInterrupt, {
-          ...toolOptions, approvalState: options.approvalState || session,
-        });
+        const outcome = await toolExecutor(rl, tool, call, session.agentSession, session.permission, signal, onInterrupt, { ...toolOptions, approvalState: options.approvalState || session });
         calls.push({ name: call.name, scope: tool?.scope || "unknown", ok: outcome.ok });
         results.push({ id: call.id, content: outcome.result, isError: !outcome.ok });
       }
@@ -188,24 +180,38 @@ export function renderInteractionFailure(error, session, journal = {}, colors = 
   return state;
 }
 
+// Bookkeeping write persists turn lifecycle markers without failing the round if offline.
+async function persistTurnActive(session, turnStartedAt) {
+  if (!session?.agentSession?.id) return;
+  if (turnStartedAt) session.agentSession.turnStartedAt = turnStartedAt;
+  else delete session.agentSession.turnStartedAt;
+  try {
+    const body = { action: "update", id: session.agentSession.id, history: session.history, cwd: process.cwd(), turnStartedAt };
+    if (session.titleOverride) body.title = session.titleOverride;
+    const out = await api("/api/v1/agent-sessions", { method: "POST", body: JSON.stringify(body) });
+    if (out?.session) session.agentSession = { ...session.agentSession, ...out.session };
+  } catch { /* Bookkeeping write failure should never abort an interactive round. */ }
+}
+
 export async function runInteractiveRound(rl, session, skillContext, interrupts, localBridge = null) {
   const signal = interrupts.beginTurn();
   await localBridge?.setState("busy");
   let roundResult = null;
   const print = turnPrinter(session);
+  // Persist turn start timestamp so session list reflects active work immediately.
+  await persistTurnActive(session, new Date().toISOString());
   try {
     roundResult = await agentRound(rl, session, skillContext, signal, () => interrupts.interruptCurrent(), { print });
-    await persistSession(session);
   } catch (error) {
-    if (signal.aborted || isAbortError(error)) {
-      print(`${C.dim}turn interrupted.${C.reset}`);
-    } else {
+    if (signal.aborted || isAbortError(error)) print(`${C.dim}turn interrupted.${C.reset}`);
+    else {
       const journal = error?.turnJournal || { calls: roundResult?.calls || [] };
       const state = renderInteractionFailure(error, session, journal, C, print);
       if (isRecoverableInteractionError(error)) session.history.push(recoverableHistoryRow(state));
     }
-    await persistSession(session).catch(() => undefined);
   } finally {
+    // Clear turn marker in finally block so aborted or crashed turns never stick in working state.
+    await persistTurnActive(session, null);
     interrupts.endTurn(signal);
     await localBridge?.setState("idle");
   }
