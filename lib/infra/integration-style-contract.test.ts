@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CONNECTION_MANAGER_STYLE } from "./connection-ui-style";
 import { INTEGRATION_FORM_STYLE } from "./setup-ui";
-import { PORTABILITY_STYLE } from "./portable/ui";
+import { PORTABILITY_SCRIPT, PORTABILITY_STYLE } from "./portable/ui";
 import { INTEGRATION_PAGE_STYLE } from "./setup-page";
 import { SETTINGS_COMPACT_MAX } from "@/lib/presentation/responsive-contract";
 import { readFileSync } from "node:fs";
@@ -67,5 +67,30 @@ describe("Integrations visual token contract", () => {
     // Checkbox labels
     expect(CONNECTION_MANAGER_STYLE).toContain(".integration .identity-check{display:flex;align-items:center;gap:var(--space-2);min-height:var(--control-size);cursor:pointer;font-weight:var(--weight-regular)}");
     expect(PORTABILITY_STYLE).toContain(".portable-transfer .identity-check{display:flex;gap:var(--space-2);align-items:center;min-height:var(--control-size);cursor:pointer;font-weight:var(--weight-regular)}");
+  });
+
+  it("enforces WCAG AA compliant error styling and accessible role for transfer errors (R-27)", () => {
+    expect(PORTABILITY_STYLE).toContain(".transfer-error{");
+    expect(PORTABILITY_STYLE).toContain("color:var(--destructive-text)");
+    expect(PORTABILITY_STYLE).toContain("background:var(--settings-card)");
+    expect(PORTABILITY_STYLE).toContain("overflow-wrap:anywhere");
+    expect(PORTABILITY_SCRIPT).toContain("err.setAttribute('role','alert')");
+  });
+
+  it("enforces safe text wrapping and explicit overflow handling without nowrap on connection badges (R-03)", () => {
+    // 1. .connection-state must not use white-space:nowrap, must allow wrap, and must handle overflow explicitly
+    expect(CONNECTION_MANAGER_STYLE).not.toMatch(/\.connection-state\{[^}]*white-space:nowrap/);
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .connection-state{display:inline-block;max-width:100%");
+    expect(CONNECTION_MANAGER_STYLE).toMatch(/\.connection-state\{[^}]*overflow-wrap:anywhere/);
+    expect(CONNECTION_MANAGER_STYLE).toMatch(/\.connection-state\{[^}]*max-width:100%/);
+
+    // 2. .identity-tags span must handle overflow and wrap cleanly
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .identity-tags span{display:inline-block;max-width:100%");
+    expect(CONNECTION_MANAGER_STYLE).toMatch(/\.identity-tags span\{[^}]*overflow-wrap:anywhere/);
+
+    // 3. .connection-heading and its contents must wrap and prevent flex blowouts
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .provider-heading,.integration .connection-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap}");
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .connection-heading small{display:block;margin-top:var(--space-1);color:var(--muted-foreground);overflow-wrap:anywhere}");
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .connection-heading>div{min-width:0;max-width:100%}");
   });
 });
