@@ -12,6 +12,7 @@ import { paneLines } from "./mso-agent-pane.mjs";
 import { withPreamble } from "./mso-agent-banner-lines.mjs";
 import { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 import { createCompactionWatcher } from "./mso-agent-compaction.mjs";
+import { createAttentionNotifier } from "./mso-agent-attention.mjs";
 export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 
 /**
@@ -31,7 +32,7 @@ export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
  *   preamble?: (() => Array<string> | null) | null,
  *   tabsLayout?: string | null,
  *   mouse?: string | boolean | null,
- *   tabsScope?: string | null,
+ *   tabsScope?: string | null, attention?: string | null, attentionOutput?: any,
  * }} options
  */
 export function mountScreenLoop({
@@ -44,16 +45,13 @@ export function mountScreenLoop({
   onTabClick,
   composer = null,
   preamble = null,
-  tabsLayout = null,
-  mouse = null,
-  tabsScope = null,
+  tabsLayout = null, mouse = null, tabsScope = null, attention = null, attentionOutput = null,
 } = {}) {
   if (!enabled || !session) {
     return {
       active: false, session: null, paint() {}, sync() {}, suspend() {}, resume() {}, follow() {},
       geometry() { return { cols: 80, rows: 24, panel: [], viewRows: 0, tabRowY: 0, pWidth: 0, transWidth: 80, railWidth: 0, kind: null, promptRows: PROMPT_ROWS }; },
       setPromptRows() {}, setMouse() {}, dispose() {},
-      setPromptRows() {}, dispose() {},
     };
   }
 
@@ -69,6 +67,12 @@ export function mountScreenLoop({
 
   const viewport = createViewport({ rows: output.rows || 24 });
   const compaction = createCompactionWatcher(session);
+  // Attention alerts on background session transitions; inert when off to avoid terminal noise.
+  const attentionNotifier = createAttentionNotifier({
+    output: attentionOutput || output,
+    getMode: () => attention || session?.attention || "off",
+    getActiveId: () => session?.agentSession?.id ?? session?.id ?? null,
+  });
   let painted = [];
   let promptReservation = PROMPT_ROWS;
 
@@ -113,6 +117,8 @@ export function mountScreenLoop({
     const trans = transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" });
     setLines(viewport, withPreamble(preamble?.() ?? null, [...trans, ...compaction.lines(colors)]));
     paint();
+    // Background session attention: evaluated on sync when sessions list changes
+    attentionNotifier.notify(getSessions());
   };
 
   // Streaming text goes into the buffer and repaints, so a long answer does not wait for the turn to
@@ -160,19 +166,16 @@ export function mountScreenLoop({
     session, output, hook, onRepaint: paint, onReset: () => { painted = []; },
     isMouseEnabled: () => mouseEnabled,
   });
-  const { suspend, resume } = panelSuspend;
+  // Suspend suppresses bells; resume marks state so return repaint never rings
+  const suspend = () => { attentionNotifier.suspend(); panelSuspend.suspend(); };
+  const resume = () => { panelSuspend.resume(); attentionNotifier.resume(); };
 
   const initLines = transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" });
   setLines(viewport, withPreamble(preamble?.() ?? null, [...initLines, ...compaction.lines(colors)]));
   paint();
 
   const loop = {
-    active: true,
-    session,
-    paint,
-    sync,
-    suspend,
-    resume,
+    active: true, session, paint, sync, suspend, resume,
     follow: () => resetFollow(viewport),
     geometry,
     setPromptRows,
@@ -183,12 +186,14 @@ export function mountScreenLoop({
       if (session) session.mouse = next ? "on" : "off";
       setMouseReporting(output, next);
     },
+    attentionNotifier,
     dispose() {
       ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => detach(process, sig, onTeardown));
       output.off?.("resize", onResize);
       hook.dispose();
       disableMouse(output);
       compaction.reset();
+      attentionNotifier.reset();
       delete session.streamSink; delete session.printSink;
       delete session.onComposerRows; delete session.screenLoop;
       // The panel owns the whole screen, so the inline transcript is repainted once on the way out
