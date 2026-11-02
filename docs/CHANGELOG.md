@@ -27,6 +27,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `integrations` move the inlined assets out, back under the 220-line ratchet
 
+**Tests**
+
+- `integrations` check every inline script, not one greedy match
+
 **Docs**
 
 - `agent` the activity signal cannot be derived, and updatedAt inverts the truth
