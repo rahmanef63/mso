@@ -8,6 +8,7 @@ import { C, printBanner } from "./mso-agent-runtime.mjs";
 import { listCliSessions, state } from "./mso-agent-api.mjs";
 import { fetchMcpServers } from "./mso-agent-mcp-servers.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
+import { createPromptCompletion } from "./mso-agent-prompt-completion.mjs"; import { pluginToolFilter, resolveMentions } from "./mso-agent-at.mjs";
 import { nextPermissionMode, permissionMode } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
 import { oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
@@ -137,7 +138,7 @@ async function main() {
       else if (action === "interrupt") rl.cancelCurrent({ echo: false });
     };
     process.on("SIGINT", onSigint);
-    const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd(), session, { settings: true, sessions: () => recentSessions });
+    const completeSlash = createPromptCompletion({ session, recentSessions: () => recentSessions, slashCompletionItems });
     while (true) {
       if (interrupts.exitRequested) break;
       if (inboundRequestQueued) {
@@ -148,9 +149,9 @@ async function main() {
       }
       let line = "";
       try {
-        screenLoop.paint();
+        screenLoop.paint(); await completeSlash.refresh();
         const answer = await rl.question(() => composerPrompt(session, C), {
-          complete: completeSlash,
+          complete: completeSlash, panelLabel: completeSlash.label,
           onTab: () => { session.permission = nextPermissionMode(session.permission).id; },
           // The panel already draws the separator and the footer above the prompt, so drawing
           // them twice would push the prompt off the reserved rows.
@@ -185,8 +186,7 @@ async function main() {
         continue;
       }
       if (await handleLocalAgentMentionInput(session, line, C)) { screenLoop.sync(); continue; }
-      // Attached images belong to the NEXT prompt only. Format them into the user
-      // message once, then clear, so a stale image can never ride along silently.
+      // Images belong to this prompt only: format once then clear, so a stale one never rides along.
       const images = Array.isArray(session.pendingImages) ? session.pendingImages : [];
       const imageBlock = images.length ? pendingImageBlock(images) : "";
       session.history.push({ role: "user", text: imageBlock ? `${imageBlock}${line}` : line });
@@ -194,7 +194,8 @@ async function main() {
       const skillContext = session.pendingSkill;
       session.pendingSkill = null;
       screenLoop.sync();
-      await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
+      const tools = pluginToolFilter(resolveMentions(line, { mcpServers: session.mcpServers }).plugins, session.state.tools);
+      await runInteractiveRound(rl, session, skillContext, interrupts, localBridge, { toolFilter: tools });
       screenLoop.sync();
       if (interrupts.exitRequested) break;
       if (!lastTurnInterrupted) await drainQueue();
@@ -215,5 +216,4 @@ async function main() {
   }
 }
 
-const direct = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (direct) main().catch((error) => { console.error(`${C.err}mso agent: ${error instanceof Error ? error.message : String(error)}${C.reset}`); process.exit(1); });
+if (Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch((error) => { console.error(`${C.err}mso agent: ${error instanceof Error ? error.message : String(error)}${C.reset}`); process.exit(1); });

@@ -123,8 +123,9 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
       rounds = turn + 1;
       // Live row while the first token is in flight: a provider wait reads as work.
       activity?.waiting("thinking");
+      const scoped = options.toolFilter ? session.state.tools.filter(options.toolFilter) : session.state.tools;
       const result = await turnStream(
-        session.history, session.state.tools, session.agentSession, skillContext, signal, session.state.modelMeta?.context, lazyAssistantOutput(session, toolOptions),
+        session.history, scoped, session.agentSession, skillContext, signal, session.state.modelMeta?.context, lazyAssistantOutput(session, toolOptions),
       );
       // The current model round has consumed all prior read-tool payloads that were
       // still inside its projected context. Persist only bounded replay envelopes
@@ -193,7 +194,7 @@ async function persistTurnActive(session, turnStartedAt) {
   } catch { /* Bookkeeping write failure should never abort an interactive round. */ }
 }
 
-export async function runInteractiveRound(rl, session, skillContext, interrupts, localBridge = null) {
+export async function runInteractiveRound(rl, session, skillContext, interrupts, localBridge = null, roundOptions = {}) {
   const signal = interrupts.beginTurn();
   await localBridge?.setState("busy");
   let roundResult = null;
@@ -201,7 +202,7 @@ export async function runInteractiveRound(rl, session, skillContext, interrupts,
   // Persist turn start timestamp so session list reflects active work immediately.
   await persistTurnActive(session, new Date().toISOString());
   try {
-    roundResult = await agentRound(rl, session, skillContext, signal, () => interrupts.interruptCurrent(), { print });
+    roundResult = await agentRound(rl, session, skillContext, signal, () => interrupts.interruptCurrent(), { print, ...roundOptions });
   } catch (error) {
     if (signal.aborted || isAbortError(error)) print(`${C.dim}turn interrupted.${C.reset}`);
     else {

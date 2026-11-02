@@ -67,11 +67,10 @@ export function mountScreenLoop({
   const command = createCommandLines();
 
   const setPromptRows = (rows) => {
-    // Clamps reservation without repainting immediately; repainting while composer
-    // is drawing its draft/menu would erase them before input is completed.
-    const termRows = Math.max(6, Number(output.rows) || 24);
-    const clamped = clampPromptRows(rows, termRows);
-    if (clamped !== promptReservation) promptReservation = clamped;
+    // Repainted at once: the composer writes its frame right after this returns and needs the rows
+    // already freed. The paint leaves the cursor on the row that frame starts at.
+    const clamped = clampPromptRows(rows, Math.max(6, Number(output.rows) || 24));
+    if (clamped !== promptReservation) { promptReservation = clamped; if (output?.isTTY === true) paint(); }
   };
 
   if (composer) {

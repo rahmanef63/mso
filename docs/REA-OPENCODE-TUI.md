@@ -224,3 +224,52 @@ grep -iE "opentui|yoga" /tmp/oc-strings.txt | head
 
 Do not `grep` without `-o` and a bounded context: individual module lines are megabytes long and will
 flood the terminal. This happened twice while writing this document.
+
+## The `@` trigger: agents and plugins
+
+`/` and `@` are two triggers with two namespaces, and the split is the same one opencode proved:
+
+| Trigger | Namespace | Position |
+|---|---|---|
+| `/` | commands and skills | only at the start of the line |
+| `@` | another agent, or an MCP server for this turn | start or after whitespace |
+
+A slash command owns the whole line, so `/find @foo` opens no `@` menu. That is not a limitation, it is
+what keeps the two from fighting over one token.
+
+**The list is mixed and every row carries its kind**, because a menu headed `commands & skills` over a
+list of agents is a small lie that teaches a user to distrust the panel:
+
+```
+╭─ agents & plugins ───────────────────────────────────────────────────╮
+│ ›   @retired     agent · offline, message will queue                 │
+│     @worker      agent · live                                        │
+│     @github      plugin · mcp · 12 tools                             │
+│     @linear      plugin · mcp · 4 tools                              │
+╰─ ↑↓ navigate · Enter/Tab select · Esc close ─────────────────────────╯
+```
+
+An offline agent is **marked, not hidden**. Hiding it makes the agent look absent, which is a different
+and more confusing lie than one that says the message will queue.
+
+### What `@plugin` means, exactly
+
+It scopes **which servers are on the table for that turn**, not which tool is called. The model still
+chooses the tool; naming a plugin never grants one outside it, because the filter matches a name prefix
+and nothing else.
+
+If no tool carries that prefix, the scope is dropped rather than enforced. Scoping to nothing would
+disable every tool and the turn would fail for a reason nobody could see.
+
+### Refused
+
+**Files under `@`.** MSO has no file-mention consumer. A row that inserts a token nothing reads is
+decoration, and this file already argues against that.
+
+**MCP tools under `@`.** Verified across opencode, Claude Code, Cursor and Continue: all four treat
+`@` as context, never as direct tool invocation. opencode went further and deleted MCP resources from
+`@` when one server flooded the menu (issue #32098). A server is the useful unit; a tool list is noise.
+
+**An unknown `@` is not deleted from the prompt.** It stays, and it is reported, because `@ghost` is
+either a typo or an agent that has not started yet, and silently removing words sends a prompt the user
+did not write.
