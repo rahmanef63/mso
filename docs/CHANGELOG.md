@@ -19,6 +19,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `config` document MSO_EVIDENCE_DIR, the evidence harness output path
 
+**Chores**
+
+- regenerate changelog after merging main
+
 ## 2026-11-02
 
 **Added**
