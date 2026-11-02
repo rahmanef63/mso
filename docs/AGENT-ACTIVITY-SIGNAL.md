@@ -69,3 +69,8 @@ The minimal server change and lifecycle markers have landed:
    - Write point 1 (turn start): inside `runInteractiveRound`, before `agentRound` begins, persists the session with `turnStartedAt = new Date().toISOString()`.
    - Write point 2 (turn end): inside the `finally` block of `runInteractiveRound`, clears `turnStartedAt` to `null` so interrupted or crashed turns never stick in the active state.
    - All bookkeeping writes catch and suppress errors so network or storage issues during bookkeeping never abort the agent round.
+
+6. **TUI consumption and loop closure (`scripts/mso-agent-session-list.mjs`):**
+   - Wired `turnActive` into `stateOf`: `turnActive: true` derives `working` (eliminating false idle during active turns), and `turnActive: false` derives `idle` (eliminating false working immediately post-turn).
+   - Added `turnActive === true` to `needsAttention` and identified it in `attentionReason` as `turnActive: working`, enabling `/tabs next` and `/tabs prev` to navigate truthfully to active sessions.
+   - Connected `turnActive` through `/tabs` table and tab row indicators, completing the loop across all TUI views without client-side timestamp arithmetic.
