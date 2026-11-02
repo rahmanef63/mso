@@ -12,7 +12,14 @@ describe("friendly native Integrations page", () => {
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(html).toContain("INTEGRATIONS_CATALOG"); expect(html).toContain('"id":"supabase"');
     expect(html).toContain("How to get this credential / authorization"); expect(html).not.toContain("si-coder");
-    expect(() => new Function(html.match(/<script nonce="[^"]+">([\s\S]*)<\/script>/)![1])).not.toThrow();
+    // Every inline script must parse. The greedy match this replaced pulled from the first
+    // <script> to the last </script>, which silently concatenated two scripts into one string
+    // and only "passed" while the page happened to have a single block.
+    const scripts = [...html.matchAll(/<script nonce="[^"]+">([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    expect(scripts.length).toBeGreaterThan(0);
+    for (const [index, source] of scripts.entries()) {
+      expect(() => new Function(source), `inline script ${index} must parse`).not.toThrow();
+    }
   });
   it("preserves the dedicated embed alias and keeps standalone framing denied", () => {
     expect(embedGET().headers.get("content-security-policy")).toContain("frame-ancestors 'self'");
