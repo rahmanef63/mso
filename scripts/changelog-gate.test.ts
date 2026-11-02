@@ -91,4 +91,35 @@ describe("changelog staleness gate", () => {
     expect(out, "the collapsed line drops the PR suffix").not.toContain("a real change (#999)");
     expect(out, "a lone PR number must survive, it links the line to its discussion").toContain("only once (#777)");
   });
+
+  // Dependabot PRs touch no docs, so listing their subjects turned every one of them red on a gate
+  // whose only fix was "commit a changelog for a version bump". They are also not what a user
+  // reads in Settings -> About.
+  it("leaves automated dependency bumps out of the user-facing changelog", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-changelog-deps-"));
+    roots.push(root);
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, "scripts/gen-changelog.mjs"), readFileSync(path.join(ROOT, "scripts/gen-changelog.mjs")));
+
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const commit = (file: string, subject: string) => {
+      writeFileSync(path.join(root, file), file);
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "add", "-A");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", subject);
+    };
+    git("init", "-q");
+    commit("real.txt", "feat(app): something a user would notice");
+    commit("d1.txt", "build(deps): bump @anthropic-ai/sdk from 0.135.0 to 1.3.0");
+    commit("d2.txt", "build(deps-dev): bump the development-minor-patch group with 4 updates");
+    commit("d3.txt", "chore(deps): update dependency sharp to v0.36.0");
+
+    expect(spawnSync(process.execPath, ["scripts/gen-changelog.mjs"], { cwd: root, encoding: "utf8" }).status).toBe(0);
+    const out = readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
+
+    expect(out, "the real change is listed").toContain("something a user would notice");
+    expect(out, "no automated bump leaks into the user-facing list").not.toMatch(/bump @anthropic|bump the development|update dependency sharp/);
+    // And the gate must pass afterwards, which is the actual defect being fixed.
+    expect(spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" }).status).toBe(0);
+  });
 });
