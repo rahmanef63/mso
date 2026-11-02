@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `tui` opencode batch three, from starved flags to a written contract (#258)
 
+**Fixed**
+
+- `tui` the panel no longer scrolls itself away, and command output survives
+
 ## 2026-11-02
 
 **Added**
