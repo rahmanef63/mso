@@ -78,8 +78,9 @@ describe("native integration setup capabilities", () => {
   it("standalone page contains no grant and its inline script parses", async () => {
     const { integrationSetupPage } = await import("./setup-page");
     const result = integrationSetupPage(); expect(result.csp).toContain("frame-ancestors 'none'");
-    const script = result.html.match(/<script nonce="[^"]+">([\s\S]+)<\/script>/)?.[1];
-    expect(script).toBeTruthy(); expect(() => new Function(script!)).not.toThrow();
+    const scripts = [...result.html.matchAll(/<script nonce="[^"]+">([\s\S]*?)<\/script>/g)].map(m => m[1]);
+    expect(scripts.length).toBeGreaterThan(0);
+    for (const script of scripts) expect(() => new Function(script)).not.toThrow();
     expect(result.html).not.toContain(KEY); expect(result.html).not.toContain("si-coder");
   });
 });

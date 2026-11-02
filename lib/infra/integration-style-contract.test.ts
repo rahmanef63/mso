@@ -94,3 +94,17 @@ describe("Integrations visual token contract", () => {
     expect(CONNECTION_MANAGER_STYLE).toContain(".integration .connection-heading>div{min-width:0;max-width:100%}");
   });
 });
+
+// iOS Safari zooms into any focused input whose font-size is below 16px, and the page does not
+// zoom back out. --type-caption is 12px, so the sidebar search had this defect.
+it("keeps every touch input at or above the 16px iOS auto-zoom threshold", () => {
+  expect(CONNECTION_MANAGER_STYLE).toMatch(/input\[type=search\]\{[^}]*font-size:var\(--type-body\)/);
+  // The general form control rule already uses the body size, which is 16px.
+  expect(INTEGRATION_FORM_STYLE).toMatch(/\.integration input,\.integration select\{[^}]*font:var\(--type-body\)/);
+});
+
+// The drawer slide is decorative; the state change is conveyed by position and aria-expanded.
+it("stops the decorative drawer transition under reduced motion", () => {
+  expect(CONNECTION_MANAGER_STYLE).toContain("@media (prefers-reduced-motion:reduce)");
+  expect(CONNECTION_MANAGER_STYLE).toMatch(/prefers-reduced-motion:reduce\)\{[^}]*integration-settings-sidebar\{transition:none\}/);
+});
