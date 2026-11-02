@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - `a11y` scope the drawer inert to the compact layout
+- `tui` the panel no longer scrolls itself away, and command output survives (#261)
 - `a11y` close the four keyboard defects the audit found
 - `integrations` restore three fixes a later PR silently reverted, and follow the shell theme
 - `integrations` the iOS zoom fix targeted a selector the page does not use
