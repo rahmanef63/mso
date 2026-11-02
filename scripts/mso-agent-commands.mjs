@@ -14,6 +14,7 @@ export const COMMAND_MANIFEST = [
   { name: "/permission", usage: "[mode]", description: "choose ask | auto-write | yolo" },
   { name: "/context", description: "alias for /status" },
   { name: "/diff", usage: "[ref] [--full]", description: "show diff viewer panel for artifact write action" },
+  { name: "/find", usage: "[query]", description: "locate text in transcript and jump to match" },
   { name: "/todos", usage: "[--all]", description: "show session checklist from todo_write" },
   { name: "/pane", usage: "[kind|pin|unpin]", description: "cycle, set, or pin side pane (todos, diff, files, off)" },
   { name: "/keybind", usage: "[sub]", description: "view keybindings (sub: reset, conflicts)" },
@@ -71,6 +72,7 @@ import { handleJobsCommand } from "./mso-agent-jobs.mjs";
 import { handleTerminalCommand } from "./mso-agent-cmd-terminal.mjs";
 import { handleSettingsCommand } from "./mso-agent-cmd-settings.mjs";
 import { handleQueueCommand } from "./mso-agent-cmd-queue.mjs";
+import { handleFindCommand } from "./mso-agent-cmd-find.mjs";
 import { createPrinter } from "./mso-agent-print.mjs";
 
 export { SHARE_UNAVAILABLE_MESSAGE, buildExportArgv };
@@ -158,6 +160,7 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
   if (parityOutcome !== null) return parityOutcome;
 
   if (cmd === "/jobs") return handleJobsCommand(ctx, args);
+  if (cmd === "/find") return handleFindCommand(ctx, args);
   if (cmd === "/terminal" || cmd === "/term") return handleTerminalCommand(ctx, args);
   if (cmd === "/settings" || cmd === "/setting") return handleSettingsCommand(ctx, args);
 

@@ -1,5 +1,6 @@
 import process from "node:process";
 // Derives help lines and formatted text directly from command and settings registries.
+// Commands like /find are declared in COMMAND_MANIFEST in mso-agent-commands.mjs.
 import { createPrinter } from "./mso-agent-print.mjs";
 import { helpLines } from "./mso-agent-help-lines.mjs";
 import { getKeybinds } from "./mso-agent-keybinds.mjs";
