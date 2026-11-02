@@ -16,6 +16,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `integrations` follow the host theme, and stop iOS zooming the search field
+- `integrations` keyboard-operable confirmation, visible transfer errors, and wrapping status
 - `integrations` safe secret layout, real landmarks, and a sidebar that closes
 - `integrations` show the real MSO logo, and activate the dead container query
 - `integrations` WCAG contrast, 44px tap targets, and no em dashes in UI copy
