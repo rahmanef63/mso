@@ -23,8 +23,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Chores**
 
-- regenerate changelog
 - regenerate changelog after merging main
+- regenerate changelog
 
 ## 2026-11-02
 
