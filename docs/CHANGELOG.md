@@ -8,20 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` opencode batch three, from starved flags to a written contract
-
-**Other**
-
-- feat/tui-session-export
-- feat/tui-approval-summary
-- feat/tui-transcript-search (conflicts kept both sides)
-- feat/tui-keybind-help (conflicts kept both sides)
-- feat/tui-pane-live-context (conflicts kept both sides)
-- feat/tui-help-width
-- feat/tui-compaction-live
-- feat/tui-attention-wire
-- feat/tabs-turnactive
-- docs/tui-panel-contract
+- `tui` opencode batch three, from starved flags to a written contract (#258)
 
 ## 2026-11-02
 
