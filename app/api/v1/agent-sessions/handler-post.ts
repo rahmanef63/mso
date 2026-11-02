@@ -9,6 +9,7 @@ import {
   renameAgentSessionName,
   updateAgentSessionHistory,
   updateAgentSessionLocation,
+  updateAgentSessionTurnActive,
 } from "@/lib/agent/session-store";
 import { compactAgentSessionRouteHandler } from "@/lib/agent/session-compact-now";
 import { pruneAgentSessionArchives } from "@/lib/agent/session-archive";
@@ -58,6 +59,7 @@ export async function handlePostAgentSessions(req: NextRequest) {
     jev?: unknown;
     cursor?: number;
     limit?: number;
+    turnStartedAt?: string | null;
   };
   try {
     body = await req.json();
@@ -81,13 +83,20 @@ export async function handlePostAgentSessions(req: NextRequest) {
           { error: "id_and_history_required" },
           { status: 400 },
         );
-      const session = await updateAgentSessionHistory(
+      let session = await updateAgentSessionHistory(
         principal,
         body.id,
         body.history,
         body.title,
         "auto",
       );
+      if (body.turnStartedAt !== undefined) {
+        session = await updateAgentSessionTurnActive(
+          principal,
+          session.id,
+          body.turnStartedAt,
+        );
+      }
       return sessionResponse({
         session: body.cwd
           ? await updateAgentSessionLocation(principal, session.id, body.cwd)
