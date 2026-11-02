@@ -13,6 +13,9 @@ import { withPreamble } from "./mso-agent-banner-lines.mjs";
 import { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 import { createCompactionWatcher } from "./mso-agent-compaction.mjs";
 import { createAttentionNotifier } from "./mso-agent-attention.mjs";
+import { createClickHintReporter, createMcpRefresher } from "./mso-agent-panel-effects.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
+import { formatClickHint, shouldShowClickHint } from "./mso-agent-click-hint.mjs";
 export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 
 /**
@@ -21,42 +24,18 @@ export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
  * keeps running exactly as it did before this module existed.
  *
  * @param {{
- *   session: any,
- *   enabled?: boolean,
- *   output?: any,
- *   input?: any,
- *   colors?: any,
- *   getSessions?: () => Array<any>,
- *   onTabClick?: (sessionId: string) => void | Promise<void>,
- *   composer?: any,
- *   preamble?: (() => Array<string> | null) | null,
- *   tabsLayout?: string | null,
- *   mouse?: string | boolean | null,
- *   tabsScope?: string | null, attention?: string | null, attentionOutput?: any,
- * }} options
- */
-export function mountScreenLoop({
-  session,
-  enabled = false,
-  output = process.stdout,
-  input = process.stdin,
-  colors = {},
-  getSessions = () => [],
-  onTabClick,
-  composer = null,
-  preamble = null,
-  tabsLayout = null, mouse = null, tabsScope = null, attention = null, attentionOutput = null,
  *   session: any, enabled?: boolean, output?: any, input?: any, colors?: any,
  *   getSessions?: () => Array<any>, onTabClick?: (sessionId: string) => void | Promise<void>,
  *   composer?: any, preamble?: (() => Array<string> | null) | null, tabsLayout?: string | null,
  *   mouse?: string | boolean | null, tabsScope?: string | null,
+ *   attention?: string | null, attentionOutput?: any,
  *   refreshMcp?: (() => Promise<any> | any) | null,
  * }} options
  */
 export function mountScreenLoop({
   session, enabled = false, output = process.stdout, input = process.stdin, colors = {},
   getSessions = () => [], onTabClick, composer = null, preamble = null, tabsLayout = null,
-  mouse = null, tabsScope = null, refreshMcp = null,
+  mouse = null, tabsScope = null, attention = null, attentionOutput = null, refreshMcp = null,
 } = {}) {
   if (!enabled || !session) {
     return {
@@ -122,18 +101,8 @@ export function mountScreenLoop({
     output.write(`\x1b[${frame.length};1H`);
   };
 
-  let mcpRefreshing = false;
-  // Bounded MCP refresh: at most once per sync, never on keystroke paint.
-  // Preserves previous server list if the refresh fails.
-  const triggerMcpRefresh = () => {
-    const fn = refreshMcp || session?.refreshMcpServers;
-    if (typeof fn !== "function" || mcpRefreshing) return;
-    mcpRefreshing = true;
-    Promise.resolve(fn())
-      .then((next) => { if (Array.isArray(next)) { session.mcpServers = next; paint(); } })
-      .catch(() => {})
-      .finally(() => { mcpRefreshing = false; });
-  };
+  const reportClickHint = createClickHintReporter({ session, colors });
+  const triggerMcpRefresh = createMcpRefresher({ session, getRefresh: () => refreshMcp || session?.refreshMcpServers, onUpdated: paint });
 
   const sync = () => {
     commitStream(viewport);
@@ -155,6 +124,7 @@ export function mountScreenLoop({
   const onResize = () => { viewport.rows = output.rows || 24; sync(); };
   output.on?.("resize", onResize);
 
+
   const dispatchMouse = (event) => {
     // When mouse setting is off, ignore wheel and click completely so terminal selection works.
     if (!event || !mouseEnabled) return false;
@@ -163,7 +133,8 @@ export function mountScreenLoop({
       return false;
     }
     if (event.kind === "click") {
-      const { cols, tabRowY, railWidth, viewRows } = geometry();
+      const geom = geometry();
+      const { cols, tabRowY, railWidth, viewRows } = geom;
       const hitOpts = railWidth > 0
         ? { x: event.x, y: event.y, width: railWidth, rows: viewRows, orientation: "vertical" }
         : { x: event.x, y: event.y, width: cols, tabRow: tabRowY, orientation: "horizontal" };
@@ -172,6 +143,8 @@ export function mountScreenLoop({
         Promise.resolve(onTabClick(targetId)).then(paint).catch(() => {});
         return true;
       }
+      // One hint per session when a click lands in an interactive-looking area with no tab under it.
+      reportClickHint({ event, geometry: geom, targetId, suspended: panelSuspend?.isSuspended?.() });
       return true;
     }
     return false;

@@ -13,19 +13,10 @@ export const HELP_TEXT = HELP_LINES.join("\n");
 
 export function printHelp(options = {}) {
   const printer = createPrinter(options);
-  // Colors and terminal width adjust output to match caller capabilities.
   const colors = options.colors || options.session?.colors;
-  // Live terminal columns take precedence over stale session dimensions so terminal resizes
-  // are immediately respected when the user runs /help.
+  // Live terminal columns beat a stale session width, so a resize is respected the moment /help runs.
   const width = options.width || process.stdout?.columns || options.session?.width;
-  if (width || colors) {
-    printer.printBlock(helpLines({ ...options, colors, width }).join("\n"));
-  } else {
-    printer.printBlock(HELP_TEXT);
-  }
-  const width = options.width || options.session?.width || process.stdout?.columns;
-  // Derive effective keybinds so custom user mappings in ~/.mso/keybinds.json are displayed.
+  // Effective keybinds, so a custom keymap is described instead of the shipped default.
   const keybinds = options.keybinds || getKeybinds();
-  // Always render dynamically so width, palette, and effective user keybinds reflect the active terminal.
   printer.printBlock(helpLines({ ...options, colors, width, keybinds }).join("\n"));
 }
