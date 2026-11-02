@@ -46,6 +46,17 @@ export function mountScreenLoop({
   composer = null,
   preamble = null,
   tabsLayout = null, mouse = null, tabsScope = null, attention = null, attentionOutput = null,
+ *   session: any, enabled?: boolean, output?: any, input?: any, colors?: any,
+ *   getSessions?: () => Array<any>, onTabClick?: (sessionId: string) => void | Promise<void>,
+ *   composer?: any, preamble?: (() => Array<string> | null) | null, tabsLayout?: string | null,
+ *   mouse?: string | boolean | null, tabsScope?: string | null,
+ *   refreshMcp?: (() => Promise<any> | any) | null,
+ * }} options
+ */
+export function mountScreenLoop({
+  session, enabled = false, output = process.stdout, input = process.stdin, colors = {},
+  getSessions = () => [], onTabClick, composer = null, preamble = null, tabsLayout = null,
+  mouse = null, tabsScope = null, refreshMcp = null,
 } = {}) {
   if (!enabled || !session) {
     return {
@@ -111,6 +122,19 @@ export function mountScreenLoop({
     output.write(`\x1b[${frame.length};1H`);
   };
 
+  let mcpRefreshing = false;
+  // Bounded MCP refresh: at most once per sync, never on keystroke paint.
+  // Preserves previous server list if the refresh fails.
+  const triggerMcpRefresh = () => {
+    const fn = refreshMcp || session?.refreshMcpServers;
+    if (typeof fn !== "function" || mcpRefreshing) return;
+    mcpRefreshing = true;
+    Promise.resolve(fn())
+      .then((next) => { if (Array.isArray(next)) { session.mcpServers = next; paint(); } })
+      .catch(() => {})
+      .finally(() => { mcpRefreshing = false; });
+  };
+
   const sync = () => {
     commitStream(viewport);
     compaction.check(session, { colors });
@@ -119,6 +143,7 @@ export function mountScreenLoop({
     paint();
     // Background session attention: evaluated on sync when sessions list changes
     attentionNotifier.notify(getSessions());
+    triggerMcpRefresh();
   };
 
   // Streaming text goes into the buffer and repaints, so a long answer does not wait for the turn to
