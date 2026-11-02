@@ -1,7 +1,8 @@
 // Vertical tab rail layout, kept out of mso-agent-chrome.mjs so that file stays under the line
 // ratchet. It is still the SAME layout source: the caller passes the same segment builder, so the
 // painted rail and its hit test cannot drift.
-import { candidateSplits, makeSegments } from "./mso-agent-chrome.mjs";
+import { candidateSplits, makeSegments, tabStatusGlyph } from "./mso-agent-chrome.mjs";
+export { tabStatusGlyph };
 
 /**
  * Split items for a vertical rail of `maxRows` rows, dropping from the middle with a +N marker.

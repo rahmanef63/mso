@@ -1,7 +1,7 @@
 import { cellWidth, clean, fitCells } from "./tui/cells.mjs";
 import { composerFooter } from "./mso-agent-layout.mjs";
 
-function candidateSplits(kept, total, activeIdx) {
+export function candidateSplits(kept, total, activeIdx) {
   const splits = [];
   for (let l = 0; l <= kept; l++) {
     const r = kept - l;
@@ -11,7 +11,7 @@ function candidateSplits(kept, total, activeIdx) {
   return all.sort((a, b) => Math.abs(a - kept / 2) - Math.abs(b - kept / 2));
 }
 
-function makeSegments(itemsList, orientation = "horizontal", maxWidth = 80) {
+export function makeSegments(itemsList, orientation = "horizontal", maxWidth = 80) {
   if (orientation === "vertical") {
     const contentWidth = Math.max(1, maxWidth - 1);
     return itemsList.map((it, row) => {
@@ -22,7 +22,9 @@ function makeSegments(itemsList, orientation = "horizontal", maxWidth = 80) {
         row,
         start: 0,
         end: Math.min(it.width, contentWidth),
-        styled: fitCells(it.styled || it.plainText || "", contentWidth, { pad: false }),
+        styled: cellWidth(it.styled || it.plainText || "") <= contentWidth
+          ? (it.styled || it.plainText || "")
+          : fitCells(it.styled || it.plainText || "", contentWidth, { pad: false }),
         plainText: it.plainText || it.text || "",
         text: it.text,
         isActive: Boolean(it.isActive),
@@ -39,23 +41,37 @@ function makeSegments(itemsList, orientation = "horizontal", maxWidth = 80) {
   return segments;
 }
 
+// The indicator reads ONLY explicit status or turnActive. Timestamps are deliberately ignored
+// because updatedAt records turn completion, not progress (docs/AGENT-ACTIVITY-SIGNAL.md).
+export function tabStatusGlyph(session) {
+  if (!session || typeof session !== "object") return " ";
+  const row = session.agentSession && typeof session.agentSession === "object" ? session.agentSession : session;
+  if (row.error || session.error || ["error", "errored", "failed"].includes(String(row.status || session.status || ""))) return "!";
+  if (row.turnActive === true || session.turnActive === true || ["working", "busy", "running"].includes(String(row.status || session.status || ""))) return "●";
+  if (row.status === "idle" || session.status === "idle") return "○";
+  return " ";
+}
+
 /** @param {Array<any>} sessions @param {string|number|null} [activeId] @param {any} [options] */
-export function tabLayout(sessions, activeId = null, { colors = {}, width = 80, rows = null, orientation = "horizontal" } = {}) {
+export function tabLayout(sessions, activeId = null, options = {}) {
+  const opts = options || {};
+  const width = opts.width, rows = opts.rows ?? null, orientation = opts.orientation || "horizontal", colors = opts.colors || {};
   if (!Array.isArray(sessions) || sessions.length === 0) {
     return { segments: [], maxWidth: Math.max(1, Number(width) || 80) };
   }
   const maxWidth = Math.max(1, Number(width) || 80);
   const sep = "  ";
   const cBold = colors?.bold || "", cBlue = colors?.blue || "", cDim = colors?.dim || "", cReset = colors?.reset || "";
+  const indicatorMode = (opts.indicators || opts.session?.tabsIndicators) === "status" ? "status" : "numbers";
 
   const items = sessions.map((s) => {
     const rawName = clean(s?.name || s?.agentSession?.name || "").replace(/^@/, "");
     const name = rawName || "agent";
     const id = String(s?.id || s?.agentSession?.id || "");
     const isActive = activeId != null && (String(activeId) === id || String(activeId).replace(/^@/, "") === name);
-    const marker = isActive ? "● " : "";
+    const marker = indicatorMode === "status" ? `${tabStatusGlyph(s)} ` : (isActive ? "● " : "");
     const plainText = `${marker}@${name}`;
-    const styled = isActive ? `${cBold}${cBlue}${marker}@${name}${cReset}` : `${cDim}@${name}${cReset}`;
+    const styled = isActive ? `${cBold}${cBlue}${marker}@${name}${cReset}` : `${cDim}${marker}@${name}${cReset}`;
     return { id, name, isActive, plainText, styled, width: cellWidth(plainText) };
   });
 
@@ -131,7 +147,9 @@ export function tabRailLines(sessions, activeId = null, options = {}) {
       lines.push(" ".repeat(contentWidth) + borderChar);
       continue;
     }
-    const plain = fitCells(seg.plainText || "", contentWidth, { pad: false });
+    const plain = cellWidth(seg.plainText || "") <= contentWidth
+      ? (seg.plainText || "")
+      : fitCells(seg.plainText || "", contentWidth, { pad: false });
     const pad = " ".repeat(Math.max(0, contentWidth - cellWidth(plain)));
     const styled = seg.isActive ? `${cBold}${cBlue}${plain}${cReset}` : (cDim ? `${cDim}${plain}${cReset}` : plain);
     lines.push(styled + pad + borderChar);
@@ -165,18 +183,17 @@ export function chromeLines({
   width = 80,
   rows = null,
   footer = null,
+  indicators = null,
 } = {}) {
   const termRows = rows != null ? Number(rows) : null;
   if (termRows !== null && termRows <= 6) return [];
-  const tab = tabRow(sessions, activeId, { colors, width });
+  const ind = indicators ?? session?.tabsIndicators ?? session?.tabIndicators ?? null;
+  const tab = tabRow(sessions, activeId, { colors, width, ...(ind ? { indicators: ind } : {}) });
   if (termRows !== null && termRows <= 8) return tab ? [tab] : [];
 
-  let foot = "";
-  if (footer != null) {
-    foot = typeof footer === "function" ? String(footer() || "") : String(footer || "");
-  } else if (session != null) {
-    foot = String(composerFooter(session, colors, width) || "");
-  }
+  const foot = footer != null
+    ? (typeof footer === "function" ? String(footer() || "") : String(footer || ""))
+    : (session != null ? String(composerFooter(session, colors, width) || "") : "");
   return [tab, foot].filter((line) => typeof line === "string" && line.trim().length > 0).slice(0, 2);
 }
 
@@ -192,12 +209,7 @@ export function tabsToSwitch(sessions, args) {
   const query = raw.toLowerCase().replace(/^@/, "");
   const getName = (s) => clean(s?.name || s?.agentSession?.name || "").toLowerCase().replace(/^@/, "");
   const getId = (s) => String(s?.id || s?.agentSession?.id || "").toLowerCase();
-  for (const match of [
-    (s) => getName(s) === query,
-    (s) => getId(s) === query,
-    (s) => getName(s).startsWith(query),
-    (s) => getId(s).startsWith(query),
-  ]) {
+  for (const match of [(s) => getName(s) === query, (s) => getId(s) === query, (s) => getName(s).startsWith(query), (s) => getId(s).startsWith(query)]) {
     const hits = sessions.filter(match);
     if (hits.length === 1) return hits[0];
     if (hits.length > 1) return null;
