@@ -60,7 +60,19 @@ function skillStatus(session) {
   return null;
 }
 
-export function statusParts(session, cwd = process.cwd()) {
+// Resolves status verbosity level: "low", "medium", or "high" (default).
+// Falls back to "high" for unknown values so footer rendering never breaks.
+export function resolveVerbosity(session, options = {}) {
+  const raw = options?.verbosity || session?.verbosity || session?.statusVerbosity;
+  const v = String(raw || "").toLowerCase().trim();
+  if (v === "low" || v === "medium") return v;
+  return "high";
+}
+
+export function statusParts(session, cwd = process.cwd(), options = {}) {
+  const opts = (typeof cwd === "object" && cwd !== null) ? cwd : options;
+  const targetCwd = (typeof cwd === "string" && cwd !== process.cwd()) ? cwd : (session?.cwd || cwd);
+  const verbosity = resolveVerbosity(session, opts);
   const provider = String(session?.state?.config?.provider || "—");
   const model = String(session?.state?.config?.model || "—");
   const ctx = contextStatus(session?.history, session?.state?.modelMeta);
@@ -71,8 +83,14 @@ export function statusParts(session, cwd = process.cwd()) {
   const elapsed = Number(session?.lastElapsedMs || 0);
   const skill = skillStatus(session);
   const routing = session?.lastRouting || null;
+  // Mid-conversation situational awareness prioritizes mode, context usage,
+  // and turn count. Working directory is static context that clutters narrow
+  // viewports, so "medium" drops cwd first. Model and provider are also static,
+  // so "low" drops provider/model and cwd while preserving live context and turns.
+  const showModel = verbosity !== "low";
+  const showCwd = verbosity === "high";
   return [
-    `${provider}/${model}`,
+    showModel ? `${provider}/${model}` : null,
     skill ? `skill ${skill.state === "invoked" ? "✓" : "◆"} /${skill.name}${skill.state === "queued" ? " queued" : skill.state === "invoking" ? " invoking" : ""}` : null,
     ctx.limit ? `ctx ~${compactNumber(ctx.used)}/${compactNumber(ctx.limit)} ${ctx.percent}%` : `ctx ~${compactNumber(ctx.used)}/?`,
     session?.agentSession?.compactThresholdTokens ? `session ~${compactNumber(session.agentSession.estimatedTokens)}/${compactNumber(session.agentSession.compactThresholdTokens)}` : null,
@@ -84,7 +102,7 @@ export function statusParts(session, cwd = process.cwd()) {
     elapsed > 0 ? `${(elapsed / 1000).toFixed(elapsed >= 10_000 ? 0 : 1)}s` : null,
     `@${sessionName}`,
     `session ${sessionTitle}`,
-    homeShort(cwd),
+    showCwd ? homeShort(targetCwd) : null,
   ].filter(Boolean);
 }
 

@@ -16,7 +16,7 @@ let execute: typeof import("./connection-dispatch").executeIntegrationAction;
 
 const CLOUD_PAT = "pat_synthetic_cloud_dispatch_1234567";
 const ADMIN_KEY = "synthetic_self_hosted_admin_dispatch_1234";
-const operations = ["convex.customDomains.list", "convex.customDomain.ensure", "convex.canonical.get", "convex.canonical.set", "convex.env.presence", "convex.env.set", "convex.project.deploy", "convex.snapshot.import"];
+const operations = ["convex.customDomains.list", "convex.customDomain.ensure", "convex.canonical.get", "convex.canonical.set", "convex.env.presence", "convex.project.deploy", "convex.snapshot.import"];
 
 async function seed(user: string, connection: string, method: string, values: Record<string, string>) {
   const { integrationManage } = await import("./connection-manage");
@@ -51,7 +51,6 @@ const args: Record<string, Record<string, unknown>> = {
   "convex.canonical.get": { deploymentName: "happy-otter-123" },
   "convex.canonical.set": { deploymentName: "happy-otter-123", requestDestination: "convexCloud", url: null },
   "convex.env.presence": { deploymentName: "happy-otter-123", names: ["AUTH_SECRET"] },
-  "convex.env.set": { deploymentName: "happy-otter-123", name: "AUTH_SECRET", value: "test-secret", projectPath: "/srv/project" },
   "convex.project.deploy": { deploymentName: "happy-otter-123", projectPath: "/srv/project" },
   "convex.snapshot.import": { deploymentName: "happy-otter-123", projectPath: "/srv/project", snapshotPath: "/tmp/s.zip", mode: "append" },
 };

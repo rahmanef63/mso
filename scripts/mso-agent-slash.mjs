@@ -1,4 +1,6 @@
 import process from "node:process";
+import { paletteItems } from "./mso-agent-palette.mjs";
+import { SETTINGS } from "./mso-agent-settings.mjs";
 import {
   currentSkillProject,
   resolveSlashSkill,
@@ -163,6 +165,7 @@ export function slashCompletionItems(
   input,
   cwd = process.cwd(),
   session = /** @type {any} */ (null),
+  options = /** @type {any} */ (null),
 ) {
   const text = String(input || "").trimStart();
   if (!text.startsWith("/") || /\s/.test(text)) return [];
@@ -183,5 +186,17 @@ export function slashCompletionItems(
     ...projectSkills.filter((item) => !builtinNames.has(item.text)),
     ...globalSkills.filter((item) => !builtinNames.has(item.text)),
   ];
-  return all.filter((item) => item.text.toLowerCase().startsWith(query));
+  // Backward compatibility: when new sources are not passed, retain exact legacy filtering.
+  if (!options || (options.settings === undefined && options.sessions === undefined)) {
+    return all.filter((item) => item.text.toLowerCase().startsWith(query));
+  }
+  const settings = options.settings === true ? SETTINGS : (options.settings || []);
+  const sessions = typeof options.sessions === "function" ? options.sessions() : (options.sessions || []);
+  return paletteItems({
+    commands: all,
+    settings,
+    sessions,
+    query: text,
+    colors: options.colors,
+  });
 }

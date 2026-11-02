@@ -20,6 +20,7 @@ import { handleSessionCommand } from "./mso-agent-cmd-session.mjs";
 import { handleJobsCommand } from "./mso-agent-jobs.mjs";
 import { handleTerminalCommand } from "./mso-agent-cmd-terminal.mjs";
 import { handleSettingsCommand } from "./mso-agent-cmd-settings.mjs";
+import { handleQueueCommand } from "./mso-agent-cmd-queue.mjs";
 import { createPrinter } from "./mso-agent-print.mjs";
 
 export { SHARE_UNAVAILABLE_MESSAGE, buildExportArgv };
@@ -100,6 +101,8 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
 
   const inspectOutcome = await handleInspectCommand(ctx, cmd, args);
   if (inspectOutcome !== null) return inspectOutcome;
+
+  if (cmd === "/queue") return handleQueueCommand(ctx, args);
 
   const parityOutcome = await handleParityCommand(ctx, cmd, args);
   if (parityOutcome !== null) return parityOutcome;

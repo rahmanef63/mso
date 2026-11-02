@@ -34,34 +34,6 @@ Never ask the user to paste a token, API key, password, OAuth code, private setu
 5. Use `integration_manage` only for explicit metadata changes and confirmation-gated mutations.
 6. Re-read the connection after mutation and report its non-secret state.
 
-## Pasted integration references
-
-An owner may paste a reference instead of describing an integration. Three forms are equivalent, all
-carrying `user` / `provider` / `connection`:
-
-```
-mso-integration:<user>/<provider>/<connection>     <- preferred; not fetchable
-https://<host>/integrations?user=…&provider=…&connection=…
-<user>/<provider>/<connection>
-```
-
-When a prompt contains one:
-
-1. Treat it as the **exact** credential user, provider and connection. Do not ask which integration
-   the owner means, and do not substitute a similarly named connection.
-2. Pass those three values straight into `integration_query` / `integration_execute` /
-   `integration_manage`.
-3. Do **not** fetch the URL form. The `/integrations` page is owner-gated (403, or a login redirect);
-   the query parameters in it are the answer, not a resource to GET.
-4. Provider ids are canonical (`convex`, not the legacy `convex-cloud`). If a pasted id does not
-   resolve, say so and call `integration_query` for the catalog — do not guess a nearby provider.
-
-Failure handling, one round trip only:
-
-- `user_not_found` → `integration_query` for `view=users`, ask once which owner was meant.
-- `connection_not_found` → `integration_query` for that owner's connections, ask once.
-- Never fall back silently to another connection or to the default account.
-
 ## Tool routing
 
 - `integration_query`: catalog, users, named connections, source/auth instructions, folder/default resolution.

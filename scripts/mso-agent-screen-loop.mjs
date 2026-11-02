@@ -104,7 +104,8 @@ export function mountScreenLoop({
     const viewRows = Math.max(0, rows - panel.length - reservation);
     const tabRowY = railWidth > 0 ? -1 : viewRows + (hasSep ? 1 : 0);
     const kind = session?.paneKind && session.paneKind !== "off" ? session.paneKind : null;
-    const pWidth = kind ? paneWidth(cols) : 0;
+    // Pass configured threshold so terminals narrower than 100 columns can show the pane
+    const pWidth = kind ? paneWidth(cols, { minColumns: session?.paneMinColumns ?? 100 }) : 0;
     const transWidth = cols - pWidth - railWidth;
     return { cols, rows, panel, viewRows, tabRowY, pWidth, transWidth, railWidth, kind, promptRows: reservation };
   };
@@ -126,7 +127,7 @@ export function mountScreenLoop({
 
   const sync = () => {
     commitStream(viewport);
-    setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth })));
+    setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" })));
     paint();
   };
 
@@ -179,7 +180,7 @@ export function mountScreenLoop({
   const suspend = panelSuspend.suspend;
   const resume = panelSuspend.resume;
 
-  setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth })));
+  setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" })));
   paint();
 
   const loop = {

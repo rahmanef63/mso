@@ -103,12 +103,15 @@ export function transcriptLines(session, { colors, width, groupTools = false, ma
       if (!results.length) lines.push(`${prefix}${row.name || "tool"}: (no result)`);
       for (let rIdx = 0; rIdx < results.length; rIdx += 1) {
         const item = results[rIdx];
+        const isErr = Boolean(item?.isError || item?.error || row.isError || row.error);
         const id = item?.id ? String(item.id) : "";
         const toolName = item?.name || item?.tool || row.name || (id ? lastToolCalls.get(id) : null) || lastToolCallList[rIdx]?.name || "tool";
         const pl = formatToolPayload(toolName, item, colors, clipLimit, width);
-        if (pl.length === 1) lines.push(`${prefix}${toolName}: ${pl[0]}`);
+        // Error tag ensures tool calls with an isError flag render visibly even if payload lacks an error prefix
+        const errTag = isErr && !/\b(error|failed|failure)\b/i.test(pl[0] || "") ? " (error)" : "";
+        if (pl.length === 1) lines.push(`${prefix}${toolName}${errTag}: ${pl[0]}`);
         else {
-          lines.push(`${prefix}${toolName}:`);
+          lines.push(`${prefix}${toolName}${errTag}:`);
           for (const line of pl) lines.push(line.startsWith("  ") ? line : `  ${line}`);
         }
       }
@@ -139,7 +142,9 @@ export function groupToolRows(lines, { maxPerTool = 1 } = {}) {
       grp = []; cur = null;
     };
     for (const r of lines) {
-      const name = r?.role === "tool" ? (r.name || r.results?.[0]?.name || "tool") : null;
+      // Failed tool calls must never be hidden into a count summary
+      const isErr = Boolean(r?.isError || r?.error || r?.results?.some((x) => x?.isError || x?.error));
+      const name = r?.role === "tool" && !isErr ? (r.name || r.results?.[0]?.name || "tool") : null;
       if (name) {
         if (cur === name) grp.push(r);
         else { flush(); cur = name; grp = [r]; }
@@ -161,7 +166,9 @@ export function groupToolRows(lines, { maxPerTool = 1 } = {}) {
   for (const line of lines) {
     const plain = String(line || "").replace(/\x1b\[[0-9;]*m/g, "");
     const m = plain.match(/^\[([a-zA-Z0-9_-]+)\]\s+([a-zA-Z0-9_.-]+)(?::|\s|\(|$)/);
-    if (m && m[1] === "tool") {
+    // Explicit errors must never be collapsed into a count line
+    const isErr = m && m[1] === "tool" && (plain.includes("(error)") || /^\[[a-zA-Z0-9_-]+\]\s+[a-zA-Z0-9_.-]+:\s*(?:error|failed|failure)\b/i.test(plain));
+    if (m && m[1] === "tool" && !isErr) {
       const tool = m[2];
       const pfx = (line.match(/^([^\s]+)\s+/) || [])[0] || "[tool] ";
       if (curTool === tool) {

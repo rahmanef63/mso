@@ -5,21 +5,10 @@ import { Button } from "@/components/ui/button";
 import { syncIntegrationFrameTokens } from "./frame-theme";
 import { ComposioSessionPanel } from "./composio-session-panel";
 
-/** Parameters the manager iframe is allowed to receive. Everything else is dropped: this string
- *  becomes an iframe src, and historically `target` carried private capability material. */
-const MANAGER_PARAMS = ["transfer", "user", "provider", "connection"] as const;
-
-/** Preserve transfer/setup and connection deep links without putting private capabilities in React state. */
+/** Preserve transfer/setup deep links without putting private capabilities in React state. */
 export function managerLocation(search: string, hash = "") {
-  const incoming = new URLSearchParams(search);
-  const forwarded = new URLSearchParams();
-  for (const key of MANAGER_PARAMS) {
-    const value = incoming.get(key);
-    // `transfer` is a flag; the rest are identifiers the reference format guarantees are safe.
-    if (value !== null && value !== "") forwarded.set(key, value);
-  }
-  const query = forwarded.toString();
-  return "/integrations/manager" + (query ? `?${query}` : "") + hash;
+  const transfer = new URLSearchParams(search).get("transfer") === "1";
+  return "/integrations/manager" + (transfer ? "?transfer=1" : "") + hash;
 }
 
 export default function IntegrationsApp() {
