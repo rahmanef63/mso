@@ -2,6 +2,7 @@ import readline from "node:readline";
 import { wordLeftIndex, wordRightIndex } from "./mso-agent-editing.mjs";
 import process from "node:process";
 import { resumeActiveActivity, suspendActiveActivity } from "./mso-agent-activity.mjs";
+import { applyCompletion } from "./mso-agent-at.mjs";
 import { getKeybinds, resolveKeybind } from "./mso-agent-keybinds.mjs";
 import { cursorHome, eraseFrame, frameHeight, withCursorHidden, writeFrame } from "./mso-agent-screen.mjs";
 import { chars, clamp, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, footerLines, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width } from "./mso-agent-composer-ui.mjs";
@@ -40,19 +41,19 @@ export class AgentComposer {
         cursorHome(output, lastCursorRow);
         const currentPrompt = promptText(), promptWidth = width(currentPrompt), items = matches();
         selected = items.length ? clamp(selected, 0, items.length - 1) : 0;
-        const menu = menuLines(items, selected, output.columns, C, panelLabel);
+        const menu = menuLines(items, selected, output.columns, C, typeof panelLabel === "function" ? panelLabel(value) : panelLabel);
         const foot = footerLines(footer);
         const terminalRows = Math.max(8, Number(output.rows || 24));
         const maxInputRows = Math.max(2, Math.min(12, terminalRows - menu.length - foot.length - 4, Math.floor(terminalRows * 0.32)));
         const layout = inputLayout(value, cursor, { columns: output.columns, rows: terminalRows, promptWidth, maxRows: maxInputRows });
         const continuation = " ".repeat(promptWidth);
         const lines = [
-          `${currentPrompt}${layout.lines[0] || ""}`,
-          ...layout.lines.slice(1).map((row) => `${continuation}${row}`),
-          ...menu,
-          ...foot,
+          `${currentPrompt}${layout.lines[0] || ""}`, ...layout.lines.slice(1).map((row) => `${continuation}${row}`),
+          ...menu, ...foot,
         ];
-        reserve(Math.max(0, frameHeight(lines) - 1));
+        // Panel mode reports height first: the panel must free the rows before this frame is written,
+        // else it keeps the old height one frame and the menu is drawn clipped under it.
+        if (rowCallback) setRows(lines.length); else reserve(Math.max(0, frameHeight(lines) - 1));
         withCursorHidden(output, () => { paintedLines = writeFrame(output, paintedLines, lines); });
         setRows(paintedLines.length);
         if (layout.cursorRow) output.write(CURSOR_DOWN(layout.cursorRow));
@@ -107,7 +108,8 @@ export class AgentComposer {
       };
       const apply = (item) => {
         if (!item?.text) return;
-        value = item.text; cursor = chars(value).length; dismissed = true; selected = 0;
+        ({ value, cursor } = applyCompletion(value, cursor, item));
+        dismissed = true; selected = 0;
         render();
       };
       const historyMove = (dir) => {
