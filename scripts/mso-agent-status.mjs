@@ -4,6 +4,7 @@ import { projectHistoryForModel } from "./mso-agent-context.mjs";
 import { addProviderUsage } from "../lib/ai/provider-usage.mjs";
 import { todoStatusChip } from "./mso-agent-todos.mjs";
 import { createPrinter } from "./mso-agent-print.mjs";
+import { formatCompactionChip } from "./mso-agent-compaction.mjs";
 
 function compactNumber(value) {
   const n = Number(value || 0);
@@ -71,7 +72,8 @@ export function resolveVerbosity(session, options = {}) {
 
 export function statusParts(session, cwd = process.cwd(), options = {}) {
   const opts = (typeof cwd === "object" && cwd !== null) ? cwd : options;
-  const targetCwd = (typeof cwd === "string" && cwd !== process.cwd()) ? cwd : (session?.cwd || cwd);
+  const fallbackCwd = typeof cwd === "string" ? cwd : process.cwd();
+  const targetCwd = (typeof cwd === "string" && cwd !== process.cwd()) ? cwd : (session?.cwd || fallbackCwd);
   const verbosity = resolveVerbosity(session, opts);
   const provider = String(session?.state?.config?.provider || "—");
   const model = String(session?.state?.config?.model || "—");
@@ -93,7 +95,7 @@ export function statusParts(session, cwd = process.cwd(), options = {}) {
     showModel ? `${provider}/${model}` : null,
     skill ? `skill ${skill.state === "invoked" ? "✓" : "◆"} /${skill.name}${skill.state === "queued" ? " queued" : skill.state === "invoking" ? " invoking" : ""}` : null,
     ctx.limit ? `ctx ~${compactNumber(ctx.used)}/${compactNumber(ctx.limit)} ${ctx.percent}%` : `ctx ~${compactNumber(ctx.used)}/?`,
-    session?.agentSession?.compactThresholdTokens ? `session ~${compactNumber(session.agentSession.estimatedTokens)}/${compactNumber(session.agentSession.compactThresholdTokens)}` : null,
+    formatCompactionChip(session, opts),
     (usage.totalTokens ?? 0) > 0 ? `tokens ${compactNumber(usage.totalTokens)}`
       : ((usage.inputTokens ?? 0) > 0 || (usage.outputTokens ?? 0) > 0) ? `tokens ${compactNumber(usage.inputTokens)}in/${compactNumber(usage.outputTokens)}out` : null,
     routing?.activeTools != null ? `route ${routing.routeIds?.join("+") || (routing.fallbackUsed ? "fallback" : "direct")} · tools ${routing.activeTools}/${routing.fullTools}` : null,

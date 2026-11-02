@@ -183,6 +183,7 @@ is the constraint that decides whether we may take it at all.
 | 5 | **Surface the queued prompts** | `session.queue` already exists in memory and is drained per turn. Showing it must not change drain order or let a queued prompt jump the approval gate |
 
 Four specific refusals, each because taking it would cost capability or fake fidelity:
+Specific refusals, each because taking it would cost capability or fake what terminals cannot do:
 
 - **The OpenTUI engine.** MSO's renderer is line-based and dependency-free; the whole reason it exists is
   that `ink` drags 23 packages and `@opentui/core` needs Node 26.4 while the repo supports 22.12+. Layout
@@ -203,6 +204,14 @@ Four specific refusals, each because taking it would cost capability or fake fid
   Adding a preview toggle without a terminal image protocol would either produce a fake ASCII placeholder
   or lie about terminal capability. A real preview requires a terminal image protocol (Kitty graphics or
   Sixel), an image escape multiplexer in the painter, and terminal emulator support.
+- **Attention volume control (`attention.volume`).** Refused because terminal BEL (`\x07`) has no volume
+  control in terminal emulators. Exposing a 0.0 to 1.0 volume slider when the underlying mechanism can
+  only trigger the terminal bell at host volume would be a fake setting that changes nothing.
+- **Desktop notifications via escape sequences (`attention.notifications: desktop`).** Refused because
+  terminal desktop notifications rely on non-standard escape sequences like OSC 9 or OSC 777 or external
+  tools (such as notify-send). OSC 777 is not universally supported and prints raw escape text on
+  terminals that do not recognize it, corrupting the line-rendered TUI frame. MSO has no precedent for
+  terminal escape-sequence notifications, so refusing it keeps the frame reliable.
 
 ## 8. Reproducing this
 

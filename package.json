@@ -70,7 +70,7 @@
     "mcp:orca": "node bin/orca-mcp.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.3.0",
+    "@anthropic-ai/sdk": "^0.135.0",
     "@imgly/background-removal": "^1.7.0",
     "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/react-alert-dialog": "^1.2.1",
