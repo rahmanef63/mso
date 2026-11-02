@@ -40,6 +40,8 @@ const NOT_A_KNOB: Record<string, string> = {
   // Standard terminal convention inherited from the invoking shell, not MSO config.
   NO_COLOR: "standard terminal color convention inherited from the caller",
   VITEST: "set by the test runner",
+  // Read by scripts/integrations-ui-evidence.mjs, the browser evidence harness.
+  MSO_EVIDENCE_DIR: "output directory for the integrations UI evidence harness; local diagnostics only",
   // The OS gives these to every process.
   SHELL: "the OS's",
   PATH: "standard executable search path inherited by the lifecycle test harness",
