@@ -61,10 +61,15 @@ const byDay = new Map();
 // commit — and the staleness gate then blocked every push, forever. Fixed here
 // rather than in ship.sh so no caller can reintroduce the loop.
 const SELF = /^docs\(changelog\)/i;
+// Automated dependency bumps are not "what's new" for a user of the app, and this file is what
+// Settings -> About shows them. They also arrive as PRs that touch no docs, so listing them
+// turned every Dependabot PR red on a gate whose fix was "commit a changelog for a version bump".
+// Dependabot's own release notes are the record for these; the lockfile diff is the audit trail.
+const AUTOMATED = /^(?:build|chore)\(deps(?:-dev)?\):\s*(?:bump|update)\b/i;
 
 for (const line of RAW.split("\n").filter(Boolean)) {
   const [hash, date, subject] = line.split("\0");
-  if (SELF.test(subject ?? "")) continue;
+  if (SELF.test(subject ?? "") || AUTOMATED.test(subject ?? "")) continue;
   const publicSubject = (subject ?? "").replace(/record that [A-Za-z0-9._-]+ now consumes this MCP surface/gi, "record external MCP consumer compatibility");
   const m = /^(\w+)(?:\(([^)]*)\))?!?:\s*(.+)$/.exec(publicSubject);
   const type = m && LABEL.has(m[1]) ? m[1] : "other";
