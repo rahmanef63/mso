@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `tui` opencode batch three, from starved flags to a written contract (#258)
 
+**Fixed**
+
+- `integrations` restore three fixes a later PR silently reverted, and follow the shell theme
+
 ## 2026-11-02
 
 **Added**
