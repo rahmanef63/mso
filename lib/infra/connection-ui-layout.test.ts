@@ -156,3 +156,25 @@ it("explains why hosted authorization is disabled when already linked (Poin 3, R
   expect(CONNECTION_MANAGER_SCRIPT).toContain('authorize.title="Already linked to "+c.external.connectedAccountId');
   expect(CONNECTION_MANAGER_SCRIPT).toContain('"Already linked to "+c.external.connectedAccountId');
 });
+
+it("makes confirmation dialog accessible and keyboard-operable with Escape, alertdialog role, and focus restoration (R-32, R-26)", () => {
+  // 1. role="alertdialog", aria-modal="true", and aria-labelledby pointing to title
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('box.setAttribute("role","alertdialog")');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('box.setAttribute("aria-modal","true")');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('box.setAttribute("aria-labelledby",titleId)');
+
+  // 2. Escape key handler cancels dialog
+  expect(CONNECTION_MANAGER_SCRIPT).toMatch(/box\.addEventListener\("keydown",\s*event\s*=>\s*\{\s*if\s*\(event\.key\s*===\s*"Escape"\)\s*\{\s*event\.preventDefault\(\);\s*cancel\(\);/);
+
+  // 3. Focus saved before replaceChildren and restored on cancel
+  expect(CONNECTION_MANAGER_SCRIPT).toMatch(/trigger\s*=\s*document\.activeElement/);
+  expect(CONNECTION_MANAGER_SCRIPT).toMatch(/trigger\.focus\(\)/);
+
+  // 4. Cancel button is focused on open (safe default for destructive actions)
+  expect(CONNECTION_MANAGER_SCRIPT).toMatch(/cancelBtn\.focus\(\)/);
+
+  // 5. Destructive confirmation button displays descriptive action text instead of generic "Confirm"
+  expect(CONNECTION_MANAGER_SCRIPT).toMatch(/confirmBtn\s*=\s*b\(title,/);
+  expect(CONNECTION_MANAGER_SCRIPT).not.toMatch(/b\("Confirm",/);
+});
+
