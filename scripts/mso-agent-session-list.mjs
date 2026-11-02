@@ -26,6 +26,12 @@ export function stateOf(row, now = Date.now()) {
   if (["working", "busy", "running"].includes(String(row.status || ""))) return { state: "working", label: "working" };
   if (row.status === "idle") return { state: "idle", label: "idle" };
 
+  // Live turn active signal from server summary. Unlike updatedAt, turnActive is set
+  // at turn start and cleared at turn end, so true indicates active execution and
+  // false truthfully indicates waiting at prompt without timestamp false-working.
+  if (row.turnActive === true) return { state: "working", label: "working" };
+  if (row.turnActive === false) return { state: "idle", label: "idle" };
+
   // In the absence of an explicit status flag, derive state from the last recorded update.
   const rawTime = row.updatedAt || row.createdAt;
   const at = Date.parse(String(rawTime || ""));
@@ -157,19 +163,23 @@ export function sessionTable(rows, { colors = {}, width = 80, activeId = null, n
 }
 
 export function needsAttention(row, _now = Date.now()) {
-  // Trusts only explicit server status. Timestamp derivation is inverted because updatedAt
-  // updates at turn completion, not during execution (docs/AGENT-ACTIVITY-SIGNAL.md).
+  // Trusts only explicit server status and turnActive. Timestamp derivation is inverted because
+  // updatedAt updates at turn completion, not during execution (docs/AGENT-ACTIVITY-SIGNAL.md).
   if (!row || typeof row !== "object") return false;
   const status = String(row.status || "");
   if (row.error || ["error", "errored", "failed"].includes(status)) return true;
+  if (row.turnActive === true) return true;
   return ["working", "busy", "running"].includes(status);
 }
 
 export function attentionReason(row) {
-  // Reports explicit server status without implying unverified timestamp freshness.
+  // Reports explicit server status or turnActive without implying unverified timestamp freshness.
   if (!row || typeof row !== "object") return "unknown";
   if (row.error || ["error", "errored", "failed"].includes(String(row.status || ""))) {
     return `status: ${row.status || "errored"}`;
+  }
+  if (row.turnActive === true) {
+    return "turnActive: working";
   }
   return `status: ${String(row.status || "working")}`;
 }

@@ -1,4 +1,5 @@
 import { withPanelSuspended } from "./mso-agent-turn-print.mjs";
+import { ApprovalSummaryFormatter } from "./mso-agent-approval-summary.mjs";
 
 const SECRET_KEY = /(api[_-]?key|token|secret|password|passwd|credential|cookie|authorization|private[_-]?key)/i;
 const SECRET_TEXT = /((?:api[_-]?key|token|secret|password|passwd|credential|authorization)\s*[=:]\s*)[^\s,;]+|\bBearer\s+[^\s,;]+/gi;
@@ -55,9 +56,27 @@ export function approvalDetailLines(tool, input, approval) {
   ];
 }
 
-export async function requestExactToolApproval(rl, { tool, input = {}, approval, onCancel = null, signal = null, colors = {}, print = console.log, screenLoop = null }) {
+// Session-scoped approval formatter tracking confirmed tool calls in memory.
+export const defaultApprovalSummaryFormatter = new ApprovalSummaryFormatter();
+
+export async function requestExactToolApproval(rl, {
+  tool,
+  input = {},
+  approval,
+  onCancel = null,
+  signal = null,
+  colors = {},
+  print = console.log,
+  screenLoop = null,
+  summaryFormatter = defaultApprovalSummaryFormatter,
+}) {
   const loop = screenLoop || rl?.screenLoop;
   return withPanelSuspended(loop, async () => {
+    // Print the summary line above the prompt to provide immediate context on repetition.
+    if (summaryFormatter) {
+      const summary = summaryFormatter.format(tool, input, approval);
+      if (summary) print(summary);
+    }
     let focused = false;
     const dim = colors.dim || "", reset = colors.reset || "", blue = colors.blue || "", bold = colors.bold || "";
     const status = () => `${blue}${bold}${approvalStatusLine(tool, input, focused)}${reset}${dim}  · Tab focus · Enter details${reset} `;
@@ -71,6 +90,11 @@ export async function requestExactToolApproval(rl, { tool, input = {}, approval,
     for (const line of approvalDetailLines(tool, input, approval)) print(line);
     const decision = String(await rl.question("  decision [allow/deny] › ", { history: false, onCancel }) ?? "").trim().toLowerCase();
     if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("turn interrupted");
-    return decision === "allow";
+    const allowed = decision === "allow";
+    // Only record approved calls when explicitly allowed by the operator.
+    if (allowed && summaryFormatter && approval?.digest) {
+      summaryFormatter.record(approval.digest);
+    }
+    return allowed;
   });
 }

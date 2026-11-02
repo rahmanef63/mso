@@ -74,18 +74,32 @@ function formatKeyboard(keybinds, width, colors) {
   const dim = colors?.dim || "";
   const c = colors?.cyan || "";
   const lines = ["", `${b}Keyboard${r}`];
-  const interruptKey = prettyKey(keybinds?.interrupt || "ctrl+c");
-  const clearKey = prettyKey(keybinds?.clear_screen || "ctrl+l");
+  const defaults = defaultKeybinds();
+
+  // One-character asterisk marker flags any binding that differs from the default keymap.
+  const mark = (action) => (keybinds?.[action] && keybinds[action] !== defaults[action] ? "*" : "");
+  // Formats human-readable key with optional customization marker.
+  const k = (action, fallback) => `${prettyKey(keybinds?.[action] || fallback)}${mark(action)}`;
+
+  // Preserves canonical (empty prompt) annotation for completion/permission cycling.
+  const completeLabel = `${k("complete", "tab")} (empty prompt)`;
   const entries = [
-    { label: interruptKey, desc: "clear input; empty prompt exits; active turn interrupts" },
+    { label: k("interrupt", "ctrl+c"), desc: "clear input; empty prompt exits; active turn interrupts" },
     { label: "Ctrl+D", desc: "delete right; empty prompt exits" },
-    { label: clearKey, desc: "clear/repaint terminal" },
+    { label: k("clear_screen", "ctrl+l"), desc: "clear/repaint terminal" },
+    { label: k("dismiss", "escape"), desc: "dismiss completion menu or cancel" },
     { label: "Ctrl+W · Ctrl+U/K", desc: "delete word · delete to line start/end" },
-    { label: "↑/↓ or Ctrl+P/N", desc: "prompt history (durable after resume)" },
+    { label: k("history_prev", "ctrl+p"), desc: "previous prompt in history (also ↑)" },
+    { label: k("history_next", "ctrl+n"), desc: "next prompt in history (also ↓)" },
     { label: "Ctrl+A/E · Ctrl+B/F", desc: "line start/end · left/right" },
     { label: "Alt+B/F · Ctrl+←/→", desc: "move by word" },
-    { label: "Tab (empty prompt)", desc: "cycle permission in place: ask → auto → yolo" },
+    { label: completeLabel, desc: "cycle permission in place: ask → auto → yolo" },
+    { label: k("submit", "return"), desc: "submit prompt line or selected item" },
   ];
+  // Displays status bar toggle key only when user explicitly configures the optional binding.
+  if (keybinds?.toggle_status_bar) {
+    entries.push({ label: k("toggle_status_bar", ""), desc: "toggle compact status bar" });
+  }
   for (const entry of entries) {
     if (entry.label.length + entry.desc.length + 4 <= width) {
       const pad = (entry.label.length < 20 && 20 + entry.desc.length + 4 <= width) ? 20 : entry.label.length;

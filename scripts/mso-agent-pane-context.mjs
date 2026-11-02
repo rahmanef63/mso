@@ -76,8 +76,12 @@ export function formatContextContent({ session }) {
   // history is the durable transcript, but a session that has run turns carries the provider's own
   // accounting in usage. Prefer the larger of the two: showing ~0 tokens next to a live model that
   // just billed 47k is the kind of number that teaches the user to distrust the pane.
-  const reported = Number(session?.usage?.totalTokens ?? session?.usage?.promptTokens ?? 0) || 0;
-  if (reported > ctx.used) ctx.used = reported;
+  const reported = Number(session?.usage?.totalTokens ?? session?.usage?.promptTokens ?? session?.usage?.inputTokens ?? 0) || 0;
+  if (reported > ctx.used) {
+    ctx.used = reported;
+    // Recompute percent so the proportion bar tracks provider-reported usage.
+    if (ctx.limit > 0) ctx.percent = Math.min(999, Math.round((ctx.used / ctx.limit) * 100));
+  }
   const turns = history.filter((row) => row?.role === "user").length || Number(session?.usage?.apiCalls || 0);
 
   const rows = [];

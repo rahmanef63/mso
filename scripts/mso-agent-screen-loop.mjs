@@ -12,6 +12,10 @@ import { paneLines } from "./mso-agent-pane.mjs";
 import { withPreamble } from "./mso-agent-banner-lines.mjs";
 import { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 import { createCompactionWatcher } from "./mso-agent-compaction.mjs";
+import { createAttentionNotifier } from "./mso-agent-attention.mjs";
+import { createClickHintReporter, createMcpRefresher } from "./mso-agent-panel-effects.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
+import { formatClickHint, shouldShowClickHint } from "./mso-agent-click-hint.mjs";
 export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 
 /**
@@ -20,40 +24,24 @@ export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
  * keeps running exactly as it did before this module existed.
  *
  * @param {{
- *   session: any,
- *   enabled?: boolean,
- *   output?: any,
- *   input?: any,
- *   colors?: any,
- *   getSessions?: () => Array<any>,
- *   onTabClick?: (sessionId: string) => void | Promise<void>,
- *   composer?: any,
- *   preamble?: (() => Array<string> | null) | null,
- *   tabsLayout?: string | null,
- *   mouse?: string | boolean | null,
- *   tabsScope?: string | null,
+ *   session: any, enabled?: boolean, output?: any, input?: any, colors?: any,
+ *   getSessions?: () => Array<any>, onTabClick?: (sessionId: string) => void | Promise<void>,
+ *   composer?: any, preamble?: (() => Array<string> | null) | null, tabsLayout?: string | null,
+ *   mouse?: string | boolean | null, tabsScope?: string | null,
+ *   attention?: string | null, attentionOutput?: any,
+ *   refreshMcp?: (() => Promise<any> | any) | null,
  * }} options
  */
 export function mountScreenLoop({
-  session,
-  enabled = false,
-  output = process.stdout,
-  input = process.stdin,
-  colors = {},
-  getSessions = () => [],
-  onTabClick,
-  composer = null,
-  preamble = null,
-  tabsLayout = null,
-  mouse = null,
-  tabsScope = null,
+  session, enabled = false, output = process.stdout, input = process.stdin, colors = {},
+  getSessions = () => [], onTabClick, composer = null, preamble = null, tabsLayout = null,
+  mouse = null, tabsScope = null, attention = null, attentionOutput = null, refreshMcp = null,
 } = {}) {
   if (!enabled || !session) {
     return {
       active: false, session: null, paint() {}, sync() {}, suspend() {}, resume() {}, follow() {},
       geometry() { return { cols: 80, rows: 24, panel: [], viewRows: 0, tabRowY: 0, pWidth: 0, transWidth: 80, railWidth: 0, kind: null, promptRows: PROMPT_ROWS }; },
       setPromptRows() {}, setMouse() {}, dispose() {},
-      setPromptRows() {}, dispose() {},
     };
   }
 
@@ -69,6 +57,12 @@ export function mountScreenLoop({
 
   const viewport = createViewport({ rows: output.rows || 24 });
   const compaction = createCompactionWatcher(session);
+  // Attention alerts on background session transitions; inert when off to avoid terminal noise.
+  const attentionNotifier = createAttentionNotifier({
+    output: attentionOutput || output,
+    getMode: () => attention || session?.attention || "off",
+    getActiveId: () => session?.agentSession?.id ?? session?.id ?? null,
+  });
   let painted = [];
   let promptReservation = PROMPT_ROWS;
 
@@ -107,12 +101,18 @@ export function mountScreenLoop({
     output.write(`\x1b[${frame.length};1H`);
   };
 
+  const reportClickHint = createClickHintReporter({ session, colors });
+  const triggerMcpRefresh = createMcpRefresher({ session, getRefresh: () => refreshMcp || session?.refreshMcpServers, onUpdated: paint });
+
   const sync = () => {
     commitStream(viewport);
     compaction.check(session, { colors });
     const trans = transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" });
     setLines(viewport, withPreamble(preamble?.() ?? null, [...trans, ...compaction.lines(colors)]));
     paint();
+    // Background session attention: evaluated on sync when sessions list changes
+    attentionNotifier.notify(getSessions());
+    triggerMcpRefresh();
   };
 
   // Streaming text goes into the buffer and repaints, so a long answer does not wait for the turn to
@@ -124,6 +124,7 @@ export function mountScreenLoop({
   const onResize = () => { viewport.rows = output.rows || 24; sync(); };
   output.on?.("resize", onResize);
 
+
   const dispatchMouse = (event) => {
     // When mouse setting is off, ignore wheel and click completely so terminal selection works.
     if (!event || !mouseEnabled) return false;
@@ -132,7 +133,8 @@ export function mountScreenLoop({
       return false;
     }
     if (event.kind === "click") {
-      const { cols, tabRowY, railWidth, viewRows } = geometry();
+      const geom = geometry();
+      const { cols, tabRowY, railWidth, viewRows } = geom;
       const hitOpts = railWidth > 0
         ? { x: event.x, y: event.y, width: railWidth, rows: viewRows, orientation: "vertical" }
         : { x: event.x, y: event.y, width: cols, tabRow: tabRowY, orientation: "horizontal" };
@@ -141,6 +143,8 @@ export function mountScreenLoop({
         Promise.resolve(onTabClick(targetId)).then(paint).catch(() => {});
         return true;
       }
+      // One hint per session when a click lands in an interactive-looking area with no tab under it.
+      reportClickHint({ event, geometry: geom, targetId, suspended: panelSuspend?.isSuspended?.() });
       return true;
     }
     return false;
@@ -160,15 +164,21 @@ export function mountScreenLoop({
     session, output, hook, onRepaint: paint, onReset: () => { painted = []; },
     isMouseEnabled: () => mouseEnabled,
   });
-  const { suspend, resume } = panelSuspend;
+  // Suspend suppresses bells; resume marks state so return repaint never rings
+  const suspend = () => { attentionNotifier.suspend(); panelSuspend.suspend(); };
+  const resume = () => { panelSuspend.resume(); attentionNotifier.resume(); };
 
   const initLines = transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" });
   setLines(viewport, withPreamble(preamble?.() ?? null, [...initLines, ...compaction.lines(colors)]));
   paint();
 
   const loop = {
+    active: true, session, paint, sync, suspend, resume,
     active: true,
     session,
+    // Exposed so /find can move the window: the viewport is a closure local, and a command cannot reach
+    // it otherwise. Read only from commands; paint and sync remain the writers.
+    viewport,
     paint,
     sync,
     suspend,
@@ -183,12 +193,14 @@ export function mountScreenLoop({
       if (session) session.mouse = next ? "on" : "off";
       setMouseReporting(output, next);
     },
+    attentionNotifier,
     dispose() {
       ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => detach(process, sig, onTeardown));
       output.off?.("resize", onResize);
       hook.dispose();
       disableMouse(output);
       compaction.reset();
+      attentionNotifier.reset();
       delete session.streamSink; delete session.printSink;
       delete session.onComposerRows; delete session.screenLoop;
       // The panel owns the whole screen, so the inline transcript is repainted once on the way out
