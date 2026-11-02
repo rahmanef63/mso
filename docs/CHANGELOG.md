@@ -10,6 +10,14 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `tui` opencode batch three, from starved flags to a written contract (#258)
 
+**Fixed**
+
+- `integrations` the iOS zoom fix targeted a selector the page does not use
+
+**Tests**
+
+- `config` document MSO_EVIDENCE_DIR, the evidence harness output path
+
 ## 2026-11-02
 
 **Added**
