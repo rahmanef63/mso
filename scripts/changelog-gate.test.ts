@@ -122,4 +122,39 @@ describe("changelog staleness gate", () => {
     // And the gate must pass afterwards, which is the actual defect being fixed.
     expect(spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" }).status).toBe(0);
   });
+
+  // The subject a squash writes is not the subject the branch had, so the file used to depend on
+  // WHEN it was regenerated. Seen as a CI-only failure: local passed while GitHub's PR merge ref,
+  // which includes the squash commit, reported stale.
+  it("is stable whether or not a subject carries its squash PR number", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-changelog-suffix-"));
+    roots.push(root);
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, "scripts/gen-changelog.mjs"), readFileSync(path.join(ROOT, "scripts/gen-changelog.mjs")));
+
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const commit = (file: string, subject: string) => {
+      writeFileSync(path.join(root, file), file);
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "add", "-A");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", subject);
+    };
+    git("init", "-q");
+    commit("a.txt", "feat(x): a change that will be squashed");
+
+    const gen = () => spawnSync(process.execPath, ["scripts/gen-changelog.mjs"], { cwd: root, encoding: "utf8" });
+    const check = () => spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" }).status;
+
+    expect(gen().status).toBe(0);
+    const before = readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
+    expect(before).toContain("a change that will be squashed");
+    expect(check(), "current right after generating").toBe(0);
+
+    // Now the same change gains its squash number, exactly as a PR merge ref would see it.
+    commit("b.txt", "feat(x): a change that will be squashed (#4242)");
+    expect(check(), "adding the squash suffix must not invalidate the file").toBe(0);
+    expect(gen().status).toBe(0);
+    const after = readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
+    expect(after.match(/a change that will be squashed/g)?.length, "still one row").toBe(1);
+  });
 });
