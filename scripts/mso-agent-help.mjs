@@ -13,9 +13,9 @@ export function printHelp(options = {}) {
   const printer = createPrinter(options);
   // Re-render when caller passes terminal width or custom colors; fallback to canonical HELP_TEXT.
   const colors = options.colors || options.session?.colors;
-  // Fall back to the real terminal width, not a constant: a fixed 60 wrapped /help on every wide
-  // terminal, which is the opposite of what a help screen should do with space it has.
-  const width = options.width || options.session?.width || process.stdout?.columns;
+  // Live terminal columns take precedence over stale session dimensions so terminal resizes
+  // are immediately respected when the user runs /help.
+  const width = options.width || process.stdout?.columns || options.session?.width;
   if (width || colors) {
     printer.printBlock(helpLines({ ...options, colors, width }).join("\n"));
   } else {
