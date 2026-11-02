@@ -1,3 +1,54 @@
+// Single source of truth for command metadata and help derivation.
+export const COMMAND_MANIFEST = [
+  { name: "/help", description: "show slash commands and keyboard shortcuts" },
+  { name: "/new", usage: "[title]", description: "create and switch to a fresh durable session" },
+  { name: "/restart", description: "soft-reload Agent runtime; keep this session" },
+  { name: "/session", usage: "[query]", description: "open picker or resume latest/index/id/@name/title (alias: /sessions)" },
+  { name: "/resume", usage: "[query]", description: "alias-style resume command; bare opens same picker" },
+  { name: "/tabs", usage: "[n|name|next|prev]", description: "list tabs, switch by index/@name, or jump active" },
+  { name: "/rename", usage: "<name>", description: "rename the short @agent handle" },
+  { name: "/title", usage: "<text>", description: "rename the session title/description" },
+  { name: "/export", usage: "[ref] [--out f]", description: "export session transcript to stdout or a file" },
+  { name: "/share", description: "temporary share link (server download-only today)" },
+  { name: "/status", description: "model/auth/context/token/session details" },
+  { name: "/permission", usage: "[mode]", description: "choose ask | auto-write | yolo" },
+  { name: "/context", description: "alias for /status" },
+  { name: "/diff", usage: "[ref] [--full]", description: "show diff viewer panel for artifact write action" },
+  { name: "/todos", usage: "[--all]", description: "show session checklist from todo_write" },
+  { name: "/pane", usage: "[kind|pin|unpin]", description: "cycle, set, or pin side pane (todos, diff, files, off)" },
+  { name: "/keybind", usage: "[sub]", description: "view keybindings (sub: reset, conflicts)" },
+  { name: "/settings", usage: "[key] [val]", description: "view or set TUI preferences (sub: reset)" },
+  { name: "/compact", description: "force context compaction and archive history" },
+  { name: "/statusbar", usage: "[on|off]", description: "toggle compact dynamic status line" },
+  { name: "/reasoning", usage: "[on|off]", description: "toggle per-turn reasoning token metrics (/reasoning on|off)" },
+  { name: "/theme", usage: "[name|status]", description: "view or set UI theme (dark, light, mono)" },
+  { name: "/models", usage: "[args]", description: "configure AI providers/auth" },
+  { name: "/model", usage: "[ref]", description: "select active model from connected providers" },
+  { name: "/setup", description: "full MSO onboarding" },
+  { name: "/integrations", usage: "[args]", description: "manage users, providers, connections, source/auth" },
+  { name: "/provider, /providers", description: "legacy provider setup (alias; see /integrations)" },
+  { name: "/doctor", description: "run mso doctor" },
+  { name: "/tools", description: "list agent tools" },
+  { name: "/files", usage: "[path]", description: "read-only file tree of cwd or path (bounded)" },
+  { name: "/agents", description: "list live local session agents + remote A2A peers" },
+  { name: "@milo", usage: "<prompt>", description: "message an active local agent by its short @name" },
+  { name: "/message", usage: "<target> <msg>", description: "send notify-only local agent data" },
+  { name: "/delegate", usage: "<target> <job>", description: "correlated local task; else remote A2A peer" },
+  { name: "/spawn", usage: "[--name N] [--scope S] <job>", description: "run foreground isolated subagent in this session" },
+  { name: "/jobs", usage: "[id|cancel <id>]", description: "list background subagent jobs, inspect, or cancel" },
+  { name: "/terminal", usage: "[cmd]", description: "open shell or run command in real terminal" },
+  { name: "/inbox", description: "show native local agent messages for this session" },
+  { name: "/skills", usage: "[query]", description: "browse available slash skills" },
+  { name: "/skill", usage: "<id> [prompt]", description: "select exact skill id (ambiguity escape hatch)" },
+  { name: "/<skill>", usage: "[prompt]", description: "select for next message, or run prompt now" },
+  { name: "/queue", usage: "[drop|clear|prompt]", description: "list, drop, clear, or queue follow-up prompts" },
+  { name: "/stash", usage: "[pop|clear|text]", description: "park prompt; /stash pop prints stashed prompt to terminal" },
+  { name: "/image", usage: "<path>", description: "attach a local image to the next prompt" },
+  { name: "/clear", description: "clear this session conversation" },
+  { name: "/exit, /quit", description: "quit" },
+  { name: "--no-altscreen", description: "keep the terminal's own scrollback instead of the retained panel" },
+];
+
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { C } from "./mso-agent-runtime.mjs";
@@ -9,7 +60,6 @@ import {
   resolveSlashSkill,
 } from "./mso-agent-skills.mjs";
 import { handleLocalCommand } from "./mso-agent-local-commands.mjs";
-import { printHelp } from "./mso-agent-help.mjs";
 import {
   SHARE_UNAVAILABLE_MESSAGE,
   buildExportArgv,
@@ -112,9 +162,11 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
   if (cmd === "/settings" || cmd === "/setting") return handleSettingsCommand(ctx, args);
 
   switch (cmd) {
-    case "/help":
+    case "/help": {
+      const { printHelp } = await import("./mso-agent-help.mjs");
       printHelp({ session });
       return "handled";
+    }
     case "/skill":
       if (!args[0]) {
         printer.print("usage: /skill <name-or-exact-id> [prompt]");

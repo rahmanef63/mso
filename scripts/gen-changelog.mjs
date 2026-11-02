@@ -94,23 +94,29 @@ for (const [date, list] of byDay) {
   );
 }
 
-// A squash merge appends " (#NNN)" to the subject, so the same change can appear twice
-// on one day: once as the original commits, once as the squashed commit that replaced
-// them. The bare number tells the reader nothing the line does not already say, so when
-// a subject with a PR number collides with the same subject without one, keep the bare
-// form. Only collisions are touched — a PR number that is the only occurrence survives,
-// because it is the one fact linking a line to its discussion.
+// A squash merge appends " (#NNN)" to the subject it replaces. That makes the generated
+// file depend on WHEN it was regenerated rather than on what the code says: a branch
+// regenerated before its own squash lists a bare subject, and the same branch after the
+// squash lists the suffixed one. Observed as a CI-only failure — the local tree passed
+// while GitHub's PR merge ref, which includes the squash, reported the file stale.
+//
+// So the PR suffix is stripped for comparison purposes: two rows whose subjects differ only
+// by " (#NNN)" are the same change. The bare form is kept, because the number adds nothing a
+// reader cannot get from git log.
+const stripPrSuffix = (s) => s.replace(/\s*\(#\d+\)\s*$/, "");
 for (const [date, list] of byDay) {
-  const bare = new Set(list.filter((c) => !/\(#\d+\)$/.test(c.subject)).map((c) => c.subject));
-  const hasPrSuffix = (s) => /^(.*\S)\s+\(#\d+\)$/.exec(s);
-  byDay.set(
-    date,
-    list.filter((c) => {
-      const m = hasPrSuffix(c.subject);
-      // Keep the suffixed row only when nothing bare describes the same change.
-      return !(m && bare.has(m[1]));
-    }),
-  );
+  // Group by the suffix-free subject, then emit one row per change. The bare form wins when both
+  // exist, so the file does not flip depending on whether it was regenerated before or after the
+  // squash that added the number.
+  const groups = new Map();
+  for (const row of list) {
+    const key = stripPrSuffix(row.subject);
+    const kept = groups.get(key);
+    if (!kept) groups.set(key, row);
+    else if (stripPrSuffix(kept.subject) !== kept.subject && stripPrSuffix(row.subject) === row.subject)
+      groups.set(key, row);
+  }
+  byDay.set(date, [...groups.values()]);
 }
 
 const days = [...byDay.keys()].sort().reverse().slice(0, MAX_DAYS);

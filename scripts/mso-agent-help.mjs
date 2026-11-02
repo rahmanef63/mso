@@ -1,68 +1,24 @@
+import process from "node:process";
+// Derives help lines and formatted text directly from command and settings registries.
 import { createPrinter } from "./mso-agent-print.mjs";
+import { helpLines } from "./mso-agent-help-lines.mjs";
 
-export const HELP_LINES = [
-  "  /help                   show slash commands and keyboard shortcuts",
-  "  /new [title]            create and switch to a fresh durable session",
-  "  /restart                soft-reload Agent runtime; keep this session",
-  "  /session [query]        open picker or resume latest/index/id/@name/title (alias: /sessions)",
-  "  /resume [query]         alias-style resume command; bare opens same picker",
-  "  /tabs [n|name|next|prev] list tabs, switch by index/@name, or jump active",
-  "  /rename <name>          rename the short @agent handle",
-  "  /title <text>           rename the session title/description",
-  "  /export [ref] [--out f] export session transcript to stdout or a file",
-  "  /share                  temporary share link (server download-only today)",
-  "  /status                 model/auth/context/token/session details",
-  "  /permission [mode]      choose ask | auto-write | yolo",
-  "  /context                alias for /status",
-  "  /diff [ref] [--full]    show diff viewer panel for artifact write action",
-  "  /todos [--all]          show session checklist from todo_write",
-  "  /pane [kind|pin|unpin]  cycle, set, or pin side pane (todos, diff, files, off)",
-  "  /keybind [sub]          view keybindings (sub: reset, conflicts)",
-  "  /settings [key] [val]   view or set TUI preferences (sub: reset)",
-  "  /compact                force context compaction and archive history",
-  "  /statusbar [on|off]     toggle compact dynamic status line",
-  "  /reasoning [on|off]     toggle per-turn reasoning token metrics (/reasoning on|off)",
-  "  /theme [name|status]    view or set UI theme (dark, light, mono)",
-  "  /models [args]          configure AI providers/auth",
-  "  /model [ref]            select active model from connected providers",
-  "  /setup                  full MSO onboarding",
-  "  /integrations [args]    manage users, providers, connections, source/auth",
-  "  /provider, /providers   legacy provider setup (alias; see /integrations)",
-  "  /doctor                 run mso doctor",
-  "  /tools                  list agent tools",
-  "  /files [path]           read-only file tree of cwd or path (bounded)",
-  "  /agents                 list live local session agents + remote A2A peers",
-  "  @milo <prompt>           message an active local agent by its short @name",
-  "  /message <target> <msg> send notify-only local agent data",
-  "  /delegate <target> <job> correlated local task; else remote A2A peer",
-  "  /spawn [--name N] [--scope S] <job> run foreground isolated subagent in this session",
-  "  /jobs [id|cancel <id>]  list background subagent jobs, inspect, or cancel",
-  "  /terminal [cmd]         open shell or run command in real terminal",
-  "  /inbox                  show native local agent messages for this session",
-  "  /skills [query]         browse available slash skills",
-  "  /skill <id> [prompt]    select exact skill id (ambiguity escape hatch)",
-  "  /<skill> [prompt]       select for next message, or run prompt now",
-  "  /queue [drop|clear|prompt] list, drop, clear, or queue follow-up prompts",
-  "  /stash [pop|clear|text] park prompt; /stash pop prints stashed prompt to terminal",
-  "  /image <path>           attach a local image to the next prompt",
-  "  /clear                  clear this session conversation",
-  "  /exit, /quit            quit",
-  "  --no-altscreen          keep the terminal's own scrollback instead of the retained panel",
-  "",
-  "Keyboard",
-  "  Ctrl+C                  clear input; empty prompt exits; active turn interrupts",
-  "  Ctrl+D                  delete right; empty prompt exits",
-  "  Ctrl+L                  clear/repaint terminal",
-  "  Ctrl+W · Ctrl+U/K       delete word · delete to line start/end",
-  "  ↑/↓ or Ctrl+P/N         prompt history (durable after resume)",
-  "  Ctrl+A/E · Ctrl+B/F     line start/end · left/right",
-  "  Alt+B/F · Ctrl+←/→      move by word",
-  "  Tab (empty prompt)       cycle permission in place: ask → auto → yolo",
-];
+export { helpLines };
 
+// Static exports for backward compatibility and test assertions.
+export const HELP_LINES = helpLines();
 export const HELP_TEXT = HELP_LINES.join("\n");
 
 export function printHelp(options = {}) {
   const printer = createPrinter(options);
-  printer.printBlock(HELP_TEXT);
+  // Re-render when caller passes terminal width or custom colors; fallback to canonical HELP_TEXT.
+  const colors = options.colors || options.session?.colors;
+  // Fall back to the real terminal width, not a constant: a fixed 60 wrapped /help on every wide
+  // terminal, which is the opposite of what a help screen should do with space it has.
+  const width = options.width || options.session?.width || process.stdout?.columns;
+  if (width || colors) {
+    printer.printBlock(helpLines({ ...options, colors, width }).join("\n"));
+  } else {
+    printer.printBlock(HELP_TEXT);
+  }
 }

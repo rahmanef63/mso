@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` restore the three modules #249 dropped, with their wiring (#256)
 - `tui` opencode batch two, six capabilities and five honest refusals (#249)
 - `tui` the opencode-inspired batch, nine branches in one change (#241)
 - `tui` pin a pane slot without losing the cycle (#229)
@@ -17,6 +18,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `changelog` make the file independent of when it was regenerated
 - `changelog` stop listing automated dependency bumps
 - `integrations` follow the host theme, and stop iOS zooming the search field
 - `integrations` keyboard-operable confirmation, visible transfer errors, and wrapping status
@@ -147,7 +149,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `shell, gates` restore the artwork reveal rule, and make the instance guard actually read files (#171)
 - `install` make bun install compile node-pty without a global node-gyp
 - `api` restore the models provider name the route extraction dropped (#169)
-- `api` restore the models provider name the route extraction dropped (#168)
 - `build` restore the turbopackIgnore annotation the route extraction dropped
 
 **Faster**
