@@ -37,6 +37,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `tui` the panel contract, which is the list of things already broken once
 - `agent` the activity signal cannot be derived, and updatedAt inverts the truth
 
 ## 2026-11-01
