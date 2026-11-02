@@ -26,8 +26,18 @@ export async function handleSettingsCommand(ctx, args = []) {
       // Propagate reset tab layout so the running screen loop repaints with defaults
       const tabsLayout = settings["tabs.layout"] ?? settings.layout;
       if (tabsLayout) session.tabsLayout = tabsLayout;
+      const tabsIndicators = settings["tabs.indicators"] ?? settings.indicators;
+      if (tabsIndicators) session.tabsIndicators = tabsIndicators;
+      const tabsScope = settings["tabs.scope"] ?? settings.scope;
+      if (tabsScope) session.tabsScope = tabsScope;
       if (settings.minwidth != null) session.paneMinColumns = Number(settings.minwidth);
+      const scrollSpeed = settings["scroll.speed"] ?? settings.speed;
+      if (scrollSpeed != null) session.scrollSpeed = Number(scrollSpeed);
       if (settings.grouping) session.grouping = settings.grouping;
+      if (settings.mouse) {
+        session.mouse = settings.mouse;
+        session.screenLoop?.setMouse?.(settings.mouse);
+      }
       session.screenLoop?.sync?.();
       // Propagate verbosity to session so status footer updates immediately
       if (settings.verbosity) session.verbosity = settings.verbosity;
@@ -100,11 +110,23 @@ export async function handleSettingsCommand(ctx, args = []) {
     if (entry.key === "statusbar") session.statusBar = requestedValue === "on";
     // Sync tab rail orientation immediately so users see layout change without restart
     if (entry.key === "layout") session.tabsLayout = requestedValue;
+    if (entry.key === "indicators") session.tabsIndicators = requestedValue;
+    // Sync tab scope immediately so filtering updates on running screen loop
+    if (entry.key === "scope") {
+      session.tabsScope = requestedValue;
+      session.screenLoop?.sync?.();
+    }
     if (entry.key === "minwidth") session.paneMinColumns = valueToSave;
+    if (entry.key === "speed") session.scrollSpeed = valueToSave;
     if (entry.key === "grouping") {
       session.grouping = requestedValue;
       // Repaint immediately so grouping change reflects on screen without restart
       session.screenLoop?.sync?.();
+    }
+    // Mouse toggle updates reporting escape codes immediately so users regain native text selection
+    if (entry.key === "mouse") {
+      session.mouse = requestedValue;
+      session.screenLoop?.setMouse?.(requestedValue);
     }
     // Propagate verbosity to session so status footer updates immediately
     if (entry.key === "verbosity") session.verbosity = requestedValue;
@@ -124,8 +146,16 @@ export function applySettings(session, settings = getSettings()) {
   // The screen loop reads session.tabsLayout to switch between horizontal row and vertical rail
   const tabsLayout = settings["tabs.layout"] ?? settings.layout;
   if (tabsLayout) session.tabsLayout = tabsLayout;
+  const tabsIndicators = settings["tabs.indicators"] ?? settings.indicators;
+  if (tabsIndicators) session.tabsIndicators = tabsIndicators;
+  // Apply saved tabs scope preference so session starts with configured scope
+  const tabsScope = settings["tabs.scope"] ?? settings.scope;
+  if (tabsScope) session.tabsScope = tabsScope;
   if (settings.minwidth != null) session.paneMinColumns = Number(settings.minwidth);
+  const scrollSpeed = settings["scroll.speed"] ?? settings.speed;
+  if (scrollSpeed != null) session.scrollSpeed = Number(scrollSpeed);
   if (settings.grouping) session.grouping = settings.grouping;
+  if (settings.mouse) session.mouse = settings.mouse;
   // Apply saved verbosity preference to session at startup
   if (settings.verbosity) session.verbosity = settings.verbosity;
 }

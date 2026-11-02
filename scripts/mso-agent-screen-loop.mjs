@@ -1,14 +1,14 @@
 import process from "node:process";
-import { chromeLines, tabAtPoint, tabRailLines, tabRailWidth } from "./mso-agent-chrome.mjs";
-import { composerSeparator } from "./mso-agent-layout.mjs";
-import { disableMouse, enableMouse, handleMouse } from "./mso-agent-mouse.mjs";
+import { tabAtPoint, tabRailLines, tabRailWidth } from "./mso-agent-chrome.mjs";
+import { disableMouse, enableMouse, handleMouse, isMouseEnabled, setMouseReporting } from "./mso-agent-mouse.mjs";
 import { installInputHook } from "./mso-agent-input-hook.mjs";
 import { createPanelSuspension } from "./mso-agent-panel-suspend.mjs";
+import { panelGeometry } from "./mso-agent-panel-geometry.mjs";
 import { writeFrame } from "./mso-agent-screen.mjs";
 import { transcriptLines } from "./mso-agent-transcript.mjs";
 import { appendStream, commitStream, createViewport, handleViewportKey, resetFollow, setLines } from "./mso-agent-viewport.mjs";
 import { renderViewport } from "./mso-agent-viewport-render.mjs";
-import { paneLines, paneWidth } from "./mso-agent-pane.mjs";
+import { paneLines } from "./mso-agent-pane.mjs";
 import { withPreamble } from "./mso-agent-banner-lines.mjs";
 import { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
@@ -29,6 +29,8 @@ export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
  *   composer?: any,
  *   preamble?: (() => Array<string> | null) | null,
  *   tabsLayout?: string | null,
+ *   mouse?: string | boolean | null,
+ *   tabsScope?: string | null,
  * }} options
  */
 export function mountScreenLoop({
@@ -42,23 +44,20 @@ export function mountScreenLoop({
   composer = null,
   preamble = null,
   tabsLayout = null,
+  mouse = null,
+  tabsScope = null,
 } = {}) {
   if (!enabled || !session) {
     return {
-      active: false,
-      session: null,
-      paint() {},
-      sync() {},
-      suspend() {},
-      resume() {},
-      follow() {},
+      active: false, session: null, paint() {}, sync() {}, suspend() {}, resume() {}, follow() {},
       geometry() { return { cols: 80, rows: 24, panel: [], viewRows: 0, tabRowY: 0, pWidth: 0, transWidth: 80, railWidth: 0, kind: null, promptRows: PROMPT_ROWS }; },
-      setPromptRows() {},
-      dispose() {},
+      setPromptRows() {}, setMouse() {}, dispose() {},
+      setPromptRows() {}, dispose() {},
     };
   }
 
-  enableMouse(output);
+  let mouseEnabled = isMouseEnabled(mouse, session);
+  if (mouseEnabled) enableMouse(output);
 
   const onTeardown = () => { disableMouse(output); };
   const detach = (target, event, listener) => {
@@ -72,43 +71,24 @@ export function mountScreenLoop({
   let promptReservation = PROMPT_ROWS;
 
   const setPromptRows = (rows) => {
-    // When the composer reports its painted row count, clamp it so the panel never jumps on erase
-    // and never gets pushed off screen by a tall draft.
-    //
-    // Deliberately does NOT repaint here. The composer calls this WHILE it is painting its own draft
-    // and completion menu, so painting the panel from home would erase both: pressing "/" showed the
-    // draft and the whole command menu vanish. The reservation is still updated, and the next
-    // keypress or sync repaints with the new geometry.
+    // Clamps reservation without repainting immediately; repainting while composer
+    // is drawing its draft/menu would erase them before input is completed.
     const termRows = Math.max(6, Number(output.rows) || 24);
     const clamped = clampPromptRows(rows, termRows);
     if (clamped !== promptReservation) promptReservation = clamped;
   };
 
   if (composer) {
-    if (typeof composer.onRows === "function") composer.onRows(setPromptRows);
-    else composer.onRows = setPromptRows;
+    typeof composer.onRows === "function" ? composer.onRows(setPromptRows) : (composer.onRows = setPromptRows);
   }
   session.onComposerRows = setPromptRows;
 
-  const geometry = (reservation = promptReservation) => {
-    const cols = Math.max(20, Number(output.columns) || 80);
-    const rows = Math.max(6, Number(output.rows) || 24);
-    const isVertical = (tabsLayout || session?.tabsLayout || session?.tabLayout) === "vertical";
-    const railWidth = isVertical ? tabRailWidth(cols) : 0;
-    const chromeSessions = railWidth > 0 ? [] : getSessions();
-    const chrome = chromeLines({ session, sessions: chromeSessions, activeId: session.agentSession?.id, colors, width: cols, rows: null });
-    const separator = composerSeparator(session, colors, cols);
-    const hasSep = typeof separator === "string" && separator.length > 0;
-    // The separator belongs to the panel in this mode; the composer is told to draw none.
-    const panel = [hasSep ? separator : "", ...chrome].filter((line) => line.length > 0);
-    const viewRows = Math.max(0, rows - panel.length - reservation);
-    const tabRowY = railWidth > 0 ? -1 : viewRows + (hasSep ? 1 : 0);
-    const kind = session?.paneKind && session.paneKind !== "off" ? session.paneKind : null;
-    // Pass configured threshold so terminals narrower than 100 columns can show the pane
-    const pWidth = kind ? paneWidth(cols, { minColumns: session?.paneMinColumns ?? 100 }) : 0;
-    const transWidth = cols - pWidth - railWidth;
-    return { cols, rows, panel, viewRows, tabRowY, pWidth, transWidth, railWidth, kind, promptRows: reservation };
-  };
+  // Geometry lives in mso-agent-panel-geometry.mjs: three features touch layout and this file is at its
+  // ceiling, but the arithmetic still has exactly one home.
+  const geometry = (reservation = promptReservation) => panelGeometry({
+    output, session, colors, getSessions, promptReservation: reservation, tabsLayout, tabsScope,
+  });
+  const currentSessions = () => geometry().sessions;
 
   // Repaints from the top of the screen and leaves the cursor where the composer expects to start,
   // because the composer paints relative to the cursor and cannot be told where to begin.
@@ -117,7 +97,7 @@ export function mountScreenLoop({
     const { panel, viewRows, pWidth, transWidth, railWidth, kind } = geometry();
     const body = renderViewport(viewport, { colors, width: transWidth, rows: viewRows });
     const side = pWidth > 0 ? paneLines({ kind, session, colors, width: pWidth, rows: viewRows }) : [];
-    const rail = railWidth > 0 ? tabRailLines(getSessions(), session?.agentSession?.id, { colors, width: railWidth, rows: viewRows }) : [];
+    const rail = railWidth > 0 ? tabRailLines(currentSessions(), session?.agentSession?.id, { colors, width: railWidth, rows: viewRows }) : [];
     const joined = body.map((line, i) => `${rail[i] || ""}${line}${side[i] || ""}`);
     const frame = [...joined, ...panel, ""];
     output.write("\x1b[H");
@@ -144,9 +124,10 @@ export function mountScreenLoop({
   output.on?.("resize", onResize);
 
   const dispatchMouse = (event) => {
-    if (!event) return false;
+    // When mouse setting is off, ignore wheel and click completely so terminal selection works.
+    if (!event || !mouseEnabled) return false;
     if (event.kind === "wheel") {
-      if (handleMouse(viewport, event, { rows: geometry().viewRows })) { paint(); return true; }
+      if (handleMouse(viewport, event, { rows: geometry().viewRows, step: session?.scrollSpeed })) { paint(); return true; }
       return false;
     }
     if (event.kind === "click") {
@@ -154,7 +135,7 @@ export function mountScreenLoop({
       const hitOpts = railWidth > 0
         ? { x: event.x, y: event.y, width: railWidth, rows: viewRows, orientation: "vertical" }
         : { x: event.x, y: event.y, width: cols, tabRow: tabRowY, orientation: "horizontal" };
-      const targetId = tabAtPoint(getSessions(), session?.agentSession?.id, hitOpts);
+      const targetId = tabAtPoint(currentSessions(), session?.agentSession?.id, hitOpts);
       if (targetId && typeof onTabClick === "function") {
         Promise.resolve(onTabClick(targetId)).then(paint).catch(() => {});
         return true;
@@ -176,9 +157,9 @@ export function mountScreenLoop({
 
   const panelSuspend = createPanelSuspension({
     session, output, hook, onRepaint: paint, onReset: () => { painted = []; },
+    isMouseEnabled: () => mouseEnabled,
   });
-  const suspend = panelSuspend.suspend;
-  const resume = panelSuspend.resume;
+  const { suspend, resume } = panelSuspend;
 
   setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth, groupTools: session?.grouping === "auto" })));
   paint();
@@ -193,15 +174,20 @@ export function mountScreenLoop({
     follow: () => resetFollow(viewport),
     geometry,
     setPromptRows,
+    setMouse(val) {
+      const next = isMouseEnabled(val);
+      if (mouseEnabled === next) return;
+      mouseEnabled = next;
+      if (session) session.mouse = next ? "on" : "off";
+      setMouseReporting(output, next);
+    },
     dispose() {
       ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => detach(process, sig, onTeardown));
       output.off?.("resize", onResize);
       hook.dispose();
       disableMouse(output);
-      if (session.streamSink) delete session.streamSink;
-      if (session.printSink) delete session.printSink;
-      if (session.onComposerRows) delete session.onComposerRows;
-      if (session.screenLoop) delete session.screenLoop;
+      delete session.streamSink; delete session.printSink;
+      delete session.onComposerRows; delete session.screenLoop;
       // The panel owns the whole screen, so the inline transcript is repainted once on the way out
       // instead of leaving the alternate buffer's last frame on screen.
       painted = [];

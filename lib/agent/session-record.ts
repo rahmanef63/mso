@@ -17,6 +17,7 @@ export function summary(record: AgentSession): AgentSessionSummary {
     titleSource: record.titleSource,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    turnActive: Boolean(record.turnStartedAt),
     ...(record.resumedFrom ? { resumedFrom: record.resumedFrom } : {}),
     ...(record.cwd ? { cwd: record.cwd } : {}),
     ...(record.parentSessionId

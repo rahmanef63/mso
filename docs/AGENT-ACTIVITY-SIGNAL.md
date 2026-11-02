@@ -47,3 +47,25 @@ To make a truthful activity signal possible without guessing:
    - At turn end (inside the `finally` block of `runInteractiveRound`), clear the marker (`turnStartedAt = null`).
 3. **List handler exposure (`lib/agent/session-record.ts:summary`):**
    - Include `turnActive: Boolean(record.turnStartedAt)` in `AgentSessionSummary` so `GET /api/v1/agent-sessions` returns the live state directly in the session list.
+
+## Resolution: Fixed (Turn Lifecycle Activity Signal Landed)
+
+The minimal server change and lifecycle markers have landed:
+
+1. **Schema (`lib/agent/session-types.ts`):**
+   - Added `turnStartedAt?: string | null` to `AgentSession`.
+   - Added `turnActive: boolean` to `AgentSessionSummary`.
+
+2. **Summary mapping (`lib/agent/session-record.ts`):**
+   - `summary(record)` derives `turnActive: Boolean(record.turnStartedAt)`, returning a truthful boolean without client-side timestamp arithmetic.
+
+3. **Session store helper (`lib/agent/session-store.ts`):**
+   - Added `updateAgentSessionTurnActive(principal, id, turnStartedAt)` to write `record.turnStartedAt` (or delete it when cleared) and update `record.updatedAt` while holding the session lock.
+
+4. **API route allow-list (`app/api/v1/agent-sessions/handler-post.ts`):**
+   - Added `turnStartedAt?: string | null` to the POST body type and wired `action: "update"` to invoke `updateAgentSessionTurnActive` when `turnStartedAt` is defined.
+
+5. **CLI turn lifecycle markers (`scripts/mso-agent-turn.mjs`):**
+   - Write point 1 (turn start): inside `runInteractiveRound`, before `agentRound` begins, persists the session with `turnStartedAt = new Date().toISOString()`.
+   - Write point 2 (turn end): inside the `finally` block of `runInteractiveRound`, clears `turnStartedAt` to `null` so interrupted or crashed turns never stick in the active state.
+   - All bookkeeping writes catch and suppress errors so network or storage issues during bookkeeping never abort the agent round.

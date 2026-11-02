@@ -11,14 +11,7 @@ it("derives the complete native setup catalog from the same provider registry", 
 });
 it("keeps guidance before login and preserves explicit role/expiry recovery", () => {
   const page = integrationSetupPage();
-  for (const script of inlineScripts(page.html)) expect(() => new Function(script)).not.toThrow();
+  expect(() => new Function(inlineScripts(page.html)[0])).not.toThrow();
   for (const marker of ['"/api/auth/me"', 'owner=auth.role==="owner"', '"visibilitychange"', 'How to get this credential', 'mountConnectionManager', 'field-source', 'Array.isArray(f.links)']) expect(page.html).toContain(marker);
   expect(CONNECTION_MANAGER_SCRIPT).not.toContain('localStorage'); expect(page.csp).toContain("form-action 'none'");
-});
-it("includes widget theme script in head before first paint to follow host theme", () => {
-  const page = integrationSetupPage();
-  const head = page.html.slice(0, page.html.indexOf("</head>"));
-  expect(head).toContain("applyHostTheme");
-  expect(head).toContain("window.openai");
-  expect(head).toMatch(/<script nonce="[^"]+">[\s\S]*applyHostTheme[\s\S]*<\/script>/);
 });

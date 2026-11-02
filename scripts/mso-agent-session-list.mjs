@@ -1,3 +1,5 @@
+import path from "node:path";
+import process from "node:process";
 import { cellWidth, clean } from "./tui/cells.mjs";
 import { formatSessionModified } from "./mso-agent-sessions.mjs";
 
@@ -40,11 +42,8 @@ export function stateOf(row, now = Date.now()) {
 }
 
 function stateColor(state, colors = {}) {
-  if (state === "working") return colors.green || "";
-  if (state === "waiting") return colors.yellow || "";
-  if (state === "errored") return colors.red || colors.err || "";
-  if (state === "idle") return colors.dim || "";
-  return colors.dim || "";
+  const map = { working: colors.green, waiting: colors.yellow, errored: colors.red || colors.err, idle: colors.dim };
+  return map[state] || colors.dim || "";
 }
 
 function formatCell(text, width) {
@@ -69,25 +68,41 @@ function formatCell(text, width) {
   return { visible: out, pad };
 }
 
-function isSessionActive(row, activeId) {
+export function isSessionActive(row, activeId) {
   if (activeId == null) return false;
   const id = String(row?.id || row?.agentSession?.id || "");
   const name = clean(row?.name || row?.agentSession?.name || "").replace(/^@/, "");
   return String(activeId) === id || String(activeId).replace(/^@/, "") === name;
 }
 
+// Scopes session list to cwd or global. Active session is always kept so user never loses their tab.
+// Non-active sessions missing a cwd are excluded in cwd mode, but retained in global mode.
 /**
  * @param {Array<any>} rows
- * @param {{
- *   colors?: Record<string, string>,
- *   width?: number,
- *   activeId?: string | number | null,
- *   now?: number,
- * }} [options]
+ * @param {{ scope?: string, cwd?: string, activeId?: string | number | null }} [options]
+ * @returns {Array<any>}
+ */
+export function filterSessionsByScope(rows, { scope = "global", cwd = "", activeId = null } = {}) {
+  if (!Array.isArray(rows)) return [];
+  if (scope !== "cwd") return rows;
+  const targetCwd = cwd || (typeof process !== "undefined" && process.cwd ? process.cwd() : "");
+  let resolvedTarget = "";
+  try { resolvedTarget = targetCwd ? path.resolve(targetCwd) : ""; } catch { resolvedTarget = ""; }
+  return rows.filter((row) => {
+    if (isSessionActive(row, activeId)) return true;
+    if (!row?.cwd || !resolvedTarget) return false;
+    try { return path.resolve(row.cwd) === resolvedTarget; } catch { return false; }
+  });
+}
+
+/**
+ * @param {Array<any>} rows
+ * @param {{ colors?: Record<string, string>, width?: number, activeId?: string | number | null, now?: number, scope?: string, cwd?: string }} [options]
  * @returns {Array<string>}
  */
-export function sessionTable(rows, { colors = {}, width = 80, activeId = null, now = Date.now() } = {}) {
-  if (!Array.isArray(rows) || rows.length === 0) {
+export function sessionTable(rows, { colors = {}, width = 80, activeId = null, now = Date.now(), scope = "global", cwd = "" } = {}) {
+  const effectiveRows = scope === "cwd" ? filterSessionsByScope(rows, { scope, cwd, activeId }) : (Array.isArray(rows) ? rows : []);
+  if (!effectiveRows.length) {
     return ["No active sessions."];
   }
 
@@ -113,7 +128,7 @@ export function sessionTable(rows, { colors = {}, width = 80, activeId = null, n
 
   const lines = [headerLine];
 
-  rows.forEach((row, idx) => {
+  effectiveRows.forEach((row, idx) => {
     const isCurrent = isSessionActive(row, activeId);
     const mark = isCurrent ? "●" : " ";
     const rawName = clean(row?.name || "agent").replace(/^@/, "");
@@ -141,43 +156,17 @@ export function sessionTable(rows, { colors = {}, width = 80, activeId = null, n
   return lines;
 }
 
-/**
- * Pure predicate determining whether a session row needs attention.
- * A session needs attention if its derived state is "working" (updated within the
- * threshold) or carries an explicit error state ("errored").
- * We intentionally exclude "unknown": missing activity data means we do not know,
- * and jumping to a session on a guess is the dishonesty the table avoids.
- *
- * @param {any} row
- * @param {number} [now]
- * @returns {boolean}
- */
 export function needsAttention(row, _now = Date.now()) {
-  // Deliberately does NOT use stateOf. That function derives working/idle from updatedAt, and updatedAt
-  // is written at turn COMPLETION, not during a turn (persistSession runs at the end, see
-  // docs/AGENT-ACTIVITY-SIGNAL.md). So the timestamp derivation is inverted: a session whose turn just
-  // ended reads as working for 60 seconds, and a session streaming for three minutes reads as idle.
-  // Jumping on that would send the user to the wrong session, which is worse than not jumping.
-  //
-  // Only an explicit status is trusted here, because only an explicit status came from the server
-  // saying so. Absent one, the honest answer is "cannot tell", and this returns false.
+  // Trusts only explicit server status. Timestamp derivation is inverted because updatedAt
+  // updates at turn completion, not during execution (docs/AGENT-ACTIVITY-SIGNAL.md).
   if (!row || typeof row !== "object") return false;
   const status = String(row.status || "");
   if (row.error || ["error", "errored", "failed"].includes(status)) return true;
   return ["working", "busy", "running"].includes(status);
 }
 
-/**
- * Honest description of why the session was selected, avoiding unearned certainty.
- *
- * @param {any} row
- * @param {number} [now]
- * @returns {string}
- */
 export function attentionReason(row) {
-  // Reports the reason needsAttention returned true, and nothing else. It must not mention a
-  // timestamp, because needsAttention does not consider timestamps: saying "updated 12s ago" would
-  // imply the jump was based on freshness, which is the inverted signal this deliberately avoids.
+  // Reports explicit server status without implying unverified timestamp freshness.
   if (!row || typeof row !== "object") return "unknown";
   if (row.error || ["error", "errored", "failed"].includes(String(row.status || ""))) {
     return `status: ${row.status || "errored"}`;

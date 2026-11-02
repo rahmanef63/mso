@@ -1,4 +1,4 @@
-import { disableMouse, enableMouse } from "./mso-agent-mouse.mjs";
+import { disableMouse, enableMouse, isMouseEnabled } from "./mso-agent-mouse.mjs";
 import { enterScreen, leaveScreen } from "./mso-agent-altscreen.mjs";
 
 /**
@@ -17,9 +17,10 @@ import { enterScreen, leaveScreen } from "./mso-agent-altscreen.mjs";
  *   hook?: { setEnabled?: (on: boolean) => void } | null,
  *   onRepaint: () => void,
  *   onReset: () => void,
+ *   isMouseEnabled?: (() => boolean) | null,
  * }} options
  */
-export function createPanelSuspension({ session, output, hook = null, onRepaint, onReset }) {
+export function createPanelSuspension({ session, output, hook = null, onRepaint, onReset, isMouseEnabled: mouseGate = null }) {
   let savedSink = null;
   let suspended = false;
 
@@ -39,7 +40,10 @@ export function createPanelSuspension({ session, output, hook = null, onRepaint,
     if (!suspended) return;
     suspended = false;
     enterScreen(output);
-    enableMouse(output);
+    // Mouse must be re-enabled only if the setting allows it, preventing
+    // a suspend/resume cycle from resurrecting mouse capture when disabled.
+    const mouseOn = typeof mouseGate === "function" ? mouseGate() : isMouseEnabled(null, session);
+    if (mouseOn) enableMouse(output);
     hook?.setEnabled?.(true);
     if (savedSink) {
       session.streamSink = savedSink;
