@@ -41,6 +41,7 @@ export async function handleSettingsCommand(ctx, args = []) {
       session.screenLoop?.sync?.();
       // Propagate verbosity to session so status footer updates immediately
       if (settings.verbosity) session.verbosity = settings.verbosity;
+      if (settings.attention) session.attention = settings.attention;
     }
     print(`reset settings to defaults from ${filePath}`);
     printBlock(formatSettingsTable(SETTINGS, settings, { colors, width }));
@@ -130,6 +131,7 @@ export async function handleSettingsCommand(ctx, args = []) {
     }
     // Propagate verbosity to session so status footer updates immediately
     if (entry.key === "verbosity") session.verbosity = requestedValue;
+    if (entry.key === "attention") session.attention = requestedValue;
   }
 
   print(`${colors.cyan || ""}setting ${entry.key} = ${valueToSave}${colors.reset || ""}`);
@@ -158,4 +160,5 @@ export function applySettings(session, settings = getSettings()) {
   if (settings.mouse) session.mouse = settings.mouse;
   // Apply saved verbosity preference to session at startup
   if (settings.verbosity) session.verbosity = settings.verbosity;
+  if (settings.attention) session.attention = settings.attention;
 }

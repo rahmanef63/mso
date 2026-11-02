@@ -65,4 +65,9 @@ export const SETTINGS = [
     description: "Terminal mouse reporting and interaction", default: "on",
     values: ["on", "off"], keywords: ["mouse", "click", "scroll"],
   },
+  {
+    category: "Alerts", key: "attention", path: "attention.notifications",
+    description: "Terminal notification when another session needs attention", default: "off",
+    values: ["off", "bell"], keywords: ["attention", "notifications", "alerts", "bell"],
+  },
 ];
