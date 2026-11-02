@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` the opencode-inspired batch, nine branches in one change
+- `tui` the opencode-inspired batch, nine branches in one change (#241)
 - `tui` pin a pane slot without losing the cycle (#229)
 - `tui` a preferences registry, and settings that survive a restart (#231)
 - `tui` a vertical tab rail, from the same layout the horizontal row uses (#230)
@@ -17,6 +17,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - `convex` write env over HTTP with the deployment key, and fix the regional host
+
+**Docs**
+
+- `agent` the activity signal cannot be derived, and updatedAt inverts the truth
 
 ## 2026-11-01
 
