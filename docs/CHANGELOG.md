@@ -18,6 +18,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `changelog` make the file independent of when it was regenerated
 - `changelog` stop listing automated dependency bumps
 - `integrations` follow the host theme, and stop iOS zooming the search field
 - `integrations` keyboard-operable confirmation, visible transfer errors, and wrapping status
