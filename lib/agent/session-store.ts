@@ -136,6 +136,21 @@ export async function updateAgentSessionLocation(
   });
 }
 
+export async function updateAgentSessionTurnActive(
+  principal: string,
+  id: string,
+  turnStartedAt?: string | null,
+): Promise<AgentSession> {
+  return withSecurityStoreLock(sessionLockTarget(id), async () => {
+    const record = await requireOwned(principal, id);
+    if (turnStartedAt) record.turnStartedAt = turnStartedAt;
+    else delete record.turnStartedAt;
+    record.updatedAt = new Date().toISOString();
+    await writeSessionFile(record);
+    return record;
+  });
+}
+
 export function agentSessionSummary(record: AgentSession): AgentSessionSummary {
   return summary(record);
 }
