@@ -13,6 +13,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - `tui` the panel no longer scrolls itself away, and command output survives
+- `integrations` the iOS zoom fix targeted a selector the page does not use
+
+**Tests**
+
+- `config` document MSO_EVIDENCE_DIR, the evidence harness output path
 
 ## 2026-11-02
 
