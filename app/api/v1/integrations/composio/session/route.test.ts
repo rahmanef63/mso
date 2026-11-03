@@ -14,7 +14,8 @@ vi.mock("@/lib/host/audit-api", () => ({ audit: mocks.audit }));
 
 let root = "", route: typeof import("./route");
 const owner = { role: "owner", session: { device_id: "device-1" } };
-const request = (body?: unknown) => new NextRequest("http://localhost/api/v1/integrations/composio/session", {
+const get = (connection = "project") => new NextRequest("http://localhost/api/v1/integrations/composio/session?user=lara&connection=" + connection);
+const request = (body: unknown = { user: "lara", connection: "project" }) => new NextRequest("http://localhost/api/v1/integrations/composio/session", {
   method: "POST",
   headers: { "content-type": "application/json" },
   ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -43,7 +44,7 @@ afterEach(async () => {
 
 describe("POST /api/v1/integrations/composio/session", () => {
   it("returns the MCP URL and never the session headers", async () => {
-    const response = await route.POST(request({}));
+    const response = await route.POST(request());
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({ mcpUrl: MCP_URL });
@@ -54,33 +55,57 @@ describe("POST /api/v1/integrations/composio/session", () => {
 
   it("refuses a non-owner session", async () => {
     mocks.session.mockResolvedValue({ ...owner, role: "operator" });
-    expect((await route.POST(request({}))).status).toBe(403);
+    expect((await route.POST(request())).status).toBe(403);
     mocks.session.mockResolvedValue(null);
-    expect((await route.POST(request({}))).status).toBe(403);
+    expect((await route.POST(request())).status).toBe(403);
   });
 
-  it("refuses to take a userId from the body", async () => {
-    const response = await route.POST(request({ user: "sams" }));
+  it("refuses unsupported fields", async () => {
+    const response = await route.POST(request({ user: "lara", connection: "project", userId: "sams" }));
     expect(response.status).toBe(400);
     expect((await response.json()).error).toBe("invalid_session_fields");
   });
 
+  it("isolates sessions by owner, connection and credential revision", async () => {
+    const file = path.join(root, "infra.json");
+    const state = JSON.parse(await fs.readFile(file, "utf8"));
+    const original = state.users.lara.connections.composio.project;
+    state.users.lara.connections.composio.second = { ...original, id: "second", uid: "conn-2", values: { apiKey: "ak_second_synthetic" } };
+    state.users.sams = { ...state.users.lara, id: "sams", uid: "uid-2", connections: { composio: { project: { ...original, uid: "conn-3", values: { apiKey: "ak_sams_synthetic" } } } } };
+    await fs.writeFile(file, JSON.stringify(state), { mode: 0o600 });
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init: RequestInit) => {
+      calls.push(String((init.headers as Record<string, string>)["x-api-key"]));
+      return new Response(JSON.stringify({ session_id: "trs_" + calls.length, mcp: { url: "https://backend.composio.dev/tool_router/v3/trs_" + calls.length + "/mcp" } }), { status: 201 });
+    }));
+    for (const selection of [{ user: "lara", connection: "project" }, { user: "lara", connection: "second" }, { user: "sams", connection: "project" }, { user: "lara", connection: "project" }]) {
+      expect((await route.POST(request(selection))).status).toBe(200);
+    }
+    expect(calls).toEqual(["ak_project_synthetic", "ak_second_synthetic", "ak_sams_synthetic"]);
+    state.users.lara.connections.composio.project.revision++;
+    state.users.lara.connections.composio.project.values.apiKey = "ak_rotated_synthetic";
+    await fs.writeFile(file, JSON.stringify(state), { mode: 0o600 });
+    expect((await route.POST(request())).status).toBe(200);
+    expect(calls.at(-1)).toBe("ak_rotated_synthetic");
+    expect((await route.POST(request({ user: "sams", connection: "second" }))).status).toBe(404);
+  });
+
   it("is rate limited", async () => {
     mocks.limited.mockReturnValue(true);
-    const response = await route.POST(request({}));
+    const response = await route.POST(request());
     expect(response.status).toBe(429);
     expect(mocks.limited).toHaveBeenCalledWith("composio.session:device-1", 10, 60_000);
   });
 
   it("reuses the stored session on a second call", async () => {
-    await route.POST(request({}));
-    await route.POST(request({}));
+    await route.POST(request());
+    await route.POST(request());
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   });
 
   it("never leaks the composed credential when upstream returns no headers", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ session_id: SESSION_ID, mcp: { type: "http", url: MCP_URL } }), { status: 201 })));
-    const response = await route.POST(request({}));
+    const response = await route.POST(request());
     expect(response.status).toBe(200);
     const text = JSON.stringify(await response.json());
     expect(text).toBe(JSON.stringify({ mcpUrl: MCP_URL }));
@@ -90,7 +115,7 @@ describe("POST /api/v1/integrations/composio/session", () => {
 
   it("does not expose the credential when upstream fails", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "key ak_project_synthetic rejected", slug: "APIKey_InvalidAPIKey" } }), { status: 401 })));
-    const response = await route.POST(request({}));
+    const response = await route.POST(request());
     expect(response.status).toBe(401);
     const text = JSON.stringify(await response.json());
     expect(text).not.toContain("ak_project_synthetic");
@@ -99,7 +124,7 @@ describe("POST /api/v1/integrations/composio/session", () => {
 
 describe("GET /api/v1/integrations/composio/session", () => {
   it("reports only the key kind for the form", async () => {
-    const response = await route.GET();
+    const response = await route.GET(get());
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ keyKind: "project" });
   });
@@ -110,6 +135,6 @@ describe("GET /api/v1/integrations/composio/session", () => {
       users: { lara: { id: "lara", uid: "uid-1", label: "Lara", defaults: { composio: "c" }, connections: { composio: { c: { id: "c", uid: "conn-2", label: "Connect", provider: "composio", source: "direct", authMethod: "project", scope: "account", revision: 1, values: { apiKey: "ck_consumer_key" }, createdAt: 0, updatedAt: 0 } } } } },
       bindings: [],
     }), { mode: 0o600 });
-    expect(await (await route.GET()).json()).toEqual({ keyKind: "connect" });
+    expect(await (await route.GET(get("c"))).json()).toEqual({ keyKind: "connect" });
   });
 });

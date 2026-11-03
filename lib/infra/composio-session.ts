@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { request, obj } from "./http";
 import { composioAuthHeader } from "./composio";
@@ -89,6 +90,7 @@ export async function composioSessionForUser(input: {
   values: InfraProviderValues;
   user?: string;
   refresh?: boolean;
+  cacheScope?: string;
   toolkits?: string[];
   authConfigs?: Record<string, string>;
   fetchImpl?: (value: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -99,7 +101,7 @@ export async function composioSessionForUser(input: {
   if (!profile) throw new IntegrationError("user_not_found", 404);
   const instanceId = state.instanceId, userUid = profile.uid;
   if (!input.refresh) {
-    const stored = await readComposioSession(instanceId, userUid);
+    const stored = await readComposioSession(instanceId, userUid, input.cacheScope);
     if (stored) return { sessionId: stored.sessionId, mcpUrl: stored.mcpUrl, mcpHeaders: stored.mcpHeaders, ...(stored.expiresAt !== undefined ? { expiresAt: stored.expiresAt } : {}), reused: true, user };
   }
   const created = await createComposioSession({
@@ -109,11 +111,16 @@ export async function composioSessionForUser(input: {
     authConfigs: input.authConfigs,
     fetchImpl: input.fetchImpl,
   });
-  const key = storeKey(instanceId, userUid);
+  const key = storeKey(instanceId, userUid) + (input.cacheScope ? `:${input.cacheScope}` : "");
   await withSecurityStoreLock(composioSessionStorePath(), async () => {
     const store = await readComposioSessions();
     store.sessions[key] = { ...created, instanceId, userUid, createdAt: Date.now() };
     await writeComposioSessions(store);
   });
   return { ...created, reused: false, user };
+}
+
+/** Bind a cached session to the exact connection and credential revision. */
+export function composioConnectionScope(uid: string, revision: number, values: InfraProviderValues): string {
+  return createHash("sha256").update(JSON.stringify([uid, revision, values.apiKey ?? "", values.orgApiKey ?? ""])).digest("hex");
 }

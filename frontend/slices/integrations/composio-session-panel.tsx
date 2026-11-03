@@ -1,124 +1,96 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const SESSION_PATH = "/api/v1/integrations/composio/session";
-const EXECUTE_PATH = "/api/v1/integrations";
 type KeyKind = "organization" | "user" | "project" | "connect" | null;
-type ConnectTool = { name: string; description: string };
+type Connection = { id: string; label: string; provider: string; source: string };
+type ConnectTool = { name: string };
 
-/**
- * Connect keys run under the Connect account, so only bounded tool discovery is
- * offered. The credential owner and connection come from the same snapshot the
- * manager uses; the key itself never leaves the server.
- */
-async function listConnectTools(): Promise<ConnectTool[]> {
-  const query = await fetch("/api/v1/integrations?view=snapshot", { headers: { accept: "application/json" }, cache: "no-store" });
-  const snapshot = await query.json().catch(() => ({}));
-  if (!query.ok) throw new Error(String(snapshot.error ?? "composio_connect_tools_failed"));
-  const connection = (Array.isArray(snapshot.connections) ? snapshot.connections : [])
-    .find((row: { provider?: string; id?: string }) => row?.provider === "composio" && typeof row.id === "string");
-  if (!snapshot.user || !connection) throw new Error("Configure a Composio connection under this credential owner first.");
-  const response = await fetch(EXECUTE_PATH, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ mode: "execute", user: snapshot.user, provider: "composio", connection: connection.id, operation: "composio.tools.list", confirm: true }),
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(String(body.error ?? "composio_connect_tools_failed"));
-  return (Array.isArray(body?.tools) ? body.tools as ConnectTool[] : []).filter(tool => typeof tool?.name === "string");
-}
-
-/**
- * Composio agent session, shown for a Platform key only. The session credential
- * (`mcp.headers`) never leaves the server: only the MCP URL is displayed, and it is
- * the URL of the session belonging to this signed-in credential owner.
- */
-export function ComposioSessionPanel() {
-  const [kind, setKind] = useState<KeyKind | undefined>(undefined);
-  const [mcpUrl, setMcpUrl] = useState("");
+export function ComposioSessionPanel({ owner }: { owner: string | null }) {
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [connection, setConnection] = useState("");
+  const [kind, setKind] = useState<KeyKind | undefined>();
   const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [tools, setTools] = useState<ConnectTool[] | null>(null);
 
   useEffect(() => {
-    let live = true;
-    fetch(SESSION_PATH, { headers: { accept: "application/json" }, cache: "no-store" })
-      .then(response => response.ok ? response.json() : { keyKind: null })
-      .then((body: { keyKind?: KeyKind }) => { if (live) setKind(body.keyKind ?? null); })
-      .catch(() => { if (live) setKind(null); });
-    return () => { live = false; };
-  }, []);
+    if (!owner) return;
+    const controller = new AbortController();
+    fetch(`/api/v1/integrations?view=snapshot&user=${encodeURIComponent(owner)}`, { cache: "no-store", signal: controller.signal })
+      .then(async response => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error);
+        if (controller.signal.aborted) return;
+        setConnections((body.connections as Connection[]).filter(row => row.provider === "composio" && row.source === "direct"));
+      }).catch(() => { if (!controller.signal.aborted) setStatus("Could not load Composio connections."); });
+    return () => controller.abort();
+  }, [owner]);
 
-  const create = useCallback(async (refresh: boolean) => {
-    setBusy(true);
-    setStatus("Creating the agent session…");
+  useEffect(() => {
+    if (!owner || !connection) return;
+    const controller = new AbortController();
+    const query = new URLSearchParams({ user: owner, connection });
+    fetch(`${SESSION_PATH}?${query}`, { cache: "no-store", signal: controller.signal })
+      .then(async response => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error);
+        if (!controller.signal.aborted) setKind(body.keyKind ?? null);
+      }).catch(() => { if (!controller.signal.aborted) setStatus("Could not inspect this connection."); });
+    return () => controller.abort();
+  }, [owner, connection]);
+
+  // Changing either selection unmounts the operation component and aborts its request.
+  if (!owner || (!connections.length && !status)) return null;
+  return <details className="max-h-[40%] shrink-0 overflow-auto border-b p-[var(--feature-padding,.75rem)]" aria-label="Composio">
+    <summary className="cursor-pointer text-sm">Composio tools and session</summary>
+    <label className="mt-2 block text-sm">Connection for {owner}
+      <select className="mt-1 block min-h-11 w-full rounded border bg-background p-2" value={connection} onChange={event => { setKind(undefined); setStatus(""); setConnection(event.target.value); }}>
+        <option value="">Choose a connection</option>
+        {connections.map(row => <option key={row.id} value={row.id}>{row.label} ({row.id})</option>)}
+      </select>
+    </label>
+    {connection && kind === null && <p className="mt-2 text-sm text-muted-foreground">No Composio key is configured for this connection.</p>}
+    {owner && connection && kind && <SessionActions key={owner + ":" + connection} owner={owner} connection={connection} kind={kind} />}
+    {status && <p role="status" className="mt-2 text-sm text-muted-foreground">{status}</p>}
+  </details>;
+}
+
+function SessionActions({ owner, connection, kind }: { owner: string; connection: string; kind: Exclude<KeyKind, null> }) {
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [mcpUrl, setMcpUrl] = useState("");
+  const [tools, setTools] = useState<ConnectTool[] | null>(null);
+  const controller = useRef<AbortController | null>(null);
+  useEffect(() => () => controller.current?.abort(), []);
+  async function run(refresh = false) {
+    const request = new AbortController();
+    controller.current = request;
+    setBusy(true); setStatus(kind === "connect" ? "Listing tools..." : "Creating the agent session...");
     try {
-      const response = await fetch(SESSION_PATH, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(refresh ? { refresh: true } : {}),
+      const response = await fetch(kind === "connect" ? "/api/v1/integrations" : SESSION_PATH, {
+        method: "POST", headers: { "content-type": "application/json" }, signal: request.signal,
+        body: JSON.stringify(kind === "connect"
+          ? { mode: "execute", user: owner, provider: "composio", connection, operation: "composio.tools.list", confirm: true }
+          : { user: owner, connection, refresh }),
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || typeof body.mcpUrl !== "string") {
-        setStatus(String(body.error ?? "The session could not be created."));
-        return;
-      }
-      setMcpUrl(body.mcpUrl);
-      setStatus(refresh ? "Fresh agent session created." : "Agent session ready.");
-    } catch {
-      setStatus("The session could not be created.");
-    } finally { setBusy(false); }
-  }, []);
-
-  const loadTools = useCallback(async () => {
-    setBusy(true);
-    setStatus("Listing Composio Connect tools…");
-    try {
-      setTools(await listConnectTools());
-      setStatus("");
+      const body = await response.json();
+      if (request.signal.aborted) return;
+      if (!response.ok) throw new Error(String(body.error ?? "Request failed."));
+      if (kind === "connect") setTools(Array.isArray(body.tools) ? body.tools.filter((tool: ConnectTool) => typeof tool?.name === "string") : []);
+      else if (typeof body.mcpUrl === "string") setMcpUrl(body.mcpUrl);
+      else throw new Error("The session could not be created.");
+      setStatus(kind === "connect" ? "" : "Agent session ready.");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "The Connect tool list could not be loaded.");
-    } finally { setBusy(false); }
-  }, []);
-
-  if (kind === undefined) return null;
-  if (kind === "connect") {
-    return (
-      <details className="max-h-[40%] shrink-0 overflow-auto border-b p-[var(--feature-padding,.75rem)]" aria-label="Composio Connect"><summary className="cursor-pointer text-sm">Composio Connect tools</summary>
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm">Composio Connect</p>
-          <Button variant="secondary" disabled={busy} onClick={() => void loadTools()}>List tools</Button>
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Connect tools run under the Composio Connect account and cannot create a per-user agent session.
-        </p>
-        {tools && (
-          tools.length ? <ul className="mt-2 break-words text-sm">{tools.map(tool => <li key={tool.name}>{tool.name}</li>)}</ul> : <p role="status" className="mt-2 text-sm text-muted-foreground">No tools returned.</p>
-        )}
-        {status && <p role="status" className="mt-2 text-sm text-muted-foreground">{status}</p>}
-      </details>
-    );
+      if (!request.signal.aborted) setStatus(error instanceof Error ? error.message : "Request failed.");
+    } finally { if (!request.signal.aborted) setBusy(false); }
   }
-  if (kind === null) return null;
-
-  return (
-    <details className="max-h-[40%] shrink-0 overflow-auto border-b p-[var(--feature-padding,.75rem)]" aria-label="Composio agent session"><summary className="cursor-pointer text-sm">Composio agent session</summary>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="secondary" disabled={busy} onClick={() => void create(false)}>Create agent session</Button>
-        {mcpUrl && <Button variant="ghost" disabled={busy} onClick={() => void create(true)}>Refresh session</Button>}
-      </div>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Tools run as this credential owner. The session credential stays on the MSO server.
-      </p>
-      {mcpUrl && (
-        <label className="mt-2 block text-sm">
-          Hosted MCP endpoint
-          <input readOnly value={mcpUrl} className="mt-1 w-full rounded border bg-background p-2 font-mono text-xs" onFocus={event => event.currentTarget.select()} />
-        </label>
-      )}
-      {status && <p role="status" className="mt-2 text-sm text-muted-foreground">{status}</p>}
-    </details>
-  );
+  return <div className="mt-2">
+    <Button variant="secondary" disabled={busy} onClick={() => void run()}>{kind === "connect" ? "List tools" : "Create agent session"}</Button>
+    {mcpUrl && <Button variant="ghost" disabled={busy} onClick={() => void run(true)}>Refresh session</Button>}
+    <p className="mt-2 text-sm text-muted-foreground">{kind === "connect" ? "Connect tools run under this connection's account." : "Tools run as this credential owner. The session credential stays on the MSO server."}</p>
+    {mcpUrl && <label className="mt-2 block text-sm">Hosted MCP endpoint<input readOnly value={mcpUrl} className="mt-1 w-full rounded border bg-background p-2 font-mono text-xs" onFocus={event => event.currentTarget.select()} /></label>}
+    {tools && (tools.length ? <ul className="mt-2 break-words text-sm">{tools.map(tool => <li key={tool.name}>{tool.name}</li>)}</ul> : <p className="mt-2 text-sm">No tools returned.</p>)}
+    {status && <p role="status" className="mt-2 text-sm text-muted-foreground">{status}</p>}
+  </div>;
 }

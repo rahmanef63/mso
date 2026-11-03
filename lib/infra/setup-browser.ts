@@ -15,7 +15,7 @@ export const INTEGRATION_BROWSER_SCRIPT=String.raw`
   async function loadManager(){
     cleanup();authController?.abort();authController=new AbortController();
     let owner=false,authenticated=false,role=null;try{const auth=await json("/api/auth/me",{signal:authController.signal});owner=auth.role==="owner";authenticated=auth.authenticated===true;role=auth.role}catch{}
-    const bridge={headingLevel:1,remember:s=>state=s,openLink:url=>window.open(url,"_blank","noopener,noreferrer")};
+    const bridge={headingLevel:1,remember:s=>{state=s;if(window.parent!==window)window.parent.postMessage({type:"mso:integrations-selection",user:s.user||null},location.origin)},openLink:url=>window.open(url,"_blank","noopener,noreferrer")};
     if(owner){
       bridge.openTransfer=openTransfer;bridge.mountTransfer=mountTransfer;
       bridge.projectMcp=args=>json("/api/v1/project-mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(args)});
