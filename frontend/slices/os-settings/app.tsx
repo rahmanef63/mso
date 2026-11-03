@@ -39,17 +39,21 @@ export default function OsSettings({ winId }: { winId?: string }) {
   const [draftName] = useFeatureState(winId, "provider-name", "");
   const [draftUrl] = useFeatureState(winId, "provider-url", "");
   const [draftModels] = useFeatureState(winId, "provider-models", "");
-  const draftDirty = Boolean(draftName || draftUrl || draftModels || sensitiveDirty);
+  const [draftKey, setDraftKey] = useFeatureState(winId, "provider-key", "", { sensitive: true });
+  const [draftJson, setDraftJson] = useFeatureState(winId, "provider-json", "", { sensitive: true });
+  const [submitting] = useFeatureState(winId, "provider-submitting", false);
+  const hasSensitiveDraft = Boolean(sensitiveDirty || draftKey || draftJson);
+  const draftDirty = Boolean(draftName || draftUrl || draftModels || hasSensitiveDraft || submitting);
   useEffect(() => {
     if (!draftDirty) return;
-    if (winId) setCloseGuard(winId, () => window.confirm("Discard the unsaved provider draft?"));
+    if (winId) setCloseGuard(winId, () => { if (submitting) { toast("Wait for the provider request to finish before closing Settings."); return false; } return window.confirm("Discard the unsaved provider draft?"); });
     const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     window.addEventListener("beforeunload", beforeUnload);
     return () => {
       if (winId) setCloseGuard(winId, null);
       window.removeEventListener("beforeunload", beforeUnload);
     };
-  }, [draftDirty, winId]);
+  }, [draftDirty, submitting, winId]);
   const serverTarget = effectiveServerTarget(tweaks.server);
 
   useEffect(() => {
@@ -87,10 +91,11 @@ export default function OsSettings({ winId }: { winId?: string }) {
   );
 
   const selectSection = useCallback((next: SectionId | null) => {
-    if (next !== active && sensitiveDirty && !window.confirm("Discard the unsaved API key or JSON?")) return;
-    if (next !== active) setSensitiveDirty(false);
+    if (next !== active && submitting) return void toast("Wait for the provider request to finish before leaving this section.");
+    if (next !== active && hasSensitiveDraft && !window.confirm("Discard the unsaved API key or JSON?")) return;
+    if (next !== active) { setDraftKey(""); setDraftJson(""); setSensitiveDirty(false); }
     setActive(next);
-  }, [active, sensitiveDirty, setActive]);
+  }, [active, hasSensitiveDraft, submitting, setActive, setDraftKey, setDraftJson]);
 
   return (
     <SettingsWindowContext.Provider value={{ winId, setSensitiveDirty }}>
