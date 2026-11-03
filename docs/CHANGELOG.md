@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `ci` stop the CodeQL analysis job from gating on open alerts
 - `export` create the markdown export atomically, closing a TOCTOU write
 - `a11y` scope the drawer inert to the compact layout
 - `tui` the panel no longer scrolls itself away, and command output survives (#261)
