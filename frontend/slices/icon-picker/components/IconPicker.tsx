@@ -134,6 +134,7 @@ export function IconPickerPopover({
       <Popover open={false} onOpenChange={() => {}}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <ResponsiveDialog open={open} onOpenChange={setOpen} size="md">
+          <ResponsiveDialog.Header className="sr-only"><ResponsiveDialog.Title>Choose icon</ResponsiveDialog.Title></ResponsiveDialog.Header>
           <ResponsiveDialog.Body className="flex flex-col gap-0 p-3" style={{ height: "min(560px, 88dvh)" }}>
             {body}
           </ResponsiveDialog.Body>

@@ -10,14 +10,17 @@ import { IS_DEMO } from "@/lib/demo";
 import {
   useActiveShell,
   usePublishInspector,
+  useFeatureState,
+  setCloseGuard,
   toast,
 } from "@/features/appshell";
 import type { SectionId } from "./lib/sections";
 import { AboutPageState } from "./components/about-page-state";
 import { SettingsShell } from "./components/settings-shell";
+import { SettingsWindowContext } from "./lib/window-context";
 
 // Default export so os-shell can lazy-load it as a window app.
-export default function OsSettings() {
+export default function OsSettings({ winId }: { winId?: string }) {
   const params = useSearchParams();
   const initial = sectionFromSearch(params.get("section"));
   const { tweaks } = useAppearance();
@@ -26,11 +29,26 @@ export default function OsSettings() {
   // No shell-specific layout/config lives in this headless app controller.
   const { surface } = useActiveShell();
   const [model, setModel] = useState("default");
+  const [sensitiveDirty, setSensitiveDirty] = useState(false);
   // On mobile we start on the section list (no selection drilled in); desktop
   // always shows a selected pane. `null` = list view, an id = detail view.
-  const [active, setActive] = useState<SectionId | null>(
+  const [active, setActive] = useFeatureState<SectionId | null>(winId, "settings-section",
     initial ?? (surface === "mobile" ? null : "appearance"),
   );
+  const [draftName] = useFeatureState(winId, "provider-name", "");
+  const [draftUrl] = useFeatureState(winId, "provider-url", "");
+  const [draftModels] = useFeatureState(winId, "provider-models", "");
+  const draftDirty = Boolean(draftName || draftUrl || draftModels || sensitiveDirty);
+  useEffect(() => {
+    if (!draftDirty) return;
+    if (winId) setCloseGuard(winId, () => window.confirm("Discard the unsaved provider draft?"));
+    const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      if (winId) setCloseGuard(winId, null);
+      window.removeEventListener("beforeunload", beforeUnload);
+    };
+  }, [draftDirty, winId]);
   const serverTarget = effectiveServerTarget(tweaks.server);
 
   useEffect(() => {
@@ -68,8 +86,14 @@ export default function OsSettings() {
   );
 
   return (
-    <AboutPageState initial={initialAboutPage(initial ?? null, params.get("page"))}>
-      <SettingsShell active={active} onSelect={setActive} />
-    </AboutPageState>
+    <SettingsWindowContext.Provider value={{ winId, setSensitiveDirty }}>
+      <AboutPageState initial={initialAboutPage(initial ?? null, params.get("page"))}>
+        <SettingsShell active={active} onSelect={(next) => {
+          if (next !== active && sensitiveDirty && !window.confirm("Discard the unsaved API key or JSON?")) return;
+          if (next !== active) setSensitiveDirty(false);
+          setActive(next);
+        }} />
+      </AboutPageState>
+    </SettingsWindowContext.Provider>
   );
 }
