@@ -32,6 +32,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `progress` the security gate was gating itself
 - `progress` record the integrations close-out, the reverted merge, and the traps
 
+**Chores**
+
+- regenerate changelog after merging main
+
 ## 2026-11-02
 
 **Added**
