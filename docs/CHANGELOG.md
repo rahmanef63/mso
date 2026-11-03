@@ -8,11 +8,12 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` @ addresses agents and MCP plugins, with / owning commands
+- `tui` @ addresses agents and MCP plugins, with / owning commands (#263)
 - `tui` opencode batch three, from starved flags to a written contract (#258)
 
 **Fixed**
 
+- `export` create the markdown export atomically, closing a TOCTOU write
 - `a11y` scope the drawer inert to the compact layout
 - `tui` the panel no longer scrolls itself away, and command output survives (#261)
 - `a11y` close the four keyboard defects the audit found
@@ -23,6 +24,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `integrations` parse each inline script, not one greedy concatenation
 - `config` document MSO_EVIDENCE_DIR, the evidence harness output path
+
+**Docs**
+
+- `progress` record the integrations close-out, the reverted merge, and the traps
 
 ## 2026-11-02
 
