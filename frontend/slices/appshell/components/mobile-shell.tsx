@@ -224,7 +224,7 @@ export function MobileShell() {
             className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]"
             style={{ "--sai-bottom": "max(env(safe-area-inset-bottom, 0px), 34px)" } as React.CSSProperties}
           >
-            <WindowContent app={top.app} payload={top.payload} />
+            <WindowContent key={top.id} app={top.app} payload={top.payload} winId={top.id} />
           </main>
           <div className="absolute inset-x-0 bottom-0 z-[5]">
             <HomeIndicator light={false} onHome={goHome} onSwitcher={openSwitcher} onSwitchApp={switchApp} />

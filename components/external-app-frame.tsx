@@ -6,13 +6,17 @@ import type { WorkflowEmbed } from "@/lib/contracts/surface-app";
 import { Button } from "@/components/ui/button";
 
 export function ExternalAppFrame({ app, frameTitle }: { app: WorkflowEmbed; frameTitle?: string }) {
+  return <ExternalAppFrameContent key={app.url} app={app} frameTitle={frameTitle} />;
+}
+
+function ExternalAppFrameContent({ app, frameTitle }: { app: WorkflowEmbed; frameTitle?: string }) {
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [slow, setSlow] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setSlow(true), 15000);
     return () => clearTimeout(timer);
-  }, [revision]);
+  }, [revision, app.url]);
   if (app.blocked || !app.url) return <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm" data-slot="external-app-frame" role="alert">
     <p>{app.reason || "This editor destination is unavailable."}</p>
     <p className="text-xs text-muted-foreground">No editor or login link is opened. Configure a separate cookie-isolated origin before connecting.</p>
@@ -23,6 +27,7 @@ export function ExternalAppFrame({ app, frameTitle }: { app: WorkflowEmbed; fram
       <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={app.origin}>{app.origin}</span>
       {app.loginUrl ? <Button asChild variant="ghost" size="sm"><a href={app.loginUrl} target="_blank" rel="noopener noreferrer"><LogIn className="size-4"/><span>Sign in</span></a></Button> : null}
       <Button asChild variant="outline" size="sm"><a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="size-4"/><span>Open {app.title}</span></a></Button>
+      {app.origin && app.url !== app.origin && app.url !== app.origin + "/" ? <Button asChild variant="ghost" size="sm"><a href={app.origin} target="_blank" rel="noopener noreferrer">Open home</a></Button> : null}
       {app.renderer === "iframe" ? <Button variant="ghost" size="icon" onClick={reload} aria-label={`Reload ${app.title}`} title={`Reload ${app.title}`}><RefreshCw className="size-4"/></Button> : null}
     </div>
     {app.renderer === "iframe" ? <div className="relative min-h-0 min-w-0 flex-1">

@@ -14,7 +14,7 @@ it("uses the Settings master/detail navigation contract", () => {
   expect(CONNECTION_MANAGER_SCRIPT).toContain('["variables","Variables",showVariables]');
   expect(CONNECTION_MANAGER_SCRIPT).toContain('["transfer","Transfer & backup",showTransfer]');
   expect(CONNECTION_MANAGER_SCRIPT).toContain('["project-mcp","Add project MCP",showProjectMcp]');
-  expect(CONNECTION_MANAGER_STYLE).toContain('grid-template-columns:var(--settings-sidebar-width) minmax(0,1fr)');
+  expect(CONNECTION_MANAGER_STYLE).toContain('grid-template-columns:var(--feature-sidebar-width,var(--settings-sidebar-width)) minmax(0,1fr)');
   expect(CONNECTION_MANAGER_STYLE).toContain('width:min(100%,var(--settings-content-width))');
   expect(CONNECTION_MANAGER_STYLE).toContain('@container integration (max-width:37.5rem)');
   expect(CONNECTION_MANAGER_STYLE).toContain('integration-sidebar-toggle');
@@ -128,9 +128,13 @@ it("supports bidirectional sidebar toggle, panel focus, inert content trap, and 
   expect(CONNECTION_MANAGER_SCRIPT).toContain('if(width>37.5*rem)');
   expect(CONNECTION_MANAGER_SCRIPT).toContain('sidebarToggle.setAttribute("aria-expanded","false")');
 
-  // 5. Short iframe responsiveness: header flex:none with max-height, nav min-height
-  expect(CONNECTION_MANAGER_STYLE).toContain('.integration .integration-sidebar-header{display:grid;flex:none;max-height:calc(var(--control-size) * 4);overflow-y:auto;');
-  expect(CONNECTION_MANAGER_STYLE).toContain('.integration .integration-settings-nav{min-height:calc(var(--control-size) * 2);flex:1;overflow-y:auto;');
+  // 5. One sidebar scroll keeps the owner picker reachable on short panes.
+  expect(CONNECTION_MANAGER_STYLE).toContain('.integration .integration-sidebar-header{display:grid;flex:none;');
+  expect(CONNECTION_MANAGER_STYLE).toContain('.integration .integration-settings-nav{min-height:calc(var(--control-size) * 2);flex:1 0 auto;');
+
+  // Layout width excludes window-entry transforms, matching CSS container queries.
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("root.clientWidth<=37.5");
+  expect(CONNECTION_MANAGER_SCRIPT).not.toContain("root.getBoundingClientRect().width");
 
   // 6. Search filters all nav items, including Manage utilities
   expect(CONNECTION_MANAGER_SCRIPT).toContain('navButtons.push({mode,provider:null,button:item,label})');

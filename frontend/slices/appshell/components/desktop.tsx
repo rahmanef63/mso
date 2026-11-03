@@ -1,5 +1,6 @@
 "use client";
 
+import { LayoutBoundary } from "../design/layout-boundary";
 import { Suspense, useEffect, useState, type ComponentType } from "react";
 import { useResponsive } from "../responsive/use-responsive";
 import { inEditable } from "../lib/use-focused-hotkey";
@@ -80,6 +81,7 @@ function Surface() {
 
   return (
     <ActiveShellProvider id={desc.id} surface={surface}>
+      <LayoutBoundary>
       <div id="main-content" data-shell={desc.id} className="relative w-screen overflow-hidden" style={{ height: "var(--mso-visual-vh, 100dvh)" }}>
         <Wallpaper shellDefault={desc.wallpaper} />
         <ContextMenuHost>
@@ -90,6 +92,7 @@ function Surface() {
           <Slot region="notifications" />
         </ContextMenuHost>
       </div>
+      </LayoutBoundary>
     </ActiveShellProvider>
   );
 }

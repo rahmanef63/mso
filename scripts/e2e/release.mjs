@@ -36,9 +36,11 @@ try {
     page.on("pageerror", error => errors.push(error.message));
     await page.goto(fixture.base + "/integrations");
     await expect(page.locator("#mso-boot-splash")).toHaveCount(0);
-    await expect(page.getByRole("navigation", { name: "Integrations sections", exact: true })).toBeVisible();
+    const sections = page.getByRole("navigation", { name: "Integrations sections", exact: true });
+    if (viewport.width < 600) await expect(sections).not.toBeVisible();
+    else await expect(sections).toBeVisible();
     await expect(page.getByRole("heading", { name: "GitHub", exact: true, level: 2 })).toBeVisible();
-    if (viewport.width < 600) {await page.getByRole("button", { name: "Integrations sections", exact: true }).click();await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name:"GitHub", exact:true }).click();}
+    if (viewport.width < 600) {await page.getByRole("button", { name: "Integrations sections", exact: true }).click();await expect(sections).toBeVisible();await sections.getByRole("button", { name:"GitHub", exact:true }).click();await expect(sections).not.toBeVisible();}
     else {await page.getByLabel("Search integrations").fill("GitHub");await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name:"GitHub", exact:true }).click();}
     await expect(page.getByRole("heading", {name:"GitHub", exact:true})).toBeVisible();
     await page.getByText("Connection methods & setup guides", { exact: true }).click();

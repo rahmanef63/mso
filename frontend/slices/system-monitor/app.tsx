@@ -64,14 +64,14 @@ export default function SystemMonitor() {
         </div>
       </header>
     }>
-      {tab === "overview" ? <Overview stats={stats} procs={procs} cpuSeries={cpuSeries} netSeries={netSeries} gpu={gpu} error={error} refresh={refresh} /> : null}
+      {tab === "overview" ? <Overview stats={stats} procs={procs} cpuSeries={cpuSeries} netSeries={netSeries} gpu={api.mode === "mock" ? gpu : undefined} error={error} refresh={refresh} /> : null}
       {tab === "services" ? <ServicesPanel /> : null}
       {tab === "updates" ? <PackageUpdatesPanel /> : null}
     </AppFrame>
   );
 }
 
-function Overview({ stats, procs, cpuSeries, netSeries, gpu, error, refresh }: ReturnType<typeof useStatsHistory>) {
+function Overview({ stats, procs, cpuSeries, netSeries, gpu, error, refresh }: Omit<ReturnType<typeof useStatsHistory>, "gpu"> & { gpu?: number }) {
   if (!stats && error) return <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"><AlertCircle className="size-6 text-destructive" /><p className="max-w-xs text-xs text-muted-foreground">{error}</p><Button variant="outline" size="sm" onClick={refresh}><RotateCw className="size-3.5" /> Retry</Button></div>;
   if (!stats) return <div className="flex h-full items-center justify-center gap-2 text-xs text-[color:var(--text-faint)]"><Loader2 className="size-4 animate-spin" /> Reading host telemetry…</div>;
   const lastNet = netSeries[netSeries.length - 1] ?? 0;

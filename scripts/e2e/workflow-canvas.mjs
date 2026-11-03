@@ -67,6 +67,19 @@ export async function workflowCanvasJourney(page, fixture) {
   await expect(insertedWait).toHaveCount(0);
   await expect(canvas.locator(".react-flow__edge")).toHaveCount(7);
 
+  const workflowName = page.getByLabel("Workflow name");
+  const saveWorkflow = page.locator('[data-slot="workflows-feature"] [data-slot="app-frame-toolbar"]').getByRole("button", { name: "Save", exact: true });
+  const originalName = await workflowName.inputValue();
+  await workflowName.fill(originalName + " unsaved");
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await expect(page.locator("#main-content")).toHaveAttribute("data-shell", viewport.width < 768 ? "ios" : "macos");
+    await expect(page.getByLabel("Workflow name")).toHaveValue(originalName + " unsaved");
+  }
+  await page.getByLabel("Workflow name").fill(originalName);
+  await saveWorkflow.click();
+  await expect(saveWorkflow).toBeDisabled();
+
   // Responsive contract: on a phone-sized pane the wide graph starts focused on
   // the trigger at a readable zoom, side panels become drawers, and the toolbar
   // collapses secondary actions without horizontal feature overflow.
@@ -114,9 +127,9 @@ export async function workflowCanvasJourney(page, fixture) {
   const directory = page.locator('[data-slot="workflow-directory-panel"]');
   await expect(directory.getByPlaceholder("Search tools…")).toBeVisible();
   await expect(directory.getByText("agent_memory_search", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "projects", exact: true }).click();
+  await directory.getByRole("button", { name: "projects", exact: true }).click();
   await expect(directory.getByText("fixture-project", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "skills", exact: true }).click();
+  await directory.getByRole("button", { name: "skills", exact: true }).click();
   await expect(directory.getByText("No matching skills.", { exact: true })).toBeHidden();
   await page.getByRole("button", { name: "Builder", exact: true }).click();
 
@@ -144,7 +157,7 @@ export async function workflowCanvasJourney(page, fixture) {
   await expect(statusSelect).toHaveValue("draft");
   await statusSelect.selectOption("active");
   await expect(statusSelect).toHaveValue("active");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await saveWorkflow.click();
   await expect(page.getByText("Unsaved", { exact: true })).toBeHidden();
   response = await get(page, `graph_id=${encodeURIComponent(graph.id)}`);
   expect(response.status).toBe(200); graph = response.body.graph;

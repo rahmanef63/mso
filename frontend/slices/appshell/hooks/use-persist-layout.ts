@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { shellStore, hydrateBoot, serialize, retileSnapped } from "../lib/store";
 import { useApps } from "../lib/registry";
 import { useShellConfig } from "../registry/shell-config";
-import type { PersistedWindow } from "../lib/types";
+import { parseLayout } from "../lib/parse-layout";
 
 // Window layout persists to localStorage (per-browser, debounced). No backend —
 // the layout is inherently per-device, so the browser IS the right home for it.
@@ -28,7 +28,7 @@ export function usePersistLayout() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(persistKey);
-      if (raw) hydrateBoot(JSON.parse(raw) as PersistedWindow[], multiApps.current);
+      if (raw) hydrateBoot(parseLayout(raw), multiApps.current);
     } catch {
       /* corrupt cache — start clean */
     }
@@ -52,20 +52,30 @@ export function usePersistLayout() {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let pending = false;
+    const flush = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      if (!pending) return;
+      try {
+        localStorage.setItem(persistKey, JSON.stringify(serialize()));
+        pending = false;
+      } catch { /* quota / private mode */ }
+    };
+    const onVisibility = () => { if (document.visibilityState === "hidden") flush(); };
     const unsub = shellStore.subscribe(() => {
       if (!ready.current) return;
+      pending = true;
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        try {
-          localStorage.setItem(persistKey, JSON.stringify(serialize()));
-        } catch {
-          /* quota / private mode */
-        }
-      }, 600); // never persist per-frame
+      timer = setTimeout(flush, 600);
     });
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      if (timer) clearTimeout(timer);
+      flush();
       unsub();
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [persistKey]);
 }

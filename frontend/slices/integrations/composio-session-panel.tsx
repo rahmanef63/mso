@@ -86,7 +86,7 @@ export function ComposioSessionPanel() {
   if (kind === undefined) return null;
   if (kind === "connect") {
     return (
-      <section className="border-b p-3" aria-label="Composio Connect">
+      <details className="shrink-0 border-b p-3" aria-label="Composio Connect"><summary className="cursor-pointer text-sm">Composio Connect tools</summary>
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm">Composio Connect</p>
           <Button variant="secondary" disabled={busy} onClick={() => void loadTools()}>List tools</Button>
@@ -98,13 +98,13 @@ export function ComposioSessionPanel() {
           <ul className="mt-2 text-sm">{tools.map(tool => <li key={tool.name}>{tool.name}</li>)}</ul>
         )}
         {status && <p role="status" className="mt-2 text-sm text-muted-foreground">{status}</p>}
-      </section>
+      </details>
     );
   }
   if (kind === null) return null;
 
   return (
-    <section className="border-b p-3" aria-label="Composio agent session">
+    <details className="shrink-0 border-b p-3" aria-label="Composio agent session"><summary className="cursor-pointer text-sm">Composio agent session</summary>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="secondary" disabled={busy} onClick={() => void create(false)}>Create agent session</Button>
         {mcpUrl && <Button variant="ghost" disabled={busy} onClick={() => void create(true)}>Refresh session</Button>}
@@ -119,6 +119,6 @@ export function ComposioSessionPanel() {
         </label>
       )}
       {status && <p role="status" className="mt-2 text-sm text-muted-foreground">{status}</p>}
-    </section>
+    </details>
   );
 }

@@ -25,6 +25,8 @@ export type WindowState = {
   maximized: boolean;
   /** Saved rect for restore from maximize/snap. */
   prevRect?: Rect;
+  /** User geometry, independent of temporary viewport constraints. */
+  preferredRect?: Rect;
   /** The zone this window is snapped to. Kept so a shell switch (different
    *  chrome insets) can re-tile snapped/maximized windows into the new work
    *  area instead of leaving frozen geometry. Cleared on free move/resize. */
@@ -124,5 +126,5 @@ export type AppMenuItem =
  *  switch; the restore (hydrateBoot) also dedupes a multi-app window by payload. */
 export type PersistedWindow = Pick<
   WindowState,
-  "id" | "app" | "title" | "x" | "y" | "w" | "h" | "minimized" | "maximized" | "pinned" | "spaceId" | "groupId" | "payload" | "snapZone" | "prevRect"
+  "id" | "app" | "title" | "x" | "y" | "w" | "h" | "minimized" | "maximized" | "pinned" | "spaceId" | "groupId" | "payload" | "snapZone" | "prevRect" | "preferredRect"
 >;

@@ -4,7 +4,7 @@ import { fmtGiBPair } from "../lib/format";
 
 // The four headline gauges. CPU/Memory/Disk are real (from sys.stats); GPU is a
 // local mock walk since it isn't part of the SysStats contract.
-export function GaugeGrid({ stats, gpu }: { stats: SysStats; gpu: number }) {
+export function GaugeGrid({ stats, gpu }: { stats: SysStats; gpu?: number }) {
   const memPct = (stats.mem.used / stats.mem.total) * 100;
   const diskPct = (stats.disk.used / stats.disk.total) * 100;
   return (
@@ -27,12 +27,12 @@ export function GaugeGrid({ stats, gpu }: { stats: SysStats; gpu: number }) {
         sub={fmtGiBPair(stats.disk.used, stats.disk.total)}
         accent="--mon-disk"
       />
-      <CircularGauge
-        label="GPU (mock)"
+      {gpu !== undefined && <CircularGauge
+        label="GPU (demo)"
         pct={gpu}
         sub="render accel"
         accent="--mon-gpu"
-      />
+      />}
     </div>
   );
 }

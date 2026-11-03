@@ -1,3 +1,22 @@
+## 2026-11-03: dynamic shell presentation and workspace recovery (local verification)
+
+The shell manifest now accepts per-shell layout metrics. Feature frames can override those
+metrics while shared controls, dialogs and the Integrations iframe inherit the active values.
+Viewport projection preserves preferred window geometry across resize, shell changes and
+reload; layout persistence flushes before page exit and ignores malformed cache entries.
+
+Mobile shells forward window identity to shared feature state. URL sync defers rewrites until
+a restored connected app appears in the asynchronous registry, preserving reload on phones.
+
+Integrations uses opaque navigation, one sidebar scroll, initial compact-pane inert state,
+deduplicated account badges and an explicit same-origin ready handshake. Workflows adds a
+real Sources action, distinct empty/filter states and unsaved-change guards. Desktop widgets
+remain reachable after resize, the dock keeps a usable size floor, n8n refreshes cancel stale
+requests, and live System Monitor no longer displays a fabricated GPU gauge.
+
+Validation and release status are recorded in `docs/UI-UX-FOUNDATION.md`. This entry describes
+local work on the task branch; it does not claim deployment or release to main.
+
 ## 2026-11-03: integrations UI closed out, and one merged fix that had been silently deleted
 
 Everything below is merged. `main` at `269b6721`, working tree clean, gate green.
