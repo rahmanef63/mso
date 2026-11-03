@@ -23,6 +23,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `frontend` allow relinking recovered media
 - `frontend` protect workspace and media sessions
 
+**Tests**
+
+- retain Camoufox abort callback contract
+
 **Docs**
 
 - reconcile all frontend audit findings
