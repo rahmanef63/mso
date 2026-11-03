@@ -10,7 +10,8 @@ import { useFocusedHotkey } from "@/features/appshell";
 export function useCloseGuard(
   winId: string | undefined,
   dirty: boolean,
-  save: () => Promise<void> | void,
+  save: () => Promise<boolean>,
+  saveAll: () => Promise<boolean>,
 ) {
   const [confirmClose, setConfirmClose] = useState(false);
   // Latest-ref mirrors, written post-render (react-hooks/refs forbids mutating
@@ -55,10 +56,8 @@ export function useCloseGuard(
   }, [winId]);
 
   const saveThenClose = useCallback(async () => {
-    setConfirmClose(false);
-    await saveRef.current();
-    forceClose();
-  }, [forceClose]);
+    if (await saveAll()) { setConfirmClose(false); forceClose(); }
+  }, [forceClose, saveAll]);
 
   return { confirmClose, setConfirmClose, forceClose, saveThenClose, saveRef };
 }

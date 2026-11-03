@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Music, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppFrame, openWindow, saveAs, usePublishInspector } from "@/features/appshell";
+import { AppFrame, openWindow, saveAs, usePublishInspector, useFocusedHotkey } from "@/features/appshell";
 import { rawUrl } from "../lib/host";
 import { cn } from "@/lib/utils";
 import { editorFor } from "../lib/media";
@@ -20,11 +20,11 @@ const STAGE = "bg-[repeating-conic-gradient(var(--muted)_0_25%,transparent_0_50%
 
 // A real host file, streamed from /api/v1/fs/raw (the session cookie authenticates
 // the <img>/<video>/<audio> src directly), with ← → through the rest of the folder.
-export function RemoteView({ file }: { file: RemoteFile }) {
+export function RemoteView({ file, winId }: { file: RemoteFile; winId?: string }) {
   // The window opens on one file and then pages; `current` is what is on screen.
   // Keyed by path so a NEW payload (a second Open from Files) wins over paging.
-  const [paged, setPaged] = useState<RemoteFile | null>(null);
-  const current = paged?.path && paged.path !== file.path ? paged : file;
+  const [paged, setPaged] = useState<{ origin: RemoteFile; current: RemoteFile } | null>(null);
+  const current = paged?.origin === file ? paged.current : file;
   const { index, items, go } = useSiblings(current.path, current.name);
   const [failedPath, setFailedPath] = useState<string | null>(null);
   const failed = failedPath === current.path;
@@ -37,23 +37,16 @@ export function RemoteView({ file }: { file: RemoteFile }) {
   const step = useCallback(
     (delta: number) => {
       const next = go(delta);
-      if (next) setPaged({ path: next.path, name: next.name, kind: next.kind });
+      if (next) setPaged({ origin: file, current: { path: next.path, name: next.name, kind: next.kind } });
     },
-    [go],
+    [go, file],
   );
 
   // ← → anywhere in the window, the way Preview and Photos both behave. Bound on
   // the window's own document; typing in an input is not a case here (the viewer
   // has no text field), so no focus guard is needed beyond ignoring modifiers.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "ArrowLeft") step(-1);
-      else if (e.key === "ArrowRight") step(1);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [step]);
+  useFocusedHotkey(winId, [{ key: "ArrowLeft" }], () => step(-1));
+  useFocusedHotkey(winId, [{ key: "ArrowRight" }], () => step(1));
 
   const download = useCallback(() => saveAs(src, current.name), [src, current.name]);
 

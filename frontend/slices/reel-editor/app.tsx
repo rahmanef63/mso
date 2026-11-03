@@ -1,13 +1,11 @@
 "use client";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useHistory } from "./lib/history";
 import { useClipDrag } from "./lib/use-clip-drag";
 import { useShortcuts } from "./lib/use-shortcuts";
 import { moveTrack } from "./lib/composition";
-import { saveDraft } from "./lib/draft";
-import { getSettings } from "./lib/settings";
+import { useDraftAutosave } from "./lib/use-draft-autosave";
 import { useReelActions } from "./lib/use-reel-actions";
 import { getFrame, setFrame, subscribeFrame } from "./lib/frame-store";
 import { SettingsDialog } from "./components/settings-dialog";
@@ -21,15 +19,14 @@ import { RenderOverlay } from "./components/render-overlay";
 import { useExport } from "./lib/use-export";
 import { useReelInspector } from "./lib/use-reel-inspector";
 import { useContainer, useIsMobile } from "./lib/host";
-
+import type { AppProps } from "@/features/appshell";
 const HELLO: AiMessage = {
   role: "ai",
   text: "Tell me what to change. Try “make it vertical”, “fade in”, “split here”, “punch in”, or “add title Sale”.",
 };
-
 // Reel editor orchestrator: holds playhead/selection/render state, wires the
 // history, drag, keyboard, and AI subsystems to the panels.
-export default function ReelEditor() {
+export default function ReelEditor({ winId }: AppProps) {
   const { comp, apply, undo, redo, canUndo, canRedo } = useHistory();
   const [playing, setPlaying] = useState(false);
   const [sel, setSel] = useState<string | null>("c-intro");
@@ -46,35 +43,21 @@ export default function ReelEditor() {
   const [cache] = useState(() => new MediaCache());
   const [monitor, setMonitor] = useState(true);
   const [layout, setLayout] = useLayout();
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const { savedAt, draftError, sessionMedia } = useDraftAutosave(comp, winId);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   // Latest-ref mirror of the external frame-store for drag handlers (read
   // without subscribing → no re-render on tick).
   const frameRef = useRef(getFrame());
   useEffect(() => subscribeFrame(() => { frameRef.current = getFrame(); }), []);
-
   const selected = useMemo(() => comp.clips.find((c) => c.id === sel) ?? null, [comp.clips, sel]);
   const { dropTrack, begin } = useClipDrag(comp, apply, zoom, frameRef);
   const stopPlay = useCallback(() => setPlaying(false), []);
   const { render, startRender, closeRender } = useExport(comp, cache, stopPlay);
-
   // Free the cached media elements (and the hidden video host) on close.
   useEffect(() => () => cache.dispose(), [cache]);
-
   // Drive the monitor (speaker) tap of the shared audio graph.
   useEffect(() => cache.setMonitor(monitor), [cache, monitor]);
-
-  // Auto-save the project draft (debounced) so a reload resumes the edit.
-  useEffect(() => {
-    if (!getSettings().autosave) return;
-    const t = setTimeout(() => {
-      saveDraft(comp);
-      setSavedAt(Date.now());
-    }, 800);
-    return () => clearTimeout(t);
-  }, [comp]);
-
   // Playback loop: writes go to the EXTERNAL frame-store, so only the leaf
   // subscribers (preview/transport/timeline-playhead/clip-props) re-render
   // per tick — NOT this whole orchestrator.
@@ -92,10 +75,8 @@ export default function ReelEditor() {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [playing, comp.fps, comp.duration]);
-
   const { ratio, split, del, dup, addMedia, patchSel, patchTrack, newProject, addTrack, select, runAi } =
     useReelActions({ apply, sel, setSel, frameRef, mode, selected, setShowPanel, setAiLog });
-
   const onKey = useShortcuts({
     hasSel: !!sel,
     onUndo: undo,
@@ -104,9 +85,7 @@ export default function ReelEditor() {
     onDelete: del,
     onTogglePlay: () => setPlaying((p) => !p),
   });
-
   useReelInspector(comp, selected, startRender);
-
   return (
     <TooltipProvider delayDuration={300}>
       <div
@@ -119,6 +98,11 @@ export default function ReelEditor() {
         onMouseDown={() => rootRef.current?.focus({ preventScroll: true })}
         className="@container relative flex h-full flex-col bg-background text-foreground outline-none"
       >
+        {(draftError || sessionMedia) && (
+          <div role="status" className="shrink-0 bg-warning/15 px-3 py-2 text-sm text-foreground">
+            {draftError ?? "Uploaded media is available only in this session. Keep the original files to restore the project."}
+          </div>
+        )}
         <ReelChrome
           comp={comp}
           mode={mode}
@@ -147,7 +131,6 @@ export default function ReelEditor() {
           newProject={newProject}
           openSettings={() => setSettingsOpen(true)}
         />
-
         <ReelPanes
           comp={comp}
           playing={playing}
@@ -182,7 +165,6 @@ export default function ReelEditor() {
           moveTrack={(id, dir) => apply((c) => moveTrack(c, id, dir), true)}
           addMedia={addMedia}
         />
-
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         {render && (
           <RenderOverlay

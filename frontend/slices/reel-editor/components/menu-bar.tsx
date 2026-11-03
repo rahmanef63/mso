@@ -179,7 +179,7 @@ export function MenuBar(p: MenuBarProps) {
       <div className="ml-auto flex items-center gap-2">
         {p.savedAt != null && (
           <span className="hidden text-[10px] text-muted-foreground @md:inline" title="Draft auto-saved in this browser">
-            ✓ Saved {new Date(p.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            ✓ Timeline saved {new Date(p.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
         )}
         <Segmented

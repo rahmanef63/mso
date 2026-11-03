@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ImageEditor, type EditorApi } from "@/features/image-editor";
 import { rawUrl } from "./lib/host";
 import { closeWindow, setCloseGuard, toast, useContainer, useIsMobile, FormDrawer } from "@/features/appshell";
@@ -13,12 +13,29 @@ import { autoName, loadSavePrefs, saveImageToHost } from "./lib/save-image";
 // open host images / round-trip a saved doc, SAVE rendered images to a VPS folder,
 // and guard window close on unsaved changes (Save / Don't Save / Cancel).
 export default function MediaStudio({ payload, winId }: AppProps) {
-  const p = payload as { path?: string; name?: string; kind?: string } | undefined;
+  const p = payload as { path?: string; name?: string; kind?: string; src?: string } | undefined;
   const [pending, setPending] = useState<string | null>(null); // PNG awaiting the Save As dialog
   const [confirmClose, setConfirmClose] = useState(false);
   const dirty = useRef(false);
   const api = useRef<EditorApi | null>(null);
   const closeAfterSave = useRef(false);
+  const [docStatus, setDocStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const docStatusRef = useRef(docStatus);
+  useEffect(() => { docStatusRef.current = docStatus; }, [docStatus]);
+  const latestDoc = useRef<Parameters<NonNullable<React.ComponentProps<typeof ImageEditor>["onSaveDoc"]>>[0] | null>(null);
+  const docQueue = useRef<Promise<void>>(Promise.resolve());
+  const saveDoc = useCallback((doc: NonNullable<typeof latestDoc.current>) => {
+    latestDoc.current = doc;
+    setDocStatus("saving");
+    docQueue.current = docQueue.current.catch(() => {}).then(async () => {
+      const response = await fetch("/api/v1/fs/write", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path: p?.path, content: JSON.stringify(doc) }),
+      });
+      if (!response.ok) throw new Error("Save failed");
+    }).then(() => { if (latestDoc.current === doc) setDocStatus("saved"); })
+      .catch(() => { if (latestDoc.current === doc) setDocStatus("failed"); });
+  }, [p?.path]);
   // Container-first responsiveness: the editor reflows off its PANE width (a
   // 390px desktop window gets the compact layout, not just phones).
   const [paneRef, pane] = useContainer<HTMLDivElement>();
@@ -30,13 +47,22 @@ export default function MediaStudio({ payload, winId }: AppProps) {
   useEffect(() => {
     if (!winId) return;
     setCloseGuard(winId, () => {
-      if (!dirty.current) return true;
+      if (!dirty.current) return docStatusRef.current === "saving" || docStatusRef.current === "failed" ? window.confirm("Project save is incomplete. Close anyway?") : true;
       setConfirmClose(true);
       return false;
     });
     return () => setCloseGuard(winId, null);
   }, [winId]);
 
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (dirty.current || docStatusRef.current === "saving" || docStatusRef.current === "failed") {
+        event.preventDefault(); event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
   const markClean = () => { dirty.current = false; api.current?.markSaved(); };
   const forceClose = () => { if (winId) { setCloseGuard(winId, null); closeWindow(winId); } };
 
@@ -55,9 +81,10 @@ export default function MediaStudio({ payload, winId }: AppProps) {
 
   // The prompt's "Save" → render the canvas, open the dialog, close once saved.
   const saveThenClose = () => {
+    let url: string | null = null;
+    try { url = api.current?.exportPng() ?? null; } catch { /* keep the window open */ }
+    if (!url) { toast("Could not export image. Try again.", { tone: "error" }); return; }
     setConfirmClose(false);
-    const url = api.current?.exportPng() ?? null;
-    if (!url) return forceClose();
     closeAfterSave.current = true;
     setPending(url);
   };
@@ -82,19 +109,17 @@ export default function MediaStudio({ payload, winId }: AppProps) {
           <ImageEditor
             {...common}
             projectSrc={rawUrl(p!.path!)}
-            onSaveDoc={(doc) => {
-              void fetch("/api/v1/fs/write", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ path: p!.path, content: JSON.stringify(doc) }),
-              });
-            }}
+            onSaveDoc={saveDoc}
           />
         ) : (
-          <ImageEditor {...common} initialImage={p?.path && (!p.kind || p.kind === "image") ? rawUrl(p.path) : undefined} />
+          <ImageEditor {...common} initialImage={p?.src ?? (p?.path && (!p.kind || p.kind === "image") ? rawUrl(p.path) : undefined)} />
         )}
       </div>
 
+      {isDoc && docStatus !== "idle" && <div role="status" className="absolute bottom-2 left-2 rounded bg-background p-2 text-sm">
+        {docStatus === "saving" ? "Saving project..." : docStatus === "saved" ? "Project saved" : "Project save failed."}
+        {docStatus === "failed" && <Button size="sm" onClick={() => latestDoc.current && saveDoc(latestDoc.current)}>Retry</Button>}
+      </div>}
       <SaveImageDialog
         dataUrl={pending}
         open={pending !== null}
