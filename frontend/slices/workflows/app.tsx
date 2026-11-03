@@ -23,6 +23,8 @@ import { tidyWorkflowNodes } from "./lib/canvas-layout";
 import { buildWorkflowPackage, workflowPackageFilename, type WorkflowDefinition } from "./lib/portability";
 import { cloneGraph, createFromTemplate, createGraph, deleteGraph, getGraph, getSessionGraph, listGraphs, resolveNode, runGraph, runStatus, saveSessionWorkflowDraft, updateGraph } from "./lib/api";
 
+function createActionLock() { let active = false; return async (fn: () => Promise<void>) => { if (active) return; active = true; try { await fn(); } finally { active = false; } }; }
+
 type LibraryMode = "automations" | "sessions" | "sources";
 function starterGraph(): WorkflowDefinition { return { name: "New Workflow", description: "Private workflow graph.", status: "draft", inputs: {}, metadata: { provenance: "user" }, nodes: [{ id: "manual", name: "Manual Trigger", type: "manual", position: { x: 80, y: 160 }, config: {} }, { id: "output", name: "Output", type: "output", position: { x: 420, y: 160 }, config: {} }], edges: [{ id: "edge-start", source: "manual", target: "output" }] }; }
 function payloadSessionId(payload: unknown): string | undefined { if (!payload || typeof payload !== "object") return undefined; const row = payload as { view?: unknown; sessionId?: unknown }; return row.view === "sessions" && typeof row.sessionId === "string" ? row.sessionId : undefined; }
@@ -66,7 +68,8 @@ export default function WorkflowsApp(props: AppProps) {
     return () => { alive = false; };
   }, [props.payload, setLibraryMode, setSessionSelected, setSessionView]);
 
-  const wrap = async (fn: () => Promise<void>) => { setBusy(true); setMessage(""); try { await fn(); } catch (error) { setMessage(error instanceof Error ? error.message : "Action failed"); } finally { setBusy(false); } };
+  const [runExclusive] = useState(createActionLock);
+  const wrap = async (fn: () => Promise<void>) => runExclusive(async () => { setBusy(true); setMessage(""); try { await fn(); } catch (error) { setMessage(error instanceof Error ? error.message : "Action failed"); } finally { setBusy(false); } });
   const mutate = (next: WorkflowGraph) => { setGraph(next); setDirty(true); };
   const selectGraph = async (id: string) => { if (!confirmDiscard()) return; setLibraryMode("automations"); setGraph(await getGraph(id)); setSelected(null); setRun(null); setDirty(false); setPanel("inspector"); setLibraryOpen(false); };
   const selectSession = async (id: string) => { if (!confirmDiscard()) return; const next = await getSessionGraph(id); setLibraryMode("sessions"); setSessionView(next); setSessionSelected("session-root"); setGraph(null); setDirty(false); setLibraryOpen(false); setDetailsOpen(false); };
