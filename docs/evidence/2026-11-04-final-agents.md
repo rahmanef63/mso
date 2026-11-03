@@ -17,3 +17,7 @@ Base a2268f2b includes the earlier changes described in [frontend agent evidence
 | Managed install | Existing clipboard consumer awaits the boolean result; static Orca tests passed. No real clipboard or installation proof. |
 
 Validation: Node 22, umask 077, VITEST_MAX_WORKERS=2. Two isolated component fixtures passed (GroupEditor CAS and VersionPanel cancellation/single-flight); they live in ignored .agent/evidence/final-agents and use the audit's external react-test-renderer installation, so are not portable CI tests. Five tracked test files passed 15 tests, including 2 form, 2 memory transform and 7 Orca static tests. TypeScript, targeted ESLint, and diff check passed. No full build, security scan, PR gates, real API, browser, assistive technology, actual device or remote CI was run; integration owner must run applicable gates and behavioral journeys on the final SHA.
+
+## Mounted replacement cancellation follow-up
+
+A synthetic React test-renderer fixture mounted the actual WorkflowsApp, source and version panels with mocked network, shell and visual children. Cancelling Duplicate, Restore and Copy each asked for confirmation; zero update/clone/restore/POST calls were made and the dirty workflow name remained. Source was 1367a24b. This tests application-level cancellation, not browser focus, real API persistence or full-shell rendering. Receipts are final-workspace-mounted-receipt JSON/Markdown in the external audit work folder.

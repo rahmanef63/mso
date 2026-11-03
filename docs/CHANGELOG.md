@@ -8,6 +8,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- preserve window drafts and modal focus
+- bind Composio sessions to selected connections
+- guard concurrent workflow replacements
+- guard workspace save and browser lifecycles
 - prevent direct remote markdown file export
 - `settings` retain About subpage across shell changes
 - `ui` preserve external editor height on short screens
@@ -18,6 +22,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - protect agent collaboration drafts and actions
 - `frontend` allow relinking recovered media
 - `frontend` protect workspace and media sessions
+
+**Docs**
+
+- reconcile all frontend audit findings
+- record rendered surfaces verification
 
 ## 2026-11-03
 

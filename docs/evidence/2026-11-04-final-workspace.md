@@ -23,3 +23,7 @@ Scope: isolated workspace branch based on origin/main a2268f2b, including PR #27
 | WSC-04 | Unmount now aborts the current retry/power controller, session fetch receives its signal, late status/transport updates are guarded, and superseded power operations cannot clear a newer busy state. Mocked delayed operation and actual noVNC lifecycle still need interactive proof. |
 
 Validation: targeted draft, relink and media-kind tests passed 28 tests; new terminal delivery tests passed 2; new draft race hook test passed 1. TypeScript, targeted ESLint and architecture checks were run; see final task report for final rerun results. The draft hook test uses a synthetic hook scheduler, not React DOM. Existing tests and source review do not prove the outstanding UI journeys above.
+
+## Mounted negative-path follow-up
+
+A synthetic React test-renderer fixture mounted the actual CodeEditor with mocked visual children and host API: the inactive dirty tab vetoed close, and a rejected Save & Close kept the window and edited text with an error. The actual draft autosave hook reported savedAt null plus error for a quota failure; the full Video Editor/Saved indicator was not mounted. Actual AssetRecovery relinked a mocked video asset from an old blob reference to a new reference and metadata, without real media decoding. The source was 185aaa99; JSON/Markdown receipts are final-workspace-mounted-receipt in the external audit work folder. These are not browser DOM, mobile or full-shell proofs.

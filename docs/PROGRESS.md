@@ -4,6 +4,14 @@ Markdown transcripts may contain server-provided content. The TUI now prints the
 review and copying instead of writing that content directly to a local file. File flags
 are refused before fetching a session; the separate non-Markdown export is unchanged.
 
+## 2026-11-04 — Complete audited frontend implementation follow-ups
+
+The existing 55-group frontend audit is tracked in [the implementation ledger](evidence/2026-11-04-frontend-audit-ledger.md), with per-slice source, behavior evidence and remaining acceptance limits. The previous foundation is on main through PR #270; this increment addresses its unresolved Settings credential remount, Composio selection/cache binding and external-frame readiness gaps, plus save/conflict/pending-action races found during verification.
+
+Settings retains operational input in the existing exact-window memory store, tags sensitive drafts for selective cleanup, preserves nonsecret editor buffers at auth boundaries, orders session probes across logout and blocks navigation during submitted provider writes. Responsive drawers acquire focus on open, including Shortcuts; the actual full Settings remount and five-shell/two-theme focus regressions are wired into mandatory release journeys. Workspace saves acknowledge only the revision saved, video draft baselines come from their load, and Camoufox aborts its current operation on unmount. Workflow source copy/restore share the action lock and preserve newer edits. Composio uses an authorized explicit owner/connection and a credential-revision-bound cache; frame fallback says readiness is unknown instead of inferring success from load.
+
+Focused unit and mounted synthetic component checks passed during implementation. External headless fixtures cover selected five-shell/two-theme/320–844 samples with a prior CSS build; they are not exact-SHA release proof. Full local, pinned scanner and remote results must be recorded for the final commit before merge readiness; real devices, assistive technology and upstream vendor behavior remain explicit limits. No production deployment, host data or tunnel was changed.
+
 ## 2026-11-03: frontend contract for every feature and agent
 
 Frontend rules were spread across product direction, shell design notes and the dynamic
