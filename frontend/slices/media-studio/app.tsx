@@ -19,6 +19,7 @@ export default function MediaStudio({ payload, winId }: AppProps) {
   const dirty = useRef(false);
   const api = useRef<EditorApi | null>(null);
   const closeAfterSave = useRef(false);
+  const pendingRevision = useRef<number | null>(null);
   const [docStatus, setDocStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const docStatusRef = useRef(docStatus);
   useEffect(() => { docStatusRef.current = docStatus; }, [docStatus]);
@@ -64,33 +65,49 @@ export default function MediaStudio({ payload, winId }: AppProps) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
-  const markClean = () => { dirty.current = false; api.current?.markSaved(); };
+  const markClean = (revision: number | null) => {
+    if (revision === null || !api.current?.markSaved(revision)) return false;
+    dirty.current = false;
+    return true;
+  };
   const forceClose = () => { if (winId) { setCloseGuard(winId, null); closeWindow(winId); } };
 
   const onSave = (dataUrl: string) => {
+    api.current?.flushProject();
+    const revision = api.current?.revision() ?? null;
     const prefs = loadSavePrefs();
     if (prefs.remember && prefs.dir) {
       saveImageToHost(dataUrl, { dir: prefs.dir, name: autoName(), format: prefs.format, quality: prefs.quality })
-        .then((path) => { markClean(); toast(`Saved → ${path}`, { tone: "success" }); })
+        .then((path) => { markClean(revision); toast(`Saved → ${path}`, { tone: "success" }); })
         .catch((e) => toast(e instanceof Error ? e.message : "save failed", { tone: "error" }));
     } else {
       closeAfterSave.current = false;
+      pendingRevision.current = revision;
       setPending(dataUrl);
     }
   };
-  const onSaveAs = (dataUrl: string) => { closeAfterSave.current = false; setPending(dataUrl); };
+  const onSaveAs = (dataUrl: string) => { api.current?.flushProject(); closeAfterSave.current = false; pendingRevision.current = api.current?.revision() ?? null; setPending(dataUrl); };
 
   // The prompt's "Save" → render the canvas, open the dialog, close once saved.
   const saveThenClose = () => {
     let url: string | null = null;
     try { url = api.current?.exportPng() ?? null; } catch { /* keep the window open */ }
     if (!url) { toast("Could not export image. Try again.", { tone: "error" }); return; }
+    api.current?.flushProject();
     setConfirmClose(false);
     closeAfterSave.current = true;
+    pendingRevision.current = api.current?.revision() ?? null;
     setPending(url);
   };
 
-  const onDialogSaved = () => { markClean(); if (closeAfterSave.current) { closeAfterSave.current = false; if (docStatusRef.current === "saving" || docStatusRef.current === "failed") setConfirmClose(true); else forceClose(); } };
+  const onDialogSaved = () => {
+    const clean = markClean(pendingRevision.current);
+    if (closeAfterSave.current) {
+      closeAfterSave.current = false;
+      if (!clean || docStatusRef.current === "saving" || docStatusRef.current === "failed") setConfirmClose(true);
+      else forceClose();
+    }
+  };
 
   const common = {
     compact,

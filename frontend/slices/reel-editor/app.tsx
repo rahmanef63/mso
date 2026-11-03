@@ -28,7 +28,7 @@ const HELLO: AiMessage = {
 // Reel editor orchestrator: holds playhead/selection/render state, wires the
 // history, drag, keyboard, and AI subsystems to the panels.
 export default function ReelEditor({ winId }: AppProps) {
-  const { comp, apply, undo, redo, canUndo, canRedo } = useHistory();
+  const { comp, draftBaseline, apply, undo, redo, canUndo, canRedo } = useHistory();
   const [playing, setPlaying] = useState(false);
   const [sel, setSel] = useState<string | null>("c-intro");
   const [zoom, setZoom] = useState(3.2);
@@ -44,7 +44,7 @@ export default function ReelEditor({ winId }: AppProps) {
   const [cache] = useState(() => new MediaCache());
   const [monitor, setMonitor] = useState(true);
   const [layout, setLayout] = useLayout();
-  const { savedAt, draftError, sessionMedia } = useDraftAutosave(comp, winId);
+  const { savedAt, draftError, sessionMedia } = useDraftAutosave(comp, draftBaseline, winId);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   // Latest-ref mirror of the external frame-store for drag handlers (read

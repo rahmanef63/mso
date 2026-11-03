@@ -8,18 +8,20 @@ import { compositionBoundsError } from "./limits";
 
 const KEY = "reel.draft";
 
-export function loadDraft(): Composition | null {
-  if (typeof window === "undefined") return null;
+export function readDraft(): { comp: Composition | null; snapshot: string | null; available: boolean } {
+  if (typeof window === "undefined") return { comp: null, snapshot: null, available: false };
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
+    if (!raw) return { comp: null, snapshot: raw, available: true };
     const c = JSON.parse(raw) as Composition;
-    if (!c || !Array.isArray(c.tracks) || !Array.isArray(c.clips) || compositionBoundsError(c)) return null;
-    return migrateLayerOrder(c);
+    if (!c || !Array.isArray(c.tracks) || !Array.isArray(c.clips) || compositionBoundsError(c)) return { comp: null, snapshot: raw, available: true };
+    return { comp: migrateLayerOrder(c), snapshot: raw, available: true };
   } catch {
-    return null;
+    return { comp: null, snapshot: null, available: false };
   }
 }
+
+export function loadDraft(): Composition | null { return readDraft().comp; }
 
 // Drafts saved before tracks became layers used the old default order
 // [video, overlay, text, audio] with start-time z-ordering. Under the new

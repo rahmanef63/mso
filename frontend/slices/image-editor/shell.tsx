@@ -34,6 +34,7 @@ function DesktopShell({ stage, onSave, onSaveAs, onClose }: { stage: React.React
 // when the editor opened blank (no initialImage) so a reload doesn't lose work.
 function useAutosave(autoRestore: boolean, saveDoc?: (doc: Doc) => void, ready = true) {
   const { doc, exportProject, loadProject } = useEditor();
+  const flushRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!autoRestore) return;
     const a = loadAutosave();
@@ -48,13 +49,15 @@ function useAutosave(autoRestore: boolean, saveDoc?: (doc: Doc) => void, ready =
       if (!ready) return;
       let pending = true;
       const flush = () => { if (pending) { pending = false; saveDoc(doc); } };
+      flushRef.current = flush;
       const t = setTimeout(flush, 800);
       window.addEventListener("pagehide", flush);
-      return () => { clearTimeout(t); window.removeEventListener("pagehide", flush); flush(); };
+      return () => { clearTimeout(t); window.removeEventListener("pagehide", flush); flush(); flushRef.current = () => {}; };
     }
     const t = setTimeout(() => saveAutosave(exportProject()), 800);
     return () => clearTimeout(t);
   }, [doc, exportProject, saveDoc, ready]);
+  return flushRef;
 }
 
 // Picks desktop vs mobile layout; both share ONE EditorStage element + provider.
@@ -74,24 +77,27 @@ export type ShellProps = {
 
 export function Shell({ onSave, onSaveAs, onClose, onDirty, onReady, autoRestore, saveDoc, ready, compact, winId, stage }: ShellProps) {
   useKeyboard(winId);
-  useAutosave(autoRestore, saveDoc, ready);
+  const flushProject = useAutosave(autoRestore, saveDoc, ready);
   const autoMobile = useIsMobile();
   const mobile = compact ?? autoMobile;
-  const { version, canUndo, stageRef, rootRef, docView } = useEditor();
-  // Dirty = history moved past the last save. Derived (no effect-driven
-  // setState): loadProject/autosave don't push history so opening a file never
-  // trips it; api.markSaved() pins savedVersion to the current version.
+  const { version, stageRef, rootRef, docView } = useEditor();
+  // History revisions advance on edits, undo and redo. Conservatively keep the
+  // guard after any revision since save, including undoing back to the first step.
   const [savedVersion, setSavedVersion] = useState(0);
-  const dirty = canUndo && version > savedVersion;
+  const dirty = version !== savedVersion;
   const versionRef = useRef(version);
-  useEffect(() => {
-    versionRef.current = version;
-  });
+  useEffect(() => { versionRef.current = version; }, [version]);
   useEffect(() => { onDirty?.(dirty); }, [dirty, onDirty]);
   useEffect(() => {
     onReady?.({
       exportPng: () => { const s = stageRef.current; return s ? stageToDataURL(s, { format: "png", view: docView() }) : null; },
-      markSaved: () => setSavedVersion(versionRef.current),
+      flushProject: () => flushProject.current(),
+      revision: () => versionRef.current,
+      markSaved: (revision) => {
+        if (versionRef.current !== revision) return false;
+        setSavedVersion(revision);
+        return true;
+      },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
