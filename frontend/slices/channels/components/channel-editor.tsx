@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,13 @@ export function ChannelEditor({
   const [enabled, setEnabled] = useState(row?.enabled ?? true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const saving = useRef(false);
+  const [baseRevision, setBaseRevision] = useState(snapshot.revision);
+  const initialDraft = useRef(JSON.stringify([name, provider, credential, target, workflowId, agentGroupId, enabled]));
+  const close = (next: boolean) => {
+    if (!next && (busy || (JSON.stringify([name, provider, credential, target, workflowId, agentGroupId, enabled]) !== initialDraft.current && !window.confirm("Discard unsaved changes?")))) return;
+    onOpenChange(next);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -68,9 +75,10 @@ export function ChannelEditor({
   };
 
   const save = async () => {
+    if (saving.current) return;
     const [user, connection] = credential.split("::");
     if (!user || !connection) { setError("Choose an Integration connection first."); return; }
-    setBusy(true); setError("");
+    saving.current = true; setBusy(true); setError("");
     try {
       const data = {
         name,
@@ -82,16 +90,17 @@ export function ChannelEditor({
         agentGroupId,
       };
       await channelAction(row
-        ? { action: "update", id: row.id, expectedRevision: snapshot.revision, data }
+        ? { action: "update", id: row.id, expectedRevision: baseRevision, data }
         : { action: "create", data });
       await onSaved();
       onOpenChange(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save channel.");
-    } finally { setBusy(false); }
+      await onSaved();
+      setError((cause instanceof Error ? cause.message : "Could not save channel.") + " Your draft is preserved; close and reopen to load the latest version.");
+    } finally { saving.current = false; setBusy(false); }
   };
 
-  return <FormDrawer open={open} onOpenChange={onOpenChange} size="md">
+  return <FormDrawer open={open} onOpenChange={close} size="md">
     <FormDrawer.Header>
       <FormDrawer.Title>{row ? "Edit channel" : "Add channel"}</FormDrawer.Title>
       <FormDrawer.Description>
@@ -139,10 +148,15 @@ export function ChannelEditor({
           ? "Inbound Telegram requires a webhook secret on the selected Integration connection."
           : "Inbound Discord uses the application public key to verify signed Interactions. Gateway message ingestion is intentionally not enabled."}
       </div>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+      {error && row && snapshot.revision !== baseRevision ? <div className="space-y-2 rounded border p-2 text-xs">
+        <p>The saved channel changed. Compare it with your draft above before choosing to overwrite its fields.</p>
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify(snapshot.channels.filter(item => item.id === row.id).map(({ name, provider, credential, enabled, defaultTarget, workflowId, agentGroupId }) => ({ name, provider, credential, enabled, defaultTarget, workflowId, agentGroupId })), null, 2)}</pre>
+        <Button variant="outline" size="sm" onClick={() => { setBaseRevision(snapshot.revision); setError(""); }}>Use latest revision for this draft</Button>
+      </div> : null}
     </FormDrawer.Body>
     <FormDrawer.Footer>
-      <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+      <Button variant="ghost" onClick={() => close(false)}>Cancel</Button>
       <Button disabled={busy || !name.trim() || !credential} onClick={() => void save()}>{busy ? "Saving…" : "Save channel"}</Button>
     </FormDrawer.Footer>
   </FormDrawer>;

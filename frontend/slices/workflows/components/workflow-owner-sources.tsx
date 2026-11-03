@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import type { WorkflowDiscoveryPage, WorkflowDiscoveryRow } from "@/lib/contracts/workflow-discovery";
 import type { WorkflowGraph } from "@/lib/contracts/workflow-graph";
 
-export function WorkflowOwnerSources({ onSelect, onCopied }: { onSelect: (id: string) => void; onCopied: (graph: WorkflowGraph) => void }) {
+export function WorkflowOwnerSources({ beforeCopy, onSelect, onCopied }: { beforeCopy: () => boolean; onSelect: (id: string) => void; onCopied: (graph: WorkflowGraph) => void }) {
   const [offset, setOffset] = useState(0), [query, setQuery] = useState("");
   const [result, setResult] = useState<{ offset: number; page?: WorkflowDiscoveryPage; error?: string } | null>(null);
   const [error, setError] = useState(""), [busy, setBusy] = useState(false);
@@ -21,6 +21,7 @@ export function WorkflowOwnerSources({ onSelect, onCopied }: { onSelect: (id: st
     return () => { alive = false; };
   }, [offset]);
   const copy = async (row: WorkflowDiscoveryRow) => {
+    if (busy || !beforeCopy()) return;
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/v1/workflows", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "owner_clone", origin_owner: row.owner, graph_id: row.id, expected_revision: row.revision, confirm: true }) });

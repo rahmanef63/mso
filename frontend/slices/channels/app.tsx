@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquareMore, Plus, Plug, RefreshCw, Workflow } from "lucide-react";
 import type { AppProps } from "@/features/appshell";
 import { AppFrame, openWindow } from "@/features/appshell";
@@ -20,22 +20,26 @@ export default function ChannelsApp(_: AppProps) {
   const [error, setError] = useState("");
   const [editor, setEditor] = useState<ChannelView | "new" | null>(null);
 
+  const request = useRef(0);
   const load = useCallback(async () => {
+    const id = ++request.current;
     setLoading(true);
     try {
       const [channels, graphs] = await Promise.all([loadChannels(), loadChannelWorkflows()]);
+      if (id !== request.current) return;
       setSnapshot(channels);
       setWorkflows(graphs);
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not load Channels.");
-    } finally { setLoading(false); }
+      if (id === request.current) setError(cause instanceof Error ? cause.message : "Could not load Channels.");
+    } finally { if (id === request.current) setLoading(false); }
   }, []);
 
   useEffect(() => {
+    const requestRef = request;
     const frame = requestAnimationFrame(() => void load());
     window.addEventListener("focus", load);
-    return () => { cancelAnimationFrame(frame); window.removeEventListener("focus", load); };
+    return () => { requestRef.current++; cancelAnimationFrame(frame); window.removeEventListener("focus", load); };
   }, [load]);
 
   const workflowNames = useMemo(() => new Map(workflows.map((row) => [row.id, row.name])), [workflows]);
@@ -65,7 +69,7 @@ export default function ChannelsApp(_: AppProps) {
       </div>
     </AppFrame>
     <ChannelEditor
-      key={editor === "new" ? `new:${snapshot.revision}` : editor?.id ?? "closed"}
+      key={editor === "new" ? "new" : editor?.id ?? "closed"}
       open={editor !== null}
       onOpenChange={(open) => { if (!open) setEditor(null); }}
       row={editor && editor !== "new" ? editor : null}

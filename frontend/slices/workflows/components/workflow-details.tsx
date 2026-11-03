@@ -25,7 +25,7 @@ const PANELS = [
   ["directory", "Directory", BookOpen],
 ] as const satisfies ReadonlyArray<readonly [WorkflowPanel, string, typeof SlidersHorizontal]>;
 
-export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNode, onDeleteNode, onGraph, onRunSelect, onRestored, onOptimizerCloned }: {
+export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNode, onDeleteNode, onGraph, onRunSelect, beforeRestore, onRestored, onOptimizerCloned }: {
   graph: WorkflowGraph;
   graphs: WorkflowGraph[];
   node: WorkflowGraphNode | null;
@@ -36,6 +36,7 @@ export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNo
   onDeleteNode: (id: string) => void;
   onGraph: (graph: WorkflowGraph) => void;
   onRunSelect: (run: WorkflowGraphRun) => void;
+  beforeRestore: () => boolean;
   onRestored: (graph: WorkflowGraph) => void;
   onOptimizerCloned: (graph: WorkflowGraph) => void;
 }) {
@@ -56,7 +57,7 @@ export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNo
       {panel === "optimizer" ? <WorkflowOptimizerPanel graph={graph} onCloned={onOptimizerCloned}/> : null}
       {panel === "run" ? <WorkflowRunPanel run={run}/> : null}
       {panel === "history" ? <WorkflowRunHistory graph={graph} onSelect={onRunSelect}/> : null}
-      {panel === "versions" ? <WorkflowVersionPanel graph={graph} onRestored={onRestored}/> : null}
+      {panel === "versions" ? <WorkflowVersionPanel graph={graph} beforeRestore={beforeRestore} onRestored={onRestored}/> : null}
       {panel === "variables" ? <WorkflowVariablePanel/> : null}
       {panel === "data" ? <WorkflowDataTablePanel/> : null}
       {panel === "directory" ? <WorkflowDirectoryPanel/> : null}
