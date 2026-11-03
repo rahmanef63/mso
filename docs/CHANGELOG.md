@@ -35,6 +35,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Chores**
 
+- changelog
 - changelog pass
 - regenerate changelog again
 - regenerate changelog
