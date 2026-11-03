@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` @ addresses agents and MCP plugins, with / owning commands
+- `tui` @ addresses agents and MCP plugins, with / owning commands (#263)
 - `tui` opencode batch three, from starved flags to a written contract (#258)
 
 **Fixed**
