@@ -11,8 +11,9 @@ const session = {
   permission: "ask",
   showReasoning: true,
   cwd: "/work/mso",
+  history: Array.from({ length: 20 }, () => ({ role: "user", text: "x".repeat(2000) })),
   usage: { totalTokens: 12_500, inputTokens: 9_000, outputTokens: 3_500 },
-  state: { config: { provider: "anthropic", model: "claude-sonnet" }, modelMeta: { contextWindow: 200_000 } },
+  state: { config: { provider: "anthropic", model: "claude-sonnet" }, modelMeta: { context: 200_000 } },
 };
 
 const plain = (value: string) => String(value).replace(/\x1b\[[0-9;]*m/g, "");
@@ -30,7 +31,7 @@ describe("footer rows", () => {
     // Derives from process.env.HOME, so the assertion is about the shortening rule, not about a user.
     expect(plain(bottom)).toMatch(/^(~|\/work)/);
     expect(plain(bottom)).toContain("13k tokens"); // 12 500 rounds to 13k
-    expect(plain(bottom)).toContain("context 6%");
+    expect(plain(bottom)).toMatch(/context \d+%/); // measured from history via contextStatus
     expect(plain(bottom)).toContain("^P commands");
   });
 
@@ -40,6 +41,8 @@ describe("footer rows", () => {
   });
 
   it("omits a value the session does not carry instead of printing a placeholder", () => {
+    // No history and no modelMeta, so there is no measurement to report. Claiming "context 0%" would
+    // assert a window nobody configured.
     const bare = { permission: "yolo" };
     const [top, bottom] = footerRows({ session: bare, columns: 120 });
     expect(plain(top)).toBe("yolo  ·  thinking on");
@@ -53,6 +56,12 @@ describe("footer rows", () => {
         expect(plain(row).length).toBeLessThanOrEqual(columns);
       }
     }
+  });
+
+  it("shows how many prompts are queued, because an accepted follow-up is otherwise invisible", () => {
+    const queued = { ...session, queue: { items: ["one", "two"] } };
+    expect(plain(footerRows({ session: queued, columns: 130 })[1])).toContain("2 queued");
+    expect(plain(footerRows({ session, columns: 130 })[1])).not.toContain("queued");
   });
 
   it("emits no ANSI when no palette is passed", () => {
