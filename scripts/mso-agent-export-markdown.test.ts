@@ -181,4 +181,38 @@ describe("MSO Agent session export markdown formatter", () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it("4b. refuses via the kernel flag, not a check-then-write race", () => {
+    // CodeQL js/file-system-race flags a write whose destination was checked first: a file created
+    // between existsSync and writeFileSync is silently overwritten. Asserting behaviour cannot show
+    // that, because both shapes refuse in the same cases. What distinguishes them is the mechanism,
+    // so this asserts the mechanism: the non-force write asks the kernel to create-or-fail.
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mso-export-race-"));
+    const spy = vi.spyOn(fs, "writeFileSync");
+    try {
+      const outPath = path.join(tmpDir, "race.md");
+      writeExportFile(outPath, "first", { force: false });
+
+      const flags = spy.mock.calls
+        .filter(([target]) => target === outPath)
+        .map(([, , options]) => (options && typeof options === "object" ? options.flag : undefined));
+      expect(flags, "the create must be exclusive, or a concurrent file is clobbered").toContain("wx");
+
+      // And it still refuses, with the message users see.
+      expect(() => writeExportFile(outPath, "second", { force: false })).toThrow(/already exists/);
+      expect(fs.readFileSync(outPath, "utf8")).toBe("first");
+
+      // force:true is allowed to overwrite, and must not use the exclusive flag.
+      writeExportFile(outPath, "third", { force: true });
+      expect(fs.readFileSync(outPath, "utf8")).toBe("third");
+
+      // A nested destination builds its directory without racing on an existence check.
+      const nested = path.join(tmpDir, "a", "b", "c.md");
+      writeExportFile(nested, "deep", { force: false });
+      expect(fs.readFileSync(nested, "utf8")).toBe("deep");
+    } finally {
+      spy.mockRestore();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

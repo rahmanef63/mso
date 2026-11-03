@@ -1,3 +1,177 @@
+## 2026-11-03 (later): the security gate was gating itself
+
+Two CodeQL alerts were open when this session started, and both turned out to be the same
+kind of problem: a check that measured the wrong thing.
+
+### #197 js/file-system-race, high, `scripts/mso-agent-export-markdown.mjs:191`
+
+Real bug. The overwrite refusal was a check-then-write:
+
+```js
+if (fs.existsSync(resolved) && !force) throw ...
+fs.writeFileSync(resolved, content, "utf8");
+```
+
+Anything created between those lines was silently overwritten — the exact case the guard exists
+to prevent. Fixed by letting the kernel decide: `flag: "wx"` creates-or-fails in one operation,
+and `EEXIST` maps back to the same user-facing message. `mkdir` lost its `existsSync` too, since
+`recursive: true` already treats an existing directory as success.
+
+**The first version of the test passed against the vulnerable code.** It called the function
+twice and checked it refused — but both shapes refuse in the same cases, so behaviour cannot
+distinguish them. The difference is a window neither call can observe. Test 4b now spies on
+`writeFileSync` and requires the exclusive flag:
+
+```
+red (old shape):    expected [ undefined ] to include 'wx'
+green (fix):        7/7
+```
+
+### #137 Scorecard SASTID, "29 of 30 commits checked"
+
+Not a finding. A **closed loop in CI**, which is why it had been open since 2026-09-17:
+
+```
+one open alert        -> CodeQL analysis run red
+red analysis          -> Scorecard counts that commit as not SAST-checked
+its SASTID alert     stays open  -> keeps the analysis step red
+```
+
+`codeql.yml` ran `security-alerts.mjs` in failing mode inside the analysis job, while
+`security-alerts.yml` already gated on the same inventory. Two gates, one of them self-defeating:
+**57 of the last 100 CodeQL runs on `main` were red**, every one reporting
+`CODE_SCANNING_OPEN 1` — the Scorecard alert, never a code finding.
+
+The analysis step now passes `--inventory` (report, annotate, exit 0). `security-alerts.yml`
+keeps the failing gate, unchanged.
+
+**And the test had the loop baked in**: `scripts/security-alerts.test.ts` asserted that
+`codeql.yml` may *never* contain `--inventory`. Written to stop a gate being weakened, it
+required the duplicate that caused the loop. The invariant is "exactly one gate", not "two", so
+it now asserts report-only for `codeql.yml` and still-strict for `security-alerts.yml`. Red first:
+removing `--inventory` fails with `expected false to be true`.
+
+### Result
+
+```
+open code-scanning alerts   0   (#137 and #197 both fixed)
+dependabot alerts           0
+bun run coverage            1009 files / 6562 tests, rc=0
+audit.mjs --strict          clean at high/critical
+main                        4c69c354, tree clean, remote heads: main only
+open PRs                    0
+all workflows on main       success  (Security alert inventory included)
+```
+
+Lesson worth keeping: a red gate is evidence only if it measures the thing it claims to. Two of
+these three defects were in the checks, not the code.
+
+### Still open
+
+- `perf-baseline.json` predates several dependency bumps; re-measure on an idle host.
+- Local branches from other tracks remain under `~/.cache/mso-worktrees` and own their worktrees.
+  Left alone.
+## 2026-11-03: integrations UI closed out, and one merged fix that had been silently deleted
+
+Everything below is merged. `main` at `269b6721`, working tree clean, gate green.
+
+### The finding that matters most
+
+PR #248 fixed four integration-UI defects, each with a test. **PR #249 (unrelated TUI feature
+work) overwrote two of the same files with stale copies**, removing the code *and the assertions
+that pinned it*. The gate stayed green because the tests vanished with the behaviour.
+
+What was actually gone from main, verified by reading the files rather than trusting the merge log:
+
+```
+role="alertdialog" on the delete confirmation   missing
+Escape / focus return on that dialog            missing
+.transfer-error styling                         missing
+.connection-state wrapping                      missing
+```
+
+Found by a browser audit, not by CI. `lib/infra/integration-ui-regressions.test.ts` now asserts them
+**by behaviour, reading the source directly**, so replacing a file wholesale fails there even if the
+original tests disappear with it.
+
+Lesson: a green gate after a merge proves nothing about whether the merge kept the previous work.
+A test file that a later PR can delete is not a guard.
+
+### Browser evidence, and why string tests kept lying
+
+Two UI claims in this work passed their tests while the browser disagreed:
+
+| claim | what the test checked | what the browser did |
+|---|---|---|
+| iOS auto-zoom fixed | `input[type=search]` | page uses `.integration .integration-sidebar-header>input[type=search]`, still 12px |
+| theme follows the shell | the two backgrounds *differ* | they differed because the OS differed, not because the app chose |
+
+`scripts/integrations-ui-evidence.mjs` now drives four viewports, light and dark, and a 240px-tall
+iframe, checking horizontal overflow, one `main`, one `h1`, 44px tap targets, accessible names, alt
+text, the 16px input threshold, keyboard reachability, focus visibility, console errors, and that a
+dark preference produces dark tokens. **43/43** on the current build.
+
+### Keyboard defects closed
+
+| defect | evidence |
+|---|---|
+| skip link pointed at `#main-content`, which wraps the menu bar, and was not focusable | `hash=#shell-main`, `activeElement=SECTION#shell-main` |
+| closed mobile drawer left 30 items in the tab order (31 invisible stops) | 10 Tabs, zero off-screen stops |
+| full-screen backdrop ignored Escape (handler lived on the panel) | Escape sets `data-open="false"` |
+| `<details>` "More" popover had no Escape and no outside-click close | both handled, focus returns to summary |
+
+Every shell (macOS, Windows, mobile) now carries `#shell-main` with `role="main"` and `tabIndex={-1}`.
+
+### A regression I caused, caught by the release E2E
+
+Marking the sidebar `inert` whenever `data-open` was false also hit the desktop layout, where the
+sidebar is a permanent visible column with `data-open="false"`. Every nav button became unclickable:
+
+```
+waiting for getByRole('button', { name: /^Convex$/ })
+<div class="integration-settings-shell"> intercepts pointer events
+```
+
+`verify-build.sh` caught it; the unit suite did not. The inert is now scoped to the 37.5rem compact
+breakpoint, matching the CSS rule that does the translating.
+
+### Dependencies, without force-merging
+
+Four Dependabot PRs could not merge cleanly. Each was rebased, `bun install`ed and gated on its own
+branch rather than merged as-is, because a lockfile resolved against an older tree is a guess.
+`@anthropic-ai/sdk` **0.135.0 -> 1.3.0** is a major jump, so it was verified at runtime
+(`messages.stream` is a function, constructor works) and then 6434 tests passed.
+
+The gate they were all failing was my own: it listed dependency bumps as user-facing changelog
+entries. It then failed a second time in a subtler way — the file depended on **when** it was
+regenerated, because a squash appends `" (#NNN)"` to the subject. That one was CI-only: local passed
+while GitHub's PR merge ref, which includes the squash, reported stale.
+
+### Traps that cost real time
+
+1. **A parallel track moved this session's worktree to `main` twice mid-run.** Commits appeared lost;
+   recovered from the reflog, then all further work moved to a dedicated worktree with a symlinked
+   `node_modules`.
+2. **`/tmp` filled to 78% with three out-of-tree builds.** The release E2E reported it as
+   `verification failed during mandatory release E2E`, which reads exactly like a code failure.
+   Cleaned; re-ran; passed.
+3. **A stale build directory made three evidence runs report false failures.** After changing
+   source, the harness must be rebuilt; check the build's own files before believing a red result.
+4. `git stash pop` after `git checkout main` silently dropped a change that the merge had already
+   taken; `gen-changelog --check` caught it, nothing else would have.
+
+### Deliberately not changed
+
+Disabled buttons render at `opacity .55`, giving 2.26:1 on "Add connection". WCAG 1.4.3 exempts
+disabled controls, so it is not a violation, but it reads as a broken button rather than a
+deliberately inactive one. The honest fix is a disabled state built from `color`/`background`
+instead of `opacity`, which is a design decision, not a bug fix.
+
+### Open
+
+- `perf-baseline.json` predates several dependency bumps. Re-measure on an idle host before trusting
+  the TBT comparison.
+- Three remote branches were left over and all already merged; deleted.
 ## 2026-11-01: the green full run, and the parallel-run trap
 
 `bash scripts/gates-12.sh full` on the TUI panel branch: **passed=16, failed=0, skipped=1**. The
