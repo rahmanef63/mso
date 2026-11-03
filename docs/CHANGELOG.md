@@ -28,6 +28,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `progress` the security gate was gating itself
 - `progress` record the integrations close-out, the reverted merge, and the traps
 
 ## 2026-11-02
