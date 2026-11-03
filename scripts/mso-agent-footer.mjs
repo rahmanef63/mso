@@ -9,6 +9,9 @@
 // omitted rather than printed as a placeholder, because "ctx ~0/?" claims a measurement that was never
 // taken.
 
+import { contextStatus } from "./mso-agent-status.mjs";
+import { queueList } from "./mso-agent-queue.mjs";
+
 const PLAIN = /\x1b\[[0-9;]*m/g;
 const plain = (value) => String(value ?? "").replace(PLAIN, "");
 const width = (value) => Array.from(plain(value)).length;
@@ -53,6 +56,7 @@ const MODE_TONE = { yolo: "err", "auto-write": "warn", auto: "warn", ask: "c" };
 export function footerRows({ session, colors = {}, columns = 100 } = {}) {
   const cols = Math.max(20, Number(columns) || 100);
   const dim = colors.dim || "", reset = colors.reset || "", bold = colors.bold || "", c = colors.c || colors.cyan || "";
+  const warn = colors.warn || "";
   const tone = colors[MODE_TONE[String(session?.permission || "ask")]] || c;
 
   const mode = String(session?.permission || "ask");
@@ -67,10 +71,14 @@ export function footerRows({ session, colors = {}, columns = 100 } = {}) {
   topParts.push(`${dim}thinking ${thinking}${reset}`);
   const top = clamp(topParts.join(`${dim}  ·  ${reset}`), cols);
 
-  const used = number(session?.usage?.promptTokens) ?? number(session?.usage?.totalTokens)
-    ?? number(session?.usage?.inputTokens) ?? number(session?.state?.modelMeta?.estimatedTokens) ?? null;
-  const limit = number(session?.state?.modelMeta?.contextWindow) ?? number(session?.state?.modelMeta?.contextTokens) ?? null;
-  const ctx = used === null ? null : limit === null ? `context ${compact(used)}` : `context ${Math.round((used / limit) * 100)}%`;
+  // The window is modelMeta.context, which is what contextStatus() reads. Asking for contextWindow
+  // silently produced no percentage at all, so the footer showed no context line on a session that had
+  // one. The estimate comes from contextStatus so this row and /status can never disagree.
+  const ctx = contextStatus(session?.history, session?.state?.modelMeta);
+  // Only claim a context reading when there is something to measure: usage or history. Otherwise the row
+  // would print "context 0%", which asserts a window and an occupancy nobody measured.
+  const measured = (ctx.used ?? 0) > 0 || (session?.history?.length ?? 0) > 0;
+  const pct = !measured ? null : ctx.limit ? `context ${ctx.percent}%` : `context ${compact(ctx.used)}`;
   const tokens = compact(session?.usage?.totalTokens) ?? (
     number(session?.usage?.inputTokens) !== null && number(session?.usage?.outputTokens) !== null
       ? `${compact(session.usage.inputTokens)}/${compact(session.usage.outputTokens)}`
@@ -81,7 +89,11 @@ export function footerRows({ session, colors = {}, columns = 100 } = {}) {
   const dir = shortPath(session?.cwd || process.cwd());
   if (dir) bottomParts.push(`${dim}${dir}${reset}`);
   if (tokens !== null) bottomParts.push(`${dim}${tokens} tokens${reset}`);
-  if (ctx) bottomParts.push(`${dim}${ctx}${reset}`);
+  if (pct) bottomParts.push(`${dim}${pct}${reset}`);
+  // Queued prompts are held in memory and drained per turn. Showing the count is the only way a user can
+  // see that their follow-up was accepted, and it must not reorder anything.
+  const queued = queueList(session?.queue).length;
+  if (queued) bottomParts.push(`${warn}${queued} queued${reset}`);
   bottomParts.push(`${dim}^P commands${reset}`);
   const bottom = clamp(bottomParts.join(`${dim}  ·  ${reset}`), cols);
 
