@@ -50,8 +50,8 @@ export function AppShell({ manifest }: { manifest: ShellManifest }) {
     .map((f) => f.provider)
     .filter((p): p is ComponentType<{ children: ReactNode }> => Boolean(p));
   const shellConfig = useMemo(
-    () => ({ persistKey: manifest.persistKey ?? "appshell:layout" }),
-    [manifest.persistKey],
+    () => ({ persistKey: manifest.persistKey ?? "appshell:layout", layout: manifest.layout }),
+    [manifest.persistKey, manifest.layout],
   );
 
   return (

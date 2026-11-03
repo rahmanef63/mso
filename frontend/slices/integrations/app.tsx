@@ -18,6 +18,12 @@ export default function IntegrationsApp() {
   useEffect(() => {
     const target = frame.current;
     if (!target) return;
+    const onReady = (event: MessageEvent) => {
+      if (event.source !== target.contentWindow || event.origin !== window.location.origin || event.data?.type !== "mso:integrations-ready") return;
+      syncIntegrationFrameTokens(target);
+      setStatus("ready");
+    };
+    window.addEventListener("message", onReady);
     target.src = managerLocation(window.location.search, window.location.hash);
     if (window.location.hash) window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
     const timer = window.setTimeout(() => setStatus(current => current === "loading" ? "error" : current), 15000);
@@ -33,6 +39,7 @@ export default function IntegrationsApp() {
     scheme.addEventListener("change", sync);
     sync();
     return () => {
+      window.removeEventListener("message", onReady);
       window.clearTimeout(timer);
       window.cancelAnimationFrame(animation);
       observer.disconnect();
@@ -49,7 +56,7 @@ export default function IntegrationsApp() {
       </div>}
       <ComposioSessionPanel />
       <iframe ref={frame} title="MSO native Integrations manager" className="min-h-0 w-full flex-1 border-0"
-        referrerPolicy="no-referrer" onLoad={() => { if (frame.current?.getAttribute("src")) { syncIntegrationFrameTokens(frame.current); setStatus("ready"); } }}
+        referrerPolicy="no-referrer" onLoad={() => { if (frame.current?.contentDocument?.querySelector(".integration.manager")) { syncIntegrationFrameTokens(frame.current); setStatus("ready"); } }}
         onError={() => setStatus("error")} />
     </section>
   );

@@ -217,7 +217,7 @@ function AndroidShell() {
               onAI={toggleInspector}
             />
             <main className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]">
-              <WindowContent app={top.app} payload={top.payload} />
+              <WindowContent key={top.id} app={top.app} payload={top.payload} winId={top.id} />
             </main>
             {showSystemNav && <NavBar onBack={mobileNav?.onBack ?? goHome} onHome={goHome} onRecents={() => setRecents(true)} />}
           </div>

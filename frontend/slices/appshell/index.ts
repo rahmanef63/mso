@@ -202,3 +202,6 @@ export type {
 // consumer drops `features: DEFAULT_FEATURES` into its manifest in one line.
 export { mdToHtml } from "./features/widgets/components/md";
 export * from "./defaults";
+
+export { useFeatureState } from "./hooks/use-feature-state";
+export type { LayoutMetrics, LayoutConfig } from "./design";

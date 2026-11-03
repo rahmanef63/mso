@@ -21,7 +21,7 @@ import type { AppDescriptor, WindowState } from "../lib/types";
 const SEP_W = 13; // divider slot px
 const GAP = 8; // px between slots
 const MAG_SIGMA = 100; // bell-curve spread (≈3 icons each side ripple)
-const MIN_ICON = 22; // shrink floor — past it the row scrolls instead
+const MIN_ICON = 36; // shrink floor — past it the row scrolls instead
 
 // Resting icon size shrinks to fit the viewport, like the real macOS dock: slots
 // are shrink-0, so an overrun silently eats BOTH ends (Launchpad + Mission Control
@@ -173,7 +173,7 @@ export function Dock({ onMissionControl }: { onMissionControl?: () => void }) {
       <div className={cramped ? "-mt-64 max-w-[calc(100vw-16px)] overflow-x-auto pt-64 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "contents"}>
         <div
           ref={rowRef}
-          onPointerMove={(e) => { mouseX.current = e.clientX; schedule(); }}
+          onPointerMove={(e) => { if (e.pointerType !== "mouse" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; mouseX.current = e.clientX; schedule(); }}
           onPointerLeave={() => { mouseX.current = null; schedule(); }}
           className={`macos-dock glass pointer-events-auto flex items-end rounded-[22px] border border-white/40 px-2.5 py-2 shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_18px_50px_-10px_rgba(0,0,0,0.5)] dark:border-white/10 ${cramped ? "w-max" : ""}`}
           style={{ background: "var(--dock-bg)", gap: GAP }}

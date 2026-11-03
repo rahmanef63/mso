@@ -1,6 +1,6 @@
 import type { WindowState, WinId } from "./types";
 import { M, emit, patch, topZ } from "./store-state";
-import { GAP, workArea, spawnRect } from "./store-geometry";
+import { GAP, workArea, spawnRect, clampRect } from "./store-geometry";
 // Store barrel: state in store-state; geometry in store-geometry; snap in
 // store-snap; hydrate/serialize in store-persist.
 
@@ -34,6 +34,7 @@ export function openWindow(
     app,
     title,
     ...spawnRect(M.state.order.length, size?.w ?? 720, size?.h ?? 460),
+    preferredRect: { x: 80 + (M.state.order.length % 6) * 28, y: 64 + (M.state.order.length % 6) * 28, w: size?.w ?? 720, h: size?.h ?? 460 },
     z: topZ() + 1,
     minimized: false,
     maximized: false,
@@ -113,10 +114,14 @@ export function focusApp(app: string, payload?: unknown): boolean {
 }
 
 export function moveWindow(id: WinId, x: number, y: number) {
-  patch(id, { x, y, snapZone: undefined }); // free move leaves the snap grid
+  const win = M.state.windows[id];
+  if (!win) return;
+  patch(id, { x, y, preferredRect: { x, y, w: win.preferredRect?.w ?? win.w, h: win.preferredRect?.h ?? win.h }, snapZone: undefined }); // free move leaves the snap grid
 }
 export function resizeWindow(id: WinId, w: number, h: number) {
-  patch(id, { w, h, snapZone: undefined });
+  const win = M.state.windows[id];
+  if (!win) return;
+  patch(id, { w, h, preferredRect: { x: win.x, y: win.y, w, h }, snapZone: undefined });
 }
 export function minimizeWindow(id: WinId) {
   patch(id, { minimized: true });
@@ -129,8 +134,8 @@ export function toggleMaximize(id: WinId) {
   const win = M.state.windows[id];
   if (!win) return;
   if (win.maximized) {
-    const r = win.prevRect ?? { x: win.x, y: win.y, w: win.w, h: win.h };
-    patch(id, { ...r, maximized: false, prevRect: undefined });
+    const r = win.preferredRect ?? win.prevRect ?? { x: win.x, y: win.y, w: win.w, h: win.h };
+    patch(id, { ...clampRect(r), preferredRect: r, maximized: false, prevRect: undefined });
     return;
   }
   const { vw, top, bottom } = workArea();

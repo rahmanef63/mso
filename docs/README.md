@@ -86,6 +86,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`ORCA-INTEGRATION.md`](./ORCA-INTEGRATION.md) | Orca web bridge readiness/identity contract, private state root and shared-runtime operator limits |
 | [`MODELS-INTEGRATION.md`](./MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex provider model |
 | [`SLICE-CATALOG.md`](./SLICE-CATALOG.md) | Current slice/AppShell feature inventory |
+| [`UI-UX-FOUNDATION.md`](./UI-UX-FOUNDATION.md) | Dynamic shell, feature and UI-kit spacing, workspace geometry and per-window feature state |
 | [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) | Symptom → cause → supported recovery |
 | [`FAQ.md`](./FAQ.md) | Product/security/operator boundaries |
 | [`../SECURITY.md`](../SECURITY.md) | Security posture and vulnerability reporting |

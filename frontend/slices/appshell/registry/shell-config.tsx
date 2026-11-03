@@ -1,5 +1,6 @@
 "use client";
 
+import type { LayoutConfig } from "../design/layout";
 import { createContext, useContext, type ReactNode } from "react";
 
 // Non-brand runtime config the shell core needs (kept out of Brand so brand
@@ -7,6 +8,7 @@ import { createContext, useContext, type ReactNode } from "react";
 // never hardcodes a consumer's localStorage key.
 export type ShellConfig = {
   persistKey: string;
+  layout?: LayoutConfig;
 };
 
 const ShellConfigContext = createContext<ShellConfig>({ persistKey: "appshell:layout" });

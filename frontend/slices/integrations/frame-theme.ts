@@ -6,6 +6,11 @@
  * Settings-like content follows the active shell preset/accent dynamically.
  */
 export const INTEGRATION_FRAME_TOKEN_MAP = [
+  ["--feature-padding", "--feature-padding"],
+  ["--feature-gap", "--feature-gap"],
+  ["--feature-sidebar-width", "--feature-sidebar-width"],
+  ["--ui-control-height", "--ui-control-height"],
+  ["--ui-control-padding", "--ui-control-padding"],
   ["--text", "--text"],
   ["--text-dim", "--text-dim"],
   ["--text-faint", "--text-faint"],
@@ -61,6 +66,7 @@ export function syncIntegrationFrameTokens(frame: HTMLIFrameElement): void {
     const values = integrationFrameTokens((name) => source.getPropertyValue(name));
     for (const [name, value] of Object.entries(values)) target.style.setProperty(name, value);
     if (source.fontSize) target.style.fontSize = source.fontSize;
+    target.dataset.shell = document.getElementById("main-content")?.dataset.shell ?? "macos";
     const theme = document.documentElement.dataset.theme;
     if (theme === "light" || theme === "dark") target.dataset.theme = theme;
     else target.removeAttribute("data-theme");

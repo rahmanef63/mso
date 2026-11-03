@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Boxes, RefreshCw } from "lucide-react";
 import type { AppProps } from "@/features/appshell";
 import { AppFrame, openWindow } from "@/features/appshell";
@@ -16,21 +16,28 @@ export default function N8nApp(_: AppProps) {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
+  const request = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     try {
-      const response = await fetch("/api/v1/workflow-embeds", { cache: "no-store" });
+      const response = await fetch("/api/v1/workflow-embeds", { cache: "no-store", signal: controller.signal });
+      if (controller.signal.aborted) return;
       if (!response.ok) {
         setApps([]);
         setMessage(response.status === 403 ? "Owner access is required to view the reviewed n8n surface." : "Could not load the n8n surface.");
         return;
       }
       const data = await response.json() as EmbedResponse;
+      if (controller.signal.aborted) return;
       setApps(Array.isArray(data.apps) ? data.apps : []);
       setMessage("");
     } catch (error) {
+      if (controller.signal.aborted) return;
       setMessage(error instanceof Error ? error.message : "Could not load the n8n surface.");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, []);
 
@@ -38,6 +45,7 @@ export default function N8nApp(_: AppProps) {
     const frame = requestAnimationFrame(() => { void load(); });
     window.addEventListener("focus", load);
     return () => {
+      request.current?.abort();
       cancelAnimationFrame(frame);
       window.removeEventListener("focus", load);
     };
@@ -59,7 +67,7 @@ export default function N8nApp(_: AppProps) {
 
   return <div data-slot="n8n-feature" className="@container h-full min-h-0 min-w-0">
     <AppFrame safeArea={false} className="h-full min-w-0" toolbar={toolbar}>
-      {n8n ? <N8nEmbedPanel app={n8n}/> : <div className="grid h-full min-h-0 place-items-center overflow-y-auto p-6">
+      {loading && !n8n ? <div role="status" className="grid h-full place-items-center p-[var(--feature-padding,1.5rem)] text-sm text-muted-foreground">Loading n8n workspace…</div> : n8n ? <N8nEmbedPanel app={n8n}/> : <div className="grid h-full min-h-0 place-items-center overflow-y-auto p-6">
         <div className="w-full max-w-2xl rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="grid size-10 shrink-0 place-items-center rounded-xl border bg-muted/40"><Boxes className="size-5 text-muted-foreground"/></div>

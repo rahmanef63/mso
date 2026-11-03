@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { layoutVariables, type LayoutMetrics } from "../design/layout";
 import { useShellDesign } from "../design/use-shell-design";
 
 // Standard app scaffold: optional header/toolbar row + a scrolling body that
@@ -16,6 +17,8 @@ export function AppFrame({
   className,
   bodyClassName,
   safeArea = true,
+  layout,
+  padded = false,
 }: {
   header?: ReactNode;
   toolbar?: ReactNode;
@@ -25,10 +28,12 @@ export function AppFrame({
   bodyClassName?: string;
   /** Pad the body for notch/home-bar (mobile fullscreen). Default on. */
   safeArea?: boolean;
+  layout?: Partial<LayoutMetrics>;
+  padded?: boolean;
 }) {
   const design = useShellDesign();
   return (
-    <div data-slot="app-frame" data-shell-family={design.family} data-shell-density={design.density} className={cn("@container flex h-full min-h-0 flex-col", className)}>
+    <div data-slot="app-frame" style={layout && layoutVariables(layout)} data-shell-family={design.family} data-shell-density={design.density} className={cn("@container flex h-full min-h-0 flex-col", className)}>
       {header && (
         <div data-slot="app-frame-header" className="flex-none border-b border-border">{header}</div>
       )}
@@ -39,7 +44,9 @@ export function AppFrame({
         data-slot="app-frame-body"
         className={cn(
           "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
-          safeArea && "[padding-bottom:var(--sai-bottom)]",
+          padded && "[padding:var(--feature-padding,1.25rem)]",
+          safeArea && "[padding-bottom:calc(var(--sai-bottom,0px)+var(--app-body-padding,0px))]",
+          padded && "[--app-body-padding:var(--feature-padding,1.25rem)]",
           bodyClassName,
         )}
       >

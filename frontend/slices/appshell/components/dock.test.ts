@@ -20,19 +20,19 @@ describe("dockFit", () => {
   it("shrinks below the user's size before it ever scrolls", () => {
     const { base, cramped } = dockFit(1280, 27, 2, MED, true);
     expect(base).toBeLessThan(MED);
-    expect(base).toBeGreaterThanOrEqual(22);
+    expect(base).toBeGreaterThanOrEqual(36);
     expect(cramped).toBe(false);
   });
 
-  it("scrolls once even the 22px floor can't fit (agent workspace on a phone-width viewport)", () => {
+  it("scrolls once even the 36px floor can't fit (agent workspace on a phone-width viewport)", () => {
     const { base, cramped, dockExtra } = dockFit(768, 27, 2, MED, true);
     expect(cramped).toBe(true);
-    expect(base).toBe(22); // floored, never smaller
+    expect(base).toBe(36); // floored, never smaller
     expect(dockExtra).toBe(0); // magnification off — its geometry assumes no scroll
   });
 
   it("reclaims the hover-growth reserve when magnification is off", () => {
-    expect(dockFit(900, 27, 2, MED, false).base).toBeGreaterThan(dockFit(900, 27, 2, MED, true).base);
+    expect(dockFit(1400, 27, 2, MED, false).base).toBeGreaterThan(dockFit(1400, 27, 2, MED, true).base);
   });
 
   it("reserves the entire hover pool inside the viewport", () => {

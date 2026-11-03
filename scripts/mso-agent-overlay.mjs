@@ -107,7 +107,7 @@ export function caretEscape({ cursorRow = 0, promptWidth = 0, cursorCol = 0 } = 
 
 /**
  * Hands the Ctrl+P key to the caller and closes this prompt.
- 
+
  * The dialog needs the row this prompt occupies, so the prompt must go first; opening one from inside
  * the key handler drew both into the same rows and the menu never appeared.
  *

@@ -35,7 +35,7 @@ export function WorkflowLibrary({ graphs, activeId, search, onSearch, onSelect, 
       </div>
     </div>
     <ScrollArea className="min-h-0 flex-1"><div className="space-y-2 p-2.5">
-      {filtered.length === 0 ? <div className="grid min-h-32 place-items-center rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">No workflows match this filter.</div> : null}
+      {filtered.length === 0 ? <div className="grid min-h-32 place-items-center rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">{graphs.length ? <div><p>No workflows match this filter.</p><Button variant="ghost" size="sm" onClick={() => onSearch("")}>Clear filters</Button></div> : <p>No automations yet. Use New workflow to create one.</p>}</div> : null}
       {filtered.map((graph) => <div key={graph.id} className={`overflow-hidden rounded-xl border text-xs shadow-sm transition ${activeId === graph.id ? "border-foreground/20 bg-accent/75" : "bg-card hover:bg-accent/35"}`}>
         <button type="button" onClick={() => onSelect(graph.id)} className="w-full p-3 text-left" aria-pressed={activeId === graph.id}>
           <div className="flex items-start gap-2.5">

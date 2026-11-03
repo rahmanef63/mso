@@ -14,6 +14,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `ui` preserve workspace state and share dynamic shell layout
 - `ci` stop the CodeQL analysis job from gating on open alerts
 - `export` create the markdown export atomically, closing a TOCTOU write
 - `a11y` scope the drawer inert to the compact layout
