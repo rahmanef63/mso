@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `ui` preserve external editor height on short screens
 - `n8n` keep frame controls stable during refresh
 - `ui` surface refresh and persistence failures
 - `ui` harden shell controls and picker interactions
