@@ -125,9 +125,11 @@ describeSuite("mso agent in real PTY e2e", () => {
     const { child, cleanup } = spawnAgentPty(serverUrl, 100, 30);
     const term = createTerminal(100, 30);
     try {
+      // Wait for the FOOTER, not just the prompt. The prompt glyph is painted before the status rows,
+      // so waiting on it returned a grid that was still half drawn and the assertions below raced it.
       const output = await waitFor(child, (chunk, total) => {
         term.write(chunk);
-        return total.includes("❯") || total.includes("›");
+        return total.includes("^P commands") && (total.includes("❯") || total.includes("›"));
       });
       const lines = term.getLines();
       expect(lines.filter((l) => l.includes("● @mso"))).toHaveLength(1);
