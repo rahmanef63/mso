@@ -1,3 +1,76 @@
+## 2026-11-03 (later): the security gate was gating itself
+
+Two CodeQL alerts were open when this session started, and both turned out to be the same
+kind of problem: a check that measured the wrong thing.
+
+### #197 js/file-system-race, high, `scripts/mso-agent-export-markdown.mjs:191`
+
+Real bug. The overwrite refusal was a check-then-write:
+
+```js
+if (fs.existsSync(resolved) && !force) throw ...
+fs.writeFileSync(resolved, content, "utf8");
+```
+
+Anything created between those lines was silently overwritten — the exact case the guard exists
+to prevent. Fixed by letting the kernel decide: `flag: "wx"` creates-or-fails in one operation,
+and `EEXIST` maps back to the same user-facing message. `mkdir` lost its `existsSync` too, since
+`recursive: true` already treats an existing directory as success.
+
+**The first version of the test passed against the vulnerable code.** It called the function
+twice and checked it refused — but both shapes refuse in the same cases, so behaviour cannot
+distinguish them. The difference is a window neither call can observe. Test 4b now spies on
+`writeFileSync` and requires the exclusive flag:
+
+```
+red (old shape):    expected [ undefined ] to include 'wx'
+green (fix):        7/7
+```
+
+### #137 Scorecard SASTID, "29 of 30 commits checked"
+
+Not a finding. A **closed loop in CI**, which is why it had been open since 2026-09-17:
+
+```
+one open alert        -> CodeQL analysis run red
+red analysis          -> Scorecard counts that commit as not SAST-checked
+its SASTID alert     stays open  -> keeps the analysis step red
+```
+
+`codeql.yml` ran `security-alerts.mjs` in failing mode inside the analysis job, while
+`security-alerts.yml` already gated on the same inventory. Two gates, one of them self-defeating:
+**57 of the last 100 CodeQL runs on `main` were red**, every one reporting
+`CODE_SCANNING_OPEN 1` — the Scorecard alert, never a code finding.
+
+The analysis step now passes `--inventory` (report, annotate, exit 0). `security-alerts.yml`
+keeps the failing gate, unchanged.
+
+**And the test had the loop baked in**: `scripts/security-alerts.test.ts` asserted that
+`codeql.yml` may *never* contain `--inventory`. Written to stop a gate being weakened, it
+required the duplicate that caused the loop. The invariant is "exactly one gate", not "two", so
+it now asserts report-only for `codeql.yml` and still-strict for `security-alerts.yml`. Red first:
+removing `--inventory` fails with `expected false to be true`.
+
+### Result
+
+```
+open code-scanning alerts   0   (#137 and #197 both fixed)
+dependabot alerts           0
+bun run coverage            1009 files / 6562 tests, rc=0
+audit.mjs --strict          clean at high/critical
+main                        4c69c354, tree clean, remote heads: main only
+open PRs                    0
+all workflows on main       success  (Security alert inventory included)
+```
+
+Lesson worth keeping: a red gate is evidence only if it measures the thing it claims to. Two of
+these three defects were in the checks, not the code.
+
+### Still open
+
+- `perf-baseline.json` predates several dependency bumps; re-measure on an idle host.
+- Local branches from other tracks remain under `~/.cache/mso-worktrees` and own their worktrees.
+  Left alone.
 ## 2026-11-03: integrations UI closed out, and one merged fix that had been silently deleted
 
 Everything below is merged. `main` at `269b6721`, working tree clean, gate green.
