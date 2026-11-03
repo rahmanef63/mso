@@ -24,6 +24,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `tui` wait for the footer before asserting on the pty grid
 - `integrations` parse each inline script, not one greedy concatenation
 - `config` document MSO_EVIDENCE_DIR, the evidence harness output path
 
