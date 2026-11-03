@@ -131,7 +131,9 @@ describeSuite("mso agent in real PTY e2e", () => {
       });
       const lines = term.getLines();
       expect(lines.filter((l) => l.includes("● @mso"))).toHaveLength(1);
-      expect(lines.filter((l) => l.includes("mode ask") && l.includes("openai/gpt-5.6"))).toHaveLength(1);
+      // The footer is two rows now: mode, model and thinking above; directory and the dialog key below.
+      expect(lines.filter((l) => l.includes("ask") && l.includes("openai/gpt-5.6") && l.includes("thinking"))).toHaveLength(1);
+      expect(lines.some((l) => l.includes("^P commands"))).toBe(true);
       expect(lines.some((l) => l.includes("Welcome to MSO Agent!"))).toBe(true);
       expect(output).toContain("\x1b[?1049h");
     } finally { cleanup(); }

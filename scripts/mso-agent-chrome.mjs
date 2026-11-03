@@ -191,9 +191,10 @@ export function chromeLines({
   const tab = tabRow(sessions, activeId, { colors, width, ...(ind ? { indicators: ind } : {}) });
   if (termRows !== null && termRows <= 8) return tab ? [tab] : [];
 
-  const foot = footer != null
-    ? (typeof footer === "function" ? String(footer() || "") : String(footer || ""))
-    : (session != null ? String(composerFooter(session, colors, width) || "") : "");
+  // The status footer belongs to the composer now: it is painted directly under the prompt, so the
+  // panel must not draw a second one above it. Only an explicit footer is honoured here.
+  if (footer == null) return tab ? [tab] : [];
+  const foot = typeof footer === "function" ? String(footer() || "") : String(footer || "");
   return [tab, foot].filter((line) => typeof line === "string" && line.trim().length > 0).slice(0, 2);
 }
 
