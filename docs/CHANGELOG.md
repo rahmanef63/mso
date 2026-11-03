@@ -14,6 +14,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `ci` stop the CodeQL analysis job from gating on open alerts
+- `export` create the markdown export atomically, closing a TOCTOU write
 - `a11y` scope the drawer inert to the compact layout
 - `tui` the panel no longer scrolls itself away, and command output survives (#261)
 - `a11y` close the four keyboard defects the audit found
@@ -24,6 +26,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `integrations` parse each inline script, not one greedy concatenation
 - `config` document MSO_EVIDENCE_DIR, the evidence harness output path
+
+**Docs**
+
+- `progress` the security gate was gating itself
+- `progress` record the integrations close-out, the reverted merge, and the traps
 
 ## 2026-11-02
 
