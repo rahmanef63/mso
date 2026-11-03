@@ -26,6 +26,7 @@ export default function MediaStudio({ payload, winId }: AppProps) {
   const docQueue = useRef<Promise<void>>(Promise.resolve());
   const saveDoc = useCallback((doc: NonNullable<typeof latestDoc.current>) => {
     latestDoc.current = doc;
+    docStatusRef.current = "saving";
     setDocStatus("saving");
     docQueue.current = docQueue.current.catch(() => {}).then(async () => {
       const response = await fetch("/api/v1/fs/write", {
@@ -33,8 +34,8 @@ export default function MediaStudio({ payload, winId }: AppProps) {
         body: JSON.stringify({ path: p?.path, content: JSON.stringify(doc) }),
       });
       if (!response.ok) throw new Error("Save failed");
-    }).then(() => { if (latestDoc.current === doc) setDocStatus("saved"); })
-      .catch(() => { if (latestDoc.current === doc) setDocStatus("failed"); });
+    }).then(() => { if (latestDoc.current === doc) { docStatusRef.current = "saved"; setDocStatus("saved"); } })
+      .catch(() => { if (latestDoc.current === doc) { docStatusRef.current = "failed"; setDocStatus("failed"); } });
   }, [p?.path]);
   // Container-first responsiveness: the editor reflows off its PANE width (a
   // 390px desktop window gets the compact layout, not just phones).
@@ -47,7 +48,7 @@ export default function MediaStudio({ payload, winId }: AppProps) {
   useEffect(() => {
     if (!winId) return;
     setCloseGuard(winId, () => {
-      if (!dirty.current) return docStatusRef.current === "saving" || docStatusRef.current === "failed" ? window.confirm("Project save is incomplete. Close anyway?") : true;
+      if (!dirty.current && docStatusRef.current !== "saving" && docStatusRef.current !== "failed") return true;
       setConfirmClose(true);
       return false;
     });
@@ -89,7 +90,7 @@ export default function MediaStudio({ payload, winId }: AppProps) {
     setPending(url);
   };
 
-  const onDialogSaved = () => { markClean(); if (closeAfterSave.current) { closeAfterSave.current = false; forceClose(); } };
+  const onDialogSaved = () => { markClean(); if (closeAfterSave.current) { closeAfterSave.current = false; if (docStatusRef.current === "saving" || docStatusRef.current === "failed") setConfirmClose(true); else forceClose(); } };
 
   const common = {
     compact,
@@ -130,12 +131,12 @@ export default function MediaStudio({ payload, winId }: AppProps) {
       <FormDrawer open={confirmClose} onOpenChange={(o) => !o && setConfirmClose(false)} variant="alert" size="sm">
         <FormDrawer.Header>
           <FormDrawer.Title>Save changes before closing?</FormDrawer.Title>
-          <FormDrawer.Description>Your image has unsaved edits. They’ll be lost if you don’t save.</FormDrawer.Description>
+          <FormDrawer.Description>{docStatus === "failed" ? "The project could not be saved. Retry or explicitly discard the unsaved project changes." : docStatus === "saving" ? "The project is still saving. Wait for it to finish or explicitly discard the unsaved project changes." : "Your image has unsaved edits. They’ll be lost if you don’t save."}</FormDrawer.Description>
         </FormDrawer.Header>
         <FormDrawer.Footer>
           <Button variant="ghost" onClick={() => setConfirmClose(false)}>Cancel</Button>
           <Button variant="ghost" className="text-destructive" onClick={() => { setConfirmClose(false); forceClose(); }}>Don’t Save</Button>
-          <Button onClick={saveThenClose}>Save</Button>
+          {docStatus === "failed" ? <Button onClick={() => latestDoc.current && saveDoc(latestDoc.current)}>Retry project save</Button> : <Button disabled={docStatus === "saving"} onClick={saveThenClose}>Save image</Button>}
         </FormDrawer.Footer>
       </FormDrawer>
     </>

@@ -16,6 +16,7 @@ import { ReelPanes } from "./components/reel-panes";
 import { useLayout } from "./lib/use-layout";
 import { type AiMessage } from "./components/ai-panel";
 import { RenderOverlay } from "./components/render-overlay";
+import { AssetRecovery } from "./components/asset-recovery";
 import { useExport } from "./lib/use-export";
 import { useReelInspector } from "./lib/use-reel-inspector";
 import { useContainer, useIsMobile } from "./lib/host";
@@ -98,11 +99,8 @@ export default function ReelEditor({ winId }: AppProps) {
         onMouseDown={() => rootRef.current?.focus({ preventScroll: true })}
         className="@container relative flex h-full flex-col bg-background text-foreground outline-none"
       >
-        {(draftError || sessionMedia) && (
-          <div role="status" className="shrink-0 bg-warning/15 px-3 py-2 text-sm text-foreground">
-            {draftError ?? "Uploaded media is available only in this session. Keep the original files to restore the project."}
-          </div>
-        )}
+        {draftError && <div role="alert" className="shrink-0 bg-warning/15 px-3 py-2 text-sm">{draftError}</div>}
+        <AssetRecovery comp={comp} apply={apply} />
         <ReelChrome
           comp={comp}
           mode={mode}
@@ -111,7 +109,7 @@ export default function ReelEditor({ winId }: AppProps) {
           canUndo={canUndo}
           canRedo={canRedo}
           layout={layout}
-          savedAt={savedAt}
+          savedAt={sessionMedia ? null : savedAt}
           compact={compact}
           addMedia={addMedia}
           ratio={ratio}
