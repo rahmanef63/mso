@@ -8,3 +8,5 @@ MSO has one behavior model and multiple presentation systems.
 - Every shell has a local `design.md`. Code that changes a shell-specific visual rule should update/read that document first.
 - Mobile feature navigation is shell-owned. Root contract: **`< Home` | centered feature title | AI**. Drill-down replaces `Home` with the parent label but does not add a second header.
 - Dialogs/forms use `ResponsiveDialog`/`FormDrawer`; the active `ShellDesignProfile` chooses the native mobile presentation unless a feature explicitly overrides it.
+
+All feature work follows the [frontend implementation contract](../../../../docs/FRONTEND-CONTRACT.md).

@@ -27,11 +27,11 @@ function mountNativeGoogleConnection(card,c,ctx){
   const disconnect=b("Disconnect from MSO",async()=>{if(!window.confirm("Remove this Google authorization from MSO? This does not revoke the app in your Google account."))return;const result=await run("google.disconnect");if(result)status.textContent=result.detail});disconnect.disabled=!bridge.execute;actions.append(disconnect);
   card.append(actions,linkBox);
   const operations=n("details");operations.append(n("summary","Available read-only operations"));for(const op of provider.operations||[]){const row=n("div");row.append(n("small",op.name),n("p",op.description));operations.append(row)}card.append(operations);
-  const more=n("details"),manage=n("div",undefined,"identity-actions");more.append(n("summary","Connection management"));
+  const{more,secondary:manage}=connectionMenu(c.label);
   if(bridge.manage){
-    if(!c.isDefault)manage.append(b("Make default",async()=>{try{await bridge.manage({action:"connection.default",confirm:true,user,provider:provider.id,connection:c.id});await reload()}catch(error){fail(error)}}));
-    manage.append(b("Delete connection",async()=>{if(!window.confirm("Delete this named Google connection and its local authorization?"))return;try{await bridge.manage({action:"connection.delete",confirm:true,user,provider:provider.id,connection:c.id});await reload()}catch(error){fail(error)}},"danger"));
+    if(!c.isDefault)manage.append(connectionAction("Make default","star",async()=>{try{await bridge.manage({action:"connection.default",confirm:true,user,provider:provider.id,connection:c.id});await reload()}catch(error){fail(error)}}));
+    manage.append(connectionAction("Delete connection","trash-2",async()=>{if(!window.confirm("Delete this named Google connection and its local authorization?"))return;try{await bridge.manage({action:"connection.delete",confirm:true,user,provider:provider.id,connection:c.id});await reload()}catch(error){fail(error)}},"danger"));
   }
-  more.append(manage,n("small","Google user authorizations are not shared or transferred to other owners. Each account requires explicit consent."));card.append(more);
+  more.append(n("small","Google user authorizations are not shared or transferred to other owners. Each account requires explicit consent."));card.append(more);
 }
 `;
