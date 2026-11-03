@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` a footer that says what a turn will do, and Ctrl+P for the command dialog
 - `tui` @ addresses agents and MCP plugins, with / owning commands (#263)
 - `tui` opencode batch three, from starved flags to a written contract (#258)
 
@@ -24,6 +25,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `tui` wait for the footer before asserting on the pty grid
 - `integrations` parse each inline script, not one greedy concatenation
 - `config` document MSO_EVIDENCE_DIR, the evidence harness output path
 
@@ -31,6 +33,14 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `progress` the security gate was gating itself
 - `progress` record the integrations close-out, the reverted merge, and the traps
+
+**Chores**
+
+- changelog pass
+- changelog
+- regenerate changelog again
+- regenerate changelog
+- regenerate changelog after merging main
 
 ## 2026-11-02
 

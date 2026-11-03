@@ -16,8 +16,11 @@ describe("MSO Agent Keybinds", () => {
     expect(resolveKeybind({ ctrl: true, name: "l" }, defaults)).toBe("clear_screen");
     expect(resolveKeybind({ name: "escape" }, defaults)).toBe("dismiss");
     expect(resolveKeybind({ name: "tab" }, defaults)).toBe("complete");
-    expect(resolveKeybind({ ctrl: true, name: "p" }, defaults)).toBe("history_prev");
-    expect(resolveKeybind({ ctrl: true, name: "n" }, defaults)).toBe("history_next");
+    // Ctrl+P now opens the command dialog, so prompt history moved to Ctrl+K / Ctrl+J. The change is
+    // deliberate: a dialog is only reachable if it owns a key, and Ctrl+P is the one users reach for.
+    expect(resolveKeybind({ ctrl: true, name: "p" }, defaults)).toBe("commands");
+    expect(resolveKeybind({ meta: true, name: "p" }, defaults)).toBe("history_prev");
+    expect(resolveKeybind({ meta: true, name: "n" }, defaults)).toBe("history_next");
     expect(resolveKeybind({ name: "return" }, defaults)).toBe("submit");
     expect(resolveKeybind({ name: "enter" }, defaults)).toBe("submit");
   });

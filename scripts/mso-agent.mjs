@@ -7,13 +7,14 @@ import { persistSession, restartSessionArg, resumeArg, startupSession, syncPromp
 import { C, printBanner } from "./mso-agent-runtime.mjs";
 import { listCliSessions, state } from "./mso-agent-api.mjs";
 import { fetchMcpServers } from "./mso-agent-mcp-servers.mjs";
-import { handleSlash } from "./mso-agent-commands.mjs";
+import { COMMAND_MANIFEST, handleSlash } from "./mso-agent-commands.mjs";
+import { takeCommandRequest } from "./mso-agent-command-dialog.mjs";
 import { createPromptCompletion } from "./mso-agent-prompt-completion.mjs"; import { pluginToolFilter, resolveMentions } from "./mso-agent-at.mjs";
 import { nextPermissionMode, permissionMode } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
 import { oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
 import { LocalAgentBridge, handleLocalAgentMentionInput, runForegroundSubagent } from "./mso-agent-collaboration.mjs";
-import { composerPrompt, composerSeparator } from "./mso-agent-layout.mjs";
+import { composerPrompt, composerSeparator } from "./mso-agent-layout.mjs"; import { footerRows } from "./mso-agent-footer.mjs";
 import { executeTool, renderInteractionFailure, runInteractiveRound } from "./mso-agent-turn.mjs";
 import { runOneShot } from "./mso-agent-oneshot-run.mjs";
 import { mountScreenLoop } from "./mso-agent-screen-loop.mjs";
@@ -72,7 +73,6 @@ async function main() {
     // Refreshed after a switch, not per keystroke: a tab row must not cost a network call per render.
     const refreshSessions = () => { listCliSessions(20).then((rows) => { recentSessions = visibleSessionRows(rows); }).catch(() => {}); };
     refreshSessions();
-    const chromeFooter = () => chromeLines({ session, sessions: recentSessions, activeId: session?.agentSession?.id, colors: C, width: process.stdout.columns, rows: process.stdout.rows });
     screenLoop = mountScreenLoop({
       session,
       enabled: altScreen.ok,
@@ -89,7 +89,8 @@ async function main() {
         screenLoop.sync();
       },
     });
-    rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onRows: (rows) => screenLoop.setPromptRows(rows), onToggleStatusBar: () => { session.statusBar = !session.statusBar; screenLoop.paint(); } }); syncPromptHistory(rl, session);
+    let commandRequested = false;
+    rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onRows: (rows) => screenLoop.setPromptRows(rows), onCommands: () => { commandRequested = true; }, onToggleStatusBar: () => { session.statusBar = !session.statusBar; screenLoop.paint(); } }); syncPromptHistory(rl, session);
     let inboundRequestQueued = false;
     localBridge = new LocalAgentBridge({
       session,
@@ -153,16 +154,17 @@ async function main() {
         const answer = await rl.question(() => composerPrompt(session, C), {
           complete: completeSlash, panelLabel: completeSlash.label,
           onTab: () => { session.permission = nextPermissionMode(session.permission).id; },
-          // The panel already draws the separator and the footer above the prompt, so drawing
-          // them twice would push the prompt off the reserved rows.
+          // In panel mode the panel draws the separator, and the footer is drawn here in both modes:
+          // it sits directly under the prompt, so the panel must not also draw one above it.
           separator: () => (screenLoop.active ? "" : composerSeparator(session, C, process.stdout.columns)),
-          footer: () => (screenLoop.active ? "" : chromeFooter()),
+          footer: () => footerRows({ session, colors: C, columns: process.stdout.columns }),
         });
-        if (answer === null) {
-          if (inboundRequestQueued) continue;
-          break;
-        }
-        line = answer.trim();
+        const asked = await takeCommandRequest({ requested: commandRequested, rl, session, commands: COMMAND_MANIFEST });
+        commandRequested = false;
+        if (asked?.again) continue;
+        if (asked?.chosen) line = asked.chosen;
+        else if (answer === null) { if (inboundRequestQueued) continue; else break; }
+        else line = answer.trim();
         screenLoop.follow();
       } catch { break; }
       if (!line) continue;

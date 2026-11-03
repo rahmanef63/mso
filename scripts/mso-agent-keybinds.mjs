@@ -11,6 +11,7 @@ export const ACTIONS = {
   complete: "Apply completion or cycle permissions",
   history_prev: "Previous prompt in history",
   history_next: "Next prompt in history",
+  commands: "Open the command dialog",
   submit: "Submit prompt line or selected item",
   toggle_status_bar: "Toggle compact status bar",
 };
@@ -36,8 +37,9 @@ export function defaultKeybinds() {
     clear_screen: "ctrl+l",
     dismiss: "escape",
     complete: "tab",
-    history_prev: "ctrl+p",
-    history_next: "ctrl+n",
+    // Ctrl+P is the dialog now, and Ctrl+K/J would collide with the kill/clear habits users bind
+    // themselves, so history recall sits on Alt instead. Up/Down still work without any binding.
+    history_prev: "alt+p", history_next: "alt+n", commands: "ctrl+p",
     submit: "return",
   };
 }
@@ -47,7 +49,7 @@ export function normalizeKey(spec) {
   if (typeof spec === "object") {
     const parts = [];
     if (spec.ctrl) parts.push("ctrl");
-    if (spec.meta) parts.push("alt");
+    if (spec.meta && spec.name !== "escape") parts.push("alt"); // bare Escape reports meta:true
     if (spec.shift) parts.push("shift");
     const name = String(spec.name || "").toLowerCase().trim();
     if (!name) return "";

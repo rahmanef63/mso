@@ -214,15 +214,13 @@ describe("MSO Agent composer row reporting and dynamic screen loop reservation",
     // Dynamic reservation for 6-line draft: geometry(6)
     const newGeom = loop.geometry(6);
 
-    // In old assumption, panel is placed lower down because loop reserves only 3 rows
-    // viewRows = 12 - panel.length (2) - 3 = 7 rows. Panel is at rows 8..9.
-    // Cursor left at row 10. A 6-line composer at row 10 extends to row 15 (exceeding 12 rows!).
-    expect(oldGeom.viewRows).toBe(7);
+    // The panel no longer paints a status footer (the composer owns it, directly under the prompt), so
+    // its chrome is one row shorter and the transcript gains that row back.
+    // reserve 3: 12 - 1 - 3 = 8 view rows.
+    expect(oldGeom.viewRows).toBe(8);
 
-    // With dynamic 6-row reservation:
-    // viewRows = 12 - panel.length (2) - 6 = 4 rows. Panel is at rows 5..6.
-    // Cursor left at row 7. A 6-line composer occupies rows 7..12 (exact fit on 12-row screen).
-    expect(newGeom.viewRows).toBe(4);
+    // reserve 6: 12 - 1 - 6 = 5 view rows, so the six row composer still fits the twelve row screen.
+    expect(newGeom.viewRows).toBe(5);
 
     loop.dispose();
   });

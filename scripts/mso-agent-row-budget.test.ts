@@ -59,8 +59,10 @@ describe("panel and composer share one row budget", () => {
     const options = /** @type {any} */ ({ complete: (v: string) => (v.startsWith("/") ? ["/help", "/models", "/new", "/session"] : []) });
     const answer = composer.question("› ", options);
     input.emit("keypress", "/", { sequence: "/" });
-    // A menu of 4 items plus the prompt must be reported, not silently absorbed.
-    expect(reported.some((rows) => rows >= 5)).toBe(true);
+    // The menu must NOT be reported: it is an overlay over the transcript. Reporting it would shrink
+    // the panel, and a shrinking panel drops its own top lines, which is what made the layout appear
+    // to jump when a menu opened. Only the prompt row may be claimed.
+    expect(reported.every((rows) => rows <= 1)).toBe(true);
     input.emit("keypress", undefined, { name: "return" });
     await answer;
   });
