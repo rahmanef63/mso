@@ -103,6 +103,43 @@ describe("POST /api/v1/integrations/composio/session", () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   });
 
+  it("invalidates a shared session when its backing connection is rotated or replaced", async () => {
+    const file = path.join(root, "infra.json");
+    const state = JSON.parse(await fs.readFile(file, "utf8"));
+    const original = state.users.lara.connections.composio.project;
+    state.users.lara.connections.composio.alias = { ...original, id: "alias", uid: "alias-1", values: {}, sharedFrom: { user: "lara", provider: "composio", connection: "project" } };
+    await fs.writeFile(file, JSON.stringify(state), { mode: 0o600 });
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init: RequestInit) => {
+      calls.push(String((init.headers as Record<string, string>)["x-api-key"]));
+      return new Response(JSON.stringify({ session_id: `trs_${calls.length}`, mcp: { url: `https://backend.composio.dev/tool_router/v3/trs_${calls.length}/mcp`, headers: { authorization: "session-token" } } }), { status: 201 });
+    }));
+    const alias = { user: "lara", connection: "alias" };
+    expect((await route.POST(request(alias))).status).toBe(200);
+    expect((await route.POST(request(alias))).status).toBe(200);
+    const { saveConnectionValues } = await import("@/lib/infra/connection-service");
+    await saveConnectionValues("composio", { user: "lara", connection: "project" }, { apiKey: "ak_rotated_synthetic" }, { uid: "conn-1", revision: 1 });
+    expect((await route.POST(request(alias))).status).toBe(200);
+    const updated = JSON.parse(await fs.readFile(file, "utf8"));
+    updated.users.lara.connections.composio.project.uid = "replacement-1";
+    updated.users.lara.connections.composio.project.values.apiKey = "ak_replacement_synthetic";
+    await fs.writeFile(file, JSON.stringify(updated), { mode: 0o600 });
+    expect((await route.POST(request(alias))).status).toBe(200);
+    expect(calls).toEqual(["ak_project_synthetic", "ak_rotated_synthetic", "ak_replacement_synthetic"]);
+    const sessions = await fs.readFile(path.join(root, "composio-sessions.json"), "utf8");
+    expect(sessions).not.toContain("ak_project_synthetic");
+    expect(sessions).not.toContain("ak_rotated_synthetic");
+  });
+
+  it("never reads or writes cached sessions for legacy credentials", async () => {
+    await fs.writeFile(path.join(root, "infra.json"), JSON.stringify({ providers: { composio: { apiKey: "ak_legacy_synthetic" } } }), { mode: 0o600 });
+    const legacy = { user: "legacy", connection: "default" };
+    expect((await route.POST(request(legacy))).status).toBe(200);
+    expect((await route.POST(request(legacy))).status).toBe(200);
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+    await expect(fs.access(path.join(root, "composio-sessions.json"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("never leaks the composed credential when upstream returns no headers", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ session_id: SESSION_ID, mcp: { type: "http", url: MCP_URL } }), { status: 201 })));
     const response = await route.POST(request());

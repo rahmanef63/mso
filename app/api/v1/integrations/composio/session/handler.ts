@@ -16,7 +16,7 @@ async function selection(user: unknown, connection: unknown) {
   const selected = selectConnection(state, "composio", { user: identity(user, "user"), connection: identity(connection, "connection") });
   if (selected.connection.source !== "direct") throw new IntegrationError("external_source_requires_own_executor", 409);
   const backing = resolveSharedConnection(state, selected.user, selected.connection).connection;
-  return { user: selected.user, values: backing.values, scope: composioConnectionScope(selected.connection.uid, backing.revision, backing.values) };
+  return { user: selected.user, values: backing.values, cacheable: !backing.uid.startsWith("legacy:"), scope: composioConnectionScope(selected.connection.uid, backing.uid, backing.revision) };
 }
 
 export async function handleGetComposioSession(req: NextRequest): Promise<Response> {
@@ -45,6 +45,7 @@ export async function handlePostComposioSession(req: NextRequest): Promise<Respo
       values: selected.values,
       user: selected.user,
       cacheScope: selected.scope,
+      cacheable: selected.cacheable,
       refresh: input.refresh === true,
     });
     void audit({

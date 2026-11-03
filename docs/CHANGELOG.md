@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- keep credentials out of Composio cache keys
 - preserve window drafts and modal focus
 - bind Composio sessions to selected connections
 - guard concurrent workflow replacements
