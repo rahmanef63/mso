@@ -1,10 +1,6 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   formatExportMarkdown,
-  writeExportFile,
 } from "./mso-agent-export-markdown.mjs";
 import { handleParityCommand } from "./mso-agent-cmd-parity.mjs";
 
@@ -108,29 +104,6 @@ describe("MSO Agent session export markdown formatter", () => {
     expect(markdown).toContain("Red error output");
   });
 
-  it("4. refuses to overwrite an existing file without --force and overwrites with --force", () => {
-    // File export must not destroy existing files accidentally without an explicit force override.
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mso-export-test-"));
-    try {
-      const outPath = path.join(tmpDir, "session.md");
-      fs.writeFileSync(outPath, "initial content", "utf8");
-
-      // Attempting to overwrite without force must throw an error
-      expect(() => {
-        writeExportFile(outPath, "new content", { force: false });
-      }).toThrow(/already exists.*--force/);
-
-      // Verify file content was not clobbered
-      expect(fs.readFileSync(outPath, "utf8")).toBe("initial content");
-
-      // Overwriting with force must succeed
-      writeExportFile(outPath, "overwritten content", { force: true });
-      expect(fs.readFileSync(outPath, "utf8")).toBe("overwritten content");
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
   it("5. carries session name, model, and turn count in the header", () => {
     // Provenance header must document identity, active model, and conversation length.
     const session = {
@@ -153,66 +126,26 @@ describe("MSO Agent session export markdown formatter", () => {
     expect(markdown).toContain("Deployment Audit");
   });
 
-  it("integrates with handleParityCommand for /export --markdown", async () => {
-    // Tests that slash command routing invokes markdown export and writes safely.
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mso-parity-export-"));
+  it("refuses file flags before fetching and still prints remote transcripts", async () => {
+    const printed: string[] = [];
+    const api = vi.fn().mockResolvedValue({ session: { title: "Remote", history: [] } });
+    const ctx = {
+      session: { id: "local", history: [] }, api, runCli: vi.fn(),
+      write: (s: string) => printed.push(s), C: {},
+    };
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      const outPath = path.join(tmpDir, "export.md");
-      const session = {
-        agentSession: { id: "ses-1", name: "milo", title: "TUI Export", model: "m-test" },
-        history: [
-          { role: "user", text: "Hello" },
-          { role: "assistant", text: "Hi there" },
-        ],
-      };
-      const printed: string[] = [];
-      const ctx = {
-        session,
-        runCli: vi.fn(),
-        printer: { print: (s: string) => printed.push(s) },
-        C: {},
-      };
-
-      const outcome = await handleParityCommand(ctx, "/export", ["--markdown", "--out", outPath]);
-      expect(outcome).toBe("handled");
-      expect(fs.existsSync(outPath)).toBe(true);
-      expect(fs.readFileSync(outPath, "utf8")).toContain("TUI Export");
+      for (const flags of [["--out", "export.md"], ["--out="], ["--force"], ["-f"]]) {
+        expect(await handleParityCommand(ctx, "/export", ["remote", "--markdown", ...flags])).toBe("handled");
+      }
+      expect(api).not.toHaveBeenCalled();
+      expect(errors).toHaveBeenCalledTimes(4);
+      expect(errors).toHaveBeenCalledWith(expect.stringContaining("Omit --out"));
+      expect(await handleParityCommand(ctx, "/export", ["remote", "--markdown"])).toBe("handled");
+      expect(api).toHaveBeenCalledOnce();
+      expect(printed.join("\n")).toContain("Remote");
     } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  it("4b. refuses via the kernel flag, not a check-then-write race", () => {
-    // CodeQL js/file-system-race flags a write whose destination was checked first: a file created
-    // between existsSync and writeFileSync is silently overwritten. Asserting behaviour cannot show
-    // that, because both shapes refuse in the same cases. What distinguishes them is the mechanism,
-    // so this asserts the mechanism: the non-force write asks the kernel to create-or-fail.
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mso-export-race-"));
-    const spy = vi.spyOn(fs, "writeFileSync");
-    try {
-      const outPath = path.join(tmpDir, "race.md");
-      writeExportFile(outPath, "first", { force: false });
-
-      const flags = spy.mock.calls
-        .filter(([target]) => target === outPath)
-        .map(([, , options]) => (options && typeof options === "object" ? options.flag : undefined));
-      expect(flags, "the create must be exclusive, or a concurrent file is clobbered").toContain("wx");
-
-      // And it still refuses, with the message users see.
-      expect(() => writeExportFile(outPath, "second", { force: false })).toThrow(/already exists/);
-      expect(fs.readFileSync(outPath, "utf8")).toBe("first");
-
-      // force:true is allowed to overwrite, and must not use the exclusive flag.
-      writeExportFile(outPath, "third", { force: true });
-      expect(fs.readFileSync(outPath, "utf8")).toBe("third");
-
-      // A nested destination builds its directory without racing on an existence check.
-      const nested = path.join(tmpDir, "a", "b", "c.md");
-      writeExportFile(nested, "deep", { force: false });
-      expect(fs.readFileSync(nested, "utf8")).toBe("deep");
-    } finally {
-      spy.mockRestore();
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      errors.mockRestore();
     }
   });
 });

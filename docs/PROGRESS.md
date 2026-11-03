@@ -1,3 +1,9 @@
+## 2026-11-04: restrict Markdown transcript file export
+
+Markdown transcripts may contain server-provided content. The TUI now prints them for
+review and copying instead of writing that content directly to a local file. File flags
+are refused before fetching a session; the separate non-Markdown export is unchanged.
+
 ## 2026-11-03: frontend contract for every feature and agent
 
 Frontend rules were spread across product direction, shell design notes and the dynamic
