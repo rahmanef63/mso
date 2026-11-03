@@ -57,7 +57,7 @@ export function ShortcutHelpOverlay() {
           <Button
             type="button" variant="ghost" aria-label="Close"
             onClick={() => setShortcutHelpOpen(false)}
-            className="ml-auto h-auto rounded p-1 font-normal hover:bg-muted"
+            className="ml-auto size-8 rounded p-1 font-normal hover:bg-muted [@media(pointer:coarse)]:size-11"
           >
             <X className="size-3.5" />
           </Button>

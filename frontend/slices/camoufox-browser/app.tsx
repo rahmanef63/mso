@@ -12,9 +12,9 @@ import { fetchStatus, setPower, waitForViewer, verifyViewerTransport, type Camou
 // window manager reflows the framebuffer rather than scaling a desktop thumbnail.
 /** The display's VNC password, fetched for this already-authenticated session so
  *  noVNC does not prompt on every open. Absent = none configured; let noVNC ask. */
-async function viewerSrc(): Promise<string | null> {
+async function viewerSrc(signal: AbortSignal): Promise<string | null> {
   try {
-    const response = await fetch("/api/v1/camoufox/session", { cache: "no-store" });
+    const response = await fetch("/api/v1/camoufox/session", { cache: "no-store", signal });
     if (!response.ok) return null;
     const payload = (await response.json()) as {
       password?: string | null;
@@ -58,7 +58,7 @@ export default function CamoufoxBrowser() {
   // from the power action because it is also the mount path for a session that was
   // already up before this window opened.
   const connect = useCallback(async (signal: AbortSignal) => {
-    const ready = await waitForViewer(signal, 30_000, setStatus);
+    const ready = await waitForViewer(signal, 30_000, (next) => { if (!signal.aborted) setStatus(next); });
     if (signal.aborted) return;
     if (!ready) {
       setError("The browser session started but is not answering. Check its logs on the host.");
@@ -68,10 +68,10 @@ export default function CamoufoxBrowser() {
     try { await verifyViewerTransport(signal); }
     catch (cause) {
       if (!signal.aborted) setError(cause instanceof Error ? cause.message : "The secure viewer is unavailable");
-      setSrc(null);
+      if (!signal.aborted) setSrc(null);
       return;
     }
-    const source = await viewerSrc();
+    const source = await viewerSrc(signal);
     if (signal.aborted) return;
     if (!source) {
       setError("Secure browser embedding is unavailable until the split-origin host template is configured.");
@@ -98,7 +98,7 @@ export default function CamoufoxBrowser() {
         setStatus({ running: false, enabled: false, installed: true });
       }
     })();
-    return () => controller.abort();
+    return () => { abort.current?.abort(); abort.current = null; };
   }, [connect]);
 
   const retryConnection = useCallback(async () => {
@@ -135,7 +135,7 @@ export default function CamoufoxBrowser() {
         setError(cause instanceof Error ? cause.message : "Could not change the browser session");
       }
     } finally {
-      setBusy(false);
+      if (abort.current === controller) setBusy(false);
     }
   }, [connect]);
 

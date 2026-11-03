@@ -5,12 +5,11 @@ import type { Composition } from "./mock-timeline";
 import { saveDraft } from "./draft";
 import { getSettings } from "./settings";
 
-export function useDraftAutosave(comp: Composition, winId?: string) {
+export function useDraftAutosave(comp: Composition, baseline: { snapshot: string | null; available: boolean }, winId?: string) {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
-  const draftSnapshot = useRef<string | null>(null);
-  const snapshotReady = useRef(false);
-  const firstDraft = useRef(true);
+  const draftSnapshot = useRef(baseline.snapshot);
+  const initialComp = useRef(comp);
   const sessionMedia = comp.clips.some((c) => c.media?.url.startsWith("blob:"));
   useEffect(() => {
     if (!sessionMedia && !draftError) return;
@@ -21,13 +20,11 @@ export function useDraftAutosave(comp: Composition, winId?: string) {
   }, [winId, sessionMedia, draftError]);
   useEffect(() => {
     if (!getSettings().autosave) return;
-    if (firstDraft.current) {
-      firstDraft.current = false;
-      try { draftSnapshot.current = localStorage.getItem("reel.draft"); snapshotReady.current = true; }
-      catch { queueMicrotask(() => setDraftError("Timeline could not be saved in this browser.")); }
+    if (comp === initialComp.current) {
+      if (!baseline.available) queueMicrotask(() => setDraftError("Timeline could not be saved in this browser."));
       return;
     }
-    if (!snapshotReady.current) return;
+    if (!baseline.available) return;
     const persist = () => {
       try {
         if (localStorage.getItem("reel.draft") !== draftSnapshot.current) {
@@ -44,6 +41,6 @@ export function useDraftAutosave(comp: Composition, winId?: string) {
     const t = setTimeout(persist, 800);
     window.addEventListener("pagehide", persist);
     return () => { clearTimeout(t); window.removeEventListener("pagehide", persist); persist(); };
-  }, [comp]);
+  }, [comp, baseline.available]);
   return { savedAt, draftError, sessionMedia };
 }

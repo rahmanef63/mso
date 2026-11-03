@@ -33,6 +33,7 @@ export function ClipboardPanel() {
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label="Search clips"
           placeholder="Search clips…"
           className="w-full bg-transparent px-4 py-2.5 text-sm outline-none placeholder:text-muted-foreground"
         />

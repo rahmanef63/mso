@@ -15,11 +15,17 @@ export default function IntegrationsApp() {
   const frame = useRef<HTMLIFrameElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [retry, setRetry] = useState(0);
+  const [owner, setOwner] = useState<string | null>(null);
   useEffect(() => {
     const target = frame.current;
     if (!target) return;
     const onReady = (event: MessageEvent) => {
-      if (event.source !== target.contentWindow || event.origin !== window.location.origin || event.data?.type !== "mso:integrations-ready") return;
+      if (event.source !== target.contentWindow || event.origin !== window.location.origin) return;
+      if (event.data?.type === "mso:integrations-selection") {
+        setOwner(typeof event.data.user === "string" ? event.data.user : null);
+        return;
+      }
+      if (event.data?.type !== "mso:integrations-ready") return;
       syncIntegrationFrameTokens(target);
       setStatus("ready");
     };
@@ -54,7 +60,7 @@ export default function IntegrationsApp() {
         </p>
         {status === "error" && <Button variant="secondary" onClick={() => { setStatus("loading"); setRetry(n => n + 1); }}>Retry</Button>}
       </div>}
-      <ComposioSessionPanel />
+      <ComposioSessionPanel key={owner ?? "none"} owner={owner} />
       <iframe ref={frame} title="MSO native Integrations manager" className="min-h-0 w-full flex-1 border-0"
         referrerPolicy="no-referrer" onLoad={() => { if (frame.current?.contentDocument?.querySelector(".integration.manager")) { syncIntegrationFrameTokens(frame.current); setStatus("ready"); } }}
         onError={() => setStatus("error")} />

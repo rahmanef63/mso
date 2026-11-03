@@ -66,6 +66,10 @@ do not import React frontend components into server infrastructure.
   clears that state; browser reload does not imply unsaved drafts are durable.
 - Use the existing feature store/API for durable data. Never persist secrets in localStorage,
   duplicate a second store, or store sensitive data merely to preserve a visual state.
+  Unsubmitted credential form drafts may use the existing exact-window memory store as
+  operational input. Clear them on save, discard, confirmed navigation and window close,
+  and clear sensitive drafts on sign-out or loss of Owner privilege. They must never
+  enter saved layouts, inspector payloads, URLs, logs or preference synchronization.
 - Drafts need explicit save/discard behaviour and an unsaved-change guard at the relevant
   close, route, record and reload boundaries. State from one window/owner cannot bleed into another.
 - Abort superseded requests and unmounted effects, or ignore results with a sequence/identity

@@ -14,6 +14,7 @@ import { camoufoxConnectionJourney } from "./camoufox-connection.mjs";
 import { memoryBackupHistoryJourney } from "./memory-backup-history.mjs";
 import { aiProviderSwitchJourney } from "./ai-provider-switch.mjs";
 import { shellNoticesJourney } from "./shell-notices.mjs";
+import { settingsDraftJourney } from "./settings-draft.mjs";
 
 execFileSync(process.execPath, ["scripts/e2e/socket-authority.mjs"], { stdio: "inherit", timeout: 30000 });
 execFileSync(process.execPath, ["scripts/e2e/request-bodies.mjs"], { stdio: "inherit", timeout: 60000 });
@@ -99,6 +100,7 @@ try {
   await page.locator('input[type="password"]').fill(fixture.password);
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
   await expect(page).toHaveURL(fixture.base + "/integrations");
+  await settingsDraftJourney(page, fixture);
   await agentVaultJourney(page, fixture);
   await page.goto(fixture.base + "/integrations");
   await shellNoticesJourney(page, fixture);

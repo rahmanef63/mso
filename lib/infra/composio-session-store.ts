@@ -25,7 +25,7 @@ function parseStore(value: unknown): Store {
   for (const [key, entry] of Object.entries(raw.sessions as Record<string, unknown>)) {
     const row = obj(entry);
     const keyParts = key.split(":");
-    if (keyParts.length !== 2 || keyParts.some((part) => !KEY_PART.test(part))) bad();
+    if ((keyParts.length !== 2 && keyParts.length !== 3) || keyParts.some((part) => !KEY_PART.test(part))) bad();
     const { sessionId, instanceId, userUid, createdAt, expiresAt, mcpUrl: rawUrl } = row;
     const id = typeof sessionId === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(sessionId) ? sessionId : bad();
     const instance = typeof instanceId === "string" ? instanceId : bad();
@@ -81,8 +81,8 @@ export const storeKey = (instanceId: string, userUid: string) => {
 };
 
 /** Never returns another MSO user's session: the key is (instance, credential-owner uid). */
-export async function readComposioSession(instanceId: string, userUid: string): Promise<StoredSession | null> {
-  const key = storeKey(instanceId, userUid);
+export async function readComposioSession(instanceId: string, userUid: string, scope?: string): Promise<StoredSession | null> {
+  const key = storeKey(instanceId, userUid) + (scope ? `:${scope}` : "");
   const row = (await readComposioSessions()).sessions[key];
   if (!row || row.instanceId !== instanceId || row.userUid !== userUid) return null;
   if (row.expiresAt !== undefined && row.expiresAt <= Date.now()) return null;

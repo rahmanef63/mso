@@ -24,7 +24,7 @@ function ExternalAppFrameContent({ app, frameTitle }: { app: WorkflowEmbed; fram
   const reload = () => { setLoading(true); setSlow(false); setRevision((value) => value + 1); };
   return <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="external-app-frame">
     <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
-      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={app.origin}>{app.origin}</span>
+      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={app.origin}>If blank, use Open</span>
       {app.loginUrl ? <Button asChild variant="ghost" size="sm"><a href={app.loginUrl} target="_blank" rel="noopener noreferrer"><LogIn className="size-4"/><span>Sign in</span></a></Button> : null}
       <Button asChild variant="outline" size="sm"><a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="size-4"/><span>Open {app.title}</span></a></Button>
       {app.origin && app.url !== app.origin && app.url !== app.origin + "/" ? <Button asChild variant="ghost" size="sm"><a href={app.origin} target="_blank" rel="noopener noreferrer">Open home</a></Button> : null}
@@ -34,6 +34,6 @@ function ExternalAppFrameContent({ app, frameTitle }: { app: WorkflowEmbed; fram
       {loading ? <div className="absolute inset-x-0 top-0 z-10 border-b bg-background px-3 py-2 text-xs text-muted-foreground" role="status">{slow ? `Taking longer than expected. Open ${app.title} in a new tab if its login or frame policy blocks embedding.` : `Loading ${app.title}…`}</div> : null}
       <iframe key={`${revision}:${app.sandbox}`} src={app.url} title={frameTitle ?? `${app.title} application`} sandbox={app.sandbox} referrerPolicy="no-referrer" className="h-full w-full border-0 bg-background" onLoad={() => setLoading(false)} onError={() => { setLoading(true); setSlow(true); }}/>
     </div> : <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">{app.reason || `${app.title} opens in a separate tab. Embedded access is not enabled for this provider.`}</div>}
-    <p className="shrink-0 border-t px-3 py-1.5 text-xs text-muted-foreground [@media(max-height:520px)]:sr-only">{app.msoSession ? `${app.title} uses your MSO session.` : `${app.title} keeps its own login. Sign in in a new tab, then reload here. If embedding is blocked, use Open ${app.title}.`}</p>
+    <p className="shrink-0 border-t px-3 py-1.5 text-xs text-muted-foreground [@media(max-height:520px)]:sr-only">{app.msoSession ? `Embedding cannot be verified. If the app is blank, use Open ${app.title}.` : `Embedding cannot be verified. If the app is blank, sign in or use Open ${app.title}.`}</p>
   </div>;
 }
