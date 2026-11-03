@@ -43,8 +43,12 @@ jobs:
       - name: Report every result from this exact CodeQL analysis
         run: node scripts/codeql-report.mjs "$RUNNER_TEMP/mso-codeql-results"
 
+      # Report-only here on purpose. The failing gate for open findings is security-alerts.yml, and
+      # having this step fail too made a closed loop: one open alert turned the analysis run red,
+      # Scorecard then counted that commit as not SAST-checked, and its SASTID alert stayed open --
+      # which kept this step red. The analysis job's output is SARIF; the gate belongs in one place.
       - name: Inspect actual CodeQL branch findings after SARIF processing
         if: github.event_name == 'push'
-        run: node scripts/security-alerts.mjs --tool CodeQL --include-closed --ref "$GITHUB_REF" --commit "$GITHUB_SHA" --wait-seconds 60
+        run: node scripts/security-alerts.mjs --inventory --tool CodeQL --include-closed --ref "$GITHUB_REF" --commit "$GITHUB_SHA" --wait-seconds 60
         env:
           GITHUB_TOKEN: ${{ github.token }}

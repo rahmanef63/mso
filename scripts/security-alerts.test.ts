@@ -110,14 +110,20 @@ it("keeps hosted inventories strict, bounded and pinned to the checkout SHA", ()
     for (const command of commands) {
       expect(command).toContain('--commit "$GITHUB_SHA"');
       expect(command).toMatch(/--wait-seconds (60|360)$/);
-      expect(command).not.toContain("--inventory"); expect(command).not.toContain("|| true");
+      expect(command).not.toContain("|| true");
     }
     expect(source).not.toContain("continue-on-error: true");
     if (file === "security-alerts.yml") {
+      // This file is the gate: it must fail when findings remain.
+      expect(commands.every(command => !command.includes("--inventory"))).toBe(true);
       expect(commands.every(command => !command.includes("--tool"))).toBe(true);
       expect(source).toContain("${{ github.event_name }}-${{ github.event.workflow_run.name || 'direct' }}");
     } else {
+      // CodeQL's analysis job only reports. It used to gate as well, which made a closed loop: one
+      // open alert turned the analysis red, Scorecard then counted that commit as not SAST-checked,
+      // and its SASTID alert stayed open, keeping this step red. The gate lives in one place.
       expect(commands.every(command => command.includes("--tool CodeQL"))).toBe(true);
+      expect(commands.every(command => command.includes("--inventory"))).toBe(true);
     }
   }
 });
