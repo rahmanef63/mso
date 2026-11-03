@@ -10,7 +10,6 @@ import { createPrinter } from "./mso-agent-print.mjs";
 import {
   formatExportMarkdown,
   parseExportArgs,
-  writeExportFile,
 } from "./mso-agent-export-markdown.mjs";
 
 export const SHARE_UNAVAILABLE_MESSAGE =
@@ -47,6 +46,9 @@ export async function handleParityCommand(ctx, cmd, args) {
       try {
         const parsed = parseExportArgs(args);
         if (parsed.markdown) {
+          if (args.some((arg) => arg === "--out" || arg.startsWith("--out=")) || parsed.force) {
+            throw new Error("Markdown export to a file is unavailable. Omit --out and --force to print the transcript, then copy it to a file.");
+          }
           let target = session;
           if (parsed.ref && target?.agentSession?.id !== parsed.ref && target?.id !== parsed.ref) {
             if (typeof ctx.api === "function") {
@@ -55,12 +57,7 @@ export async function handleParityCommand(ctx, cmd, args) {
             }
           }
           const markdown = formatExportMarkdown(target);
-          if (parsed.outFile) {
-            writeExportFile(parsed.outFile, markdown, { force: parsed.force });
-            print(`session exported to ${parsed.outFile}.`);
-          } else {
-            print(markdown);
-          }
+          print(markdown);
           return "handled";
         }
         const outIdx = args.indexOf("--out");

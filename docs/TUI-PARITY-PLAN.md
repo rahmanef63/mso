@@ -28,6 +28,8 @@ unless a phase explicitly pays for it.
 | P0-5 | `/queue [list|clear]` follow-up queue for this session | local queue in session state, reuses `agentRound` | shipped |
 | P0-6 | `/theme [dark|light|mono|status]` | `C` palette in `mso-agent-ui.mjs`, honours `NO_COLOR` | shipped |
 
+For `/export --markdown`, omit `--out` and `--force`: Markdown prints in the TUI and can be copied to a file. Direct Markdown file export is unavailable because session content can originate from a remote server. The non-Markdown export retains its existing `--out` option.
+
 ### Phase 0 shipped evidence
 - P0-1 (`/export`): case "/export" in scripts/mso-agent-commands.mjs, tested in scripts/mso-agent-export.test.ts
 - P0-2 (`/share`): case "/share" in scripts/mso-agent-commands.mjs, tested in scripts/mso-agent-export.test.ts

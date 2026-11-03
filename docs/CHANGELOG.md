@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- prevent direct remote markdown file export
 - `settings` retain About subpage across shell changes
 - `ui` preserve external editor height on short screens
 - `n8n` keep frame controls stable during refresh

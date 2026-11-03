@@ -1,6 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-
 // Strips ANSI escape sequences so exported transcripts are clean readable Markdown.
 export function stripAnsi(text) {
   if (!text) return "";
@@ -176,33 +173,4 @@ export function parseExportArgs(args = []) {
     }
   }
   return flags;
-}
-
-// Safely writes markdown export to disk, refusing to clobber existing files without force.
-//
-// The refusal used to be a check-then-write: existsSync said the file was absent, and a file
-// created between that check and the write was silently overwritten. CodeQL reports that as
-// js/file-system-race (high). The kernel can express "create, but only if absent" atomically, so
-// the flag does the deciding instead of a race-prone read.
-export function writeExportFile(filePath, content, { force = false } = {}) {
-  const resolved = path.resolve(filePath);
-  const dir = path.dirname(resolved);
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-  } catch (error) {
-    // EEXIST on an existing directory is the normal case.
-    if (error?.code !== "EEXIST") throw error;
-  }
-  if (!force) {
-    // wx fails with EEXIST if anything already occupies the path. No separate existence check.
-    try {
-      fs.writeFileSync(resolved, content, { encoding: "utf8", flag: "wx" });
-    } catch (error) {
-      if (error?.code === "EEXIST") throw new Error(`file already exists: ${filePath} (use --force to overwrite)`);
-      throw error;
-    }
-    return resolved;
-  }
-  fs.writeFileSync(resolved, content, "utf8");
-  return resolved;
 }

@@ -32,7 +32,7 @@ const BUILTIN_SLASH_ITEMS = [
   { text: "/title", meta: "Rename the session title/description", kind: "command" },
   {
     text: "/export",
-    meta: "Export session transcript to stdout or a file",
+    meta: "Export a session; Markdown prints to the screen",
     kind: "command",
   },
   {
