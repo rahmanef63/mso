@@ -70,7 +70,6 @@ export default function N8nApp(_: AppProps) {
     <AppFrame safeArea={false} className="h-full min-w-0" toolbar={toolbar}>
       {loading && !n8n ? <div role="status" className="grid h-full place-items-center p-[var(--feature-padding,1.5rem)] text-sm text-muted-foreground">Loading n8n workspace…</div> : n8n ? <div className="flex h-full min-h-0 flex-col">
         {message && <p role="alert" className="shrink-0 border-b p-3 text-sm text-destructive-text">Refresh failed. Showing the last loaded surface. {message}</p>}
-        {loading && <p role="status" className="shrink-0 border-b px-3 py-2 text-xs text-muted-foreground">Refreshing n8n surface…</p>}
         <div className="min-h-0 flex-1"><N8nEmbedPanel app={n8n}/></div>
       </div> : <div className="grid h-full min-h-0 place-items-center overflow-y-auto p-6">
         <div className="w-full max-w-2xl rounded-2xl border bg-card p-5 shadow-sm">
