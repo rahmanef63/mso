@@ -86,7 +86,7 @@ export function ComposioSessionPanel() {
   if (kind === undefined) return null;
   if (kind === "connect") {
     return (
-      <details className="shrink-0 border-b p-3" aria-label="Composio Connect"><summary className="cursor-pointer text-sm">Composio Connect tools</summary>
+      <details className="max-h-[40%] shrink-0 overflow-auto border-b p-[var(--feature-padding,.75rem)]" aria-label="Composio Connect"><summary className="cursor-pointer text-sm">Composio Connect tools</summary>
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm">Composio Connect</p>
           <Button variant="secondary" disabled={busy} onClick={() => void loadTools()}>List tools</Button>
@@ -95,7 +95,7 @@ export function ComposioSessionPanel() {
           Connect tools run under the Composio Connect account and cannot create a per-user agent session.
         </p>
         {tools && (
-          <ul className="mt-2 text-sm">{tools.map(tool => <li key={tool.name}>{tool.name}</li>)}</ul>
+          tools.length ? <ul className="mt-2 break-words text-sm">{tools.map(tool => <li key={tool.name}>{tool.name}</li>)}</ul> : <p role="status" className="mt-2 text-sm text-muted-foreground">No tools returned.</p>
         )}
         {status && <p role="status" className="mt-2 text-sm text-muted-foreground">{status}</p>}
       </details>
@@ -104,7 +104,7 @@ export function ComposioSessionPanel() {
   if (kind === null) return null;
 
   return (
-    <details className="shrink-0 border-b p-3" aria-label="Composio agent session"><summary className="cursor-pointer text-sm">Composio agent session</summary>
+    <details className="max-h-[40%] shrink-0 overflow-auto border-b p-[var(--feature-padding,.75rem)]" aria-label="Composio agent session"><summary className="cursor-pointer text-sm">Composio agent session</summary>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="secondary" disabled={busy} onClick={() => void create(false)}>Create agent session</Button>
         {mcpUrl && <Button variant="ghost" disabled={busy} onClick={() => void create(true)}>Refresh session</Button>}

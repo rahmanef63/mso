@@ -16,6 +16,8 @@ export type StatsHistory = {
   /** Last poll error message — null while healthy. The UI surfaces this as a
    *  retry tile instead of an eternal spinner. */
   error: string | null;
+  processError: string | null;
+  lastUpdated: number | null;
   refresh: () => void; // manual one-shot re-poll
 };
 
@@ -30,6 +32,9 @@ export function useStatsHistory(enabled = true): StatsHistory {
   const [netSeries, setNet] = useState<number[]>(() => Array(SPAN).fill(0));
   const [gpu, setGpu] = useState(18);
   const [error, setError] = useState<string | null>(null);
+  const [processError, setProcessError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const generation = useRef(0);
   const gpuRef = useRef(18);
   const aliveRef = useRef(true);
 
@@ -37,11 +42,13 @@ export function useStatsHistory(enabled = true): StatsHistory {
   // Failures land on `.catch` so an interval-driven failure doesn't pollute the
   // console with unhandled-rejection lines every POLL_MS ms.
   const pull = useCallback(() => {
+    const epoch = ++generation.current;
+    const current = () => aliveRef.current && generation.current === epoch;
     api.sys
       .stats()
       .then((s) => {
-        if (!aliveRef.current) return;
-        setStats(s);
+        if (!current()) return;
+        setStats(s); setLastUpdated(Date.now());
         setError(null);
         setCpu((a) => [...a.slice(1), clampPct(s.cpu.pct)]);
         const net = s.net ? s.net.rx + s.net.tx : 0;
@@ -50,11 +57,11 @@ export function useStatsHistory(enabled = true): StatsHistory {
         setGpu(gpuRef.current);
         api.sys
           .processes()
-          .then((p) => aliveRef.current && setProcs(p))
-          .catch(() => {});
+          .then((p) => { if (current()) { setProcs(p); setProcessError(null); } })
+          .catch((cause) => { if (current()) setProcessError(cause instanceof Error ? cause.message : "Process refresh failed"); });
       })
       .catch((e) => {
-        if (!aliveRef.current) return;
+        if (!current()) return;
         setError(e instanceof Error ? e.message : String(e));
       });
   }, [api]);
@@ -83,5 +90,5 @@ export function useStatsHistory(enabled = true): StatsHistory {
     };
   }, [pull, enabled]);
 
-  return { stats, procs, cpuSeries, netSeries, gpu, error, refresh: pull };
+  return { stats, procs, cpuSeries, netSeries, gpu, error, processError, lastUpdated, refresh: pull };
 }

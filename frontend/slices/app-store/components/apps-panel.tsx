@@ -118,6 +118,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                aria-label={isSystem ? `Search ${noun}s` : "Search apps"}
                 placeholder={isSystem ? `Search ${noun}s` : "Search apps"}
                 className={ios ? "h-9 border-0 bg-[var(--fill)] pl-8" : "h-9 pl-8"}
               />
@@ -128,6 +129,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
       >
         <ScrollArea className="h-full">
           <div ref={storeZone} className="p-4 [padding-bottom:calc(1rem+var(--sai-bottom))]">
+            {install.error && <p role="alert" className="mb-3 text-sm text-destructive-text">{install.error}</p>}
             {isSystem ? (
               <>
                 <p className="mb-3 text-xs text-muted-foreground">
@@ -136,6 +138,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
                   and Spotlight.
                 </p>
                 <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-4">
+                  {!systemList.length && <p role="status" className="py-6 text-sm text-muted-foreground">No {noun}s match your search.</p>}
                   {systemList.map((e) => (
                     <SystemCard
                       key={e.id}
@@ -180,12 +183,14 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
         open={install.pendingApp !== null}
         title={install.pendingApp?.title ?? null}
         onCancel={install.cancelApp}
+        error={install.error}
         onConfirm={install.confirmUninstallApp}
       />
       <UninstallConfirm
         open={install.pendingSystem !== null}
         title={install.pendingSystem?.title ?? null}
         onCancel={install.cancelSystem}
+        error={install.error}
         onConfirm={install.confirmUninstallSystem}
       />
     </div>
