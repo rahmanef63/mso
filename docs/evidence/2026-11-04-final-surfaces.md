@@ -24,3 +24,30 @@ and 11 existing integration/n8n/domain/extension tests passed. Existing tests ou
 not establish the pending journeys above. Full build, security preflight, browser journeys and
 remote checks belong to the integration owner and are not asserted here. Revert this commit to
 roll back this incremental patch; prior candidate fixes are on the base.
+
+## Isolated rendered follow-up
+
+At commit 2cb9325fc994358fbafd5fed62a9ffe5f20d26c4, headless Chromium mounted the
+actual React Integrations and ExternalAppFrame components with synthetic network responses.
+The manager was a same-origin message-emitting fixture, not the native manager; CSS came from
+a previously built local checkout rather than a fresh build of this commit. The receipt is
+`final-surfaces-rendered-receipt.json` in the external audit work folder. No fixture server was
+retained.
+
+- PX-03: Alice/first session creation was held in flight, then switching to Alice/second aborted
+  it (`ERR_ABORTED`); the late URL did not appear. A second tools request was held, then
+  switching the manager fixture to Bob aborted it; neither the prior nor late tool appeared.
+  Captured requests used the selected owner and connection; Bob's session URL appeared. A
+  selection message from the parent window rather than the manager frame was ignored.
+  The actual native manager handshake, full shell and a real provider are not proven by this
+  fixture.
+- ST-03: A synthetic cross-origin response with `X-Frame-Options: DENY` produced the browser's
+  framing denial. Open and recovery guidance remained after iframe load. In light and dark
+  themes, viewport/container/iframe heights in pixels were 320x844 / 694 / 592, 390x844 /
+  694 / 592, and 844x390 / 240 / 183. The compact toolbar hint was truncated at 320 and
+  390 width (17.7 and 87.7 pixels available for 109 pixels of text); the longer footer was
+  visible in these portrait fixtures. At 844x390 the compact hint fit. A deliberately shorter
+  320-wide, 200-pixel container left 98 pixels for the frame; this is a stress result, not
+  a measurement of the shell. The 844x390 result exceeds 120 pixels in this isolated
+  container but does not replace the full-shell gate with current CSS or prove upstream
+  readiness.
