@@ -95,7 +95,7 @@ export function ChannelEditor({
       await onSaved();
       onOpenChange(false);
     } catch (cause) {
-      await onSaved();
+      await onSaved().catch(() => undefined);
       setError((cause instanceof Error ? cause.message : "Could not save channel.") + " Your draft is preserved; close and reopen to load the latest version.");
     } finally { saving.current = false; setBusy(false); }
   };
