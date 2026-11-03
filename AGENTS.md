@@ -32,6 +32,14 @@ For debugging, integrations, refactors, deployments, and MCP work, use this loop
    `CLAUDE.md`, or a trusted `SKILL.md`; implementation contracts belong in current docs;
    volatile host facts stay in project/runbook notes.
 
+## Frontend ownership
+
+Before any UI, UX, state or responsive change, read
+[`docs/FRONTEND-CONTRACT.md`](./docs/FRONTEND-CONTRACT.md), `DESIGN.md` and the affected
+shell/feature contracts. This applies to every feature and native DOM UI in `lib/`, not only
+Integrations. Whole-product work must record per-feature evidence and unverified/configuration
+limits; a shared foundation change alone is not proof of every consumer journey.
+
 ## Architecture ownership
 
 Before adding another adapter/facade/barrel, read [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and run `node scripts/check-architecture.mjs`. The architecture policy is ratcheted: transports share `lib/capabilities`, cross-layer DTOs live in `lib/contracts`, host calls use narrow `lib/host/*-api.ts`, generic apps use AppShell directly, and workflow persistence belongs to `lib/workflow`. Do not raise a ratchet just to make a change pass. Exact MCP catalog facts are generated with `node scripts/gen-mcp-catalog.mjs`; never hand-copy the current tool list into reference docs.

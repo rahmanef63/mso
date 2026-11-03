@@ -14,7 +14,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `tui` the footer reads the context field that exists, and shows the queue
+- `tui` the footer reads the context field that exists, and shows the queue (#268)
+- `ui` define frontend contract and accessible action icons
 - `ui` preserve workspace state and share dynamic shell layout
 - `ci` stop the CodeQL analysis job from gating on open alerts
 - `export` create the markdown export atomically, closing a TOCTOU write

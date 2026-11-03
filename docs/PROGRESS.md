@@ -1,3 +1,33 @@
+## 2026-11-03: frontend contract for every feature and agent
+
+Frontend rules were spread across product direction, shell design notes and the dynamic
+foundation contract. `docs/FRONTEND-CONTRACT.md` now gives every feature one implementation
+and acceptance contract: layer ownership, token/container layout, state lifetimes, asynchronous
+recovery, icon/menu semantics, accessibility, themes and per-feature verification evidence.
+
+Both root agent entry points and a scoped `frontend/AGENTS.md` require it. The docs gate checks
+those links, including the shell/foundation references, so a later edit cannot silently detach
+agent routing. This documents required practice and explicit migration limits; it does not
+claim every existing feature has already been individually polished or exercised in production.
+
+## 2026-11-03: compact credential actions and connection menus
+
+Credential rows use labelled eye, copy and trash icon buttons with native tooltips. The
+connection action trigger uses an ellipsis; menu items retain text with leading icons.
+Owner pickers show a chevron and selected check without changing keyboard behaviour.
+The masked value reserves eight character widths so 200% text reflows controls instead of
+collapsing the value into a vertical column.
+
+Copying keeps the displayed value masked. Reveal after Copy now opens the cached value
+instead of silently clearing it. Hide, the 30-second timeout and clipboard failures discard
+the cache. Pending reads disable both read actions. Destructive actions still require typed
+confirmation; cancellation restores the exact field action or the closed menu trigger.
+
+The same native DOM helpers serve browser and embedded integrations. Targeted synthetic
+browser journeys, now required by the isolated build gate, cover these state transitions,
+deletion guards and keyboard focus, alongside
+the existing 320–1920 px light/dark layout checks. Release evidence is tracked by the PR.
+
 ## 2026-11-03: dynamic shell presentation and workspace recovery (local verification)
 
 The shell manifest now accepts per-shell layout metrics. Feature frames can override those

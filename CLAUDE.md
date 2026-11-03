@@ -33,6 +33,9 @@ agent — it runs AS a host process and controls its own machine.
   reference docs (including `docs/ARCHITECTURE.md`) must track `main`; dated audits/plans
   are explicitly historical and may preserve obsolete implementation details only inside
   that historical context.
+- [`docs/FRONTEND-CONTRACT.md`](./docs/FRONTEND-CONTRACT.md) — required for every frontend,
+  state and responsive change, including native DOM surfaces; shell → feature → UI-kit ownership,
+  action semantics, accessibility, state lifetimes and per-feature evidence.
 - `frontend/slices/assistant/CONTRACT.md` — current, and authoritative for what an
   Agent / Tool / Skill / Playbook is and what reaches the model.
 - `docs/MCP-FEATURE-IMPLEMENTATION.md` — stepwise observe/map/bound/reverse-engineer/
