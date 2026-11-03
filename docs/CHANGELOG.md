@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `settings` retain About subpage across shell changes
 - `ui` preserve external editor height on short screens
 - `n8n` keep frame controls stable during refresh
 - `ui` surface refresh and persistence failures

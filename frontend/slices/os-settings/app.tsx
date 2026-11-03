@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { initialAboutPage } from "./lib/about-pages";
 import { sectionFromSearch } from "./lib/sections";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAppearance, effectiveServerTarget } from "@/lib/appearance";
 import { useSession } from "@/features/auth";
 import { IS_DEMO } from "@/lib/demo";
@@ -35,6 +35,7 @@ export default function OsSettings({ winId }: { winId?: string }) {
   const [active, setActive] = useFeatureState<SectionId | null>(winId, "settings-section",
     initial ?? (surface === "mobile" ? null : "appearance"),
   );
+  useEffect(() => { if (winId) setActive(current => current); }, [setActive, winId]);
   const [draftName] = useFeatureState(winId, "provider-name", "");
   const [draftUrl] = useFeatureState(winId, "provider-url", "");
   const [draftModels] = useFeatureState(winId, "provider-models", "");
@@ -85,14 +86,16 @@ export default function OsSettings({ winId }: { winId?: string }) {
     [tweaks.theme, tweaks.preset, tweaks.device, tweaks.fontScale, tweaks.wallpaper, tweaks.wallpaperImage, tweaks.server.mode, serverTarget?.label, model],
   );
 
+  const selectSection = useCallback((next: SectionId | null) => {
+    if (next !== active && sensitiveDirty && !window.confirm("Discard the unsaved API key or JSON?")) return;
+    if (next !== active) setSensitiveDirty(false);
+    setActive(next);
+  }, [active, sensitiveDirty, setActive]);
+
   return (
     <SettingsWindowContext.Provider value={{ winId, setSensitiveDirty }}>
-      <AboutPageState initial={initialAboutPage(initial ?? null, params.get("page"))}>
-        <SettingsShell active={active} onSelect={(next) => {
-          if (next !== active && sensitiveDirty && !window.confirm("Discard the unsaved API key or JSON?")) return;
-          if (next !== active) setSensitiveDirty(false);
-          setActive(next);
-        }} />
+      <AboutPageState winId={winId} initial={initialAboutPage(initial ?? null, params.get("page"))}>
+        <SettingsShell active={active} onSelect={selectSection} />
       </AboutPageState>
     </SettingsWindowContext.Provider>
   );
