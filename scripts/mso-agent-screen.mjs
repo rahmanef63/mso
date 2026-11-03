@@ -119,3 +119,55 @@ export function writeFrame(output, previous, next) {
 
   return nxt;
 }
+
+// Paints a block at a fixed absolute row instead of relative to the cursor.
+//
+// The panel above owns rows 1..N and leaves its cursor somewhere inside them. A composer frame that
+// grew or shrank then wrote from that cursor, which either ran past the last row (scrolling the screen)
+// or, when the panel shrank to make room, pushed its own top rows out of the viewport. Anchoring to a
+// row makes overflow arithmetically impossible: the frame cannot start above its top row nor end below
+// the last one.
+export function writeFrameAt(output, previous, next, topRow, columns = output?.columns || 80) {
+  const nxt = Array.isArray(next) ? [...next] : [];
+  if (!output || typeof output.write !== "function" || output.isTTY !== true) {
+    for (const line of nxt) output.write(`${line}\n`);
+    return nxt;
+  }
+  const rows = Math.max(1, Number(output.rows) || 24);
+  const cols = Math.max(1, Number(columns) || 80);
+  const prev = Array.isArray(previous) ? previous : [];
+  // Clamp so the block always lands inside the terminal, whatever the caller asked for.
+  const top = Math.max(1, Math.min(Number(topRow) || 1, Math.max(1, rows - nxt.length + 1)));
+  // Clear the previous block FIRST, then paint. Clearing afterwards would erase rows the new frame had
+  // just written, which is how a shrinking menu wiped the prompt it was supposed to uncover.
+  const previousTop = Math.max(1, Math.min(Number(topRow) || 1, Math.max(1, rows - prev.length + 1)));
+  for (let i = 0; i < prev.length; i++) {
+    const row = previousTop + i;
+    if (row > rows) break;
+    output.write(`\x1b[${row};1H\x1b[2K`);
+  }
+  for (let i = 0; i < nxt.length; i++) {
+    const row = top + i;
+    if (row > rows) break;
+    // One column short of full width: a line that fills the last cell wraps, and wrapping scrolls.
+    output.write(`\x1b[${row};1H\x1b[2K${fitToCells(nxt[i], cols - 1)}`);
+  }
+  return nxt;
+}
+
+function fitToCells(value, max) {
+  const plainText = String(value ?? "");
+  if (stripAnsiWidth(plainText) <= max) return plainText;
+  let out = "", shown = 0;
+  for (let i = 0; i < plainText.length;) {
+    const ansi = /^\x1b\[[0-9;?]*[ -/]*[@-~]/.exec(plainText.slice(i));
+    if (ansi) { out += ansi[0]; i += ansi[0].length; continue; }
+    if (shown >= max) { i++; continue; }
+    out += plainText[i]; shown += 1; i += 1;
+  }
+  return out;
+}
+
+function stripAnsiWidth(value) {
+  return Array.from(String(value ?? "").replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")).length;
+}

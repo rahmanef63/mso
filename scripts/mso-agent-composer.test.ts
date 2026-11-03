@@ -153,7 +153,7 @@ describe("MSO Agent interactive composer primitives", () => {
     composer.close();
   });
 
-  it("uses Ctrl+P/N as history aliases and Ctrl+D exits an empty prompt", async () => {
+  it("uses Alt+P/N as history aliases and Ctrl+D exits an empty prompt", async () => {
     class FakeInput extends EventEmitter { isRaw = false; resume() {} pause() {} setRawMode(value: boolean) { this.isRaw = value; } }
     class FakeOutput { columns = 88; chunks: string[] = []; write(value: string) { this.chunks.push(String(value)); return true; } }
     const input = new FakeInput(); const output = new FakeOutput();
@@ -164,9 +164,10 @@ describe("MSO Agent interactive composer primitives", () => {
     await expect(first).resolves.toBe("first");
 
     const second = composer.question("› ");
-    input.emit("keypress", undefined, { ctrl: true, name: "p", sequence: "\u0010" });
-    input.emit("keypress", undefined, { ctrl: true, name: "n", sequence: "\u000e" });
-    input.emit("keypress", undefined, { ctrl: true, name: "p", sequence: "\u0010" });
+    // Ctrl+P opens the command dialog now, so history recall sits on Alt to stay clear of user binds.
+    input.emit("keypress", undefined, { meta: true, name: "p", sequence: "\u001bp" });
+    input.emit("keypress", undefined, { meta: true, name: "n", sequence: "\u001bn" });
+    input.emit("keypress", undefined, { meta: true, name: "p", sequence: "\u001bp" });
     input.emit("keypress", "\r", { name: "return", sequence: "\r" });
     await expect(second).resolves.toBe("first");
 

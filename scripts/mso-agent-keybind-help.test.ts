@@ -41,8 +41,8 @@ describe("MSO Agent keybind help parity", () => {
     expect(kbText).toContain("Ctrl+L");
     expect(kbText).toContain("Escape");
     expect(kbText).toContain("Tab (empty prompt)");
-    expect(kbText).toContain("Ctrl+P");
-    expect(kbText).toContain("Ctrl+N");
+    expect(kbText).toContain("Ctrl+P"); // the command dialog
+    expect(kbText).toContain("Alt+P"); // history recall moved here from Ctrl+P
     expect(kbText).toContain("Return");
 
     // Asterisk customization marker must not be present when using shipped defaults.

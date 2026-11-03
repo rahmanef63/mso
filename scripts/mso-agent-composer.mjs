@@ -3,15 +3,17 @@ import { wordLeftIndex, wordRightIndex } from "./mso-agent-editing.mjs";
 import process from "node:process";
 import { resumeActiveActivity, suspendActiveActivity } from "./mso-agent-activity.mjs";
 import { applyCompletion } from "./mso-agent-at.mjs";
+
 import { getKeybinds, resolveKeybind } from "./mso-agent-keybinds.mjs";
-import { cursorHome, eraseFrame, frameHeight, withCursorHidden, writeFrame } from "./mso-agent-screen.mjs";
-import { chars, clamp, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, footerLines, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width } from "./mso-agent-composer-ui.mjs";
-export { completionWindow, inputLayout, inputViewport, verticalCursor } from "./mso-agent-composer-ui.mjs";
+import { cursorHome, eraseFrame, frameHeight, withCursorHidden, writeFrame, writeFrameAt } from "./mso-agent-screen.mjs";
+import { caretEscape, composeComposerLines, draftRowBudget, openCommandDialog, paintOverlayFrame } from "./mso-agent-overlay.mjs";
+import { chars, clamp, CLEAR_SCREEN, completionWindow, footerLines, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width } from "./mso-agent-composer-ui.mjs";
+export { completionWindow, inputLayout, inputViewport, verticalCursor };
 
 export class AgentComposer {
-  constructor({ input = process.stdin, output = process.stdout, colors, keybinds = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null) }) {
+  constructor({ input = process.stdin, output = process.stdout, colors, keybinds = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null), onCommands = null }) {
     this.input = input; this.output = output; this.C = colors;
-    this.keybinds = keybinds; this.onToggleStatusBar = onToggleStatusBar; this._onRows = onRows;
+    this.keybinds = keybinds; this.onToggleStatusBar = onToggleStatusBar; this._onRows = onRows; this.onCommands = onCommands;
     this.history = []; this.closed = false; this._cancelCurrent = null; this._notifyCurrent = null; this._rowCount = 0;
     readline.emitKeypressEvents(this.input);
   }
@@ -20,11 +22,13 @@ export class AgentComposer {
   reservedRows() { return this._reservedRows || 0; }
   onRows(cb) { if (typeof cb === "function") this._onRows = cb; return this; }
 
-  async question(prompt, { complete = /** @type {((value: string) => Array<any>) | null} */ (null), history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null) } = {}) {
+  async question(prompt, { complete = /** @type {((value: string) => Array<any>) | null} */ (null), history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null), onCommands = null } = {}) {
     if (this.closed) return null;
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
       let value = "", cursor = 0, selected = 0, reservedRows = 0, paintedLines = [], lastCursorRow = 0;
+      // Prompt-plus-draft height, remembered so closing a menu hands those rows back without recomputing.
+      let ownedRowCount = 1;
       let dismissed = false, historyIndex = null, draft = "", settled = false, verticalColumn = null;
       const rowCallback = onRows || this._onRows;
       const setRows = (n) => { if (this._rowCount !== n) { this._rowCount = n; if (typeof rowCallback === "function") rowCallback(n); } };
@@ -33,31 +37,25 @@ export class AgentComposer {
       const wasRaw = Boolean(input.isRaw);
 
       const matches = () => dismissed || !complete ? [] : complete(value) || [];
-      // Panel mode owns every row, so the height is reported to it and the instance mirror is what a
-      // test reads. Growing with CRLF here would scroll the panel itself off the top of the screen.
+      // Panel mode owns every row: the height is reported to it, never grown with CRLF, which would
+      // scroll the panel itself off the top of the screen.
       const reserve = (rows) => { reservedRows = this._reservedRows = rowCallback ? rows : reserveComposerRows(output, reservedRows, rows); };
-      const erase = () => { cursorHome(output, lastCursorRow); eraseFrame(output, paintedLines); paintedLines = []; lastCursorRow = 0; reservedRows = 0; setRows(0); };
+      // Return to the FIRST row of the frame before erasing. Homing to the caret's own row walked only
+      // part way up, so a tall frame was erased from its middle and left half of itself on screen.
+      const erase = () => { cursorHome(output, Math.max(0, paintedLines.length - 1)); eraseFrame(output, paintedLines); paintedLines = []; lastCursorRow = 0; reservedRows = 0; setRows(0); };
       const render = () => {
-        cursorHome(output, lastCursorRow);
+        if (!rowCallback) cursorHome(output, Math.max(0, paintedLines.length - 1));
         const currentPrompt = promptText(), promptWidth = width(currentPrompt), items = matches();
         selected = items.length ? clamp(selected, 0, items.length - 1) : 0;
         const menu = menuLines(items, selected, output.columns, C, typeof panelLabel === "function" ? panelLabel(value) : panelLabel);
-        const foot = footerLines(footer);
-        const terminalRows = Math.max(8, Number(output.rows || 24));
-        const maxInputRows = Math.max(2, Math.min(12, terminalRows - menu.length - foot.length - 4, Math.floor(terminalRows * 0.32)));
-        const layout = inputLayout(value, cursor, { columns: output.columns, rows: terminalRows, promptWidth, maxRows: maxInputRows });
-        const continuation = " ".repeat(promptWidth);
-        const lines = [
-          `${currentPrompt}${layout.lines[0] || ""}`, ...layout.lines.slice(1).map((row) => `${continuation}${row}`),
-          ...menu, ...foot,
-        ];
-        // Panel mode reports height first: the panel must free the rows before this frame is written,
-        // else it keeps the old height one frame and the menu is drawn clipped under it.
-        if (rowCallback) setRows(lines.length); else reserve(Math.max(0, frameHeight(lines) - 1));
-        withCursorHidden(output, () => { paintedLines = writeFrame(output, paintedLines, lines); });
-        setRows(paintedLines.length);
-        if (layout.cursorRow) output.write(CURSOR_DOWN(layout.cursorRow));
-        output.write(`\r${CURSOR_RIGHT(promptWidth + layout.cursorCol)}`);
+        const foot = footerLines(footer), terminalRows = Math.max(8, Number(output.rows || 24));
+        const maxRows = draftRowBudget({ rows: terminalRows, menuRows: menu.length, footRows: foot.length });
+        const layout = inputLayout(value, cursor, { columns: output.columns, rows: terminalRows, promptWidth, maxRows });
+        const { lines, owned } = composeComposerLines({ prompt: currentPrompt, draft: layout.lines, menu, foot, promptWidth });
+        ownedRowCount = owned; if (rowCallback) setRows(owned); else reserve(Math.max(0, frameHeight(lines) - 1));
+        withCursorHidden(output, () => { paintedLines = paintOverlayFrame({ output, lines, menu, foot, owned, previous: paintedLines, absolute: Boolean(rowCallback), writeFrame, writeFrameAt }); });
+        if (!rowCallback) setRows(paintedLines.length); // inline mode has no panel to tell
+        output.write(caretEscape({ cursorRow: layout.cursorRow, promptWidth, cursorCol: layout.cursorCol }));
         lastCursorRow = layout.cursorRow;
       };
       const cleanup = () => {
@@ -125,10 +123,14 @@ export class AgentComposer {
         const items = matches();
         const action = resolveKeybind(key, this.keybinds || getKeybinds());
         if (action === "interrupt") return value ? edit("", 0) : cancel(true);
-        if (action === "clear_screen") { output.write(CLEAR_SCREEN); reservedRows = 0; paintedLines = []; lastCursorRow = 0; return render(); }
+        if (action === "clear_screen") { output.write(CLEAR_SCREEN); reservedRows = 0; paintedLines = []; return render(); }
         if (action === "dismiss") {
           if (escapeCancels) return cancel(false);
-          dismissed = true; selected = 0; return render();
+          // The panel painted before the overlay existed, so it must repaint or the covered rows keep
+          // showing the closed menu.
+          dismissed = true; selected = 0; render();
+          if (rowCallback) rowCallback(ownedRowCount);
+          return;
         }
         if (action === "toggle_status_bar") {
           const toggle = onToggleStatusBar || this.onToggleStatusBar;
@@ -157,6 +159,13 @@ export class AgentComposer {
           const moved = verticalCursor(value, cursor, layout.lineWidth, key.name === "up" ? -1 : 1, verticalColumn);
           if (moved.moved) { cursor = moved.cursor; verticalColumn = moved.column; return render(); }
         }
+        // The caller owns the command registry, so the composer only reports the key and closes cleanly.
+        // Close this prompt FIRST, then open the dialog: the dialog paints into the row this prompt was
+        // holding, so opening it while the prompt still owns that row draws both on top of each other.
+        // Hand the key back to the caller and let it close this prompt. Opening a second prompt from
+        // inside the key handler draws the dialog into rows this one still owns, so the menu never
+        // appears and the screen looks blank.
+        if (action === "commands") return openCommandDialog(onCommands || this.onCommands, cancel);
         if (action === "history_prev" || (key.name === "up" && !items.length)) return historyMove(-1);
         if (action === "history_next" || (key.name === "down" && !items.length)) return historyMove(1);
         const row = chars(value);
