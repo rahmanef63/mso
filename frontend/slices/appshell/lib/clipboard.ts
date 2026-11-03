@@ -58,14 +58,16 @@ export function recordClip(text: string): void {
 }
 
 /** Write an entry back to the system clipboard (and bump its recency). */
-export function copyClip(text: string): void {
+export async function copyClip(text: string): Promise<boolean> {
   try {
-    void navigator.clipboard?.writeText(text);
+    if (!navigator.clipboard?.writeText) return false;
+    await navigator.clipboard.writeText(text);
   } catch {
-    /* clipboard API unavailable — history still works */
+    return false;
   }
   recordClip(text);
   toast("Copied to clipboard");
+  return true;
 }
 
 export function togglePinClip(id: number): void {

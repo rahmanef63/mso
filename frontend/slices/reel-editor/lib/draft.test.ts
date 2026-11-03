@@ -197,3 +197,12 @@ describe("clearDraft", () => {
     expect(loadDraft()).toBeNull();
   });
 });
+
+describe("saveDraft failure reporting", () => {
+  it("reports storage failure without claiming success", () => {
+    const fail = vi.spyOn(localStorageMock, "setItem").mockImplementationOnce(() => { throw new Error("quota"); });
+    expect(saveDraft(baseComp())).toBe(false);
+    fail.mockRestore();
+    expect(saveDraft(baseComp())).toBe(true);
+  });
+});

@@ -46,8 +46,11 @@ function useAutosave(autoRestore: boolean, saveDoc?: (doc: Doc) => void, ready =
     // the file. Otherwise fall back to the localStorage autosave.
     if (saveDoc) {
       if (!ready) return;
-      const t = setTimeout(() => saveDoc(doc), 800);
-      return () => clearTimeout(t);
+      let pending = true;
+      const flush = () => { if (pending) { pending = false; saveDoc(doc); } };
+      const t = setTimeout(flush, 800);
+      window.addEventListener("pagehide", flush);
+      return () => { clearTimeout(t); window.removeEventListener("pagehide", flush); flush(); };
     }
     const t = setTimeout(() => saveAutosave(exportProject()), 800);
     return () => clearTimeout(t);

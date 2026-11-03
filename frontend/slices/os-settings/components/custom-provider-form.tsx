@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "@/features/appshell";
+import { toast, useFeatureState } from "@/features/appshell";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseCustomProviderConfig, parseModelList, toggleModelInList } from "./custom-provider-config";
+import { useSettingsWindow } from "../lib/window-context";
 
 export type DiscoveredModel = { id: string; name: string };
 export type DiscoveryFailure = "invalid-url" | "auth" | "empty";
@@ -65,20 +66,18 @@ export function modelFieldFromDiscovered(list: DiscoveredModel[]): string {
 // SSRF-pinned, key only in the body) and PRE-SELECTS every returned id. It also runs
 // itself once per baseURL+key pair — debounced, cancellable; the button re-runs it.
 export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
-  const [mode, setMode] = useState<"fields" | "json">("fields");
-  const [name, setName] = useState("");
-  const [baseURL, setBaseURL] = useState("");
+  const { winId, setSensitiveDirty } = useSettingsWindow(), [mode, setMode] = useFeatureState<"fields" | "json">(winId, "provider-mode", "fields");
+  const [name, setName] = useFeatureState(winId, "provider-name", "");
+  const [baseURL, setBaseURL] = useFeatureState(winId, "provider-url", "");
   const [key, setKey] = useState("");
-  const [protocol, setProtocol] = useState("openai");
-  const [models, setModels] = useState("");
+  const [protocol, setProtocol] = useFeatureState(winId, "provider-protocol", "openai");
+  const [models, setModels] = useFeatureState(winId, "provider-models", "");
   const [json, setJson] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [found, setFound] = useState<DiscoveredModel[]>([]);
+  const [busy, setBusy] = useState(false), [found, setFound] = useState<DiscoveredModel[]>([]);
   const [scanning, setScanning] = useState(false);
   const [failure, setFailure] = useState<DiscoveryFailure | null>(null);
   const autoFired = useRef<Set<string>>(new Set()); // pairs already auto-run
   const abortRef = useRef<AbortController | null>(null);
-
   const run = useCallback(async (signal: AbortSignal, target: string, apiKey: string, proto: string) => {
     if (!baseUrlLooksValid(target) || !apiKey.trim()) {
       setFailure("invalid-url");
@@ -109,7 +108,7 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
     } finally {
       if (!signal.aborted) setScanning(false);
     }
-  }, []);
+  }, [setModels]);
 
   const start = useCallback((target: string, apiKey: string, proto: string) => {
     abortRef.current?.abort(); // one discovery in flight, cancellable
@@ -131,7 +130,6 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
   }, [baseURL, key, mode, protocol, start]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
-
   // The route re-validates everything (SSRF, slug, key); this only reports it.
   async function submit() {
     setBusy(true);
@@ -146,6 +144,7 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
       const body = (await response.json().catch(() => ({}))) as { slug?: string; error?: string };
       if (!response.ok) return void toast(body.error || "Couldn’t add provider", { tone: "error" });
       setName(""); setBaseURL(""); setKey(""); setModels(""); setJson(""); setFound([]); setFailure(null);
+      setSensitiveDirty(false);
       autoFired.current.clear(); // a fresh form starts with a fresh budget
       toast(`Added ${body.slug ?? "provider"}`);
       onAdded();
@@ -157,7 +156,6 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
   const selectedIds = parseModelList(models);
   const canSubmit = !busy && (mode === "json" ? !!json.trim() : !!name && !!baseURL && !!key);
   const ghost = "h-auto p-0 text-xs hover:bg-transparent hover:underline [@media(pointer:coarse)]:min-h-[44px]";
-
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -166,6 +164,7 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
           {mode === "fields" ? "paste JSON" : "use fields"}
         </Button>
       </div>
+      <p className="text-xs text-muted-foreground">Unsaved API keys and JSON are cleared when changing shells.</p>
       {mode === "fields" ? (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
@@ -179,7 +178,7 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
             </Select>
           </div>
           <Input disabled={busy} aria-label="Base URL" placeholder="https://host/v1" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} />
-          <Input disabled={busy} aria-label="API key" type="password" placeholder="API key" value={key} onChange={(e) => setKey(e.target.value)} />
+          <Input disabled={busy} aria-label="API key" type="password" placeholder="API key" value={key} onChange={(e) => { setKey(e.target.value); setSensitiveDirty(Boolean(e.target.value || json)); }} />
           <div className="flex items-center gap-2">
             <Input disabled={busy} aria-label="Models" placeholder="models: comma/newline, e.g. minimax-m3, gpt-4o" value={models} onChange={(e) => setModels(e.target.value)} className="flex-1" />
             <Button type="button" variant="outline" size="sm" className="[@media(pointer:coarse)]:min-h-[44px]" disabled={busy || scanning || !baseURL || !key} onClick={() => start(baseURL, key, protocol)}>
@@ -208,10 +207,11 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
         </div>
       ) : (
         <Textarea disabled={busy} rows={7} className="font-mono text-xs" value={json} aria-label="Custom provider JSON"
-          onChange={(e) => setJson(e.target.value)}
+          onChange={(e) => { setJson(e.target.value); setSensitiveDirty(Boolean(e.target.value || key)); }}
           placeholder={'{\n  "name": "ai-hub",\n  "baseURL": "https://host/v1",\n  "apiKey": "sk-…",\n  "protocol": "openai",\n  "models": ["minimax-m3", "gpt-4o"]\n}'} />
       )}
       <div className="flex justify-end">
+        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => { setName(""); setBaseURL(""); setKey(""); setModels(""); setJson(""); setFound([]); setFailure(null); setSensitiveDirty(false); }}>Discard</Button>
         <Button size="sm" className="[@media(pointer:coarse)]:min-h-[44px]" disabled={!canSubmit} onClick={submit}>{busy ? "Adding…" : "Add provider"}</Button>
       </div>
     </div>

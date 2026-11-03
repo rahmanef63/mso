@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -61,12 +61,13 @@ export function Field({
   hint?: string;
   children: ReactNode;
 }) {
-  return (
-    <div className="mb-4 max-w-xl">
-      <div className="text-[13px] font-semibold">{label}</div>
-      {hint ? <div className="mb-1.5 mt-0.5 text-[11px] text-muted-foreground">{hint}</div> : null}
-      {!hint ? <div className="mb-1.5" /> : null}
-      {children}
-    </div>
-  );
+  const id = useId();
+  const hintId = useId();
+  const isControl = ["Name", "Persona", "Instructions", "Starter prompts", "Run as agent"].includes(label) && isValidElement(children);
+  if (!isControl) return <fieldset className="mb-4 max-w-xl"><legend className="text-[13px] font-semibold">{label}</legend>{hint ? <p className="mb-1.5 mt-0.5 text-[11px] text-muted-foreground">{hint}</p> : null}{children}</fieldset>;
+  return <div className="mb-4 max-w-xl">
+    <label htmlFor={id} className="block text-[13px] font-semibold">{label}</label>
+    {hint ? <p id={hintId} className="mb-1.5 mt-0.5 text-[11px] text-muted-foreground">{hint}</p> : <div className="mb-1.5" />}
+    {cloneElement(children as ReactElement<{ id?: string; "aria-describedby"?: string }>, { id, "aria-describedby": hint ? hintId : undefined })}
+  </div>;
 }

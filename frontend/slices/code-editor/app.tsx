@@ -35,7 +35,8 @@ function payloadPath(payload: unknown): string | null {
 
 // Default export so os-shell can lazy-load it as a window app.
 export default function CodeEditor({ payload, winId }: AppProps) {
-  const ed = useEditor();
+  const ed = useEditor(winId);
+  const [closingTab, setClosingTab] = useState<string | null>(null);
   const [explorerOpen, setExplorerOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [pos, setPos] = useState({ ln: 1, col: 1 });
@@ -45,7 +46,10 @@ export default function CodeEditor({ payload, winId }: AppProps) {
   // Save-on-shortcut + dirty-window close guard. `saveRef` always points at the
   // current save (no stale closures in the global listener / Inspector action).
   const { confirmClose, setConfirmClose, forceClose, saveThenClose, saveRef } =
-    useCloseGuard(winId, ed.dirty, ed.save);
+    useCloseGuard(winId, ed.dirtyPaths.length > 0, ed.save, async () => {
+      for (const path of ed.dirtyPaths) if (!await ed.save(path)) return false;
+      return true;
+    });
   const save = () => void saveRef.current();
 
   // Open the payload path (cross-app "open this file"). Re-runs when the host
@@ -109,7 +113,7 @@ export default function CodeEditor({ payload, winId }: AppProps) {
           active={ed.active}
           dirtyOf={(p) => ed.buffers[p] !== ed.disk[p]}
           onSelect={ed.setActive}
-          onClose={ed.close}
+          onClose={(p) => { if (ed.dirtyPaths.includes(p)) setClosingTab(p); else ed.close(p); }}
           onNew={() => setNewOpen(true)}
         />
         <EditorToolbar
@@ -183,12 +187,13 @@ export default function CodeEditor({ payload, winId }: AppProps) {
       <NewFileModal open={newOpen} onOpenChange={setNewOpen} onCreate={ed.create} />
 
       <CloseGuardDialog
-        open={confirmClose}
-        onOpenChange={(o) => !o && setConfirmClose(false)}
-        fileLabel={ed.active ? baseName(ed.active) : "This file"}
-        onSave={() => void saveThenClose()}
-        onDiscard={() => { setConfirmClose(false); forceClose(); }}
-        onCancel={() => setConfirmClose(false)}
+        open={confirmClose || closingTab !== null}
+        onOpenChange={(o) => { if (!o) { setConfirmClose(false); setClosingTab(null); } }}
+        fileLabel={closingTab ? baseName(closingTab) : "Open files"}
+        error={ed.saveState === "error"}
+        onSave={() => { if (closingTab) void ed.save(closingTab).then((ok) => { if (ok) { ed.close(closingTab); setClosingTab(null); } }); else void saveThenClose(); }}
+        onDiscard={() => { if (closingTab) { ed.close(closingTab); setClosingTab(null); } else { setConfirmClose(false); forceClose(); } }}
+        onCancel={() => { setConfirmClose(false); setClosingTab(null); }}
       />
     </div>
   );

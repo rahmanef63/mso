@@ -26,7 +26,7 @@ export function useVault() {
 
   const apply = useCallback((result: AgentVaultView) => {
     setState(result.state); setSnapshotId(result.state.current || "");
-    setProject(result.state.project.path); localStorage.setItem(KEY, result.state.project.path);
+    setProject(result.state.project.path); try { localStorage.setItem(KEY, result.state.project.path); } catch { /* Preferences are optional. */ }
   }, []);
 
   const load = useCallback(async (hint: string, sync = false) => {
@@ -44,7 +44,8 @@ export function useVault() {
 
   useEffect(() => {
     const controller = new AbortController(); loading.current = controller;
-    void vaultRequest(localStorage.getItem(KEY) || "", controller.signal).then(result => {
+    let saved = ""; try { saved = localStorage.getItem(KEY) || ""; } catch { /* Preferences are optional. */ }
+    void vaultRequest(saved, controller.signal).then(result => {
       if (!controller.signal.aborted) apply(result);
     }).catch(cause => {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not load vault");

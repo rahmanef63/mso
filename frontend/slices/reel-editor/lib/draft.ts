@@ -32,11 +32,12 @@ function migrateLayerOrder(c: Composition): Composition {
   return { ...c, tracks: [by("text"), by("overlay"), by("video"), by("audio")] };
 }
 
-export function saveDraft(c: Composition): void {
+export function saveDraft(c: Composition): boolean {
   try {
     localStorage.setItem(KEY, JSON.stringify(c));
+    return true;
   } catch {
-    /* quota / private mode — draft just won't persist */
+    return false;
   }
 }
 

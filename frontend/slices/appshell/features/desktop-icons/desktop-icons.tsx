@@ -37,7 +37,7 @@ export function DesktopIcons() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.key === "Delete" || e.key === "Backspace") && getSelected().size) {
         const t = e.target as HTMLElement | null;
-        if (t && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+        if (!t?.closest("[data-desktop-icon]")) return;
         e.preventDefault();
         removeIcons([...getSelected()]);
         setSelected([]);
@@ -99,6 +99,7 @@ function IconButton({ icon, selected }: { icon: DesktopIcon; selected: boolean }
     <>
       <button
         type="button"
+        data-desktop-icon
         style={{ left: icon.x, top: icon.y, width: ICON_W }}
         className={cn(
           "pointer-events-auto absolute flex touch-none flex-col items-center gap-1 rounded-lg p-1.5 text-center",
@@ -107,6 +108,7 @@ function IconButton({ icon, selected }: { icon: DesktopIcon; selected: boolean }
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onClick={(e) => { if (e.detail === 0) open(); }}
         onDoubleClick={open}
         onContextMenu={(e) => {
           e.stopPropagation();

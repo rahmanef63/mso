@@ -23,6 +23,7 @@ export function GlyphPicker({
             variant="ghost"
             size="icon"
             aria-label={`glyph ${key}`}
+            aria-pressed={value === key}
             onClick={() => onChange(key)}
             className={cn(
               "grid size-9 place-items-center rounded-md p-0 ring-offset-2 ring-offset-background transition",

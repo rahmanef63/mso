@@ -21,7 +21,7 @@ export function StatusBar({
   // Live host may reject writes; surface that distinctly from a clean save.
   const status =
     saveState === "error"
-      ? "Read-only · saved locally"
+      ? "Save failed; changes remain in this window"
       : dirty
         ? "● Unsaved"
         : "Saved";

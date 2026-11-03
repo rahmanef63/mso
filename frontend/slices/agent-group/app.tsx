@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, RefreshCw, Users } from "lucide-react";
 import type { AppProps } from "@/features/appshell";
 import { AppFrame, openWindow } from "@/features/appshell";
@@ -19,20 +19,25 @@ export default function AgentGroupApp(_: AppProps) {
   const [error, setError] = useState("");
   const [editor, setEditor] = useState<AgentGroupView | "new" | null>(null);
 
+  const request = useRef(0);
   const load = useCallback(async () => {
+    const id = ++request.current;
     setLoading(true);
     try {
-      setSnapshot(await loadAgentGroups());
+      const next = await loadAgentGroups();
+      if (id !== request.current) return;
+      setSnapshot(next);
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not load agent groups.");
-    } finally { setLoading(false); }
+      if (id === request.current) setError(cause instanceof Error ? cause.message : "Could not load agent groups.");
+    } finally { if (id === request.current) setLoading(false); }
   }, []);
 
   useEffect(() => {
+    const requestRef = request;
     const frame = requestAnimationFrame(() => void load());
     window.addEventListener("focus", load);
-    return () => { cancelAnimationFrame(frame); window.removeEventListener("focus", load); };
+    return () => { requestRef.current++; cancelAnimationFrame(frame); window.removeEventListener("focus", load); };
   }, [load]);
 
   const toolbar = <div className="flex h-11 min-w-0 items-center gap-2 px-3">
@@ -51,11 +56,12 @@ export default function AgentGroupApp(_: AppProps) {
       </div>
     </AppFrame>
     <AgentGroupEditor
-      key={editor === "new" ? `new:${snapshot.revision}` : editor?.id ?? "closed"}
+      key={editor === "new" ? "new" : editor?.id ?? "closed"}
       open={editor !== null}
       onOpenChange={(open) => { if (!open) setEditor(null); }}
       row={editor && editor !== "new" ? editor : null}
       revision={snapshot.revision}
+      latest={editor && editor !== "new" ? snapshot.groups.find(item => item.id === editor.id) : undefined}
       onSaved={load}
     />
   </div>;

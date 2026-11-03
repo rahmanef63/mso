@@ -79,12 +79,16 @@ export function ThemeSection() {
   const design = useShellDesign();
   const mobile = design.mobileNavigation !== "none";
   const [groups, setGroups] = useState<PresetGroup[] | null>(null);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let active = true;
     loadPresetRegistry()
-      .then((reg) => setGroups(groupPresets(reg.items)))
-      .catch(() => setGroups([]));
-  }, []);
+      .then((reg) => { if (active) setGroups(groupPresets(reg.items)); })
+      .catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [attempt]);
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -122,8 +126,12 @@ export function ThemeSection() {
             <RotateCcw /> Stock
           </Button>
         </div>
-        {groups === null ? (
+        {error ? (
+          <div role="alert" className="space-y-2 px-1 text-sm">Could not load presets. <Button type="button" variant="outline" size="sm" onClick={() => { setError(false); setGroups(null); setAttempt((n) => n + 1); }}>Retry</Button></div>
+        ) : groups === null ? (
           <p className="px-1 text-xs text-muted-foreground">Loading presets…</p>
+        ) : groups.length === 0 ? (
+          <p className="px-1 text-xs text-muted-foreground">No presets available.</p>
         ) : (
           <div className="space-y-3">
             {groups.map((group) => (

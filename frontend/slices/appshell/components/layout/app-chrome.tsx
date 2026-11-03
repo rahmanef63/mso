@@ -112,7 +112,7 @@ export function AppSidebar({
       compact={pane === "xs" || pane === "sm"}
       title={title}
       description={description}
-      railBase="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar"
+      railBase="flex w-[var(--feature-sidebar-width,14rem)] shrink-0 flex-col border-r border-border bg-sidebar"
       railClassName={railClassName}
       sheetWidth="w-72 sm:max-w-xs"
       sheetClassName={sheetClassName}

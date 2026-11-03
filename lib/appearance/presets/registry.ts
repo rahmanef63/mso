@@ -17,6 +17,9 @@ export async function loadPresetRegistry(): Promise<PresetRegistry> {
       items: data.items.filter((i) => i.cssVars?.light && i.cssVars?.dark),
     };
     return cache;
+  }).catch((error) => {
+    pending = null;
+    throw error;
   });
   return pending;
 }

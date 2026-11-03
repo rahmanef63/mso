@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useFeatureState } from "@/features/appshell";
 import { useOsApi } from "./host";
 import { SEED_FILES } from "./seed";
 import { baseName, joinPath } from "./util";
@@ -10,12 +11,12 @@ export type SaveState = "idle" | "saved" | "error";
 // Owns the editor's working state: the in-memory "disk" (last saved text per
 // path), live working buffers, the open-tab list, and the active tab. FS reads
 // hydrate a buffer; FS writes are best-effort (live host may be read-only).
-export function useEditor() {
+export function useEditor(winId?: string) {
   const api = useOsApi();
-  const [disk, setDisk] = useState<Record<string, string>>({ ...SEED_FILES });
-  const [buffers, setBuffers] = useState<Record<string, string>>({});
-  const [tabs, setTabs] = useState<string[]>([]);
-  const [active, setActive] = useState<string | null>(null);
+  const [disk, setDisk] = useFeatureState<Record<string, string>>(winId, "code-disk", { ...SEED_FILES });
+  const [buffers, setBuffers] = useFeatureState<Record<string, string>>(winId, "code-buffers", {});
+  const [tabs, setTabs] = useFeatureState<string[]>(winId, "code-tabs", []);
+  const [active, setActive] = useFeatureState<string | null>(winId, "code-active", null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   const open = useCallback(
@@ -55,7 +56,7 @@ export function useEditor() {
         })
         .catch(() => {});
     },
-    [api, disk],
+    [api, disk, setActive, setBuffers, setDisk, setTabs],
   );
 
   // Payload-driven open (cross-app "open this file"): add a tab, make it
@@ -86,11 +87,12 @@ export function useEditor() {
         })
         .catch(() => setSaveState("error"));
     },
-    [api, disk],
+    [api, disk, setActive, setBuffers, setDisk, setTabs],
   );
 
   const close = useCallback(
     (path: string) => {
+      setBuffers((b) => { const next = { ...b }; delete next[path]; return next; });
       setTabs((t) => {
         const i = t.indexOf(path);
         const next = t.filter((x) => x !== path);
@@ -100,7 +102,7 @@ export function useEditor() {
         return next;
       });
     },
-    [],
+    [setActive, setBuffers, setTabs],
   );
 
   const edit = useCallback(
@@ -109,7 +111,7 @@ export function useEditor() {
       setBuffers((b) => ({ ...b, [active]: value }));
       setSaveState("idle");
     },
-    [active],
+    [active, setBuffers],
   );
 
   const create = useCallback(
@@ -118,31 +120,25 @@ export function useEditor() {
       setDisk((d) => ({ ...d, [path]: d[path] ?? "" }));
       open(path);
     },
-    [open],
+    [open, setDisk],
   );
 
   const save = useCallback(
     async (path = active) => {
-      if (path == null) return;
+      if (path == null) return true;
       const value = buffers[path] ?? "";
-      const prevDisk = disk[path];
-      // Optimistically mark clean, then write. On failure revert the disk
-      // baseline so the buffer stays dirty and Save re-enables for a retry.
-      setDisk((d) => ({ ...d, [path]: value }));
+
       try {
         await api.fs.write(path, value);
+        setDisk((d) => ({ ...d, [path]: value }));
         setSaveState("saved");
+        return true;
       } catch {
-        setDisk((d) => {
-          const next = { ...d };
-          if (prevDisk === undefined) delete next[path];
-          else next[path] = prevDisk;
-          return next;
-        });
         setSaveState("error");
+        return false;
       }
     },
-    [active, api, buffers, disk],
+    [active, api, buffers, setDisk],
   );
 
   const value = active != null ? (buffers[active] ?? "") : "";
@@ -153,6 +149,7 @@ export function useEditor() {
     active,
     value,
     dirty,
+    dirtyPaths: tabs.filter((p) => buffers[p] !== (disk[p] ?? "")),
     saveState,
     buffers,
     disk,

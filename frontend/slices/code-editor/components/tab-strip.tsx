@@ -28,17 +28,25 @@ export function TabStrip({
   };
 
   return (
-    <div className="flex min-h-9 items-stretch overflow-x-auto border-b border-[#2a2a30] bg-[#16161a] [@media(pointer:coarse)]:min-h-[44px]">
+    <div role="tablist" aria-label="Open files" className="flex min-h-9 items-stretch overflow-x-auto border-b border-[#2a2a30] bg-[#16161a] [@media(pointer:coarse)]:min-h-[44px]">
       {tabs.map((p) => {
         const on = p === active;
         const dirty = dirtyOf(p);
         return (
           <div
             key={p}
+            role="tab"
+            aria-selected={on}
+            tabIndex={on ? 0 : -1}
             onClick={() => onSelect(p)}
+            onKeyDown={(e) => {
+              const i = tabs.indexOf(p);
+              const next = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i + tabs.length - 1) % tabs.length : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
+              if (next >= 0) { e.preventDefault(); onSelect(tabs[next]); e.currentTarget.parentElement?.querySelectorAll<HTMLElement>("[role=tab]")[next]?.focus(); }
+            }}
             title={p}
             className={cn(
-              "flex max-w-[200px] shrink-0 items-center gap-2 border-r border-[#2a2a30] px-3 text-xs",
+              "flex max-w-[200px] shrink-0 items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary border-r border-[#2a2a30] px-3 text-xs",
               on
                 ? "border-t-2 border-t-primary bg-[#1e1e22] text-[#e6e6e6]"
                 : "border-t-2 border-t-transparent text-[#9aa0aa] hover:bg-[#1b1b20]",

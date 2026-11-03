@@ -51,8 +51,9 @@ export function InstallPanel({
     void centre.run("install", () => installApp(appId, key ? { provider, apiKey: key } : {}));
   };
 
-  const openTerminal = () => {
-    copyClip(install);
+  const openTerminal = async () => {
+    const copied = await (copyClip(install) as unknown as Promise<boolean | void>);
+    if (copied === false) return;
     openWindow("os-terminal", "Terminal");
     toast("Command copied. Paste it in the Terminal");
   };
@@ -140,7 +141,7 @@ export function InstallPanel({
             <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-secondary-foreground">{install}</code>
             <CopyButton value={install} label="install command" />
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={openTerminal}>
+          <Button type="button" variant="outline" size="sm" onClick={() => void openTerminal()}>
             <SquareTerminal aria-hidden />
             Open in Terminal
           </Button>
