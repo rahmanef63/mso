@@ -9,14 +9,32 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - `tui` fifteen audits, and the defects that made the panel lie about safety
+- keep credentials out of Composio cache keys
+- preserve window drafts and modal focus
+- bind Composio sessions to selected connections
+- guard concurrent workflow replacements
+- guard workspace save and browser lifecycles
+- prevent direct remote markdown file export
+- `settings` retain About subpage across shell changes
+- `ui` preserve external editor height on short screens
+- `n8n` keep frame controls stable during refresh
+- `ui` surface refresh and persistence failures
+- `ui` harden shell controls and picker interactions
+- `workflows` serialize toolbar actions
+- protect agent collaboration drafts and actions
+- `frontend` allow relinking recovered media
+- `frontend` protect workspace and media sessions
 
 **Tests**
 
 - `tui` derive the wide-character fixture path from HOME
+- retain Camoufox abort callback contract
 
 **Docs**
 
 - `env` document MSO_AGENT_TIMEOUT_MS
+- reconcile all frontend audit findings
+- record rendered surfaces verification
 
 **Chores**
 
@@ -34,6 +52,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - `tui` the footer reads the context field that exists, and shows the queue (#268)
+- `ui` define frontend contract and accessible action icons
 - `ui` preserve workspace state and share dynamic shell layout
 - `ci` stop the CodeQL analysis job from gating on open alerts
 - `export` create the markdown export atomically, closing a TOCTOU write
