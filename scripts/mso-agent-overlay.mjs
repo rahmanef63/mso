@@ -43,16 +43,21 @@ export function overlayFrame({ lines, menu = [], foot = [], owned = 1, rows = 24
  * Pulled out of the composer's render because it is the part with the arithmetic that has broken twice,
  * and it is easier to keep honest when it is not interleaved with key handling and cursor bookkeeping.
  *
+ * Returns the row the frame starts on as well as the lines, because the caret needs the same anchor: the
+ * painter leaves the cursor on the frame's LAST row, so anything placing the caret must be told where the
+ * frame BEGAN or it ends up on the footer.
+ *
  * @param {{output: any, lines: string[], menu: string[], foot: string[], owned: number, previous: string[],
- *   absolute: boolean}} args
- * @returns {string[]} the frame now on screen
+ *   absolute: boolean, writeFrame: Function, writeFrameAt: Function}} args
+ * @returns {{painted: string[], top: number}} the frame now on screen, and its 1-based first row
  */
 export function paintOverlayFrame({ output, lines, menu, foot, owned, previous, absolute, writeFrame, writeFrameAt }) {
   const { visible, top } = overlayFrame({ lines, menu, foot, owned, rows: output?.rows });
 
-  return absolute
+  const painted = absolute
     ? writeFrameAt(output, previous, visible, top, output?.columns)
     : writeFrame(output, previous, visible);
+  return { painted, top: absolute ? top : 0 };
 }
 
 /**
@@ -96,15 +101,21 @@ export function draftRowBudget({ rows = 24, menuRows = 0, footRows = 0 } = {}) {
 }
 
 /**
- * Where the caret goes after a frame is on screen: one row per draft line, then along the prompt.
+ * Where the caret goes after a frame is on screen.
  *
- * Kept next to the frame because it is the same arithmetic. When these two disagreed the caret landed
- * inside the panel and the next repaint wrote over it.
+ * Absolute when the caller knows the frame's top row, which it does in panel mode: writeFrameAt leaves the
+ * cursor on the frame's LAST row (the footer), so a relative "move down cursorRow" from there put the caret
+ * on or below the footer instead of in the prompt. That is the cursor that appeared under the status rows.
  *
- * @param {{cursorRow?: number, promptWidth?: number, cursorCol?: number}} input
+ * @param {{top?: number, cursorRow?: number, promptWidth?: number, cursorCol?: number}} input
  * @returns {string} escape sequence placing the caret
  */
-export function caretEscape({ cursorRow = 0, promptWidth = 0, cursorCol = 0 } = {}) {
+export function caretEscape({ top = 0, cursorRow = 0, promptWidth = 0, cursorCol = 0 } = {}) {
+  const col = Math.max(1, Number(promptWidth) + Number(cursorCol) + 1);
+  if (Number(top) > 0) {
+    // 1-based row, 1-based column: the prompt's own row plus the draft line the caret sits on.
+    return `\x1b[${Math.max(1, Number(top)) + Number(cursorRow)};${col}H`;
+  }
   const down = Number(cursorRow) > 0 ? `\x1b[${Number(cursorRow)}B` : "";
   return `${down}\r\x1b[${Math.max(0, Number(promptWidth) + Number(cursorCol))}C`;
 }

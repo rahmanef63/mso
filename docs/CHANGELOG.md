@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` the completion menu says what each row IS, in colour and in glyph
+- `tui` the completion menu says what each row IS, in colour and in glyph (#274)
 
 **Fixed**
 
@@ -37,10 +37,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - reconcile all frontend audit findings
 - record rendered surfaces verification
-
-**Chores**
-
-- regenerate changelog
 
 ## 2026-11-03
 
