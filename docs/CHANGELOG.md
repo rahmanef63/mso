@@ -38,8 +38,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Chores**
 
-- regenerate changelog after merging main
 - changelog pass
+- regenerate changelog after merging main
 - changelog
 
 ## 2026-11-03
