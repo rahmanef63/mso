@@ -11,15 +11,27 @@
 
 import { contextStatus } from "./mso-agent-status.mjs";
 import { queueList } from "./mso-agent-queue.mjs";
+import { cellWidth, stripAnsi } from "./tui/cells.mjs";
 
-const PLAIN = /\x1b\[[0-9;]*m/g;
-const plain = (value) => String(value ?? "").replace(PLAIN, "");
-const width = (value) => Array.from(plain(value)).length;
+const width = (value) => cellWidth(value);
+
+// Clips to `max` cells by measuring the PLAIN text and then applying the colour once.
+//
+// Slicing the styled string cut escape sequences in half: the cut landed inside "\x1b[2m" and the "…" that
+// followed was not a CSI final byte, so the terminal kept buffering and ate the next real characters. It
+// also emitted no reset, which bled dim/yolo colour into the prompt. Measuring in cells (not code points)
+// is the second half of the fix: a CJK path is twice as wide as its character count says.
 const clamp = (value, max) => {
-  const text = String(value ?? "");
-  if (width(text) <= max) return text;
-  const chars = Array.from(text);
-  return `${chars.slice(0, Math.max(0, max - 1)).join("")}…`;
+  const plainText = stripAnsi(value);
+  if (cellWidth(plainText) <= max) return String(value ?? "");
+  let out = "", used = 0;
+  for (const ch of plainText) {
+    const w = cellWidth(ch);
+    if (used + w > Math.max(0, max - 1)) break;
+    out += ch;
+    used += w;
+  }
+  return `${out}…`;
 };
 
 function number(value) {

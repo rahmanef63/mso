@@ -89,7 +89,14 @@ export function mountScreenLoop({
   // because the composer paints relative to the cursor and cannot be told where to begin.
   const paint = () => {
     if (output?.isTTY !== true) return;
+    // A suspended panel must not paint. Every one of paint's callers is live during a suspension: a
+    // resize, a printed line, and the composer reporting a taller frame all reach here while a child
+    // process or the approval prompt owns the terminal. Painting then wrote the whole frame onto the
+    // NORMAL screen and erased the prompt the user was answering.
+    if (panelSuspend?.isSuspended?.()) return;
     const { panel, viewRows, pWidth, transWidth, railWidth, kind } = geometry();
+    // The viewport must clamp against the rows it can actually draw, not the terminal's rows.
+    viewport.viewRows = viewRows;
     const body = renderViewport(viewport, { colors, width: transWidth, rows: viewRows });
     const side = pWidth > 0 ? paneLines({ kind, session, colors, width: pWidth, rows: viewRows }) : [];
     const rail = railWidth > 0 ? tabRailLines(currentSessions(), session?.agentSession?.id, { colors, width: railWidth, rows: viewRows }) : [];

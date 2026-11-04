@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { isKnownKeyName, normalizeKey } from "./mso-agent-key-normalize.mjs";
 import os from "node:os";
 import path from "node:path";
 import { createPrinter } from "./mso-agent-print.mjs";
@@ -44,30 +45,7 @@ export function defaultKeybinds() {
   };
 }
 
-export function normalizeKey(spec) {
-  if (!spec) return "";
-  if (typeof spec === "object") {
-    const parts = [];
-    if (spec.ctrl) parts.push("ctrl");
-    if (spec.meta && spec.name !== "escape") parts.push("alt"); // bare Escape reports meta:true
-    if (spec.shift) parts.push("shift");
-    const name = String(spec.name || "").toLowerCase().trim();
-    if (!name) return "";
-    parts.push(name === "enter" ? "return" : name);
-    return parts.join("+");
-  }
-  const tokens = String(spec).toLowerCase().trim().replace(/\s+/g, "").split("+").filter(Boolean);
-  if (!tokens.length) return "";
-  const mods = [];
-  let key = "";
-  for (const token of tokens) {
-    if (token === "ctrl" || token === "control") mods.push("ctrl");
-    else if (token === "alt" || token === "meta") mods.push("alt");
-    else if (token === "shift") mods.push("shift");
-    else key = token === "enter" ? "return" : token;
-  }
-  return key ? [...mods, key].join("+") : "";
-}
+export { normalizeKey } from "./mso-agent-key-normalize.mjs";
 
 /**
  * @param {any} key
@@ -152,10 +130,28 @@ export function loadKeybinds({ path: filePath = defaultKeybindsPath(), readFile 
       warnings.push(`invalid key "${keyValue}" for action "${actionKey}"`);
       continue;
     }
+    // A key the terminal can never report is a binding that silently does nothing, and it also replaced
+    // the default that worked. Refusing it keeps the working default instead of trading it for a no-op.
+    const keyPart = norm.split("+").pop();
+    if (!(keyPart.length === 1 || isKnownKeyName(keyPart))) {
+      warnings.push(`unknown key "${keyValue}" for action "${actionKey}" (kept previous binding)`);
+      continue;
+    }
+    if (keyPart === "escape" && norm.includes("alt")) {
+      // Alt+Escape is not reported by node at all, and a bare Escape never normalises to alt+escape.
+      warnings.push(`"alt+escape" is unreachable; bind "escape" instead (action "${actionKey}")`);
+      continue;
+    }
     if (READLINE_EDITING_KEYS.has(norm)) {
       warnings.push(`binding "${norm}" overrides line editing`);
     }
     resolved[action] = norm;
+  }
+
+  // Report action-vs-action collisions at load. detectConflicts existed but nothing called it, so two
+  // actions on one key silently resolved by declaration order while /keybind conflicts reported clean.
+  for (const conflict of detectConflicts(resolved)) {
+    warnings.push(`"${conflict.key}" is bound to ${conflict.actions.join(" and ")}; only ${conflict.actions[0]} wins`);
   }
 
   return settle(resolved, warnings, filePath);

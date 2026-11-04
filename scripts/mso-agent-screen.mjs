@@ -155,19 +155,57 @@ export function writeFrameAt(output, previous, next, topRow, columns = output?.c
   return nxt;
 }
 
+// Clips a styled line to `max` DISPLAY CELLS, keeping escape sequences.
+//
+// This used to count code points, so a CJK or emoji line reported half its real width and was emitted at
+// up to twice the budget. A line wider than the terminal wraps, and wrapping on the last row scrolls the
+// screen — the one thing the retained frame must never do. The width rule now comes from tui/cells.mjs,
+// the same module the transcript and pane use, so every renderer agrees on what a cell is.
+//
+// Tabs are expanded first: a terminal advances a tab to the next multiple of 8, but every measurement here
+// counted it as one cell, so tab-indented output (code blocks, pasted text) overflowed and scrolled.
+function expandTabs(value) {
+  const text = String(value ?? "");
+  if (!text.includes("\t")) return text;
+  let out = "", col = 0;
+  for (let i = 0; i < text.length;) {
+    const ansi = /^\x1b\[[0-9;?]*[ -/]*[@-~]/.exec(text.slice(i));
+    if (ansi) { out += ansi[0]; i += ansi[0].length; continue; }
+    const ch = text[i];
+    if (ch === "\t") {
+      // Tab stop at the next multiple of 8, which is what the terminal does.
+      const spaces = 8 - (col % 8);
+      out += " ".repeat(spaces);
+      col += spaces;
+    } else {
+      const cp = text.codePointAt(i) ?? 0;
+      const char = String.fromCodePoint(cp);
+      out += char;
+      col += cellWidth(char);
+      i += char.length;
+      continue;
+    }
+    i += 1;
+  }
+  return out;
+}
+
 function fitToCells(value, max) {
-  const plainText = String(value ?? "");
+  const plainText = expandTabs(value);
   if (stripAnsiWidth(plainText) <= max) return plainText;
   let out = "", shown = 0;
-  for (let i = 0; i < plainText.length;) {
-    const ansi = /^\x1b\[[0-9;?]*[ -/]*[@-~]/.exec(plainText.slice(i));
-    if (ansi) { out += ansi[0]; i += ansi[0].length; continue; }
-    if (shown >= max) { i++; continue; }
-    out += plainText[i]; shown += 1; i += 1;
+  // for..of walks CODE POINTS, so a surrogate pair is never split into a lone surrogate.
+  for (const ch of plainText) {
+    const ansi = /^\x1b\[[0-9;?]*[ -/]*[@-~]/.exec(plainText.slice(shown));
+    if (ansi) { out += ansi[0]; continue; }
+    const w = cellWidth(ch);
+    if (shown + w > max) continue;
+    out += ch;
+    shown += w;
   }
   return out;
 }
 
 function stripAnsiWidth(value) {
-  return Array.from(String(value ?? "").replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")).length;
+  return cellWidth(value);
 }

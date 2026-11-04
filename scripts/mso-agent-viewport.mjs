@@ -57,7 +57,10 @@ function enforceCap(viewport) {
   } else {
     viewport.lines.unshift(dropMarker);
   }
-  const maxOffset = Math.max(0, getAllLines(viewport).length - viewport.rows);
+  // Clamp against the rows actually RENDERED, which is fewer than the terminal's rows once the panel and
+  // the prompt are subtracted. Using terminal rows here let the offset outrun the window, so a scroll
+  // jumped and /find landed on a line that was not visible.
+  const maxOffset = Math.max(0, getAllLines(viewport).length - (Number(viewport.viewRows) || viewport.rows));
   viewport.offset = Math.min(viewport.offset, maxOffset);
 }
 
@@ -70,11 +73,17 @@ export function setLines(viewport, lines) {
   for (const item of Array.isArray(lines) ? lines : [lines]) {
     for (const part of String(item ?? "").replace(/\r/g, "").split("\n")) flat.push(part);
   }
+  // A replaced buffer is a DIFFERENT transcript (a session switch, /clear, or a rebuilt turn), so an old
+  // scroll offset no longer refers to anything. Keeping it opened the next session at its OLDEST lines,
+  // with the newest ones off-screen and no indication why.
+  const previous = viewport.lines;
+  const topBefore = previous.length ? previous[Math.max(0, previous.length - viewport.rows - viewport.offset)] : null;
   const wasFollowing = viewport.offset === 0;
+  const overlap = topBefore !== null && flat.includes(topBefore);
   viewport.lines = flat;
   viewport.droppedCount = 0;
   enforceCap(viewport);
-  if (wasFollowing) viewport.offset = 0;
+  if (wasFollowing || !overlap) viewport.offset = 0;
 }
 
 // Ingests streaming chunks, buffering partial trailing lines without committing them prematurely.
@@ -111,6 +120,9 @@ export function viewportWindow(viewport, rows) {
 
   const maxOffset = total - r;
   const clampedOffset = Math.max(0, Math.min(viewport.offset, maxOffset));
+  // Write the clamp back: leaving a stale larger offset let it keep growing on every append, and once the
+  // buffer later fit the window the report said follow:true while the stored offset was still huge.
+  viewport.offset = clampedOffset;
   const targetStart = total - r - clampedOffset;
   const { start, end } = windowFor(allLines, targetStart + Math.floor(r / 2), r);
   return {
@@ -143,15 +155,19 @@ export function handleViewportKey(viewport, key, { rows } = {}) {
     viewport.offset = maxOffset;
     return true;
   }
-  if (((key.ctrl && key.shift) && (key.name === "g" || key.name === "G")) || key.name === "end") {
+  if ((key.ctrl && key.shift && (key.name === "g" || key.name === "G")) || key.name === "end") {
     viewport.offset = 0;
     return true;
   }
-  if (key.ctrl && key.name === "u") {
+  // Ctrl+U and Ctrl+D are documented EDITING keys (delete to line start, delete right) and the help
+  // screen advertises them. Sharing them with scrolling meant Ctrl+U silently stopped clearing the prompt
+  // as soon as the transcript grew past one screen. Scrolling moved to Alt+U / Alt+D so the two can never
+  // shadow each other again.
+  if (key.alt && (key.name === "u" || key.name === "U")) {
     viewport.offset = Math.min(maxOffset, viewport.offset + halfPage);
     return true;
   }
-  if (key.ctrl && key.name === "d") {
+  if (key.alt && (key.name === "d" || key.name === "D")) {
     viewport.offset = Math.max(0, viewport.offset - halfPage);
     return true;
   }

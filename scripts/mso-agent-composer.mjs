@@ -69,7 +69,10 @@ export class AgentComposer {
         if (settled) return;
         settled = true;
         erase();
-        if (echo) output.write(`${promptText()}${displayValue}\r\n`);
+        // In panel mode the panel owns the screen: a raw CRLF writes a row OUTSIDE the retained frame,
+        // and the frame never clears it, so the prompt text stays on screen under the dialog. The caller
+        // repaints and records the line through the print sink instead.
+        if (echo && !rowCallback) output.write(`${promptText()}${displayValue}\r\n`);
         cleanup();
         if (history && result?.trim()) { this.history.unshift(result); if (this.history.length > 100) this.history.length = 100; }
         resolve(result);
@@ -79,7 +82,7 @@ export class AgentComposer {
         if (typeof onCancel === "function") onCancel();
         settled = true;
         erase();
-        if (echo) output.write("^C\r\n");
+        if (echo && !rowCallback) output.write("^C\r\n");
         cleanup();
         resolve(null);
         return true;

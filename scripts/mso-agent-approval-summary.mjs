@@ -17,8 +17,12 @@ function cleanTarget(value, max = 80) {
 
 // Extracts the primary actionable target from tool input without guessing missing fields.
 export function extractApprovalTarget(input = {}, tool = {}) {
-  // Prefer explicit execution commands because they carry the highest risk profile.
+  // Prefer explicit execution commands because they carry the highest risk profile. A multi-line command
+  // is reported line-count-first: collapsing it hides what actually runs, and a leading "#" would make the
+  // rest of the script read as a comment.
   if (typeof input?.command === "string" && input.command.trim()) {
+    const lines = input.command.split(/\r?\n/).filter((line) => line.trim());
+    if (lines.length > 1) return `${cleanTarget(lines[0], 56)} (+${lines.length - 1} more lines)`;
     return cleanTarget(input.command);
   }
   // File operations identify targets by path or source-destination pairs.

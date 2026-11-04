@@ -54,7 +54,7 @@ import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { C } from "./mso-agent-runtime.mjs";
 import { BASE, CLI, api, state } from "./mso-agent-api.mjs";
-import { leaveScreen } from "./mso-agent-altscreen.mjs";
+import { withPanelSuspended } from "./mso-agent-turn-print.mjs";
 import {
   loadSlashSkill,
   printSkillChoices,
@@ -77,15 +77,28 @@ import { createPrinter } from "./mso-agent-print.mjs";
 
 export { SHARE_UNAVAILABLE_MESSAGE, buildExportArgv };
 
+// Set once by handleSlash, so runCli can suspend the panel around a child process without every caller
+// threading the loop through. Module-level because runCli is passed around as a bare function.
+let runCliLoop = null;
+
 function runCli(args) {
-  // Releases the alternate screen buffer before handing the terminal to an interactive child process.
-  leaveScreen();
-  const result = spawnSync(CLI, args, {
-    stdio: "inherit",
-    env: { ...process.env, MSO_BASE: BASE },
+  // Hands the terminal to a child process and takes it back. The previous version called leaveScreen()
+  // and never re-entered: only a panel suspend/resume pair restores the alternate screen, and suspend()
+  // was never called here, so `screenLoop.active` stayed true and every later frame painted onto the
+  // user's normal screen, overwriting their scrollback for the rest of the session. `withPanelSuspended`
+  // is the pair: suspend re-enables line input and disables the panel, resume restores both.
+  let status = 1;
+  // The loop is reached through the session, which every command context already carries; runCli is
+  // handed around as a bare function, so it cannot close over the loop at module scope.
+  withPanelSuspended(runCliLoop || null, () => {
+    const result = spawnSync(CLI, args, {
+      stdio: "inherit",
+      env: { ...process.env, MSO_BASE: BASE },
+    });
+    if (result.error) console.error(`${C.err}${result.error.message}${C.reset}`);
+    status = result.status ?? 1;
   });
-  if (result.error) console.error(`${C.err}${result.error.message}${C.reset}`);
-  return result.status ?? 1;
+  return status;
 }
 
 async function selectSlashSkill(rl, session, requested, prompt, runTurn) {
@@ -115,8 +128,9 @@ async function selectSlashSkill(rl, session, requested, prompt, runTurn) {
     return "handled";
   }
   session.history.push({ role: "user", text: prompt.trim() });
-  if (session.history.length > 48)
-    session.history.splice(0, session.history.length - 48);
+  // No splice here. The old line dropped everything past 48 rows from the in-memory history, and the next
+  // persistSession wrote that shortened array back: one /skill call permanently deleted the conversation.
+  // The server already bounds history (MAX_HISTORY), and the plain prompt path never trims in memory.
   await runTurn(loaded);
   return "handled";
 }
@@ -132,6 +146,7 @@ async function selectSlashSkill(rl, session, requested, prompt, runTurn) {
 
 export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
   const [cmd, ...args] = line.trim().split(/\s+/);
+  runCliLoop = session?.screenLoop || null;
   const local = await handleLocalCommand(cmd, args, session, { runCli, runSubagent });
   if (local) return local;
 

@@ -28,13 +28,19 @@ function historyContextEstimate(history) {
 export function contextStatus(history, modelMeta) {
   const limit = Number(modelMeta?.context || 0);
   const projected = projectHistoryForModel(history, limit);
+  const stored = historyContextEstimate(history);
+  const hasLimit = Number.isFinite(limit) && limit > 0;
   return {
     used: projected.estimatedTokens,
-    stored: historyContextEstimate(history),
+    stored,
     omittedRows: projected.omittedRows,
     budget: projected.budgetTokens,
-    limit: Number.isFinite(limit) && limit > 0 ? limit : null,
-    percent: limit > 0 ? Math.min(999, Math.round((projected.estimatedTokens / limit) * 100)) : null,
+    limit: hasLimit ? limit : null,
+    // Occupancy is measured against the WINDOW, not against the projection budget. The old formula divided
+    // by a budget capped at 120k, so a 200k window could never read above 55%: a session already past the
+    // window was told it was half full. Overflow above 100% is reported as 100%, since "more than full" is
+    // not a percentage. `used` still describes what will actually be sent.
+    percent: hasLimit ? Math.max(0, Math.min(100, Math.round((stored / limit) * 100))) : null,
   };
 }
 

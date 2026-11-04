@@ -11,18 +11,29 @@ const PLAIN = /\x1b\[[0-9;]*m/g;
  * Builds the rows the dialog lists. One source, so the dialog can never offer a command the handler
  * does not know.
  *
+ * `value` is the command name alone, because that is what gets dispatched. `text` carries the usage
+ * hint and is only for display: selecting a row used to send the whole hint as arguments, so picking
+ * `/terminal [cmd]` ran `sh -c "[cmd]"` and picking `/queue [drop|clear|prompt]` enqueued the literal
+ * placeholder as a prompt. 32 of 46 rows were wrong that way.
+ *
  * @param {Array<{name: string, usage?: string, description?: string}>} commands manifest entries
- * @returns {Array<{text: string, label: string, meta: string, kind: string}>}
+ * @returns {Array<{text: string, label: string, value: string, meta: string, kind: string}>}
  */
 export function commandDialogItems(commands = []) {
   return (Array.isArray(commands) ? commands : [])
     .filter((row) => row && typeof row.name === "string" && row.name.startsWith("/"))
-    .map((row) => ({
-      text: row.usage ? `${row.name} ${row.usage}` : row.name,
-      label: row.name,
-      meta: String(row.description || "").replace(PLAIN, ""),
-      kind: "command",
-    }))
+    .flatMap((row) => {
+      // A row may declare several names ("/exit, /quit"). Each is its own command, and dispatching the
+      // joined string made the whole row unusable: the first token became "/exit," which matched nothing.
+      return String(row.name).split(",").map((raw) => raw.trim()).filter((name) => name.startsWith("/"))
+        .map((name) => ({
+          text: row.usage ? `${name} ${row.usage}` : name,
+          label: name,
+          value: name,
+          meta: String(row.description || "").replace(PLAIN, ""),
+          kind: "command",
+        }));
+    })
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 

@@ -172,7 +172,10 @@ describeSuite("mso agent in real PTY e2e", () => {
     try {
       const output = await waitFor(child, (chunk, total) => {
         if (!sent && (chunk.includes("❯") || chunk.includes("›"))) { sent = true; setTimeout(() => child.write("\x03"), 100); }
-        return sent && total.includes("\x1b[?1049l");
+        // Wait for the HINT, not just the alt-screen exit. The hint is written after the alternate screen is
+        // left (that order is the fix: writing it earlier put it in the buffer about to be discarded), so
+        // stopping at "\x1b[?1049l" returns before the line that is being asserted.
+        return sent && total.includes("\x1b[?1049l") && total.includes("resume: mso --continue");
       });
       expect(output).toContain("\x1b[?1049l");
       expect(output).toContain("session Operate your server · resume: mso --continue");
