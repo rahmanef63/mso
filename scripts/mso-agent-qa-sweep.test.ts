@@ -143,7 +143,8 @@ describe("terminal width", () => {
     for (const columns of [20, 30, 60, 100]) {
       const session = {
         permission: "ask",
-        cwd: "/home/rahman/projects/日本語/クライアント/株式会社サンプル",
+        // Derived from HOME so the fixture is about the shortening rule, not about one machine's paths.
+        cwd: `${process.env.HOME || "/work"}/projects/日本語/クライアント/株式会社サンプル`,
         usage: { totalTokens: 123_456 },
         history: [{ role: "user", text: "x".repeat(2000) }],
         state: { config: { provider: "openai", model: "gpt" }, modelMeta: { context: 200_000 } },
