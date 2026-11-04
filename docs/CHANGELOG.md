@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-04
 
+**Added**
+
+- `tui` the completion menu says what each row IS, in colour and in glyph
+
 **Fixed**
 
 - `tui` fifteen audits, and the defects that made the panel lie about safety (#273)
