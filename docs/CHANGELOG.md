@@ -38,6 +38,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - reconcile all frontend audit findings
 - record rendered surfaces verification
 
+**Chores**
+
+- regenerate changelog
+
 ## 2026-11-03
 
 **Added**
