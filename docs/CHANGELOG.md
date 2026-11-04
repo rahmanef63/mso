@@ -8,10 +8,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` the completion menu says what each row IS, in colour and in glyph
+- `tui` the completion menu says what each row IS, in colour and in glyph (#274)
 
 **Fixed**
 
+- `tui` put the caret on the prompt row, not on the footer
 - `tui` fifteen audits, and the defects that made the panel lie about safety (#273)
 - keep credentials out of Composio cache keys
 - preserve window drafts and modal focus
@@ -40,7 +41,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Chores**
 
-- regenerate changelog
+- changelog pass
+- changelog
 
 ## 2026-11-03
 

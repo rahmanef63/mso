@@ -53,9 +53,14 @@ export class AgentComposer {
         const layout = inputLayout(value, cursor, { columns: output.columns, rows: terminalRows, promptWidth, maxRows });
         const { lines, owned } = composeComposerLines({ prompt: currentPrompt, draft: layout.lines, menu, foot, promptWidth });
         ownedRowCount = owned; if (rowCallback) setRows(owned); else reserve(Math.max(0, frameHeight(lines) - 1));
-        withCursorHidden(output, () => { paintedLines = paintOverlayFrame({ output, lines, menu, foot, owned, previous: paintedLines, absolute: Boolean(rowCallback), writeFrame, writeFrameAt }); });
+        let frameTop = 0;
+        withCursorHidden(output, () => {
+          const painted = paintOverlayFrame({ output, lines, menu, foot, owned, previous: paintedLines, absolute: Boolean(rowCallback), writeFrame, writeFrameAt });
+          paintedLines = painted.painted;
+          frameTop = painted.top;
+        });
         if (!rowCallback) setRows(paintedLines.length); // inline mode has no panel to tell
-        output.write(caretEscape({ cursorRow: layout.cursorRow, promptWidth, cursorCol: layout.cursorCol }));
+        output.write(caretEscape({ top: frameTop, cursorRow: layout.cursorRow, promptWidth, cursorCol: layout.cursorCol }));
         lastCursorRow = layout.cursorRow;
       };
       const cleanup = () => {
