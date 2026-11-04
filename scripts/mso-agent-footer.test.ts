@@ -70,12 +70,18 @@ describe("footer rows", () => {
 });
 
 describe("composer frame", () => {
-  it("claims prompt plus draft rows only, leaving the menu and footer to overlay", () => {
+  it("claims prompt, draft AND footer rows; only the menu overlays", () => {
+    // The footer is permanent and sits under the prompt, so the panel must reserve it. Reserving only
+    // prompt+draft left the frame two rows taller than the reservation, which painted the status rows
+    // over the panel's tab row (and its hit test) once the draft wrapped.
     const one = composeComposerLines({ prompt: "> ", draft: [""], menu: ["m1", "m2"], foot: ["f1"], promptWidth: 2 });
-    expect(one.owned).toBe(1);
+    expect(one.owned).toBe(2);
     expect(one.lines).toHaveLength(4);
     const three = composeComposerLines({ prompt: "> ", draft: ["a", "b", "c"], menu: [], foot: ["f1"], promptWidth: 2 });
-    expect(three.owned).toBe(3);
+    expect(three.owned).toBe(4);
+    // The menu is still excluded: it is transient and grows over the transcript.
+    const menuOnly = composeComposerLines({ prompt: "> ", draft: [""], menu: Array(10).fill("m"), foot: [], promptWidth: 2 });
+    expect(menuOnly.owned).toBe(1);
   });
 
   it("keeps the footer exactly once, which is what a duplicated status row got wrong", () => {

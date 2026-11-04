@@ -4,10 +4,30 @@ import { ApprovalSummaryFormatter } from "./mso-agent-approval-summary.mjs";
 const SECRET_KEY = /(api[_-]?key|token|secret|password|passwd|credential|cookie|authorization|private[_-]?key)/i;
 const SECRET_TEXT = /((?:api[_-]?key|token|secret|password|passwd|credential|authorization)\s*[=:]\s*)[^\s,;]+|\bBearer\s+[^\s,;]+/gi;
 
+function redact(value) {
+  return String(value ?? "").replace(SECRET_TEXT, (match, prefix) => prefix ? `${prefix}[redacted]` : "Bearer [redacted]");
+}
+
 function oneLine(value, max = 100) {
-  const clean = String(value ?? "").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
-  const safe = clean.replace(SECRET_TEXT, (match, prefix) => prefix ? `${prefix}[redacted]` : "Bearer [redacted]");
-  return Array.from(safe).length <= max ? safe : `${Array.from(safe).slice(0, Math.max(1, max - 1)).join("")}…`;
+  const clean = redact(value).replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+  return Array.from(clean).length <= max ? clean : `${Array.from(clean).slice(0, Math.max(1, max - 1)).join("")}…`;
+}
+
+// A shell command is a SEQUENCE of lines, and flattening it is a lie with consequences: "a # note\nrm -f x"
+// renders as one line where everything after "#" reads as a comment, so the approver approves something
+// that looks harmless while the executor runs the second line. Each line is kept and numbered.
+function commandLines(value, max = 120) {
+  const lines = redact(value).split(/\r?\n/).map((line) => line.replace(/\t/g, "  ").replace(/\s+$/, ""));
+  while (lines.length > 1 && !lines[lines.length - 1]) lines.pop();
+  const shown = lines.slice(0, 12);
+  const out = shown.map((line, i) => (shown.length > 1 ? `${i + 1}│ ${clip(line, max)}` : clip(line, max)));
+  if (lines.length > shown.length) out.push(`… +${lines.length - shown.length} more lines (run denied until shown in full)`);
+  return out;
+}
+
+function clip(value, max) {
+  const chars = Array.from(String(value ?? ""));
+  return chars.length <= max ? chars.join("") : `${chars.slice(0, Math.max(1, max - 1)).join("")}…`;
 }
 
 function safeValue(value, key = "", depth = 0) {
@@ -15,10 +35,16 @@ function safeValue(value, key = "", depth = 0) {
   if (depth > 3) return "[…]";
   if (value === null || typeof value === "boolean" || typeof value === "number") return value;
   if (typeof value === "string") return oneLine(value, 180);
-  if (Array.isArray(value)) return value.slice(0, 8).map((item) => safeValue(item, "", depth + 1));
+  if (Array.isArray(value)) {
+    const shown = value.slice(0, 8).map((item) => safeValue(item, "", depth + 1));
+    // Saying how many were withheld matters: an approver who sees 8 of 40 files is approving 8 files.
+    return value.length > shown.length ? [...shown, `… +${value.length - shown.length} more`] : shown;
+  }
   if (value && typeof value === "object") {
+    const entries = Object.entries(value);
     const out = {};
-    for (const [childKey, child] of Object.entries(value).slice(0, 16)) out[childKey] = safeValue(child, childKey, depth + 1);
+    for (const [childKey, child] of entries.slice(0, 16)) out[childKey] = safeValue(child, childKey, depth + 1);
+    if (entries.length > 16) out["…"] = `+${entries.length - 16} more fields`;
     return out;
   }
   return String(value ?? "");
@@ -26,7 +52,11 @@ function safeValue(value, key = "", depth = 0) {
 
 export function approvalActionSummary(tool, input = {}) {
   const name = String(tool?.name || "tool");
-  if (name === "exec_run" || name === "exec_job_start") return `run ${oneLine(input.command || "command", 72)}`;
+  if (name === "exec_run" || name === "exec_job_start") {
+    const lines = commandLines(input.command ?? "command", 72);
+    // A multi-line command says how many lines there are, so the one-line status cannot understate it.
+    return lines.length > 1 ? `run ${lines[0]} (+${lines.length - 1} more lines)` : `run ${lines[0]}`;
+  }
   if (name === "fs_write") return `write ${oneLine(input.path || "file", 72)}`;
   if (name === "fs_delete") return `delete ${oneLine(input.path || "path", 72)}`;
   if (name === "fs_move") return `move ${oneLine(input.from || "source", 32)} → ${oneLine(input.to || "target", 32)}`;
@@ -46,14 +76,21 @@ export function approvalStatusLine(tool, input, focused = false) {
 }
 
 export function approvalDetailLines(tool, input, approval) {
-  return [
+  const lines = [
     "Approval details",
     `  tool    ${String(tool?.name || "tool")}`,
     `  scope   ${String(tool?.scope || "write")}`,
-    `  args    ${approvalArgsSummary(input)}`,
-    `  digest  sha256 ${approval.digest}`,
-    "  choose  allow or deny",
   ];
+  // A command gets one numbered row per line. The flattened JSON form comes after it, because that is
+  // the shape the executor actually runs and the approver must see it in that shape.
+  if (typeof input?.command === "string" && input.command.includes("\n")) {
+    lines.push("  command");
+    for (const row of commandLines(input.command, 100)) lines.push(`    ${row}`);
+  }
+  lines.push(`  args    ${approvalArgsSummary(input)}`);
+  lines.push(`  digest  sha256 ${approval.digest}`);
+  lines.push("  choose  allow or deny");
+  return lines;
 }
 
 // Session-scoped approval formatter tracking confirmed tool calls in memory.

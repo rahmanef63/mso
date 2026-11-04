@@ -5,9 +5,13 @@ import { parseMouseChunk } from "./mso-agent-mouse.mjs";
 // to the composer would mean growing a file that sits at its line ceiling. This owns that patch and
 // nothing else, so the screen loop stays under the line ratchet.
 export function installInputHook({ input, onKey, onMouse }) {
-  const originalEmit = input.emit;
+  const originalEmit = input?.emit;
   if (typeof originalEmit !== "function") return { dispose() {}, setEnabled() {} };
   let enabled = true;
+  // A mouse report can arrive split across two `data` chunks. Only complete sequences were stripped, so
+  // the tail fell through to readline and was typed into the prompt as text ("64;10;5M"). The dangling
+  // fragment is held here and prepended to the next chunk until it completes.
+  let pendingMouse = "";
 
   const consumeMouse = (payload) => {
     const events = parseMouseChunk(payload);
@@ -22,14 +26,18 @@ export function installInputHook({ input, onKey, onMouse }) {
     if (!enabled) return Reflect.apply(originalEmit, this, [event, ...args]);
     if (event === "data" && args[0]) {
       const chunk = typeof args[0] === "string" ? args[0] : (args[0] instanceof Buffer ? args[0].toString("utf8") : "");
-      if (chunk.includes("\x1b[<")) {
-        const events = parseMouseChunk(chunk);
-        if (events.length) {
-          for (const item of events) onMouse(item);
-          const stripped = chunk.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
-          if (!stripped) return true;
-          args[0] = typeof args[0] === "string" ? stripped : Buffer.from(stripped, "utf8");
-        }
+      const buffered = pendingMouse + chunk;
+      if (buffered.includes("\x1b[<")) {
+        const events = parseMouseChunk(buffered);
+        if (events.length) for (const item of events) onMouse(item);
+        const stripped = buffered.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+        // Everything after an unterminated report marker may still be completing: hold it.
+        const tail = stripped.lastIndexOf("\x1b[<");
+        pendingMouse = tail >= 0 ? stripped.slice(tail) : "";
+        const rest = tail >= 0 ? stripped.slice(0, tail) : stripped;
+        if (!rest) return true;
+        // Preserve the original argument type: a Buffer caller must keep receiving a Buffer.
+        args[0] = args[0] instanceof Buffer ? Buffer.from(rest, "utf8") : rest;
       }
     }
     if (event === "keypress") {
@@ -41,7 +49,7 @@ export function installInputHook({ input, onKey, onMouse }) {
   };
 
   return {
-    setEnabled(next) { enabled = next; },
+    setEnabled(next) { enabled = next; if (!next) pendingMouse = ""; },
     dispose() {
       input.emit = originalEmit;
     },

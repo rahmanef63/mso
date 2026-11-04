@@ -12,6 +12,7 @@ import { takeCommandRequest } from "./mso-agent-command-dialog.mjs";
 import { createPromptCompletion } from "./mso-agent-prompt-completion.mjs"; import { pluginToolFilter, resolveMentions } from "./mso-agent-at.mjs";
 import { nextPermissionMode, permissionMode } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
+import { failRun, finishRun } from "./mso-agent-exit.mjs";
 import { oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
 import { LocalAgentBridge, handleLocalAgentMentionInput, runForegroundSubagent } from "./mso-agent-collaboration.mjs";
 import { composerPrompt, composerSeparator } from "./mso-agent-layout.mjs"; import { footerRows } from "./mso-agent-footer.mjs";
@@ -32,7 +33,13 @@ async function main() {
   const argv = process.argv.slice(2);
   if (argv.includes("--help") || argv.includes("-h")) { process.stdout.write(`${oneShotHelp()}\n`); return; }
   const oneShot = parseOneShot(argv);
-  if (oneShot) return runOneShot(oneShot);
+  if (oneShot) {
+    // The exit code has to carry the outcome: a caller scripting `mso agent --oneshot` reads the status,
+    // not the prose. A failed run used to exit 0.
+    const ok = await runOneShot(oneShot);
+    if (ok === false) process.exitCode = 3;
+    return;
+  }
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.error("mso agent needs an interactive terminal. For autonomous one-shot use: mso agent --oneshot \"<prompt>\" [--json]");
     process.exit(2);
@@ -205,17 +212,14 @@ async function main() {
   } finally {
     if (onSigint) process.off("SIGINT", onSigint);
     if (session) await persistSession(session).catch(() => undefined);
-    const sessionTitle = String(session?.agentSession?.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim().slice(0, 80);
-    if (!restartRequested && session) console.log(`${C.dim}session ${sessionTitle} · resume: mso --continue · switch: /sessions${C.reset}`);
-    if (localBridge) await localBridge.close({ ended: !restartRequested }).catch(() => undefined);
-    rl?.close();
-    screenLoop?.dispose();
-    screen?.dispose();
-  }
-  if (restartRequested) {
-    console.log(`${C.dim}↻ refreshing Agent runtime · keeping ${session.agentSession.title || "current session"}${C.reset}`);
-    relaunchCurrentAgentSession(session);
+    const next = await finishRun({
+      session, restartRequested, localBridge, colors: C,
+      closeComposer: () => rl?.close(),
+      disposePanel: () => screenLoop?.dispose(),
+      disposeScreen: () => screen?.dispose(),
+    });
+    if (next === "restart") relaunchCurrentAgentSession(session);
   }
 }
 
-if (Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch((error) => { console.error(`${C.err}mso agent: ${error instanceof Error ? error.message : String(error)}${C.reset}`); process.exit(1); });
+if (Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch((error) => failRun(error, { colors: C }));

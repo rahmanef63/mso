@@ -73,8 +73,12 @@ export function composeComposerLines({ prompt = "", draft = [], menu = [], foot 
     ...menu,
     ...foot,
   ];
-  // Prompt plus draft own rows; menu and footer overlay what is already there.
-  return { lines, owned: Math.max(1, draft.length) };
+  // Prompt, draft AND footer own rows. The menu is the only part that overlays, because a menu is
+  // transient and grows over the transcript. The footer is permanent: it sits below the prompt, so the
+  // panel must reserve it too. Reserving only prompt+draft left the frame two rows taller than the
+  // reservation, which painted the status rows over the panel's own tab row (and the tab hit test with
+  // it) as soon as the draft wrapped to a second line.
+  return { lines, owned: Math.max(1, draft.length) + foot.length };
 }
 
 /**

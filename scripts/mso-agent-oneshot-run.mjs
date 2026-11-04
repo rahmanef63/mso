@@ -21,12 +21,20 @@ export async function runOneShot(opts) {
   // not reasoning text, so nothing here changes the turn. Passing `thinking` into
   // agentRound would be dead config, so the flag is consumed in the payload below.
   const result = await agentRound(null, session, null, undefined, null, { quiet: true, approvalScope: opts.approvalScope });
-  await persistSession(session);
+  // A bookkeeping failure must not discard a completed answer.
+  await persistSession(session).catch(() => undefined);
+  // `ok` is derived, never assumed. It used to be the literal `true`, so a run whose only write was DENIED
+  // or whose tool returned ok:false still reported success and exited 0: an agent driving this saw
+  // "no output, success" and moved on. A turn that hit its limit is also not a success.
+  const calls = Array.isArray(result?.calls) ? result.calls : [];
+  const failedCalls = calls.filter((call) => call && call.ok === false);
+  const ok = failedCalls.length === 0 && !result?.turnLimitReached;
   const payload = {
-    ok: true, sessionId: session.agentSession.id,
+    ok, sessionId: session.agentSession.id,
     model: `${s.config?.provider || ""}/${s.config?.model || ""}`.replace(/^\//, ""),
     approvalScope: opts.approvalScope, text: result?.text || "", rounds: result?.rounds || 0,
-    toolCalls: result?.calls || [], usage: result?.usage || session.usage, routing: session.lastRouting, elapsedMs: result?.elapsedMs || session.lastElapsedMs,
+    toolCalls: calls, usage: result?.usage || session.usage, routing: session.lastRouting, elapsedMs: result?.elapsedMs || session.lastElapsedMs,
+    ...(failedCalls.length ? { failedCalls: failedCalls.map((call) => call.name || "tool") } : {}),
     // Prove what was actually attached instead of leaving --file unverifiable.
     ...(opts.files?.length ? { files: opts.files } : {}),
     // `--thinking` surfaces the reasoning ACCOUNTING the provider really reported.
@@ -37,4 +45,6 @@ export async function runOneShot(opts) {
   };
   if (opts.json) process.stdout.write(`${JSON.stringify(payload)}\n`);
   else process.stdout.write(`${payload.text}${payload.text.endsWith("\n") || !payload.text ? "" : "\n"}`);
+  // Exit code carries the outcome, so a script can branch without parsing stdout.
+  return ok;
 }

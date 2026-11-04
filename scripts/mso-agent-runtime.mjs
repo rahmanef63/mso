@@ -4,7 +4,7 @@ export { api, apiResponse, state, createCliSession, loadCliSession, resumeCliSes
 import { selectToolsForTurn } from "./mso-agent-tool-router.mjs";
 import { projectHistoryForModel } from "./mso-agent-context.mjs";
 import { C, fit, MSO_TITLE_ART, printAgentBanner } from "./mso-agent-ui.mjs";
-import { AgentApiError } from "./mso-agent-errors.mjs";
+import { AgentApiError, isAgentApiError } from "./mso-agent-errors.mjs";
 import { buildMemoryContext } from "../lib/agent/memory-context.mjs";
 import { latestIntentText } from "../lib/orchestration/capability-catalog.mjs";
 export { C, MSO_TITLE_ART } from "./mso-agent-ui.mjs";
@@ -130,37 +130,67 @@ export async function streamTurn(
     stopReason = null,
     usage = null;
   const toolUses = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const blocks = buf.split("\n\n");
-    buf = blocks.pop() || "";
-    for (const block of blocks) {
-      let event = "message",
-        data = "";
-      for (const line of block.split("\n")) {
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        else if (line.startsWith("data:")) data += line.slice(5).trim();
-      }
-      if (!data) continue;
-      if (event === "delta") {
-        const chunk = JSON.parse(data);
-        text += chunk;
-        output?.write?.(chunk);
-      } else if (event === "tool_use") toolUses.push(JSON.parse(data));
-      else if (event === "done") {
-        const done = JSON.parse(data);
-        stopReason = done?.stopReason ?? null;
-        usage = done?.usage ?? null;
-      } else if (event === "error") {
-        let message = "assistant stream error";
-        try { message = String(JSON.parse(data) || message); } catch { message = String(data || message); }
-        throw new AgentApiError(message, {
-          path: "/api/assistant", method: "POST", requestDispatched: true,
-        });
+  // The read loop is wrapped, not just the fetch. A socket that dies mid-stream or a malformed delta used
+  // to escape as a bare TypeError/SyntaxError, which is not an AgentApiError, so no error row was written
+  // and the turn looked like it completed with no output. `reader.cancel` runs in `finally` so an
+  // aborted stream stops billing the provider.
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const blocks = buf.split("\n\n");
+      buf = blocks.pop() || "";
+      for (const block of blocks) {
+        let event = "message",
+          data = "";
+        for (const line of block.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data += line.slice(5).trim();
+        }
+        if (!data) continue;
+        if (event === "delta") {
+          const chunk = JSON.parse(data);
+          // A non-string delta is refused, not coerced: String({}) is "[object Object]" in the transcript.
+          if (typeof chunk !== "string") throw new AgentApiError("assistant sent a non-text delta", {
+            path: "/api/assistant", method: "POST", requestDispatched: true,
+          });
+          text += chunk;
+          output?.write?.(chunk);
+        } else if (event === "tool_use") toolUses.push(JSON.parse(data));
+        else if (event === "done") {
+          const done = JSON.parse(data);
+          stopReason = done?.stopReason ?? null;
+          usage = done?.usage ?? null;
+        } else if (event === "error") {
+          let message = "assistant stream error";
+          try {
+            const payload = JSON.parse(data);
+            message = String(payload?.error ?? payload?.message ?? payload ?? message);
+          } catch { message = String(data || message); }
+          throw new AgentApiError(message, {
+            path: "/api/assistant", method: "POST", requestDispatched: true,
+          });
+        }
       }
     }
+  } catch (error) {
+    if (isAgentApiError(error)) throw error;
+    // The server's own words beat a bare "terminated": surface the cause when there is one.
+    const detail = error?.cause?.message ? `: ${error.cause.message}` : "";
+    throw new AgentApiError(`assistant stream failed${detail}`, {
+      path: "/api/assistant", method: "POST", requestDispatched: true, cause: error,
+    });
+  } finally {
+    // Releasing the reader is what stops a provider from continuing to generate (and bill) after the
+    // client gave up. Swallow cancel errors: the original failure is the one worth reporting.
+    await reader.cancel?.().catch?.(() => {});
+  }
+  // A closed stream with no `done` event is a truncated answer, not a complete one.
+  if (stopReason === null) {
+    throw new AgentApiError("assistant stream ended before the turn completed", {
+      path: "/api/assistant", method: "POST", requestDispatched: true,
+    });
   }
   if (text && !text.endsWith("\n")) output?.write?.("\n");
   return {

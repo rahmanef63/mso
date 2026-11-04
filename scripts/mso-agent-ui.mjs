@@ -1,5 +1,6 @@
 import process from "node:process";
 import { activityText, formatDuration } from "./mso-agent-activity.mjs";
+import { cellWidth, stripAnsi } from "./tui/cells.mjs";
 import {
   applyTheme,
   C,
@@ -70,14 +71,23 @@ export function completedReceipt(calls, elapsedMs) {
   ]);
 }
 
-function plain(value) { return String(value ?? "").replace(/\x1b\[[0-9;]*m/g, ""); }
-function width(value) { return [...plain(value)].length; }
+function plain(value) { return stripAnsi(value); }
+function width(value) { return cellWidth(value); }
 export function fit(value, max) {
   const source = plain(value).replace(/[\r\n\t]+/g, " ");
   if (max <= 0) return "";
-  if ([...source].length <= max) return source;
+  // Measured in CELLS: a CJK character is two columns, so the old code-point count returned a "fitted"
+  // string up to twice the budget and the box row wrapped.
+  if (cellWidth(source) <= max) return source;
   if (max <= 1) return "…".slice(0, max);
-  return [...source].slice(0, max - 1).join("") + "…";
+  let out = "", used = 0;
+  for (const ch of source) {
+    const w = cellWidth(ch);
+    if (used + w > Math.max(0, max - 1)) break;
+    out += ch;
+    used += w;
+  }
+  return `${out}…`;
 }
 function pad(value, max) {
   const clean = fit(value, max);
@@ -86,7 +96,9 @@ function pad(value, max) {
 function rule(char, n) { return char.repeat(Math.max(0, n)); }
 function terminalWidth() {
   const cols = Number(process.stdout.columns || 104);
-  return Math.max(72, Math.min(118, cols - 2));
+  // The old floor of 72 ignored the real width, so on a 60-column terminal every box row was drawn 74
+  // cells wide. The floor exists to keep the banner readable, but readability cannot exceed the screen.
+  return Math.max(24, Math.min(118, cols - 2));
 }
 function countSkills(data) { return Array.isArray(data?.skills) ? data.skills.length : 0; }
 function summarizeInfra(data) {
@@ -125,10 +137,13 @@ function kv(label, value, widthLimit) {
   const labelWidth = Math.min(13, Math.max(8, widthLimit > 36 ? 12 : 9));
   return `${pad(label, labelWidth)} ${fit(value, Math.max(0, widthLimit - labelWidth - 1))}`;
 }
+// Body rows are drawn as "│ " + content + " │", which costs four cells of the two border columns, so the
+// content budget is two cells less than the space between the borders. Padding straight to `inner` made
+// every body row two cells wider than the box above it.
 function panelLine(left, right, leftWidth, rightWidth, gap = 3) {
   return `│ ${pad(left, leftWidth)}${" ".repeat(gap)}${pad(right, rightWidth)} │`;
 }
-function panelSingle(text, inner) { return `│ ${pad(text, inner)} │`; }
+function panelSingle(text, inner) { return `│ ${pad(text, Math.max(0, inner - 2))} │`; }
 function panelTitle(title, inner) {
   const label = ` ${title} `;
   const remaining = Math.max(0, inner - width(label));
@@ -187,7 +202,7 @@ export function printAgentBanner(s, agentSession, { base, version, print = (line
     for (const line of lines) print(panelSingle(line, inner));
   }
   print(`└${rule("─", inner)}┘`);
-  print(`${C.dim}${s.tools.length} tools · ${countSkills(s.skills)} skills · /skills · /<skill> · /help${C.reset}`);
+  print(fit(`${C.dim}${s.tools.length} tools · ${countSkills(s.skills)} skills · /skills · /<skill> · /help${C.reset}`, inner));
   print();
-  print(`${C.bold}Welcome to MSO Agent!${C.reset} Type your message or /help for commands.`);
+  print(fit(`${C.bold}Welcome to MSO Agent!${C.reset} Type your message or /help for commands.`, inner));
 }

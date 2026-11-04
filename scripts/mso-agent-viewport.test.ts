@@ -140,11 +140,21 @@ describe("mso-agent-viewport", () => {
     expect(handleViewportKey(vp, { ctrl: true, shift: true, name: "g" }, { rows: 10 })).toBe(true);
     expect(vp.offset).toBe(0);
 
-    expect(handleViewportKey(vp, { ctrl: true, name: "u" }, { rows: 10 })).toBe(true);
+    // Scrolling moved to Alt+U / Alt+D because Ctrl+U and Ctrl+D are documented line-editing keys: sharing
+    // them meant Ctrl+U stopped clearing the prompt once the transcript filled a screen. The composer owns
+    // Ctrl+U/Ctrl+D now, so the viewport must NOT consume them.
+    expect(handleViewportKey(vp, { ctrl: true, name: "u" }, { rows: 10 })).toBe(false);
+    expect(vp.offset).toBe(0);
+
+    expect(handleViewportKey(vp, { alt: true, name: "u" }, { rows: 10 })).toBe(true);
     expect(vp.offset).toBe(5);
 
-    expect(handleViewportKey(vp, { ctrl: true, name: "d" }, { rows: 10 })).toBe(true);
+    expect(handleViewportKey(vp, { alt: true, name: "d" }, { rows: 10 })).toBe(true);
     expect(vp.offset).toBe(0);
+
+    expect(handleViewportKey(vp, { ctrl: true, name: "d" }, { rows: 10 })).toBe(false);
+    // And the keys must still not scroll when the buffer is short, which is the other half of the same bug.
+    expect(handleViewportKey(vp, { alt: true, name: "u" }, { rows: 60 })).toBe(true);
   });
 
   it("8. a resize from 30 rows to 8 rows keeps the buffer intact and the offset clamped", () => {
