@@ -1,5 +1,8 @@
 # Dynamic MSO interface contract
 
+Required contributor rules for every feature live in [FRONTEND-CONTRACT.md](./FRONTEND-CONTRACT.md).
+This document describes the implementation seams; it does not claim every feature is migrated.
+
 This is a refinement of the existing five shell identities in DESIGN.md. Shell chrome remains
 platform specific; feature behaviour and state are shared. No new adapter or backend provider
 has been added. Public MCP tools and authorization remain unchanged.
@@ -68,7 +71,7 @@ capture cancel dragging; pointer-up computes its final movement from the event c
 
 - Integrations: solid sidebar background; one sidebar scroll; full owner picker header;
   container-based initial inert state measured before visual transforms; resized panes reset navigation correctly; old observers
-  disconnect on redraw; credential fields use four desktop columns; duplicate source badges
+  disconnect on redraw; credential fields use three desktop columns with grouped icon actions; duplicate source badges
   collapse; Composio tools/session use progressive disclosure.
 - Manager readiness: the iframe posts a ready event after mounting. Parent accepts the exact
   event only from that iframe and the same origin. A non-empty iframe src is not success.

@@ -179,7 +179,7 @@ export function FileItem({
       onContextMenu={onContext}
       {...touchProps}
       className={cn(
-        "grid cursor-default rounded-sm odd:bg-muted/20 grid-cols-[1fr_92px_96px] items-center gap-2 px-3 py-1.5 text-xs transition-colors @max-[430px]:grid-cols-[1fr_72px] [@media(pointer:coarse)]:min-h-[44px]",
+        "grid h-[44px] cursor-default rounded-sm odd:bg-muted/20 grid-cols-[1fr_92px_96px] items-center gap-2 px-3 py-1.5 text-xs transition-colors @max-[430px]:grid-cols-[1fr_72px] [@media(pointer:coarse)]:min-h-[44px]",
         selected ? "bg-primary text-primary-foreground" : "hover:bg-accent",
         cut && "opacity-50",
         dropActive && "ring-2 ring-primary ring-inset",

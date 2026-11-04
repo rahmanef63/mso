@@ -8,7 +8,7 @@ export const COMMAND_MANIFEST = [
   { name: "/tabs", usage: "[n|name|next|prev]", description: "list tabs, switch by index/@name, or jump active" },
   { name: "/rename", usage: "<name>", description: "rename the short @agent handle" },
   { name: "/title", usage: "<text>", description: "rename the session title/description" },
-  { name: "/export", usage: "[ref] [--out f]", description: "export session transcript to stdout or a file" },
+  { name: "/export", usage: "[ref] [--out f|--markdown]", description: "export a session; Markdown prints to the screen" },
   { name: "/share", description: "temporary share link (server download-only today)" },
   { name: "/status", description: "model/auth/context/token/session details" },
   { name: "/permission", usage: "[mode]", description: "choose ask | auto-write | yolo" },

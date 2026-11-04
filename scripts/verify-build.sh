@@ -72,6 +72,12 @@ if ! node scripts/e2e/integrations-shell.mjs; then
   exit 43
 fi
 
+echo "== verify Integrations credential actions (synthetic accounts)"
+if ! node scripts/e2e/integrations.mjs; then
+  echo "verification failed during Integrations credential actions E2E" >&2
+  exit 43
+fi
+
 echo "== verify native Google Integrations UI (synthetic accounts)"
 if ! node scripts/e2e/google-integrations.mjs; then
   echo "verification failed during native Google Integrations UI E2E" >&2

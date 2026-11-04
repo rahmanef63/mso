@@ -14,11 +14,13 @@ export function UninstallConfirm({
   title,
   onCancel,
   onConfirm,
+  error,
 }: {
   open: boolean;
   title: string | null;
   onCancel: () => void;
   onConfirm: () => void;
+  error?: string;
 }) {
   return (
     <FormDrawer open={open} onOpenChange={(next) => !next && onCancel()} size="sm">
@@ -28,6 +30,7 @@ export function UninstallConfirm({
           Your data stays on disk. You can reinstall any time.
         </FormDrawer.Description>
       </FormDrawer.Header>
+      {error && <p role="alert" className="px-4 text-sm text-destructive-text">{error}</p>}
       <FormDrawer.Footer>
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel

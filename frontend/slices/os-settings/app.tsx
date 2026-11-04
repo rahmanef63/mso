@@ -3,21 +3,24 @@
 import { useSearchParams } from "next/navigation";
 import { initialAboutPage } from "./lib/about-pages";
 import { sectionFromSearch } from "./lib/sections";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAppearance, effectiveServerTarget } from "@/lib/appearance";
 import { useSession } from "@/features/auth";
 import { IS_DEMO } from "@/lib/demo";
 import {
   useActiveShell,
   usePublishInspector,
+  useFeatureState,
+  setCloseGuard,
   toast,
 } from "@/features/appshell";
 import type { SectionId } from "./lib/sections";
 import { AboutPageState } from "./components/about-page-state";
 import { SettingsShell } from "./components/settings-shell";
+import { SettingsWindowContext } from "./lib/window-context";
 
 // Default export so os-shell can lazy-load it as a window app.
-export default function OsSettings() {
+export default function OsSettings({ winId }: { winId?: string }) {
   const params = useSearchParams();
   const initial = sectionFromSearch(params.get("section"));
   const { tweaks } = useAppearance();
@@ -26,11 +29,31 @@ export default function OsSettings() {
   // No shell-specific layout/config lives in this headless app controller.
   const { surface } = useActiveShell();
   const [model, setModel] = useState("default");
+  const [sensitiveDirty, setSensitiveDirty] = useState(false);
   // On mobile we start on the section list (no selection drilled in); desktop
   // always shows a selected pane. `null` = list view, an id = detail view.
-  const [active, setActive] = useState<SectionId | null>(
+  const [active, setActive] = useFeatureState<SectionId | null>(winId, "settings-section",
     initial ?? (surface === "mobile" ? null : "appearance"),
   );
+  useEffect(() => { if (winId) setActive(current => current); }, [setActive, winId]);
+  const [draftName] = useFeatureState(winId, "provider-name", "");
+  const [draftUrl] = useFeatureState(winId, "provider-url", "");
+  const [draftModels] = useFeatureState(winId, "provider-models", "");
+  const [draftKey, setDraftKey] = useFeatureState(winId, "provider-key", "", { sensitive: true });
+  const [draftJson, setDraftJson] = useFeatureState(winId, "provider-json", "", { sensitive: true });
+  const [submitting] = useFeatureState(winId, "provider-submitting", false);
+  const hasSensitiveDraft = Boolean(sensitiveDirty || draftKey || draftJson);
+  const draftDirty = Boolean(draftName || draftUrl || draftModels || hasSensitiveDraft || submitting);
+  useEffect(() => {
+    if (!draftDirty) return;
+    if (winId) setCloseGuard(winId, () => { if (submitting) { toast("Wait for the provider request to finish before closing Settings."); return false; } return window.confirm("Discard the unsaved provider draft?"); });
+    const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      if (winId) setCloseGuard(winId, null);
+      window.removeEventListener("beforeunload", beforeUnload);
+    };
+  }, [draftDirty, submitting, winId]);
   const serverTarget = effectiveServerTarget(tweaks.server);
 
   useEffect(() => {
@@ -67,9 +90,18 @@ export default function OsSettings() {
     [tweaks.theme, tweaks.preset, tweaks.device, tweaks.fontScale, tweaks.wallpaper, tweaks.wallpaperImage, tweaks.server.mode, serverTarget?.label, model],
   );
 
+  const selectSection = useCallback((next: SectionId | null) => {
+    if (next !== active && submitting) return void toast("Wait for the provider request to finish before leaving this section.");
+    if (next !== active && hasSensitiveDraft && !window.confirm("Discard the unsaved API key or JSON?")) return;
+    if (next !== active) { setDraftKey(""); setDraftJson(""); setSensitiveDirty(false); }
+    setActive(next);
+  }, [active, hasSensitiveDraft, submitting, setActive, setDraftKey, setDraftJson]);
+
   return (
-    <AboutPageState initial={initialAboutPage(initial ?? null, params.get("page"))}>
-      <SettingsShell active={active} onSelect={setActive} />
-    </AboutPageState>
+    <SettingsWindowContext.Provider value={{ winId, setSensitiveDirty }}>
+      <AboutPageState winId={winId} initial={initialAboutPage(initial ?? null, params.get("page"))}>
+        <SettingsShell active={active} onSelect={selectSection} />
+      </AboutPageState>
+    </SettingsWindowContext.Provider>
   );
 }

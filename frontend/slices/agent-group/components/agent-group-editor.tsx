@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Trash2, Users } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -20,12 +20,14 @@ export function AgentGroupEditor({
   onOpenChange,
   row,
   revision,
+  latest,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (value: boolean) => void;
   row: AgentGroupView | null;
   revision: number;
+  latest?: AgentGroupView;
   onSaved: () => Promise<void>;
 }) {
   const [name, setName] = useState(row?.name ?? "");
@@ -44,6 +46,14 @@ export function AgentGroupEditor({
   const [credentials, setCredentials] = useState<TelegramCredentialOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const saving = useRef(false);
+  const addAgentRef = useRef<HTMLButtonElement>(null);
+  const [baseRevision, setBaseRevision] = useState(revision);
+  const initialDraft = useRef(JSON.stringify([name, maxRounds, enabled, members]));
+  const close = (next: boolean) => {
+    if (!next && (busy || (JSON.stringify([name, maxRounds, enabled, members]) !== initialDraft.current && !window.confirm("Discard unsaved changes?")))) return;
+    onOpenChange(next);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -54,6 +64,7 @@ export function AgentGroupEditor({
     setMembers((rows) => rows.map((rowItem, position) => (position === index ? { ...rowItem, ...next } : rowItem)));
 
   const save = async () => {
+    if (saving.current) return;
     const parsed: AgentGroupMember[] = [];
     for (const member of members) {
       if (!member.name.trim() || !member.profile.trim()) { setError("Every agent needs a name and a Hermes profile."); return; }
@@ -65,18 +76,19 @@ export function AgentGroupEditor({
       }
       parsed.push(payload);
     }
-    setBusy(true); setError("");
+    saving.current = true; setBusy(true); setError("");
     try {
       const data = { name, maxRounds, enabled, members: parsed.map((member, index) => ({ ...member, id: member.id || `m${index + 1}` })) };
-      await agentGroupAction(row ? { action: "update", id: row.id, expectedRevision: revision, data } : { action: "create", data });
+      await agentGroupAction(row ? { action: "update", id: row.id, expectedRevision: baseRevision, data } : { action: "create", data });
       await onSaved();
       onOpenChange(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save the group.");
-    } finally { setBusy(false); }
+      await onSaved().catch(() => undefined);
+      setError((cause instanceof Error ? cause.message : "Could not save the group.") + " Your draft is preserved; close and reopen to load the latest version.");
+    } finally { saving.current = false; setBusy(false); }
   };
 
-  return <FormDrawer open={open} onOpenChange={onOpenChange} size="lg">
+  return <FormDrawer open={open} onOpenChange={close} size="lg">
     <FormDrawer.Header>
       <FormDrawer.Title>{row ? "Edit agent group" : "New agent group"}</FormDrawer.Title>
       <FormDrawer.Description>
@@ -98,25 +110,24 @@ export function AgentGroupEditor({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium">Agents</span>
-          <Button size="sm" variant="outline" onClick={() => setMembers((rows) => [...rows, emptyMember()])}><Plus className="mr-2 size-3"/>Add agent</Button>
+          <Button ref={addAgentRef} size="sm" variant="outline" onClick={() => setMembers((rows) => [...rows, emptyMember()])}><Plus className="mr-2 size-3"/>Add agent</Button>
         </div>
-        {members.map((member, index) => <div key={index} className="space-y-2 rounded-lg border p-3">
-          <div className="flex items-center gap-2">
-            <Users className="size-3.5 text-muted-foreground"/>
-            <Input value={member.name} maxLength={60} placeholder="Display name" onChange={(event) => patch(index, { name: event.target.value })}/>
-            <Input value={member.profile} maxLength={64} placeholder="Hermes profile (e.g. dita)" onChange={(event) => patch(index, { profile: event.target.value })}/>
-            {members.length > 1 ? <Button size="icon" variant="ghost" aria-label="Remove agent" onClick={() => setMembers((rows) => rows.filter((_, position) => position !== index))}><Trash2 className="size-3"/></Button> : null}
+        {members.map((member, index) => <fieldset key={index} className="space-y-2 rounded-lg border p-3"><legend className="px-1 text-xs font-medium">Agent {index + 1}</legend>
+          <div className="grid min-w-0 gap-2 @min-[480px]:grid-cols-2">
+            <label className="min-w-0 text-xs">Display name<Input value={member.name} maxLength={60} placeholder="Display name" onChange={(event) => patch(index, { name: event.target.value })}/></label>
+            <label className="min-w-0 text-xs">Hermes profile<Input value={member.profile} maxLength={64} placeholder="Hermes profile (e.g. dita)" onChange={(event) => patch(index, { profile: event.target.value })}/></label>
+            {members.length > 1 ? <Button size="icon" variant="ghost" aria-label={`Remove agent ${member.name || index + 1}`} onClick={() => { setMembers((rows) => rows.filter((_, position) => position !== index)); addAgentRef.current?.focus(); }}><Trash2 className="size-3"/></Button> : null}
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <select className={selectClass} value={member.credential} onChange={(event) => patch(index, { credential: event.target.value })}>
+          <div className="grid gap-2 @min-[480px]:grid-cols-2">
+            <label className="min-w-0 text-xs">Telegram connection<select className={selectClass} value={member.credential} onChange={(event) => patch(index, { credential: event.target.value })}>
               <option value="">No Telegram link</option>
               {credentials.map((item) => <option key={`${item.user}:${item.id}`} value={credValue(item.user, item.id)}>
                 {item.userLabel} / {item.label} · {item.state}
               </option>)}
-            </select>
-            <Input value={member.target} placeholder="Telegram chat ID (-100…)" disabled={!member.credential} onChange={(event) => patch(index, { target: event.target.value })}/>
+            </select></label>
+            <label className="min-w-0 text-xs">Telegram target<Input value={member.target} placeholder="Telegram chat ID (-100…)" disabled={!member.credential} onChange={(event) => patch(index, { target: event.target.value })}/></label>
           </div>
-        </div>)}
+        </fieldset>)}
       </div>
 
       <label className="flex items-center justify-between rounded-lg border p-3">
@@ -127,10 +138,15 @@ export function AgentGroupEditor({
       <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
         Telegram bot tokens stay in Integrations. Pick one or more Telegram connections. Each agent posts as its own bot.
       </div>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+      {error && row && revision !== baseRevision ? <div className="space-y-2 rounded border p-2 text-xs">
+        <p>The saved group changed. Compare it with your draft above before choosing to overwrite its fields.</p>
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify(latest ? { name: latest.name, members: latest.members, maxRounds: latest.maxRounds, enabled: latest.enabled } : "Group no longer exists", null, 2)}</pre>
+        <Button variant="outline" size="sm" onClick={() => { setBaseRevision(revision); setError(""); }}>Use latest revision for this draft</Button>
+      </div> : null}
     </FormDrawer.Body>
     <FormDrawer.Footer>
-      <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+      <Button variant="ghost" onClick={() => close(false)}>Cancel</Button>
       <Button disabled={busy || !name.trim()} onClick={() => void save()}>{busy ? "Saving…" : "Save group"}</Button>
     </FormDrawer.Footer>
   </FormDrawer>;

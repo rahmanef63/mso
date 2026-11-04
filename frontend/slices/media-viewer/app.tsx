@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { AppProps } from "@/features/appshell";
 import { AppFrame, openWindow, saveAs, usePublishInspector } from "@/features/appshell";
@@ -10,11 +10,11 @@ import { ViewerToolbar } from "./components/viewer-toolbar";
 import { MediaStage } from "./components/media-stage";
 import { RemoteView, remoteFile } from "./components/remote-view";
 
-export default function MediaViewer({ payload }: AppProps) {
-  const remote = remoteFile(payload);
+export default function MediaViewer({ payload, winId }: AppProps) {
+  const remote = useMemo(() => remoteFile(payload), [payload]);
   return (
     <TooltipProvider delayDuration={200}>
-      {remote ? <RemoteView file={remote} /> : <SampleGallery />}
+      {remote ? <RemoteView key={remote.path} file={remote} winId={winId} /> : <SampleGallery />}
     </TooltipProvider>
   );
 }
@@ -38,9 +38,9 @@ function SampleGallery() {
 
   const editor = editorFor(file.kind);
   const actions = [
-    { id: "download", label: "Download", run: onDownload },
-    ...(editor
-      ? [{ id: "edit", label: `Open in ${editor.label}`, run: () => { openWindow(editor.app, file.name); } }]
+    ...(file.src ? [{ id: "download", label: "Download", run: onDownload }] : []),
+    ...(editor && file.src
+      ? [{ id: "edit", label: `Open in ${editor.label}`, run: () => { openWindow(editor.app, file.name, undefined, { src: file.src, kind: file.kind }); } }]
       : []),
   ];
   usePublishInspector(

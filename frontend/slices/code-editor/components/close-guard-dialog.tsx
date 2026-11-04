@@ -11,6 +11,7 @@ export function CloseGuardDialog({
   open,
   onOpenChange,
   fileLabel,
+  error,
   onSave,
   onDiscard,
   onCancel,
@@ -18,6 +19,7 @@ export function CloseGuardDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fileLabel: string;
+  error?: boolean;
   onSave: () => void;
   onDiscard: () => void;
   onCancel: () => void;
@@ -29,6 +31,7 @@ export function CloseGuardDialog({
         <FormDrawer.Description>
           {fileLabel} has unsaved edits. They&apos;ll be lost if you don&apos;t save.
         </FormDrawer.Description>
+        {error && <p role="alert">Save failed. Changes remain in this window; retry or cancel.</p>}
       </FormDrawer.Header>
       <FormDrawer.Footer>
         <Button variant="ghost" onClick={onCancel}>Cancel</Button>

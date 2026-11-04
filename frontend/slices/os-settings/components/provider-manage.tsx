@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { toast, useFeatureState } from "@/features/appshell";
+import { useSettingsWindow } from "../lib/window-context";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SettingsBlock } from "@/features/shell-settings";
@@ -20,7 +21,17 @@ export function ProviderManage({
   selected: string;
   reload: () => void;
 }) {
-  const [showAdd, setShowAdd] = useState(false);
+  const { winId, setSensitiveDirty } = useSettingsWindow();
+  const [showAdd, setShowAdd] = useFeatureState(winId, "provider-form-open", false);
+  const [key, setKey] = useFeatureState(winId, "provider-key", "", { sensitive: true });
+  const [json, setJson] = useFeatureState(winId, "provider-json", "", { sensitive: true });
+  const [submitting] = useFeatureState(winId, "provider-submitting", false);
+  const toggleForm = () => {
+    if (showAdd && submitting) return void toast("Wait for the provider request to finish before closing the form.");
+    if (showAdd && (key || json) && !window.confirm("Discard the unsaved API key or JSON?")) return;
+    if (showAdd) { setKey(""); setJson(""); setSensitiveDirty(false); }
+    setShowAdd(!showAdd);
+  };
   return (
     <>
       <SettingsBlock>
@@ -34,7 +45,7 @@ export function ProviderManage({
           aria-expanded={showAdd}
           aria-controls="custom-provider-form"
           className="text-muted-foreground [@media(pointer:coarse)]:min-h-[44px]"
-          onClick={() => setShowAdd((s) => !s)}
+          onClick={toggleForm}
         >
           <Plus className={`size-3.5 transition-transform ${showAdd ? "rotate-45" : ""}`} />
           {showAdd ? "Close custom provider form" : "Add custom provider"}

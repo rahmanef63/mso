@@ -203,5 +203,6 @@ export type {
 export { mdToHtml } from "./features/widgets/components/md";
 export * from "./defaults";
 
+export { clearSensitiveFeatureState } from "./lib/feature-state";
 export { useFeatureState } from "./hooks/use-feature-state";
 export type { LayoutMetrics, LayoutConfig } from "./design";

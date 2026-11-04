@@ -4,8 +4,8 @@ import { handleGetComposioSession, handlePostComposioSession } from "./handler";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return handleGetComposioSession();
+export async function GET(req: NextRequest) {
+  return handleGetComposioSession(req);
 }
 
 export async function POST(req: NextRequest) {

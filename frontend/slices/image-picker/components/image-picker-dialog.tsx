@@ -28,6 +28,9 @@ interface Props extends ImageSourceProps {
 }
 
 export function ImagePickerDialog({ open, onOpenChange, onSelect, onUpload, title = "Choose image", defaultQuery }: Props) {
+  const id = React.useId();
+  const openRef = React.useRef(open);
+  React.useEffect(() => { openRef.current = open; }, [open]);
   const [tab, setTab] = React.useState<Tab>(defaultQuery ? "unsplash" : "gallery");
   const tabs: { id: Tab; label: string }[] = [
     { id: "gallery", label: "Gallery" },
@@ -35,7 +38,7 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect, onUpload, titl
     { id: "link", label: "Link" },
     { id: "unsplash", label: "Stock" },
   ];
-  const handle = (c: ImageValue) => { onSelect(c); onOpenChange(false); };
+  const handle = (c: ImageValue) => { if (openRef.current) { onSelect(c); onOpenChange(false); } };
 
   return (
     <FormDrawer open={open} onOpenChange={onOpenChange} size="lg">
@@ -52,11 +55,21 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect, onUpload, titl
               key={t.id}
               type="button"
               role="tab"
-              id={`image-picker-tab-${t.id}`}
+              id={`${id}-tab-${t.id}`}
               aria-selected={tab === t.id}
-              aria-controls={`image-picker-panel-${t.id}`}
+              aria-controls={`${id}-panel-${t.id}`}
               tabIndex={tab === t.id ? 0 : -1}
               onClick={() => setTab(t.id)}
+              onKeyDown={(e) => {
+                const index = tabs.findIndex((item) => item.id === t.id);
+                const next = e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1
+                  : e.key === "ArrowRight" ? (index + 1) % tabs.length
+                  : e.key === "ArrowLeft" ? (index - 1 + tabs.length) % tabs.length : -1;
+                if (next < 0) return;
+                e.preventDefault();
+                setTab(tabs[next].id);
+                document.getElementById(`${id}-tab-${tabs[next].id}`)?.focus();
+              }}
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium transition [@media(pointer:coarse)]:min-h-[44px]",
                 tab === t.id ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50",
@@ -68,8 +81,8 @@ export function ImagePickerDialog({ open, onOpenChange, onSelect, onUpload, titl
         </div>
         <div
           role="tabpanel"
-          id={`image-picker-panel-${tab}`}
-          aria-labelledby={`image-picker-tab-${tab}`}
+          id={`${id}-panel-${tab}`}
+          aria-labelledby={`${id}-tab-${tab}`}
           className="flex-1 overflow-y-auto"
         >
           {tab === "gallery" && <GalleryTab onSelect={handle} />}

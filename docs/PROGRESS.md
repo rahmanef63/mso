@@ -1,3 +1,49 @@
+## 2026-11-04: restrict Markdown transcript file export
+
+Markdown transcripts may contain server-provided content. The TUI now prints them for
+review and copying instead of writing that content directly to a local file. File flags
+are refused before fetching a session; the separate non-Markdown export is unchanged.
+
+## 2026-11-04 — Complete audited frontend implementation follow-ups
+
+The existing 55-group frontend audit is tracked in [the implementation ledger](evidence/2026-11-04-frontend-audit-ledger.md), with per-slice source, behavior evidence and remaining acceptance limits. The previous foundation is on main through PR #270; this increment addresses its unresolved Settings credential remount, Composio selection/cache binding and external-frame readiness gaps, plus save/conflict/pending-action races found during verification.
+
+Settings retains operational input in the existing exact-window memory store, tags sensitive drafts for selective cleanup, preserves nonsecret editor buffers at auth boundaries, orders session probes across logout and blocks navigation during submitted provider writes. Responsive drawers acquire focus on open, including Shortcuts; the actual full Settings remount and five-shell/two-theme focus regressions are wired into mandatory release journeys. Workspace saves acknowledge only the revision saved, video draft baselines come from their load, and Camoufox aborts its current operation on unmount. Workflow source copy/restore share the action lock and preserve newer edits. Composio uses an authorized explicit owner/connection and a credential-revision-bound cache; frame fallback says readiness is unknown instead of inferring success from load.
+
+Composio session cache identity uses selected and backing connection UIDs plus the backing revision, without hashing credentials. Legacy projected connections bypass cache reads and writes because their identity and revision are not durable. Focused route tests cover rotation and shared-backing replacement.
+
+Focused unit and mounted synthetic component checks passed during implementation. External headless fixtures cover selected five-shell/two-theme/320–844 samples with a prior CSS build; they are not exact-SHA release proof. Full local, pinned scanner and remote results must be recorded for the final commit before merge readiness; real devices, assistive technology and upstream vendor behavior remain explicit limits. No production deployment, host data or tunnel was changed.
+
+## 2026-11-03: frontend contract for every feature and agent
+
+Frontend rules were spread across product direction, shell design notes and the dynamic
+foundation contract. `docs/FRONTEND-CONTRACT.md` now gives every feature one implementation
+and acceptance contract: layer ownership, token/container layout, state lifetimes, asynchronous
+recovery, icon/menu semantics, accessibility, themes and per-feature verification evidence.
+
+Both root agent entry points and a scoped `frontend/AGENTS.md` require it. The docs gate checks
+those links, including the shell/foundation references, so a later edit cannot silently detach
+agent routing. This documents required practice and explicit migration limits; it does not
+claim every existing feature has already been individually polished or exercised in production.
+
+## 2026-11-03: compact credential actions and connection menus
+
+Credential rows use labelled eye, copy and trash icon buttons with native tooltips. The
+connection action trigger uses an ellipsis; menu items retain text with leading icons.
+Owner pickers show a chevron and selected check without changing keyboard behaviour.
+The masked value reserves eight character widths so 200% text reflows controls instead of
+collapsing the value into a vertical column.
+
+Copying keeps the displayed value masked. Reveal after Copy now opens the cached value
+instead of silently clearing it. Hide, the 30-second timeout and clipboard failures discard
+the cache. Pending reads disable both read actions. Destructive actions still require typed
+confirmation; cancellation restores the exact field action or the closed menu trigger.
+
+The same native DOM helpers serve browser and embedded integrations. Targeted synthetic
+browser journeys, now required by the isolated build gate, cover these state transitions,
+deletion guards and keyboard focus, alongside
+the existing 320–1920 px light/dark layout checks. Release evidence is tracked by the PR.
+
 ## 2026-11-03: dynamic shell presentation and workspace recovery (local verification)
 
 The shell manifest now accepts per-shell layout metrics. Feature frames can override those

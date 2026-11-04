@@ -83,12 +83,12 @@ export function FilesHeader({
             }}
             placeholder="Search this folder"
             aria-label="Search this folder"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-base outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
           />
           <button
             onClick={() => { setQuery(""); onToggleSearch(); }}
             aria-label="Close search"
-            className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+            className="grid size-11 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
           >
             <X className="size-3.5" />
           </button>

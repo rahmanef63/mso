@@ -45,7 +45,7 @@ export function SettingsShell({ active, onSelect }: { active: SectionId | null; 
     return (
       <div className="flex h-full min-h-0 bg-muted/30">
         <AppSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} title="Settings sections"
-          railClassName={design.id === "windows" ? "w-64 border-r-0 bg-[var(--mica-win,var(--sidebar))]" : "w-56 bg-sidebar/70"}>
+          railClassName={design.id === "windows" ? "border-r-0 bg-[var(--mica-win,var(--sidebar))]" : "bg-sidebar/70"}>
           <SettingsSidebar windows={design.id === "windows"} active={desktopActive} onSelect={(id) => { onSelect(id); setSidebarOpen(false); }} />
         </AppSidebar>
         <AppFrame className="min-w-0 flex-1" toolbar={<div className="hidden border-b border-border p-1 @max-[600px]:block">

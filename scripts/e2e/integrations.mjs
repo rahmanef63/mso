@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { chromium } from "@playwright/test";
-const html = execFileSync("bun", ["-e", 'import { integrationSetupPage } from "./lib/infra/setup-page"; console.log(integrationSetupPage().html)'], {encoding:"utf8"});
+const pages = JSON.parse(execFileSync("bun", ["-e", 'import { integrationSetupPage } from "./lib/infra/setup-page"; console.log(JSON.stringify({standalone:integrationSetupPage().html,embedded:integrationSetupPage(true).html}))'], {encoding:"utf8"}));
 const users=[{id:"studio",label:"Studio",isDefault:true},{id:"personal",label:"Personal",isDefault:false}];
 const fixture={id:"work",label:"Delivery GitHub",provider:"github",source:"direct",authMethod:"token",scope:"account",state:"verified",isDefault:true,fields:[{key:"apiKey",label:"API key",stored:true}],verifiedAt:Date.now(),sharedFrom:null};
 const snapshot=user=>({version:2,user,users:users.map(row=>({...row,connectionCount:row.id==="studio"?1:0})),connections:user==="studio"?[fixture]:[],bindings:[]});
@@ -16,24 +16,27 @@ function manage(body){
  return {ok:true,action:body.action};
 }
 const browser=await chromium.launch({...(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {}),args:["--no-sandbox","--disable-dev-shm-usage"]});
-let checks=0;
+let checks=0,reveals=0,mutations=0;
 try{
  const page=await browser.newPage();
  const waitDelivery=async stage=>{try{await page.getByRole("heading",{name:"Delivery GitHub"}).waitFor({timeout:5000})}catch(error){console.error("Delivery GitHub missing at "+stage+"\n"+(await page.locator("body").innerText()).slice(0,2500));throw error}};
+ await page.addInitScript(()=>{window.testClipboard={writes:[],fail:false};Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async value=>{if(window.testClipboard.fail)throw new Error("Clipboard unavailable");window.testClipboard.writes.push(value)}}})});
  const errors=[];page.on("pageerror",error=>errors.push(error.message));
  await page.route("https://mso.example.com/**",route=>{
   const url=new URL(route.request().url());
-  if(url.pathname==="/integrations")return route.fulfill({contentType:"text/html",body:html});
+  if(url.pathname==="/integrations")return route.fulfill({contentType:"text/html",body:pages.standalone});
+  if(url.pathname==="/integrations/manager")return route.fulfill({contentType:"text/html",body:pages.embedded});
   if(url.pathname==="/api/auth/me")return route.fulfill({json:{role:"owner"}});
   if(url.pathname==="/api/v1/integrations"&&route.request().method()==="GET")return route.fulfill({json:snapshot(url.searchParams.get("user")||users.find(row=>row.isDefault)?.id||users[0]?.id||null)});
   if(url.pathname==="/api/v1/integrations"){
-   const body=route.request().postDataJSON();return route.fulfill({json:body.mode==="manage"?manage(body):{ok:true,detail:"Connected to GitHub"}});
+   const body=route.request().postDataJSON();if(body.mode==="reveal"){reveals++;return route.fulfill({json:{value:"synthetic-token-for-ui-test"}})}if(body.mode==="manage")mutations++;return route.fulfill({json:body.mode==="manage"?manage(body):{ok:true,detail:"Connected to GitHub"}});
   }
   return route.fulfill({status:404,json:{error:"unhandled_fixture"}});
  });
  await page.goto("https://mso.example.com/integrations");
  await waitDelivery("initial");
  const nav=page.getByRole("navigation",{name:"Integrations sections",exact:true});
+ const providerCount=await page.locator(".integration-nav-group").first().getByRole("button",{includeHidden:true}).count();
  const mobileToggle=page.getByRole("button",{name:"Integrations sections",exact:true});
  const openSidebar=async()=>{if(await mobileToggle.isVisible()){if(await mobileToggle.getAttribute("aria-expanded")!=="true")await mobileToggle.click();await nav.waitFor();}};
  const closeSidebar=async()=>{if(await mobileToggle.isVisible()&&await mobileToggle.getAttribute("aria-expanded")==="true")await page.keyboard.press("Escape");};
@@ -47,12 +50,35 @@ try{
    await openSidebar();for(const action of ["Credential owners","Project routing","Transfer & backup","Add project MCP"])assert(await nav.getByRole("button",{name:action,exact:true}).isVisible(),action+" must stay discoverable in the Settings-style sidebar");checks++;await closeSidebar();
   }
  }
+ for(const surface of ["/integrations","/integrations/manager"]){
+ await page.goto("https://mso.example.com"+surface);await waitDelivery("large text "+surface);
+ for(const width of [320,390]){
+  await page.setViewportSize({width,height:844});
+  for(const theme of ["light","dark"]){
+   await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize="32px"},theme);
+   assert(await page.evaluate(()=>{const node=document.querySelector(".identity-secret-value"),style=getComputedStyle(node),height=node.getBoundingClientRect().height,oneLine=parseFloat(style.lineHeight)+parseFloat(style.paddingTop)+parseFloat(style.paddingBottom)+parseFloat(style.borderTopWidth)+parseFloat(style.borderBottomWidth);return document.documentElement.scrollWidth<=innerWidth+1&&height<=oneLine+1}),"200% text keeps the mask on one line without document overflow at "+width+" "+theme);checks++;
+  }
+ }
+ }
+ await page.goto("https://mso.example.com/integrations");await waitDelivery("after large text");
  await page.setViewportSize({width:1440,height:900});
  await nav.getByRole("button",{name:"Transfer & backup",exact:true}).click();await page.getByRole("heading",{name:"Transfer & backup",exact:true}).waitFor();assert(await nav.isVisible(),"Settings-style sidebar remains visible inside Transfer & backup");checks++;await page.getByRole("button",{name:"← Connections",exact:true}).click();await waitDelivery("after inline Transfer & backup");
  await page.getByRole("button",{name:"Verify",exact:true}).click();
  await page.getByRole("status").filter({hasText:"Verified: Connected to GitHub"}).waitFor();checks++;
- assert(await page.getByRole("button",{name:"Remove",exact:true}).isVisible(),"stored credential fields expose per-field removal");checks++;
- const connectionCard=page.getByRole("article").filter({hasText:"Delivery GitHub"});await connectionCard.getByText("More",{exact:true}).click();assert(await connectionCard.getByRole("button",{name:"Copy to another owner",exact:true}).isVisible());await connectionCard.getByRole("button",{name:"Share linked access",exact:true}).click();await page.getByRole("heading",{name:"Share Delivery GitHub"}).waitFor();assert(await page.getByRole("group",{name:"Target credential owner"}).getByRole("button").isVisible());assert(await page.getByRole("textbox",{name:"New alias label",exact:true}).isVisible());checks++;await page.getByRole("button",{name:"Cancel",exact:true}).click();
+ assert(await page.getByRole("button",{name:"Remove API key",exact:true}).isVisible(),"stored credential fields expose per-field removal");checks++;
+ assert.equal(reveals,0,"render and verify never fetch a credential value");checks++;
+ await page.clock.install();
+ const secret=page.locator(".identity-secret-value"),eye=()=>page.getByRole("button",{name:"Reveal API key",exact:true}),copy=()=>page.getByRole("button",{name:"Copy API key",exact:true});
+ await copy().click();await page.getByText("Copied. This read is logged.",{exact:true}).waitFor();assert.equal(await secret.innerText(),"••••••••");assert.equal(reveals,1);checks++;
+ await eye().click();await page.getByRole("button",{name:"Hide API key",exact:true}).waitFor();assert.equal(await secret.innerText(),"synthetic-token-for-ui-test");assert.equal(reveals,1,"copy then reveal shares the short-lived value and actually reveals");checks++;
+ await page.getByRole("button",{name:"Hide API key",exact:true}).click();assert.equal(await secret.innerText(),"••••••••");assert.equal(await eye().getAttribute("aria-pressed"),"false");checks++;
+ await eye().click();await page.getByRole("button",{name:"Hide API key",exact:true}).waitFor();assert.equal(reveals,2,"hide clears the cached value");await page.clock.fastForward(30001);assert.equal(await secret.innerText(),"••••••••");assert.equal(await eye().getAttribute("title"),"Reveal API key");checks++;
+ await page.evaluate(()=>window.testClipboard.fail=true);await copy().click();await page.getByRole("status").filter({hasText:"Clipboard unavailable"}).waitFor();assert.equal(await secret.innerText(),"••••••••");assert.equal(reveals,3);await page.evaluate(()=>window.testClipboard.fail=false);await eye().click();await page.getByRole("button",{name:"Hide API key",exact:true}).waitFor();assert.equal(reveals,4,"failed clipboard read is discarded");await page.getByRole("button",{name:"Hide API key",exact:true}).click();checks++;
+ const beforeDelete=mutations;await page.getByRole("button",{name:"Remove API key",exact:true}).click();await page.getByRole("alertdialog",{name:"Remove credential field"}).waitFor();await page.getByRole("button",{name:"Remove credential field",exact:true}).click();assert.equal(mutations,beforeDelete,"deletion needs typed confirmation");await page.keyboard.press("Escape");await waitDelivery("cancel credential deletion");assert(await page.getByRole("button",{name:"Remove API key",exact:true}).evaluate(node=>node===document.activeElement),"cancel returns focus to the exact icon action");checks++;
+ const connectionCard=page.getByRole("article").filter({hasText:"Delivery GitHub"});
+ const more=()=>connectionCard.getByRole("button",{name:"More actions for Delivery GitHub",exact:true});await more().click();await connectionCard.getByRole("button",{name:"Delete",exact:true}).click();await page.getByRole("alertdialog",{name:"Delete named connection"}).waitFor();await page.keyboard.press("Escape");await waitDelivery("cancel connection deletion");assert(await more().evaluate(node=>node===document.activeElement),"menu confirmation cancel returns focus to the closed trigger");assert.equal(mutations,beforeDelete);checks++;
+ await more().click();await page.waitForFunction(()=>document.querySelector(".identity-tools summary").getAttribute("aria-expanded")==="true");await connectionCard.getByRole("button",{name:"Rename",exact:true}).focus();await page.keyboard.press("Escape");assert(await more().evaluate(node=>node===document.activeElement));assert.equal(await page.locator(".identity-tools").getAttribute("open"),null);await page.waitForFunction(()=>document.querySelector(".identity-tools summary").getAttribute("aria-expanded")==="false");checks++;
+await connectionCard.getByRole("button",{name:"More actions for Delivery GitHub",exact:true}).click();assert(await connectionCard.getByRole("button",{name:"Copy to another owner",exact:true}).isVisible());await connectionCard.getByRole("button",{name:"Share linked access",exact:true}).click();await page.getByRole("heading",{name:"Share Delivery GitHub"}).waitFor();assert(await page.getByRole("group",{name:"Target credential owner"}).getByRole("button").isVisible());assert(await page.getByRole("textbox",{name:"New alias label",exact:true}).isVisible());checks++;await page.getByRole("button",{name:"Cancel",exact:true}).click();
  await openSidebar();
  const owner=page.getByRole("group",{name:"Credential owner"}).getByRole("button");await owner.focus();await owner.press("ArrowDown");await page.getByRole("option",{name:/Studio/}).waitFor();await page.getByRole("option",{name:/Studio/}).press("ArrowDown");await page.getByRole("option",{name:/Personal/}).press("Enter");
  await page.getByRole("button",{name:"Add GitHub account",exact:true}).waitFor();assert.equal(await page.getByRole("heading",{name:"Delivery GitHub"}).count(),0);checks++;
@@ -60,10 +86,10 @@ try{
  await openSidebar();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("textbox",{name:"New user ID",exact:true}).fill("client-a");await page.getByRole("textbox",{name:"Display label",exact:true}).fill("Client A");await page.getByRole("button",{name:"Create user",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").filter({hasText:/Client A/}).waitFor();checks++;
  await openSidebar();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("textbox",{name:"Target user ID",exact:true}).fill("client-main");await page.getByRole("textbox",{name:"New display label",exact:true}).fill("Client Main");await page.getByRole("button",{name:"Rename user",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").filter({hasText:/Client Main/}).waitFor();checks++;
  await openSidebar();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("textbox",{name:"Target user ID",exact:true}).fill("client-copy");await page.getByRole("textbox",{name:"New display label",exact:true}).fill("Client Copy");await page.getByRole("button",{name:"Duplicate user",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").filter({hasText:/Client Copy/}).waitFor();checks++;
- await openSidebar();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("button",{name:"Delete user",exact:true}).click();await page.getByRole("textbox",{name:"Confirmation",exact:true}).fill("client-copy");await page.getByRole("button",{name:"Confirm",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").waitFor();assert.equal(users.some(row=>row.id==="client-copy"),false);checks++;
+ await openSidebar();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("button",{name:"Delete user",exact:true}).click();await page.getByRole("textbox",{name:"Confirmation",exact:true}).fill("client-copy");await page.getByRole("button",{name:"Delete credential owner",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").waitFor();assert.equal(users.some(row=>row.id==="client-copy"),false);checks++;
  await openSidebar();await owner.click();await page.getByRole("option",{name:/Studio/}).click();await nav.getByRole("button",{name:"GitHub",exact:true}).click();await waitDelivery("after user CRUD returns to Studio and selects GitHub");
  await page.getByRole("button",{name:"Add GitHub account",exact:true}).count();
- await page.getByRole("searchbox",{name:"Search integrations"}).fill("cloudflare");assert.equal(await page.locator(".integration-nav-group").first().getByRole("button",{includeHidden:true}).count(),14);assert.equal(await page.locator(".integration-nav-group").first().getByRole("button").filter({visible:true}).count(),1);checks++;
+ await page.getByRole("searchbox",{name:"Search integrations"}).fill("cloudflare");assert.equal(await page.locator(".integration-nav-group").first().getByRole("button",{includeHidden:true}).count(),providerCount);assert.equal(await page.locator(".integration-nav-group").first().getByRole("button").filter({visible:true}).count(),1);checks++;
  await page.getByRole("searchbox",{name:"Search integrations"}).fill("");
  assert.deepEqual(errors,[]);checks++;
  console.log("Integrations browser: "+checks+" checks passed (Settings-style sidebar/detail, 320–1920 px, mobile drawer, light/dark, inline transfer, user CRUD).");

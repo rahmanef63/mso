@@ -52,6 +52,10 @@ describe("auto-discovery guard", () => {
     expect(discoveryPairKey("https://host/v1", "sk-1")).not.toBe(discoveryPairKey("https://host/v1", "sk-2"));
   });
 
+  it("separates protocol discovery for the same URL and key", () => {
+    expect(discoveryPairKey("https://host/v1", "sk-1", "openai")).not.toBe(discoveryPairKey("https://host/v1", "sk-1", "anthropic"));
+  });
+
   it("claims each pair at most once, so a debounce can never fire twice", () => {
     const fired = new Set<string>();
     const pair = discoveryPairKey("https://host/v1", "sk-1");

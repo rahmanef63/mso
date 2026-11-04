@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { GLYPH_KEYS, createApp } from "@/features/app-store";
-import { AppFrame, usePublishInspector } from "@/features/appshell";
+import { AppFrame, setCloseGuard, useFeatureState, usePublishInspector, type AppProps } from "@/features/appshell";
 import { cn } from "@/lib/utils";
 import { IconPreview } from "./components/icon-preview";
 import { GlyphPicker } from "./components/glyph-picker";
@@ -44,16 +44,27 @@ const GRADIENTS = [
 const slugify = (s: string) =>
   s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-// Create App — author a new os-rr app and persist it via Convex. On create the
-// app is installed; the shell's dynamic registry shows it in the dock instantly.
-export default function CreateApp() {
-  const [name, setName] = useState("");
-  const [runtime, setRuntime] = useState<Runtime>("html");
-  const [entry, setEntry] = useState(ENTRY.html);
-  const [gradient, setGradient] = useState(GRADIENTS[0]);
-  const [glyph, setGlyph] = useState(GLYPH_KEYS[0]);
+// Browser-local manifest registration does not install a server runtime.
+export default function CreateApp({ winId }: AppProps = {}) {
+  const prefix = useId();
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [name, setName] = useFeatureState(winId, "create-app:name", "");
+  const [runtime, setRuntime] = useFeatureState<Runtime>(winId, "create-app:runtime", "html");
+  const [entry, setEntry] = useFeatureState(winId, "create-app:entry", ENTRY.html);
+  const [gradient, setGradient] = useFeatureState(winId, "create-app:gradient", GRADIENTS[0]);
+  const [glyph, setGlyph] = useFeatureState(winId, "create-app:glyph", GLYPH_KEYS[0]);
   const [created, setCreated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const dirty = !created && Boolean(name || runtime !== "html" || entry !== ENTRY.html || gradient !== GRADIENTS[0] || glyph !== GLYPH_KEYS[0]);
+  useEffect(() => {
+    const confirm = () => !dirty || window.confirm("Discard unsaved app details?");
+    if (winId) setCloseGuard(winId, dirty ? confirm : null);
+    const unload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    if (dirty) window.addEventListener("beforeunload", unload);
+    return () => { if (winId) setCloseGuard(winId, null); window.removeEventListener("beforeunload", unload); };
+  }, [dirty, winId]);
+  useEffect(() => () => { if (resetTimer.current) clearTimeout(resetTimer.current); }, []);
 
   const slug = useMemo(() => slugify(name) || "untitled", [name]);
   const manifest = useMemo(
@@ -77,7 +88,7 @@ export default function CreateApp() {
     {
       subject: name.trim() || "New app",
       props: [
-        { label: "Name", value: name.trim() || "—" },
+        { label: "Name", value: name.trim() || "Not named" },
         { label: "Slug", value: slug },
         { label: "Runtime", value: runtime },
         { label: "Entry", value: entry },
@@ -94,11 +105,8 @@ export default function CreateApp() {
     try {
       createApp({ appId: slug, title: name, glyph, gradient, runtime, entry });
       setCreated(true);
-      setTimeout(() => {
-        setName("");
-        pickRuntime("html");
-        setGradient(GRADIENTS[0]);
-        setGlyph(GLYPH_KEYS[0]);
+      setName(""); pickRuntime("html"); setGradient(GRADIENTS[0]); setGlyph(GLYPH_KEYS[0]);
+      resetTimer.current = setTimeout(() => {
         setCreated(false);
       }, 1800);
     } catch (e) {
@@ -125,16 +133,16 @@ export default function CreateApp() {
 
           <div className="grid grid-cols-1 gap-5 @xl:grid-cols-2 @xl:gap-x-8">
             <div className="space-y-5">
-              <Field label="Name">
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="My App" autoFocus />
+              <Field label="Name" htmlFor={`${prefix}-name`}>
+                <Input id={`${prefix}-name`} value={name} onChange={(e) => setName(e.target.value)} placeholder="My App" autoFocus />
               </Field>
 
               <Field label="Runtime">
                 <Segmented options={RUNTIMES} value={runtime} onChange={pickRuntime} className="w-full" />
               </Field>
 
-              <Field label="Entry point">
-                <Input value={entry} onChange={(e) => setEntry(e.target.value)} className="font-mono text-xs" />
+              <Field label="Entry point" htmlFor={`${prefix}-entry`}>
+                <Input id={`${prefix}-entry`} value={entry} onChange={(e) => setEntry(e.target.value)} className="font-mono text-xs" />
               </Field>
 
               <Field label="Glyph">
@@ -142,7 +150,7 @@ export default function CreateApp() {
               </Field>
 
               <Field label="Accent">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-[var(--feature-gap,.5rem)]">
                   {GRADIENTS.map((g, i) => (
                     <Button
                       key={g}
@@ -150,6 +158,7 @@ export default function CreateApp() {
                       variant="ghost"
                       size="icon"
                       aria-label={`Accent ${i + 1}`}
+                      aria-pressed={gradient === g}
                       onClick={() => setGradient(g)}
                       style={{ background: g }}
                       className={cn(
@@ -181,7 +190,7 @@ export default function CreateApp() {
                 )}
               </Button>
 
-              {error && <p className="text-center text-xs text-destructive">{error}</p>}
+              {error && <p role="alert" className="text-center text-xs text-destructive-text">{error}</p>}
 
               {created && (
                 <div className="flex justify-center">

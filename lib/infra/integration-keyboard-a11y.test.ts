@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { CONNECTION_MANAGER_SCRIPT } from "./connection-ui";
 
 // Four keyboard defects found by a browser audit of the integrations page. All four are the kind
 // that pass every unit test: they are about what the DOM does when you press keys, not about what
@@ -37,7 +38,7 @@ describe("skip link reaches the primary content", () => {
 });
 
 describe("integrations sidebar keyboard behaviour", () => {
-  const src = read("lib/infra/connection-ui.ts");
+  const src = CONNECTION_MANAGER_SCRIPT;
 
   it("makes the closed drawer inert so its items leave the tab order", () => {
     expect(src, "a translated-off-screen drawer is still focusable").toContain("sidebarPanel.inert=!sidebarOpen");

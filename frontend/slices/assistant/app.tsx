@@ -81,20 +81,14 @@ export default function Assistant({ payload }: AppProps) {
     [agentName, store.agents.length, store.skills.length, store.automations.length],
   );
 
-  if (form) {
-    if (form.kind === "skill")
-      return <SkillForm skill={form.item} store={store} onClose={() => setForm(null)} />;
-    if (form.kind === "agent")
-      return <AgentForm agent={form.item} store={store} onClose={() => setForm(null)} />;
-    return <AutomationForm auto={form.item} store={store} onClose={() => setForm(null)} />;
-  }
-
   // AppFrame gives the assistant a consistent scaffold: optional toolbar slot
   // for non-chat tabs (the chat tab embeds its own switcher row), and an
   // @container body for child reflow. `safeArea={false}` because each child
   // pane (ChatPanel composer, LibraryGrid/AutomationView padding) already
   // honors --sai-bottom — adding it again at the frame level would double-pad.
   return (
+    <>
+    <div className={form ? "hidden" : "h-full"}>
     <AppFrame
       className="bg-background"
       safeArea={false}
@@ -172,6 +166,9 @@ export default function Assistant({ payload }: AppProps) {
         <McpActivityView />
       ) : null}
     </AppFrame>
+    </div>
+    {form?.kind === "skill" ? <SkillForm skill={form.item} store={store} onClose={() => setForm(null)} /> : form?.kind === "agent" ? <AgentForm agent={form.item} store={store} onClose={() => setForm(null)} /> : form?.kind === "automation" ? <AutomationForm auto={form.item} store={store} onClose={() => setForm(null)} /> : null}
+    </>
   );
 }
 
