@@ -1,4 +1,5 @@
 import { fit, pad } from "./mso-agent-editing.mjs";
+import { kindColor } from "./mso-agent-theme.mjs";
 
 export const CLEAR_LINE = "\x1b[2K";
 export const CURSOR_UP = (n) => n > 0 ? `\x1b[${n}A` : "";
@@ -113,6 +114,10 @@ export function completionWindow(items, selected, size = 8) {
   return { start, items: rows.slice(start, start + count) };
 }
 
+// A one-cell glyph per kind, so the menu still distinguishes an agent from an MCP plugin from a
+// command when colour is unavailable (NO_COLOR, mono theme, a captured frame, a diff).
+const KIND_GLYPH = { agent: "◉", plugin: "⬢", mcp: "⬢", command: "/", skill: "◆" };
+
 export function menuLines(items, selected, columns, C, panelLabel = "commands & skills") {
   const { start, items: visible } = completionWindow(items, selected, 8);
   if (!visible.length) return [];
@@ -125,8 +130,14 @@ export function menuLines(items, selected, columns, C, panelLabel = "commands & 
     const active = start + offset === selected;
     const marker = active ? `${C.blue}${C.bold}›${C.reset}` : " ";
     const stateColor = item.state === "queued" ? C.warn : ["invoking", "invoked"].includes(item.state) ? C.c : C.blue;
-    const stateMark = item.kind === "skill" ? `${stateColor}${item.state === "invoked" ? "✓" : item.state === "ready" ? "◇" : "◆"}${C.reset}` : " ";
-    const nameColor = item.kind === "skill" ? stateColor : active ? C.blue : "";
+    // Two independent signals for "what is this row": a hue from the kind, and a glyph. The glyph is what
+    // survives a mono palette or a piped frame, so the distinction is never colour-only.
+    const hue = kindColor(item.kind, C);
+    const glyph = KIND_GLYPH[String(item.kind || "")] || " ";
+    const stateMark = item.kind === "skill"
+      ? `${stateColor}${item.state === "invoked" ? "✓" : item.state === "ready" ? "◇" : "◆"}${C.reset}`
+      : `${hue || C.dim}${glyph}${C.reset}`;
+    const nameColor = item.kind === "skill" ? stateColor : (hue || (active ? C.blue : ""));
     const displayText = item.label || item.text;
     const name = nameColor ? `${nameColor}${active ? C.bold : ""}${pad(displayText, nameWidth)}${C.reset}` : pad(displayText, nameWidth);
     const metaText = fit(item.meta || "", metaWidth), meta = metaWidth ? `${C.dim}${metaText}${C.reset}` : "";

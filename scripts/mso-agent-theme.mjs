@@ -8,6 +8,10 @@ import process from "node:process";
 //
 // `NO_COLOR` and a non-TTY stdout always win: nothing here can emit ANSI into a
 // pipe, a log file, or a screenshot diff.
+//
+// Four base hues plus three semantic ones. The semantic hues exist so a menu can say
+// WHAT a row is without a label saying it: an agent, an MCP plugin and a command are
+// different kinds of thing and should not look alike.
 
 export const THEMES = {
   dark: {
@@ -15,6 +19,10 @@ export const THEMES = {
     cyan: "\x1b[38;2;52;211;153m",
     warn: "\x1b[38;2;245;158;11m",
     err: "\x1b[38;2;239;68;68m",
+    // Violet for agents, magenta for MCP plugins, muted grey for commands and skills.
+    violet: "\x1b[38;2;167;139;250m",
+    magenta: "\x1b[38;2;232;121;249m",
+    muted: "\x1b[38;2;148;163;184m",
   },
   light: {
     // Chosen for contrast on a white terminal: the dark theme's cyan and warn are
@@ -23,8 +31,11 @@ export const THEMES = {
     cyan: "\x1b[38;2;13;122;86m",
     warn: "\x1b[38;2;150;84;0m",
     err: "\x1b[38;2;176;24;24m",
+    violet: "\x1b[38;2;109;40;217m",
+    magenta: "\x1b[38;2;162;28;175m",
+    muted: "\x1b[38;2;86;102;122m",
   },
-  mono: { blue: "", cyan: "", warn: "", err: "" },
+  mono: { blue: "", cyan: "", warn: "", err: "", violet: "", magenta: "", muted: "" },
 };
 
 export const THEME_NAMES = Object.keys(THEMES);
@@ -39,14 +50,33 @@ export const C = {
   reset: colorEnabled() ? "\x1b[0m" : "",
   bold: colorEnabled() ? "\x1b[1m" : "",
   dim: colorEnabled() ? "\x1b[2m" : "",
-  blue: "", cyan: "", warn: "", err: "",
+  blue: "", cyan: "", warn: "", err: "", violet: "", magenta: "", muted: "",
 };
 C.a = C.blue;
 C.b = C.blue;
 C.c = C.cyan;
-C.a = C.blue;
-C.b = C.blue;
-C.c = C.cyan;
+
+// The single mapping from "what kind of row is this" to "which hue". One place, so the
+// `/` menu, the `@` menu and the Ctrl+P dialog cannot drift apart.
+const KIND_COLORS = {
+  agent: "violet",
+  plugin: "magenta",
+  mcp: "magenta",
+  command: "muted",
+  skill: "cyan",
+};
+
+/**
+ * The hue for one row kind, or "" when the kind has none (which is not an error: an
+ * unlabelled row simply inherits the caller's colour).
+ *
+ * @param {string} kind
+ * @param {any} [colors] palette, defaults to the live one
+ * @returns {string}
+ */
+export function kindColor(kind, colors = C) {
+  return colors[KIND_COLORS[String(kind || "")]] || "";
+}
 
 export function themeNames() {
   return [...THEME_NAMES];
@@ -57,15 +87,15 @@ export function currentThemeName() {
 }
 
 /**
- * Apply a theme in place. Returns the id that is now active, which may differ from
- * the request when colour is disabled entirely: a caller that prints
+ * Apply a theme in place. Returns the id that is now active, which may differ from the
+ * request when colour is disabled entirely: a caller that prints
  * "theme light" while every colour is blank would be lying about what it did.
  */
 export function applyTheme(name) {
   const requested = String(name || "").trim().toLowerCase();
   const wanted = THEME_NAMES.includes(requested) ? requested : null;
   if (!colorEnabled()) {
-    C.blue = C.cyan = C.warn = C.err = "";
+    C.blue = C.cyan = C.warn = C.err = C.violet = C.magenta = C.muted = "";
     currentTheme = "mono";
     return { theme: currentTheme, changed: false, reason: "colour disabled (NO_COLOR or not a TTY)" };
   }
@@ -74,6 +104,9 @@ export function applyTheme(name) {
   C.cyan = picked.cyan;
   C.warn = picked.warn;
   C.err = picked.err;
+  C.violet = picked.violet;
+  C.magenta = picked.magenta;
+  C.muted = picked.muted;
   // The short aliases exist for legacy call sites; keep them pointing at the live
   // values so a theme switch reaches them too.
   C.a = C.blue;

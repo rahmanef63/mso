@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `tui` fifteen audits, and the defects that made the panel lie about safety
+- `tui` fifteen audits, and the defects that made the panel lie about safety (#273)
 - keep credentials out of Composio cache keys
 - preserve window drafts and modal focus
 - bind Composio sessions to selected connections
@@ -27,20 +27,12 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
-- `tui` derive the wide-character fixture path from HOME
 - retain Camoufox abort callback contract
 
 **Docs**
 
-- `env` document MSO_AGENT_TIMEOUT_MS
 - reconcile all frontend audit findings
 - record rendered surfaces verification
-
-**Chores**
-
-- changelog pass
-- regenerate changelog after merging main
-- changelog
 
 ## 2026-11-03
 
