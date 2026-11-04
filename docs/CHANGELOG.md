@@ -41,6 +41,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Chores**
 
+- changelog pass
 - changelog
 
 ## 2026-11-03
