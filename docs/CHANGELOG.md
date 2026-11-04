@@ -14,6 +14,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `tui` derive the wide-character fixture path from HOME
 
+**Docs**
+
+- `env` document MSO_AGENT_TIMEOUT_MS
+
 **Chores**
 
 - changelog pass
