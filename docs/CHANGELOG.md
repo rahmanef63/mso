@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `tui` fifteen audits, and the defects that made the panel lie about safety
 
+**Tests**
+
+- `tui` derive the wide-character fixture path from HOME
+
 **Chores**
 
 - changelog pass
