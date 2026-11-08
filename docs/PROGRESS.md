@@ -5735,3 +5735,21 @@ Screenshot evidence previously lived in unrelated scratch directories or only in
 ### 2026-10-22 — Composio session MCP credential
 - `POST /api/v3.1/tool_router/session` has no `mcp` request field and its 201 response carries `mcp.url` without headers, so a stored session previously had no credential and could never be called. `mcpHeaders` is now the exact header `composioAuthHeader` returned for the credential that authenticated that same create call (`x-api-key` project, `x-user-api-key` user, `x-org-api-key` org), matching `docs/sessions-via-mcp`. A future response `mcp.headers` still wins verbatim.
 - The session MCP URL host is validated against the existing Composio redirect allowlist plus `app.composio.dev` (the spec example host); any other host fails closed with `invalid_composio_mcp_host`. Header values stay server-side: the route still returns only `mcpUrl`.
+
+## 2026-11-09: isolated static Svelte migration entry
+
+The owner resumed Svelte implementation with frequent reviewed integration to main; the
+reported symptom is a heavy server. The new frontend/svelte package builds static assets,
+not a React island or a second production SSR service. Its first journey checks the existing
+device session and reads a one-shot System Monitor snapshot using the shared host DTO.
+No auth policy, host state, production routing or deployment service was changed.
+
+Separate frozen dependencies, Svelte checks, Node behavior tests, browser fixtures and a
+nested dependency audit are wired into verification. Tests cover signed-out access, malformed
+responses, revocation, retry, cancellation/disposal and a fixed loopback GET-only preview
+proxy. Browser coverage samples 320/390/1440 px in light/dark, keyboard skip/refresh and
+320 px at 200% text. Full five-shell parity and real device/production-host evidence are not
+claimed. Exact release/gate evidence belongs in the PR; see SVELTE-IMPLEMENTATION.md for the
+feature ledger, remaining milestones, production CSP integration and server resource gate.
+
+This increment does not remove Next from the backend and does not claim an RSS/CPU win.

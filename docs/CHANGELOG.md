@@ -33,6 +33,12 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - Add a desktop observer API for bot desktop containers
 
+## 2026-11-09
+
+**Added**
+
+- `svelte` add isolated static entry and session-gated monitor
+
 ## 2026-11-04
 
 **Added**
@@ -1383,52 +1389,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Changed**
 
 - `mcp` dedupe ChatGPT CSP metadata
-
-## 2026-09-03
-
-**Added**
-
-- `mcp` embed Play Together securely
-- `mcp` add secure ChatGPT MSO Surface
-- `agent` add P10 memory lifecycle calibration
-- `mcp` complete Fresh 3 plugin contracts
-- `mcp` maximize Fresh 3 operator capabilities
-- `mcp` harden ChatGPT profile and project bridge
-
-**Fixed**
-
-- `mcp` correct Fresh 3 Surface scope
-- `mcp` open contextual MSO views
-- `runtime` prevent live Next build corruption
-- `mcp` harden Open in MSO navigation
-- `agent` calibrate correction memory semantics
-- `agent` compare normalized token proofs per row
-- `mcp` advertise implemented protocol era
-- `mcp` support trusted browser probes
-- `oauth` issue distinct dynamic client ids
-- `mcp` make read pipeline schema portable
-
-**Faster**
-
-- `agent` add P8 calibration harness
-- `agent` add repeatable corpus runner
-- `agent` expand objective repo corpus
-
-**Changed**
-
-- `mcp` unify ChatGPT Surface UI
-
-**Tests**
-
-- `agent` calibrate local semantic memory retrieval
-- separate corpus accounting ownership
-- keep Fresh 3 within architecture ratchets
-- `gateway` await complete browser argv capture
-
-**Docs**
-
-- bound Cognitive Runtime claims to verified evidence
-- refresh maintainability changelog
-- `agent` record P9 memory calibration
-- `agent` record P8 calibration baseline
-- `agent` record P7 repeated corpus baseline

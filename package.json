@@ -17,7 +17,7 @@
     "coverage": "node scripts/check-test-toolchain.mjs && vitest run --coverage",
     "check": "node scripts/check-cycles.mjs && node scripts/check-architecture.mjs && node scripts/check-docs.mjs && node scripts/gen-comparison.mjs --check && node scripts/gen-changelog.mjs --check && node scripts/check-contrast.mjs && bun scripts/check-skill-flows.mjs && bun run check:instance-literals && bun run test:ci && bun run parity:nakama && bun run test:parity",
     "audit": "node scripts/audit.mjs",
-    "verify": "bun run typecheck && bun run lint && bun run coverage && bun run check && bun run audit",
+    "verify": "bun run typecheck && bun run lint && bun run coverage && bun run check && bun run audit && bun run svelte:install && bun run svelte:check && bun run svelte:build && bun run svelte:e2e && bun run svelte:audit",
     "pr:preflight": "bash scripts/pr-preflight.sh --full",
     "pr:local": "bash scripts/pr-preflight.sh --local",
     "pr:security": "bash scripts/pr-preflight.sh --security",
@@ -67,7 +67,12 @@
     "parity:nakama": "node scripts/check-nakama-parity.mjs && node scripts/gen-nakama-parity.mjs --check",
     "parity:nakama:release": "node scripts/check-nakama-parity.mjs --release",
     "test:parity": "node --test scripts/parity/inventory.node.mjs",
-    "mcp:orca": "node bin/orca-mcp.mjs"
+    "mcp:orca": "node bin/orca-mcp.mjs",
+    "svelte:install": "cd frontend/svelte && bun install --frozen-lockfile",
+    "svelte:check": "cd frontend/svelte && bun run check && bun run test",
+    "svelte:build": "cd frontend/svelte && bun run build",
+    "svelte:e2e": "cd frontend/svelte && bun run test:browser",
+    "svelte:audit": "cd frontend/svelte && bun audit --audit-level=high"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
