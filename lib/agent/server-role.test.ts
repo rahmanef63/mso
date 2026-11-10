@@ -34,6 +34,15 @@ describe("host API role policy", () => {
 
   it("gives operators only the bounded operational surfaces", () => {
     expect(requiredRoleForRequest(req("GET", "/api/v1/camoufox/service"))).toBe("operator");
+    // Bot desktops are another app's live screen and lifecycle, never a viewer read.
+    for (const [method, path] of [
+      ["GET", "/api/v1/desktop/containers"],
+      ["GET", "/api/v1/desktop/screenshot"],
+      ["POST", "/api/v1/desktop/lifecycle"],
+    ] as const) expect(requiredRoleForRequest(req(method, path)), path).toBe("operator");
+    // The prefix is deliberate: the whole family is operator, and a sibling feature
+    // is not swept in by accident.
+    expect(requiredRoleForRequest(req("GET", "/api/v1/desktop-adjacent"))).toBe("owner");
     expect(requiredRoleForRequest(req("POST", "/api/v1/managed-apps/openclaw"))).toBe("operator");
     expect(requiredRoleForRequest(req("GET", "/api/v1/managed-apps/openclaw/logs"))).toBe("operator");
     expect(requiredRoleForRequest(req("GET", `/api/v1/managed-apps/openclaw/jobs/${"a".repeat(24)}`))).toBe("operator");
