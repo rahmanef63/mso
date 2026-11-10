@@ -23,6 +23,8 @@ export type AuditAction =
   | "managed-app.action"
   | "infra.write"
   | "camoufox.power"
+  /** Bot desktop container lifecycle seen or changed from MSO (never a bot command). */
+  | "desktop.lifecycle"
   | "workflow.start"
   | "workflow.cancel"
   | "workflow.finish"

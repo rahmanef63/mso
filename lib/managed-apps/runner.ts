@@ -6,6 +6,8 @@ import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
 const MAX_OUTPUT = 128 * 1024;
+/** Screenshots and other binary captures; larger than the text cap on purpose. */
+const MAX_BINARY_OUTPUT = 16 * 1024 * 1024;
 
 /**
  * Directories that hold per-user CLIs but are absent from a systemd unit's PATH.
@@ -55,6 +57,43 @@ export function runProgram(
       (error, stdout, stderr) => {
         const code = typeof error?.code === "number" ? error.code : error ? 1 : 0;
         resolve({ code, stdout: String(stdout ?? ""), stderr: String(stderr ?? "") });
+      },
+    );
+  });
+}
+
+export interface ProgramBytesResult {
+  code: number;
+  stdout: Buffer;
+  stderr: string;
+}
+
+/**
+ * Same spawn contract as `runProgram`, but stdout stays bytes.
+ *
+ * `runProgram` decodes stdout as UTF-8, which corrupts a PNG (every byte above
+ * 0x7f becomes a replacement character). Anything binary - a screenshot, an export -
+ * needs this sibling rather than a second `execFile` call site of its own: the
+ * `shell: false` + argv-array guarantee is the point, and it must stay one rule.
+ */
+export function runProgramBytes(
+  command: string,
+  args: readonly string[],
+  timeout = 30_000,
+  maxBytes = MAX_BINARY_OUTPUT,
+): Promise<ProgramBytesResult> {
+  return new Promise((resolve) => {
+    execFile(
+      command,
+      [...args],
+      { timeout, maxBuffer: maxBytes, windowsHide: true, shell: false, encoding: "buffer" },
+      (error, stdout, stderr) => {
+        const code = typeof error?.code === "number" ? error.code : error ? 1 : 0;
+        resolve({
+          code,
+          stdout: Buffer.from(stdout as unknown as Buffer ?? []),
+          stderr: String((stderr as unknown as Buffer ?? "").toString("utf8")),
+        });
       },
     );
   });
