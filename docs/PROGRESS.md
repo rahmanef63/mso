@@ -1,3 +1,32 @@
+## 2026-11-12 — Addressable connections and one sidebar surface
+
+A named connection could only be described in prose ("the github one under studio"), so an
+agent had to translate before acting. Every connection card now shows an address
+(`provider / owner / connection`) whose copy control emits the absolute
+`/integrations?provider=&user=&connection=` route. Server-side authorization entrypoints use
+the same builder (`lib/infra/connection-address.ts`), so there is one definition of the
+address. The manager reads the query back and lands on that connection, marking, scrolling
+and focusing the card once; a stale address says it no longer matches instead of silently
+showing the provider.
+
+Sidebar width now belongs to the active shell. Finder rendered 192px, Code 240px, Store
+160px and the Dashboard rail 240px under the same macOS shell because each feature carried a
+literal `w-*` class. `AppSidebar` sizes the rail from `--feature-sidebar-width` and offers a
+`narrow` ratio; Finder, Store and Dashboard adopt it. Measured after the change on one
+running dev server: macos 192/240/192/240, windows 248, dashboard 224, with no console
+errors.
+
+Development-only fixes found while bringing the dev server up: `next dev` was running with a
+leaked `NODE_ENV=production` (so the dev CSP never applied), and Next blocked HMR from
+`127.0.0.1` because no `allowedDevOrigins` was configured, leaving every edit unrefreshed and
+the console full of handshake failures. The allowlist is loopback and private ranges only and
+is absent from production builds.
+
+Local gates: `tsc --noEmit` clean, `eslint . --max-warnings=0` clean, 1026 test files / 6666
+tests passing, architecture within ratchets, contrast AA with zero failures. Browser checks
+ran against synthetic connections only. Not done: migrating the remaining sidebar consumers
+to a ratio, and the dev-only `frame-ancestors` decision for the T3 preview panel.
+
 ## 2026-11-04: restrict Markdown transcript file export
 
 Markdown transcripts may contain server-provided content. The TUI now prints them for

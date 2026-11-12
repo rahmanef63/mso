@@ -102,7 +102,8 @@ export default function FilesManager({ payload }: AppProps) {
         open={sidebarOpen}
         onOpenChange={setSidebarOpen}
         title={shellId === "macos" ? "Finder" : shellId === "windows" ? "File Explorer" : "Files"}
-        railClassName={shellId === "macos" ? "w-48 bg-sidebar/65" : "w-52 bg-background"}
+        width="narrow"
+        railClassName={shellId === "windows" ? "bg-background" : "bg-sidebar/65"}
         description="Browse favorites, the file tree, and storage."
       >
         <FilesSidebar

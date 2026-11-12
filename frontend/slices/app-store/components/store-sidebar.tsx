@@ -59,7 +59,7 @@ export function StoreSidebar({
   );
 
   return (
-    <aside className="flex w-40 shrink-0 flex-col gap-0.5 border-r border-border bg-secondary/30 p-2">
+    <aside className="flex w-[calc(var(--feature-sidebar-width,14rem)*0.8)] shrink-0 flex-col gap-0.5 border-r border-border bg-secondary/30 p-2">
       {!systemOnly && <><div className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
         <Compass className="size-3.5" /> Discover
       </div>

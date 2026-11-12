@@ -112,10 +112,15 @@ function crossOriginMutation(request: NextRequest): boolean {
 //   are SERVER-side, so the browser only hits same-origin /api — the exfil gate.
 // - frame-src https:: media-viewer PDF + widget "Embed" + app-store runtime iframes
 //   load external URLs (each sandboxed). worker/child blob: = SW + onnx worker.
+// ponytail: dev-only 'unsafe-eval' for Turbopack HMR + React dev stack traces.
+// Production keeps the strict policy (no eval). If a future dev tool needs more,
+// widen here rather than dropping the whole CSP in development.
+const DEV_SCRIPT_SRC = process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'";
+
 function contentSecurityPolicy(nonce: string): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${DEV_SCRIPT_SRC}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",

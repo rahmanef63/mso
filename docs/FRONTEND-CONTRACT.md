@@ -41,6 +41,10 @@ do not import React frontend components into server infrastructure.
 - Inherit `--feature-padding`, `--feature-gap`, `--feature-sidebar-width`,
   `--ui-control-height` and `--ui-control-padding`. Put reusable defaults at the shell or
   UI-kit layer, feature-specific exceptions on `AppFrame.layout`, not in every consumer.
+- Sidebar width belongs to the active shell. Compose `<AppSidebar>` (rail, sheet on narrow
+  containers) and choose a ratio (`width="narrow"`) when the content is short; do not pass a
+  literal `w-*` width. Native DOM sidebars (for example the Integrations manager) receive the
+  same token through their reviewed bridge instead of re-deriving a width.
 - Use semantic spacing/type/colour tokens. New literal values need a feature-specific reason;
   do not add another global scale or scatter OS checks through feature components.
 - Opt into page spacing with `padded`; editors, terminal and canvases can remain edge-to-edge.
