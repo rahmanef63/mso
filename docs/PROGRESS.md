@@ -1,3 +1,21 @@
+## 2026-11-12 — No chrome bar on a CLI-only managed app
+
+After the two bands became one, the remaining 44px row still only held a sentence and a
+gear above a terminal that already names the app in the window title. Removed entirely: the
+no-dashboard explanation is now the terminal's own first line, and the details control rides
+the terminal's existing tab strip, so the surface starts at the window title.
+
+Verified on `/hermes` with a synthetic running app and no dashboard origin: zero app
+headers, note inside the terminal, gear inside the tab strip at 28px, terminal at y=95
+under the title bar, zero console errors.
+
+Worth recording because the next question was why this is a TUI at all: it is not a
+rendering bug. `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` is unset in this dev instance, and
+`featureSource()` refuses to fall back to a cockpit path by design (upstream JS would then
+run in a realm holding the session and could reach `/api/v1/exec`). No template means no
+embeddable dashboard, so the CLI is the correct surface. The note now names that variable
+so the cause and the fix are both on screen.
+
 ## 2026-11-12 — One bar per managed app surface
 
 The managed-app window stacked two chrome bands before any content: a 44px identity

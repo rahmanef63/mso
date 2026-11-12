@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `managed-apps` collapse two chrome bands into one bar
 - `dev` let the local preview panel frame a loopback dev server
 
 ## 2026-11-04
