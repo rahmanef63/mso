@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `integrations` addressable connections and one sidebar surface
 
+**Fixed**
+
+- `dev` let the local preview panel frame a loopback dev server
+
 ## 2026-11-04
 
 **Added**

@@ -1,3 +1,24 @@
+## 2026-11-12 — One bar per managed app surface
+
+The managed-app window stacked two chrome bands before any content: a 44px identity
+header with the app name, a state dot and a text "Details" button, sitting above a 36px
+toolbar whose controls were all pushed right into an empty left half. A third full-width
+strip carried the one-sentence "no browser dashboard" note. Measured on `/hermes`: 80px of
+chrome plus a 28px bordered band, for one row of actual information.
+
+The identity header and the feature toolbar are now one 44px row. The no-dashboard note is
+inline muted text in that row instead of its own bordered strip, and the app controls
+(lifecycle, logs, update) are reached from an icon-only gear with an accessible name
+rather than a repeated text button. The management pane gets the same treatment plus an
+explicit close, so there is a way back instead of a second identity band.
+
+Verified in the running app against a synthetic running Hermes with no dashboard origin: one
+44px header, the note at 15px inline with no border of its own, a single icon button named
+"Application details", zero console errors. The terminal below is unblocked.
+
+Local gates: 1027 test files / 6671 tests passing, `tsc` and `eslint . --max-warnings=0`
+clean, architecture within ratchets.
+
 ## 2026-11-12 — Addressable connections and one sidebar surface
 
 A named connection could only be described in prose ("the github one under studio"), so an

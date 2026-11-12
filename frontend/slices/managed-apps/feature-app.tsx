@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, RefreshCw, TerminalSquare } from "lucide-react";
+import { ExternalLink, RefreshCw, Settings2, TerminalSquare } from "lucide-react";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import type { AppProps } from "@/features/appshell";
 import { Terminal } from "@/features/os-terminal";
@@ -8,7 +8,20 @@ import type { ManagedAppFeature } from "@/lib/managed-apps/types";
 import { requestAuthorizedFrame, selectAuthorizedFrame } from "./app-authorization";
 import { cliCommand, dashboardSurfaceSource, featureSource } from "./feature-cli";
 
-export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { feature: ManagedAppFeature; publicDashboardUrl?: string | null }) {
+export function ManagedFeatureApp({
+  feature,
+  publicDashboardUrl,
+  detailsOpen = false,
+  onToggleDetails,
+}: AppProps & {
+  feature: ManagedAppFeature;
+  publicDashboardUrl?: string | null;
+  /** MSO-owned controls (lifecycle, logs, update) live in the surface, but their
+   *  toggle belongs in THIS bar: two stacked toolbars cost 80px and pushed the app
+   *  down for no information. */
+  detailsOpen?: boolean;
+  onToggleDetails?: () => void;
+}) {
   const embeddedSource = featureSource(feature);
   const surface = dashboardSurfaceSource(embeddedSource, publicDashboardUrl);
   const directSource = surface.kind === "direct" ? surface.source : null;
@@ -40,38 +53,49 @@ export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { 
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      {/* No name row: the window header above already says which app this is. Repeating it
-          cost a 48px band on every mount and pushed the app itself down the screen. */}
-      <header className="flex h-9 shrink-0 items-center justify-end gap-1.5 border-b border-border px-2">
-        {uiAvailable ? (
-          <button type="button" onClick={() => setView((current) => (current === "ui" ? "cli" : "ui"))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground" aria-label="Toggle upstream UI or CLI"><TerminalSquare className="size-3.5" />{view === "ui" ? "CLI" : "UI"}</button>
-        ) : null}
-        {uiAvailable ? (
+      {/* ONE bar. It used to be a `justify-end` toolbar with everything pushed right (an
+          empty left half) sitting under a separate 44px app header; the empty band and the
+          80px of chrome before any content were the same bug. The app identity, the
+          no-dashboard note and every control now share this row, and the note is inline
+          muted text rather than its own bordered strip. */}
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
+        {!uiAvailable ? (
           <>
+            <TerminalSquare className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <p className="min-w-0 flex-1 truncate text-[11px] leading-snug text-muted-foreground">
+              {feature.applicationId === "hermes"
+                ? "Running as its agent/CLI runtime. No browser dashboard on this host, so the terminal below is the app."
+                : "No browser UI is exposed by this deployment, so the CLI below is the view. Split-origin dashboard hosts are optional."}
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="flex-1" />
+            <button type="button" onClick={() => setView((current) => (current === "ui" ? "cli" : "ui"))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground" aria-label="Toggle upstream UI or CLI"><TerminalSquare className="size-3.5" />{view === "ui" ? "CLI" : "UI"}</button>
             {!directSource ? <button type="button" onClick={reload} className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Refresh feature"><RefreshCw className="size-3.5" /></button> : null}
             <a href={directSource ?? authorizedSource ?? undefined} target="_blank" rel="noreferrer" className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Open feature in dedicated tab"><ExternalLink className="size-3.5" /></a>
           </>
+        )}
+        {onToggleDetails ? (
+          <button
+            type="button"
+            onClick={onToggleDetails}
+            aria-pressed={detailsOpen}
+            aria-label="Application details"
+            title="Application details"
+            className={`rounded-md border p-2 ${detailsOpen ? "border-border bg-muted text-foreground" : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"}`}
+          >
+            <Settings2 className="size-3.5" />
+          </button>
         ) : null}
       </header>
       {/* `|| !source` is explicit, not defensive: with no dashboard origin the CLI IS the
-          app's surface here, and the alternative was an iframe with a null src. The panel
-          of prose that used to sit in THIS slot was unreachable anyway — `view` initialises
-          to "cli" whenever `source` is null and the toggle that could change it only
-          renders when `source` is not; the note above sits outside the branch for exactly
-          that reason. */}
-      {/* Only when there is no origin at all, so this can never become the banner that got
-          removed for appearing on every feature view: with a dashboard configured — the
-          normal case — nothing renders here. Without one, the window silently opens a
-          terminal, and a terminal is indistinguishable from a dashboard that broke. It
-          reads as a fault in the app and sends the operator to look at the app. It is not:
-          it is a deployment that serves no dashboards, and only this file knows that. */}
-      {!uiAvailable ? (
-        <p className="shrink-0 border-b border-border px-3 py-1.5 text-[11px] leading-snug text-muted-foreground">
-          {feature.applicationId === "hermes"
-            ? "Hermes is running as its agent/CLI runtime. The optional browser dashboard is not exposed on this host; use the interactive Hermes terminal below."
-            : "No browser UI is exposed by this deployment, so the CLI below is the view. A managed app can work without a domain; split-origin dashboard hosts are optional."}
-        </p>
-      ) : null}
+          app's surface here, and the alternative was an iframe with a null src. The
+          no-dashboard explanation lives inline in the bar above instead of in its own
+          bordered strip: the strip was a second full-width band of chrome saying one
+          sentence, and it is the same fact either way. It cannot become the banner that
+          was removed for appearing on every view, because with a dashboard configured —
+          the normal case — nothing but the bar renders. */}
       {view === "cli" || !uiAvailable ? (
         <div className="min-h-0 flex-1">
           <Suspense fallback={null}>

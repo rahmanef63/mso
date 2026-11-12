@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileText, Loader2, Play, RefreshCw, Save, SlidersHorizontal, Square } from "lucide-react";
+import { FileText, Loader2, Play, RefreshCw, Save, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ManagedAppAction, ManagedAppId, ManagedAppView } from "@/lib/managed-apps/types";
 import { AppMark, MANAGED_APP_ICONS as ICON, MANAGED_APP_NAMES as NAME } from "./app-meta";
@@ -105,7 +105,6 @@ function ManagedAppsSurface({ focus }: { focus: ManagedAppId }) {
   // Detection has to land before anything is drawn: rendering the frame first and swapping
   // it out is exactly the dead-iframe flash this replaced.
   const settled = !state.loading || app !== null;
-  const running = app?.state === "running";
   // Is there anything for the iframe to SHOW? "installed" was the wrong question and put a
   // dead frame on screen: OpenClaw installed fine, its gateway never came up, and the
   // window mounted the vendor UI anyway — which rendered the proxy's own
@@ -116,34 +115,13 @@ function ManagedAppsSurface({ focus }: { focus: ManagedAppId }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
-        {ICON[focus]}
-        <h2 className="text-sm font-semibold">{NAME[focus]}</h2>
-        {settled && app ? (
-          <span
-            aria-label={`state: ${app.state}`}
-            title={app.state}
-            className={`size-1.5 rounded-full ${running ? "bg-emerald-400" : app.state === "unhealthy" ? "bg-red-400" : "bg-muted-foreground/40"}`}
-          />
-        ) : null}
-        <div className="flex-1" />
-        <button
-          type="button"
-          onClick={() => setDetails((was) => !was)}
-          aria-pressed={details}
-          className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs ${details ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <SlidersHorizontal className="size-3.5" />
-          Details
-        </button>
-      </header>
       <div className="min-h-0 flex-1">
         {!settled ? (
           <div className="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Detecting {NAME[focus]}…
           </div>
         ) : details ? (
-          <ManagePane focus={focus} state={state} />
+          <ManagePane focus={focus} state={state} onClose={() => setDetails(false)} />
         ) : !app ? (
           // Detection answered without this app in it — a 503 from the list route, or a
           // response one element short. Never the iframe: that is how a data problem
@@ -172,20 +150,31 @@ function ManagedAppsSurface({ focus }: { focus: ManagedAppId }) {
             </p>
           </Hero>
         ) : (
-          <ManagedFeatureApp feature={feature} publicDashboardUrl={app.publicDashboardUrl} />
+          <ManagedFeatureApp
+            feature={feature}
+            publicDashboardUrl={app.publicDashboardUrl}
+            detailsOpen={details}
+            onToggleDetails={() => setDetails((was) => !was)}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function ManagePane({ focus, state }: { focus: ManagedAppId; state: ReturnType<typeof useManagedApps> }) {
+function ManagePane({ focus, state, onClose }: { focus: ManagedAppId; state: ReturnType<typeof useManagedApps>; onClose: () => void }) {
   const visible = useMemo(() => state.apps.filter((app) => app.id === focus), [focus, state.apps]);
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
-        <p className="text-[11px] text-muted-foreground">MSO management layer · independent runtime and state</p>
+      {/* Same single-bar rule: the pane needs a way back and a refresh, not a second
+          identity band repeating what the bar already says. */}
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
+          {ICON[focus]}
+          <span className="truncate">MSO management layer · independent runtime and state</span>
+        </div>
         <button type="button" onClick={() => void state.refresh()} className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Refresh applications"><RefreshCw className="size-3.5" /></button>
+        <button type="button" onClick={onClose} className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Close application details"><X className="size-3.5" /></button>
       </header>
       <main className="min-h-0 flex-1 overflow-auto p-4">
         {state.error && <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{state.error}</div>}
