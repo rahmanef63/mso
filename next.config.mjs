@@ -146,7 +146,14 @@ const nextConfig = {
           // script-src) is set PER-REQUEST in proxy.ts so a fresh nonce can gate
           // inline scripts; a static CSP here can't nonce, so it's intentionally
           // omitted (proxy owns it).
-          { key: "X-Frame-Options", value: "DENY" },
+          //
+          // Development allows framing because an agent's local preview panel is an
+          // iframe of this same server. Production keeps DENY, and proxy.ts sets the
+          // per-request CSP frame-ancestors gate, which is the header that actually
+          // decides a loopback dev case (XFO has no "allow this parent" value).
+          ...(process.env.NODE_ENV === "production"
+            ? [{ key: "X-Frame-Options", value: "DENY" }]
+            : []),
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",

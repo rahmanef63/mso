@@ -51,6 +51,7 @@ export default defineConfig({
       // globbed — a root test file that is not listed here is silently never run,
       // which is worse than having no test at all, because the suite still says green.
       "proxy.test.ts",
+      "proxy-framing.test.ts",
       "proxy-websocket.test.ts",
       "proxy-machine-protocol.test.ts",
     ],
