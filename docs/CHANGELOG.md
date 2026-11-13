@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `shell` every official app mark reaches the dock, the store and the picker
 
+**Fixed**
+
+- `integrations` Verify stays a visible action, not a hidden menu item
+
 ## 2026-11-12
 
 **Added**
