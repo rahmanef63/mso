@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` match the lockfile chain without a hand-escaped pattern
 - `security` record one unfixed advisory, and prove the chain still holds
 
 ## 2026-11-13

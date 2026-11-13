@@ -84,8 +84,14 @@ for (const expected of EXPECTED) {
     fail(`${expected.package} is no longer in ${expected.lockfile}; the exception is stale and must be removed`);
   }
   for (const parent of expected.chain) {
-    const parentEntry = new RegExp(`"${parent.replace(/[/@]/g, "\\$&")}": \\[[^\\]]*"${expected.package}"`).test(lockfile);
-    if (!parentEntry) {
+    // Plain string matching, not a dynamically built RegExp: a package name may
+    // contain characters a hand-escaped pattern would miss, and CodeQL is right to
+    // flag that class of construction. Lockfile entries are one per line, so the
+    // parent's own line is the authoritative place to look.
+    const parentLine = lockfile
+      .split("\n")
+      .find((line) => line.trimStart().startsWith(`"${parent}": [`));
+    if (!parentLine || !parentLine.includes(`"${expected.package}"`)) {
       fail(`${expected.package} is no longer pulled in by ${parent}; the recorded chain changed`);
     }
   }
