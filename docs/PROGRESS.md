@@ -1,3 +1,25 @@
+## 2026-11-14 — One recorded dependency exception, with a chain check and an expiry
+
+The Svelte entry brought `deepmerge@4.3.1` in as a devDependency of
+`@sveltejs/vite-plugin-svelte@7.3.1`, and OSV fails the scan on
+GHSA-gcqx-w48m-w2h4 (CVE-2026-93753, CVSS 5.3). There is no fixed version: 4.3.1 is
+the newest release and the upstream advisory is closed as unfixed on master. The
+package is build-time only, never parses untrusted input and never ships to a runtime,
+and removing it would mean replacing the Svelte build toolchain.
+
+`osv-scanner.toml` records that single advisory with an expiry and a reason, which is
+how this repository has handled an unfixed dependency before. Because osv-scanner
+silences an advisory by id alone, `scripts/audit-exceptions.mjs` narrows it back to the
+reviewed decision: the package must still arrive only through the named dev toolchain,
+the lockfile must still contain it, and the date must still be in the future. An
+unknown advisory, a missing expiry, a moved lockfile or an expired date fails the gate
+rather than silently widening the exception. `audit` now runs the guard, and the CI OSV
+step passes the same config while `security-core.yml` runs the guard as its own step.
+
+Verified: OSV reports `No issues found` with one advisory explicitly filtered and
+named in the log, and the guard rejects an expired date, an unknown advisory and a
+missing expiry. No scanner rule, no `continue-on-error` and no dismissal was added.
+
 ## 2026-11-13 — Official app marks reach the shell, the store and the picker
 
 Ten built-in windows were still drawing a Lucide glyph while a finished official-mark set

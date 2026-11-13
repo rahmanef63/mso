@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-14
+
+**Fixed**
+
+- `security` record one unfixed advisory, and prove the chain still holds
+
 ## 2026-11-13
 
 **Added**
@@ -1373,19 +1379,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `security` expose sanitized alert annotations
 - release security and visual documentation fixes as app 0.2.4
-
-## 2026-09-04
-
-**Added**
-
-- `mcp` simplify ChatGPT UI to Block and Page
-- `assistant` turn Alfa into MSO cockpit
-
-**Fixed**
-
-- `mcp` align widgets with rahmanef palette
-- `release` bound local dependency audit
-
-**Changed**
-
-- `mcp` dedupe ChatGPT CSP metadata

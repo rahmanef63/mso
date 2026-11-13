@@ -16,7 +16,7 @@
     "test": "node scripts/check-test-toolchain.mjs && vitest run",
     "coverage": "node scripts/check-test-toolchain.mjs && vitest run --coverage",
     "check": "node scripts/check-cycles.mjs && node scripts/check-architecture.mjs && node scripts/check-docs.mjs && node scripts/gen-comparison.mjs --check && node scripts/gen-changelog.mjs --check && node scripts/check-contrast.mjs && bun scripts/check-skill-flows.mjs && bun run check:instance-literals && bun run test:ci && bun run parity:nakama && bun run test:parity",
-    "audit": "node scripts/audit.mjs",
+    "audit": "node scripts/audit.mjs && node scripts/audit-exceptions.mjs",
     "verify": "bun run typecheck && bun run lint && bun run coverage && bun run check && bun run audit && bun run svelte:install && bun run svelte:check && bun run svelte:build && bun run svelte:e2e && bun run svelte:audit",
     "pr:preflight": "bash scripts/pr-preflight.sh --full",
     "pr:local": "bash scripts/pr-preflight.sh --local",
