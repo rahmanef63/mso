@@ -9,6 +9,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - `settings` keep a stored model id, and stop edits from erasing the model list
+- `security` let the alert gate honour a reviewed OSV exception
 - `security` match the lockfile chain without a hand-escaped pattern
 - `security` record one unfixed advisory, and prove the chain still holds
 
