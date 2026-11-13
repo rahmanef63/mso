@@ -112,10 +112,28 @@ function crossOriginMutation(request: NextRequest): boolean {
 //   are SERVER-side, so the browser only hits same-origin /api — the exfil gate.
 // - frame-src https:: media-viewer PDF + widget "Embed" + app-store runtime iframes
 //   load external URLs (each sandboxed). worker/child blob: = SW + onnx worker.
-function contentSecurityPolicy(nonce: string): string {
+// ponytail: dev-only 'unsafe-eval' for Turbopack HMR + React dev stack traces.
+// Production keeps the strict policy (no eval). If a future dev tool needs more,
+// widen here rather than dropping the whole CSP in development.
+const DEV_SCRIPT_SRC = process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'";
+
+// frame-ancestors 'none' exists to stop a public page from clickjacking exec/fs
+// buttons. But an agent's local preview panel renders this app inside an iframe, so
+// 'none' hides the app from the only person running it. The relaxation is deliberately
+// narrow: development only, and only when the request itself arrived on a loopback
+// host, so a dev server bound to 0.0.0.0 is not frameable from the LAN. Production
+// keeps 'none' and the static X-Frame-Options DENY untouched.
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+function isLoopbackDevRequest(request: NextRequest): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  const host = request.headers.get("host")?.split(":")[0]?.toLowerCase() ?? "";
+  return LOOPBACK_HOSTS.has(host);
+}
+
+function contentSecurityPolicy(nonce: string, frameable = false): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${DEV_SCRIPT_SRC}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
@@ -128,7 +146,11 @@ function contentSecurityPolicy(nonce: string): string {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    // A framing parent is a different origin from this server (the editor UI that hosts
+    // the panel), so 'self' is the wrong value here: the child is same-server, not
+    // same-origin. Loopback dev therefore allows any parent, which is exactly the trust
+    // already implied by running an unauthenticated-by-TLS local dev server.
+    frameable ? "frame-ancestors *" : "frame-ancestors 'none'",
   ].join("; ");
 }
 
@@ -329,13 +351,19 @@ export async function proxy(request: NextRequest) {
   // Buffer). Next reads the nonce from the REQUEST content-security-policy header
   // and auto-nonces its bootstrap + RSC scripts; x-nonce feeds our layout script.
   const nonce = btoa(crypto.randomUUID());
-  const csp = contentSecurityPolicy(nonce);
+  const frameable = isLoopbackDevRequest(request);
+  const csp = contentSecurityPolicy(nonce, frameable);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.delete(MANAGED_APP_HOST_HEADER);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  // The static next.config header says DENY. It cannot see NODE_ENV or the request host,
+  // and XFO has no "allow this specific parent" value, so for a loopback dev request the
+  // header is removed and CSP frame-ancestors is the only, explicit gate. Production
+  // keeps the DENY header untouched.
+  if (frameable) response.headers.delete("X-Frame-Options");
   applyPrivatePageCachePolicy(response, request);
   return response;
 }

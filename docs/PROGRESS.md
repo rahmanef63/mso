@@ -26,6 +26,73 @@ the architecture ratchets, WCAG contrast in both themes, docs currency and the i
 literal guard are clean. Real vendor artwork at other DPI and the remaining Windows/macOS
 platform art direction stay explicit limits.
 
+## 2026-11-12 — No chrome bar on a CLI-only managed app
+
+After the two bands became one, the remaining 44px row still only held a sentence and a
+gear above a terminal that already names the app in the window title. Removed entirely: the
+no-dashboard explanation is now the terminal's own first line, and the details control rides
+the terminal's existing tab strip, so the surface starts at the window title.
+
+Verified on `/hermes` with a synthetic running app and no dashboard origin: zero app
+headers, note inside the terminal, gear inside the tab strip at 28px, terminal at y=95
+under the title bar, zero console errors.
+
+Worth recording because the next question was why this is a TUI at all: it is not a
+rendering bug. `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` is unset in this dev instance, and
+`featureSource()` refuses to fall back to a cockpit path by design (upstream JS would then
+run in a realm holding the session and could reach `/api/v1/exec`). No template means no
+embeddable dashboard, so the CLI is the correct surface. The note now names that variable
+so the cause and the fix are both on screen.
+
+## 2026-11-12 — One bar per managed app surface
+
+The managed-app window stacked two chrome bands before any content: a 44px identity
+header with the app name, a state dot and a text "Details" button, sitting above a 36px
+toolbar whose controls were all pushed right into an empty left half. A third full-width
+strip carried the one-sentence "no browser dashboard" note. Measured on `/hermes`: 80px of
+chrome plus a 28px bordered band, for one row of actual information.
+
+The identity header and the feature toolbar are now one 44px row. The no-dashboard note is
+inline muted text in that row instead of its own bordered strip, and the app controls
+(lifecycle, logs, update) are reached from an icon-only gear with an accessible name
+rather than a repeated text button. The management pane gets the same treatment plus an
+explicit close, so there is a way back instead of a second identity band.
+
+Verified in the running app against a synthetic running Hermes with no dashboard origin: one
+44px header, the note at 15px inline with no border of its own, a single icon button named
+"Application details", zero console errors. The terminal below is unblocked.
+
+Local gates: 1027 test files / 6671 tests passing, `tsc` and `eslint . --max-warnings=0`
+clean, architecture within ratchets.
+
+## 2026-11-12 — Addressable connections and one sidebar surface
+
+A named connection could only be described in prose ("the github one under studio"), so an
+agent had to translate before acting. Every connection card now shows an address
+(`provider / owner / connection`) whose copy control emits the absolute
+`/integrations?provider=&user=&connection=` route. Server-side authorization entrypoints use
+the same builder (`lib/infra/connection-address.ts`), so there is one definition of the
+address. The manager reads the query back and lands on that connection, marking, scrolling
+and focusing the card once; a stale address says it no longer matches instead of silently
+showing the provider.
+
+Sidebar width now belongs to the active shell. Finder rendered 192px, Code 240px, Store
+160px and the Dashboard rail 240px under the same macOS shell because each feature carried a
+literal `w-*` class. `AppSidebar` sizes the rail from `--feature-sidebar-width` and offers a
+`narrow` ratio; Finder, Store and Dashboard adopt it. Measured after the change on one
+running dev server: macos 192/240/192/240, windows 248, dashboard 224, with no console
+errors.
+
+Development-only fixes found while bringing the dev server up: `next dev` was running with a
+leaked `NODE_ENV=production` (so the dev CSP never applied), and Next blocked HMR from
+`127.0.0.1` because no `allowedDevOrigins` was configured, leaving every edit unrefreshed and
+the console full of handshake failures. The allowlist is loopback and private ranges only and
+is absent from production builds.
+
+Local gates: `tsc --noEmit` clean, `eslint . --max-warnings=0` clean, 1026 test files / 6666
+tests passing, architecture within ratchets, contrast AA with zero failures. Browser checks
+ran against synthetic connections only. Not done: migrating the remaining sidebar consumers
+to a ratio, and the dev-only `frame-ancestors` decision for the T3 preview panel.
 ## 2026-11-04: restrict Markdown transcript file export
 
 Markdown transcripts may contain server-provided content. The TUI now prints them for

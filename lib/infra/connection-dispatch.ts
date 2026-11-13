@@ -12,6 +12,7 @@ import { CONVEX_OPERATION_SUPPORT } from "./types";
 import { doctorInfraProvider, ensureDokployProject, listDokployApplications, listDokployDeployments, readDokployDeploymentLogs, listDokployGitProviders, listDokployGithubRepositories, ensureDokployGithubApplication, ensureDokployApplicationDomain, recoverDokployPublicGithubToHttpsGit, deployDokployApplication, configureDokployDockerfileBuild, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
 import { isInfraProviderId, canonicalProviderId, resolveProviderId, convexDeploymentKind } from "./catalog";
 import { callNamedMcpConnectionTool, listNamedMcpConnectionTools } from "./mcp-connection";
+import { connectionAddressPath } from "./connection-address";
 export const safeActionInput=(input:Record<string,unknown>)=>Object.fromEntries(Object.entries(input).filter(([key])=>key!=="workflow_id"));
 export const selectionFrom=(a:Record<string,unknown>):ConnectionSelector=>({user:typeof a.user==="string"?a.user:undefined,connection:typeof a.connection==="string"?a.connection:undefined,cwd:typeof a.cwd==="string"?a.cwd:undefined});
 export async function manageIntegrationAction(raw:Record<string,unknown>){
@@ -30,7 +31,7 @@ export async function manageIntegrationAction(raw:Record<string,unknown>){
     if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
     if(Object.keys(a).some(k=>!["action","confirm","user","provider","connection"].includes(k)))throw new IntegrationError("invalid_management_fields");
     const route=await resolveIntegration(String(a.provider),selectionFrom(a));
-    return{user:route.user,provider:a.provider,connection:route.id,authorization:"owner-browser-required",openPath:googlePublicOrigin()+"/integrations?"+new URLSearchParams({provider:String(a.provider),user:route.user,connection:route.id})};
+    return{user:route.user,provider:a.provider,connection:route.id,authorization:"owner-browser-required",openPath:googlePublicOrigin()+connectionAddressPath({provider:String(a.provider),user:route.user,connection:route.id})};
   }
   if(a.action!=="connection.authorize")return integrationManage(a);
   if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);

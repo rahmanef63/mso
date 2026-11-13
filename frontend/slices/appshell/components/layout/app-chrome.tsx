@@ -31,6 +31,21 @@ const MobileSideRegion = dynamic(
 //     toggle). Forms / previews use <FormDrawer> (dialog ⇄ bottom drawer).
 // Apps that toggle a panel on both form factors branch their handler with
 // `useIsMobile()` from the shell's responsive module.
+//
+// Every sidebar in the product shares this one surface: width comes from the active
+// shell's --feature-sidebar-width (design/layout.ts), never from a per-feature pixel
+// value. Under one macOS shell that difference was visible: Finder rendered 192px, Code
+// 240px and Store 160px, so the same panel changed width when you switched app.
+//
+// `narrow` is the dense-rail variant (0.8×) for short labels like the Store's category
+// list. It scales with the shell like everything else instead of hardcoding w-40.
+
+type RailWidth = "default" | "narrow";
+
+const RAIL_WIDTH: Record<RailWidth, string> = {
+  narrow: "w-[calc(var(--feature-sidebar-width,14rem)*0.8)]",
+  default: "w-[var(--feature-sidebar-width,14rem)]",
+};
 
 function SideRegion({
   open,
@@ -87,6 +102,7 @@ export function AppSidebar({
   railOpen = true,
   title = "Sidebar",
   description,
+  width = "default",
   railClassName,
   sheetClassName,
   children,
@@ -96,6 +112,8 @@ export function AppSidebar({
   railOpen?: boolean;
   title?: string;
   description?: string;
+  /** Shell-driven rail width. Prefer this over a literal w-* class. */
+  width?: RailWidth;
   railClassName?: string;
   sheetClassName?: string;
   children: ReactNode;
@@ -112,7 +130,7 @@ export function AppSidebar({
       compact={pane === "xs" || pane === "sm"}
       title={title}
       description={description}
-      railBase="flex w-[var(--feature-sidebar-width,14rem)] shrink-0 flex-col border-r border-border bg-sidebar"
+      railBase={cn("flex shrink-0 flex-col border-r border-border bg-sidebar", RAIL_WIDTH[width])}
       railClassName={railClassName}
       sheetWidth="w-72 sm:max-w-xs"
       sheetClassName={sheetClassName}

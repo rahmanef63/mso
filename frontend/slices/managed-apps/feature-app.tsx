@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, RefreshCw, TerminalSquare } from "lucide-react";
+import { ExternalLink, RefreshCw, Settings2, TerminalSquare } from "lucide-react";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import type { AppProps } from "@/features/appshell";
 import { Terminal } from "@/features/os-terminal";
@@ -8,7 +8,20 @@ import type { ManagedAppFeature } from "@/lib/managed-apps/types";
 import { requestAuthorizedFrame, selectAuthorizedFrame } from "./app-authorization";
 import { cliCommand, dashboardSurfaceSource, featureSource } from "./feature-cli";
 
-export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { feature: ManagedAppFeature; publicDashboardUrl?: string | null }) {
+export function ManagedFeatureApp({
+  feature,
+  publicDashboardUrl,
+  detailsOpen = false,
+  onToggleDetails,
+}: AppProps & {
+  feature: ManagedAppFeature;
+  publicDashboardUrl?: string | null;
+  /** MSO-owned controls (lifecycle, logs, update) live in the surface, but their
+   *  toggle belongs in THIS bar: two stacked toolbars cost 80px and pushed the app
+   *  down for no information. */
+  detailsOpen?: boolean;
+  onToggleDetails?: () => void;
+}) {
   const embeddedSource = featureSource(feature);
   const surface = dashboardSurfaceSource(embeddedSource, publicDashboardUrl);
   const directSource = surface.kind === "direct" ? surface.source : null;
@@ -38,44 +51,42 @@ export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { 
   const authorizedSource = current.url;
   const authorizationError = current.error;
 
+  // One control, reused by both surfaces: on the terminal it rides the tab strip, on the
+  // dashboard it rides the small bar that also holds the refresh/open actions.
+  const detailsButton = onToggleDetails ? (
+    <button
+      type="button"
+      onClick={onToggleDetails}
+      aria-pressed={detailsOpen}
+      aria-label="Application details"
+      title="Application details"
+      className={`grid size-7 place-items-center rounded text-[#9298a4] hover:bg-white/10 hover:text-white ${detailsOpen ? "bg-white/10 text-white" : ""}`}
+    >
+      <Settings2 className="size-3.5" />
+    </button>
+  ) : null;
+  const detailsAction = detailsButton;
+  // Said once, inside the terminal, only when there is genuinely no dashboard. It is not
+  // chrome: the terminal below starts with a "no browser UI" line the operator can read in
+  // place, instead of a full-width bar repeating it above a window title that already names
+  // the app.
+  const noDashboardNotice =
+    feature.applicationId === "hermes"
+      ? "No browser dashboard on this host, so this terminal is the app. Set NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE to embed the Hermes UI instead."
+      : "No browser UI is exposed by this deployment, so this is the view. A split-origin dashboard host is optional.";
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      {/* No name row: the window header above already says which app this is. Repeating it
-          cost a 48px band on every mount and pushed the app itself down the screen. */}
-      <header className="flex h-9 shrink-0 items-center justify-end gap-1.5 border-b border-border px-2">
-        {uiAvailable ? (
-          <button type="button" onClick={() => setView((current) => (current === "ui" ? "cli" : "ui"))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground" aria-label="Toggle upstream UI or CLI"><TerminalSquare className="size-3.5" />{view === "ui" ? "CLI" : "UI"}</button>
-        ) : null}
-        {uiAvailable ? (
-          <>
-            {!directSource ? <button type="button" onClick={reload} className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Refresh feature"><RefreshCw className="size-3.5" /></button> : null}
-            <a href={directSource ?? authorizedSource ?? undefined} target="_blank" rel="noreferrer" className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Open feature in dedicated tab"><ExternalLink className="size-3.5" /></a>
-          </>
-        ) : null}
-      </header>
-      {/* `|| !source` is explicit, not defensive: with no dashboard origin the CLI IS the
-          app's surface here, and the alternative was an iframe with a null src. The panel
-          of prose that used to sit in THIS slot was unreachable anyway — `view` initialises
-          to "cli" whenever `source` is null and the toggle that could change it only
-          renders when `source` is not; the note above sits outside the branch for exactly
-          that reason. */}
-      {/* Only when there is no origin at all, so this can never become the banner that got
-          removed for appearing on every feature view: with a dashboard configured — the
-          normal case — nothing renders here. Without one, the window silently opens a
-          terminal, and a terminal is indistinguishable from a dashboard that broke. It
-          reads as a fault in the app and sends the operator to look at the app. It is not:
-          it is a deployment that serves no dashboards, and only this file knows that. */}
-      {!uiAvailable ? (
-        <p className="shrink-0 border-b border-border px-3 py-1.5 text-[11px] leading-snug text-muted-foreground">
-          {feature.applicationId === "hermes"
-            ? "Hermes is running as its agent/CLI runtime. The optional browser dashboard is not exposed on this host; use the interactive Hermes terminal below."
-            : "No browser UI is exposed by this deployment, so the CLI below is the view. A managed app can work without a domain; split-origin dashboard hosts are optional."}
-        </p>
-      ) : null}
+      {/* No header. Three chrome bands became one, then the operator asked for this one
+          gone too: it was a row of text above a terminal that already says which app it is
+          (window title) and whether a dashboard exists (there is none, so the terminal IS
+          the surface). The note moved to where it is unavoidably true, the terminal's own
+          first line, and the only control rides the terminal's existing tab strip so it
+          costs no row at all. */}
       {view === "cli" || !uiAvailable ? (
         <div className="min-h-0 flex-1">
           <Suspense fallback={null}>
-            <Terminal initialCommand={command} />
+            <Terminal initialCommand={command} actions={detailsAction} notice={uiAvailable ? undefined : noDashboardNotice} />
           </Suspense>
         </div>
       ) : directSource ? (
@@ -94,11 +105,18 @@ export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { 
       ) : !authorizedSource ? (
         <p className="p-3 text-sm">{authorizationError ? "Application authorization failed. Refresh to retry." : "Authorizing application..."}</p>
       ) : (
-        <iframe
-          key={generation}
-          src={authorizedSource}
-          title={`${feature.applicationId} ${feature.title}`}
-          className="min-h-0 flex-1 border-0 bg-background"
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center justify-end gap-1.5 px-2 py-1">
+            <button type="button" onClick={() => setView("cli")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground" aria-label="Switch to CLI view"><TerminalSquare className="size-3.5" />CLI</button>
+            {!directSource ? <button type="button" onClick={reload} className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Refresh feature"><RefreshCw className="size-3.5" /></button> : null}
+            <a href={directSource ?? authorizedSource ?? undefined} target="_blank" rel="noreferrer" className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Open feature in dedicated tab"><ExternalLink className="size-3.5" /></a>
+            {detailsButton}
+          </div>
+          <iframe
+            key={generation}
+            src={authorizedSource}
+            title={`${feature.applicationId} ${feature.title}`}
+            className="min-h-0 flex-1 border-0 bg-background"
           // allow-same-origin stays, and is the whole point: these SPAs need their own
           // cookies and storage or they do not boot (Hermes reads localStorage inside a
           // useState initializer — an opaque origin throws SecurityError mid-render). It is
@@ -125,9 +143,10 @@ export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { 
           // silent, and OpenClaw's Gemini live-audio socket fails inside the frame with
           // nothing on screen to say why. PROXY_BLOCKED_EXTERNALS in
           // lib/managed-apps/proxy-headers.ts still records exactly which hosts and why.
-          sandbox="allow-forms allow-modals allow-same-origin allow-scripts allow-downloads"
-          referrerPolicy="no-referrer"
-        />
+            sandbox="allow-forms allow-modals allow-same-origin allow-scripts allow-downloads"
+            referrerPolicy="no-referrer"
+          />
+        </div>
       )}
     </div>
   );

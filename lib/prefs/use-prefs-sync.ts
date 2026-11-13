@@ -37,37 +37,40 @@ export function usePrefsSync<T>(opts: {
 }) {
   const { section, value, apply } = opts;
   const ready = useRef(false); // a GET succeeded → POSTs allowed
-  const failed = useRef(false); // last GET failed → retry on focus / auth event
+  const authed = useRef(false); // AUTHED_EVENT seen → a session exists, GETs are worth trying
   const echo = useRef(false); // next value change came from apply() → skip POST
 
+  // These providers mount OUTSIDE SessionProvider (login screen needs the theme), so
+  // mounting is not proof of a session: an unconditional GET 401s on every signed-out
+  // boot. Wait for AUTHED_EVENT (dispatched by the session probe when status is "in")
+  // instead. The session probe runs on mount, so a signed-in user syncs a moment later,
+  // and a signed-out one never fires a doomed request.
   useEffect(() => {
     if (IS_DEMO) return;
     let alive = true;
     const pull = async () => {
       const data = await pullPrefs();
-      if (data == null) {
-        failed.current = true;
-        return;
-      }
-      if (!alive) return;
+      if (data == null || !alive) return;
       const server = data[section];
       if (server != null) {
         echo.current = true; // don't POST back what we just applied
         apply(server as T);
       }
       ready.current = true;
-      failed.current = false;
     };
-    void pull();
+    const onAuthed = () => {
+      authed.current = true;
+      if (!ready.current) void pull();
+    };
     const retry = () => {
-      if (failed.current && !ready.current) void pull();
+      if (authed.current && !ready.current) void pull();
     };
+    window.addEventListener(AUTHED_EVENT, onAuthed);
     window.addEventListener("focus", retry);
-    window.addEventListener(AUTHED_EVENT, retry);
     return () => {
       alive = false;
+      window.removeEventListener(AUTHED_EVENT, onAuthed);
       window.removeEventListener("focus", retry);
-      window.removeEventListener(AUTHED_EVENT, retry);
     };
   }, [section, apply]);
 

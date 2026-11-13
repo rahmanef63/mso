@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { syncIntegrationFrameTokens } from "./frame-theme";
-import { ComposioSessionPanel } from "./composio-session-panel";
 
 /** Preserve transfer/setup deep links without putting private capabilities in React state. */
 export function managerLocation(search: string, hash = "") {
@@ -11,20 +10,18 @@ export function managerLocation(search: string, hash = "") {
   return "/integrations/manager" + (transfer ? "?transfer=1" : "") + hash;
 }
 
+// The Composio session panel used to sit above this frame as a raw <details> block. It
+// duplicated the native manager (Composio is already a provider in its sidebar) and
+// pushed the real UI down. One surface, one place to change a connection.
 export default function IntegrationsApp() {
   const frame = useRef<HTMLIFrameElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [retry, setRetry] = useState(0);
-  const [owner, setOwner] = useState<string | null>(null);
   useEffect(() => {
     const target = frame.current;
     if (!target) return;
     const onReady = (event: MessageEvent) => {
       if (event.source !== target.contentWindow || event.origin !== window.location.origin) return;
-      if (event.data?.type === "mso:integrations-selection") {
-        setOwner(typeof event.data.user === "string" ? event.data.user : null);
-        return;
-      }
       if (event.data?.type !== "mso:integrations-ready") return;
       syncIntegrationFrameTokens(target);
       setStatus("ready");
@@ -60,7 +57,6 @@ export default function IntegrationsApp() {
         </p>
         {status === "error" && <Button variant="secondary" onClick={() => { setStatus("loading"); setRetry(n => n + 1); }}>Retry</Button>}
       </div>}
-      <ComposioSessionPanel key={owner ?? "none"} owner={owner} />
       <iframe ref={frame} title="MSO native Integrations manager" className="min-h-0 w-full flex-1 border-0"
         referrerPolicy="no-referrer" onLoad={() => { if (frame.current?.contentDocument?.querySelector(".integration.manager")) { syncIntegrationFrameTokens(frame.current); setStatus("ready"); } }}
         onError={() => setStatus("error")} />

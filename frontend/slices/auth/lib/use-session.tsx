@@ -43,14 +43,26 @@ export function SessionProvider({
 
   const probe = useCallback(() => probeSession(), []);
 
+  // One place that both records a probe result and announces a confirmed session.
+  // AUTHED_EVENT is what lib/prefs gates its GET on, so it must fire for the mount
+  // probe too, not only for an explicit refresh() — otherwise a signed-in reload
+  // would leave appearance/quicklinks unsynced.
+  const applyProbe = useCallback(
+    (id: number, next: SessionSnapshot | null) => {
+      if (transition.acceptProbe(id, next) && next?.status === "in")
+        window.dispatchEvent(new Event(AUTHED_EVENT));
+    },
+    [transition],
+  );
+
   const refresh = useCallback(async () => {
     const id = transition.beginProbe();
     const next = await probe();
     // `null` is deliberately NOT signed-out. A deploy/restart can race this
     // request; preserving the last authoritative snapshot keeps a valid cookie
     // from being presented as a logout while the service recovers.
-    if (transition.acceptProbe(id, next) && next?.status === "in") window.dispatchEvent(new Event(AUTHED_EVENT));
-  }, [probe, transition]);
+    applyProbe(id, next);
+  }, [applyProbe, probe, transition]);
 
   const signOut = useCallback(async () => {
     const id = transition.beginSignOut();
@@ -69,12 +81,12 @@ export function SessionProvider({
     let alive = true;
     const id = transition.beginProbe();
     void probe().then((next) => {
-      if (alive) transition.acceptProbe(id, next);
+      if (alive) applyProbe(id, next);
     });
     return () => {
       alive = false;
     };
-  }, [probe, transition]);
+  }, [applyProbe, probe, transition]);
 
   useEffect(() => {
     if (IS_DEMO) return;
@@ -83,7 +95,7 @@ export function SessionProvider({
       if (document.visibilityState !== "visible") return;
       const id = transition.beginProbe();
       void probe().then((next) => {
-        if (alive) transition.acceptProbe(id, next);
+        if (alive) applyProbe(id, next);
       });
     };
     const timer = window.setInterval(sync, 60_000);
@@ -99,7 +111,7 @@ export function SessionProvider({
       window.removeEventListener("online", sync);
       document.removeEventListener("visibilitychange", sync);
     };
-  }, [probe, transition]);
+  }, [applyProbe, probe, transition]);
 
   const value = useMemo(
     () => ({ ...snapshot, refresh, signOut }),

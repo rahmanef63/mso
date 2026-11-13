@@ -50,7 +50,11 @@ describe("Integrations visual token contract", () => {
   });
 
   it("enforces WCAG AA compliant text token for missing credential fields (R-25)", () => {
-    expect(CONNECTION_MANAGER_STYLE).toContain(".credential-field-state{font-size:var(--type-caption);color:var(--destructive-text)}");
+    // Stored/Missing is a pill, not a bare colored word: same tokens, but the state
+    // reads without relying on colour alone (dot + border + label).
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .credential-field-state{display:inline-flex");
+    expect(CONNECTION_MANAGER_STYLE).toContain("border-radius:var(--radius-pill)");
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .credential-field-state[data-stored=true]{color:var(--success-text)");
     expect(CONNECTION_MANAGER_STYLE).not.toContain("color:var(--warning)");
   });
 
