@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-13
+
+**Added**
+
+- `shell` every official app mark reaches the dock, the store and the picker
+
 ## 2026-11-04
 
 **Added**
@@ -1497,42 +1503,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `cli` make updates visible and idempotent
 - `9router` proxy over internal Docker network
 - `mcp` preserve app-only workflow status schema
-
-## 2026-08-31
-
-**Added**
-
-- `cli` add MSO agent and infrastructure providers
-- `mcp` add guided client setup
-
-**Fixed**
-
-- `update` wait through systemd restart drain
-- `cli` diagnose HTTPS login and add doctor --fix
-- `mcp` validate browser origins
-- `security` avoid recovery guard fsync convoy
-- `runtime` verify service readiness before handoff
-- `jobs` finish retention before releasing runtime
-- `runtime` preserve fallback recovery readiness
-- `runtime` keep service starts on shared exclusion
-- `service` bound lifecycle exclusion wait
-- `settings` hide premature update warning
-- `update` enforce main and raise MCP daily limit
-- `mcp` raise daily token call limit
-- `gateway` canonicalize public origin assignment
-- `git` restore executable script modes
-- `runtime` close service installer and notice races
-- `install` hold update lock across checkout refresh
-- `install` restore service after pre-mutation abort
-
-**Tests**
-
-- `security` remove recovery marker TOCTOU
-- `gateway` assert one live tunnel after concurrent start
-- `install` read abort capture by descriptor
-- `install` align bootstrap and abort harness
-- `install` make abort recovery harness static
-
-**Docs**
-
-- `mcp` mark guided setup shipped
