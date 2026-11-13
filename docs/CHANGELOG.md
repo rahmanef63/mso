@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `cli` clear the Semgrep parse failure and two CodeQL alerts
 - `integrations` Verify stays a visible action, not a hidden menu item
 
 ## 2026-11-12

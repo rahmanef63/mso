@@ -24,8 +24,8 @@ function run(args: string[]): Run {
   // Tab-separated so a JSON body is never re-split; the label is a fixed token.
   const script = `
 set -euo pipefail
-ROOT=${JSON.stringify(root)}
-CALLS=${JSON.stringify(calls)}
+ROOT="\${MSO_DESKTOP_TEST_ROOT:?}"
+CALLS="\${MSO_DESKTOP_TEST_CALLS:?}"
 B="https://mso.example"
 die(){ echo "$*" >&2; exit 2; }
 enc(){ jq -rn --arg v "$1" '$v|@uri'; }
@@ -43,12 +43,16 @@ mso_cmd_runtime desktop ${args.map((a) => JSON.stringify(a)).join(" ")}
   try {
     // `exit 0` in the screenshot arm ends the script, so the status is read from
     // the output rather than the exit code alone.
-    out = execFileSync("bash", ["-c", script], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    out = execFileSync("bash", ["-c", script], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, MSO_DESKTOP_TEST_ROOT: root, MSO_DESKTOP_TEST_CALLS: calls },
+    });
   } catch (error) {
     refused = String((error as { stderr?: Buffer }).stderr ?? "");
   }
   const recorded = fs.existsSync(calls)
-    ? fs.readFileSync(calls, "utf8").trim().split("\n").filter(Boolean).map((line) => line.replace("\t", " "))
+    ? fs.readFileSync(calls, "utf8").trim().split("\n").filter(Boolean).map((line) => line.replaceAll("\t", " "))
     : [];
   fs.rmSync(dir, { recursive: true, force: true });
   return { calls: recorded, out, refused };

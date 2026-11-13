@@ -51,18 +51,18 @@ case "$cmd" in
             (.containers[] | [
               .id, .name, .state, (.labels.user // "-"), (.labels.bot // "-"), (.ports // "-")
             ] | @tsv)
-          end' | column -t -s $'\t' ;;
+          end' | column -t -s "$(printf '\t')" ;;
       screenshot)
         c="${1-}"; [ -n "$c" ] || die "usage: mso $U_desktop"
-        case "$c" in [-]*|*[!A-Za-z0-9_.-]*) die "invalid container id: $c" ;; esac
+        [[ $c =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] || die "invalid container id: $c"
         reqraw "$B/api/v1/desktop/screenshot?container=$(enc "$c")&screen=$(enc "${2:-99}")"; exit 0 ;;
       start|stop|restart)
         c="${1-}"; [ -n "$c" ] || die "usage: mso $U_desktop"
-        case "$c" in [-]*|*[!A-Za-z0-9_.-]*) die "invalid container id: $c" ;; esac
+        [[ $c =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] || die "invalid container id: $c"
         jpost "/api/v1/desktop/lifecycle" "$(jq -nc --arg c "$c" --arg a "$sub" '{container:$c,action:$a}')" ;;
       logs)
         c="${1-}"; [ -n "$c" ] || die "usage: mso $U_desktop"
-        case "$c" in [-]*|*[!A-Za-z0-9_.-]*) die "invalid container id: $c" ;; esac
+        [[ $c =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] || die "invalid container id: $c"
         jpost "/api/v1/desktop/lifecycle" \
           "$(jq -nc --arg c "$c" --argjson n "${2:-80}" '{container:$c,action:"logs",lines:$n}')" \
           | jq -r '.logs[]?' ;;
