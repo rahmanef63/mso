@@ -19,6 +19,9 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONFIG = path.join(ROOT, "osv-scanner.toml");
 
+/** Escape a literal string for safe interpolation into a RegExp source. */
+export const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /** The one exception this repo allows, with the chain that justifies it. */
 const EXPECTED = [
   {
@@ -84,7 +87,9 @@ for (const expected of EXPECTED) {
     fail(`${expected.package} is no longer in ${expected.lockfile}; the exception is stale and must be removed`);
   }
   for (const parent of expected.chain) {
-    const parentEntry = new RegExp(`"${parent.replace(/[/@]/g, "\\$&")}": \\[[^\\]]*"${expected.package}"`).test(lockfile);
+    const parentEntry = new RegExp(
+      `"${escapeRegExp(parent)}": \\[[^\\]]*"${escapeRegExp(expected.package)}"`,
+    ).test(lockfile);
     if (!parentEntry) {
       fail(`${expected.package} is no longer pulled in by ${parent}; the recorded chain changed`);
     }
