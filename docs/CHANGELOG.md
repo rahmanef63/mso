@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `cli` clear the Semgrep parse failure and two CodeQL alerts
 - `integrations` Verify stays a visible action, not a hidden menu item
 
 ## 2026-11-12
@@ -25,6 +26,12 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `managed-apps` collapse two chrome bands into one bar
 - `dev` let the local preview panel frame a loopback dev server
+
+## 2026-11-10
+
+**Other**
+
+- Add a desktop observer API for bot desktop containers
 
 ## 2026-11-04
 
@@ -1425,69 +1432,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `agent` record P9 memory calibration
 - `agent` record P8 calibration baseline
 - `agent` record P7 repeated corpus baseline
-
-## 2026-09-02
-
-**Added**
-
-- `mcp` add two-way local agent receive
-- `mcp` add read-only result pipeline
-- add RASMIC orchestration memory automation
-- `agent` section terminal and recover API errors
-- `agent` name sessions and wrap composer
-- `agent` correlate local replies and add subagents
-- `agent` add native local session messaging
-- `agent` add restart and new session
-- `a2a` enable local and inbound defaults
-- ship authenticated and local A2A
-- `agent` add eval-gated tool forge
-- `agent` add interactive permissions and a2a v1
-
-**Fixed**
-
-- make modular shell ownership explicit
-- `agent` wake on local requests
-- `cli` clear ShellCheck warnings
-- `agent` require live receiver for mentions
-- `agent` make restart process-safe
-- `a2a` harden remote v1 delegation
-
-**Faster**
-
-- `agent` normalize provider usage semantics
-- `agent` add comparable quality corpus
-- `agent` route capabilities before model reasoning
-
-**Changed**
-
-- split installer phases and lock release lifecycle
-- split CLI into bounded command modules
-- separate shared client server contracts
-- segment host capability facades
-- separate workflow and memory ownership
-- enforce one-way shell dependencies
-- extract capability kernel and architecture ratchets
-
-**Tests**
-
-- lock security coverage for new boundaries
-- follow modular onboarding owner
-- follow RASMIC storage split
-
-**Docs**
-
-- generate MCP catalog and lock architecture ownership
-- reconcile RASMIC with latest agent docs
-- publish catalog-first RASMIC runtime
-- publish RASMIC MCP contract
-- `testing` record 1.12 live verification
-
-**Chores**
-
-- `agent` sync docs and trim internal exports
-
-**Other**
-
-- cover maintainability architecture boundaries
-- pin ZAP Docker Hub mirror
-- cover RASMIC orchestration

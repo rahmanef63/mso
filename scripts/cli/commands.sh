@@ -21,6 +21,7 @@ verbs() {
 # so the help you get when you ask cannot disagree with the help you get when
 # you're wrong.
 U_camoufox="camoufox status|start|stop|session"
+U_desktop="desktop status|containers|screenshot <container> [screen]|start <container>|stop <container>|restart <container>|logs <container> [lines]"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
 U_domain="domain status|setup --user <user> --connection <cloudflare-connection> [--origin <https://host>] [--template <{id}.host>] [--zone <name|id>] [--tunnel <UUID>] [--local <http://loopback:port>] [--manual] [--apply]|ensure <id> [--apply]|doctor <id>|repair-env [--apply]|restore [--apply]"
 U_doctor="doctor [--fix] [--json]"
@@ -111,7 +112,7 @@ mso_cli_main() {
   case "$cmd" in
     version|--version|-V|-v|ls|cat|raw|share|usage|search|project-candidates|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|cleanup|status|health|doctor)
       mso_cmd_host "$cmd" "$@" ;;
-    agent|chat|model|setup|onboard|provider|providers|integrations|channels|agent-groups|flow|workflow|gateway|domain|heartbeat|web|camoufox|apps|mapp|term|run|session)
+    agent|chat|model|setup|onboard|provider|providers|integrations|channels|agent-groups|flow|workflow|gateway|domain|heartbeat|web|camoufox|desktop|apps|mapp|term|run|session)
       mso_cmd_runtime "$cmd" "$@" ;;
     ai|cockpit|threads|agent-sessions|agent-profiles|agents|org|a2a|memory|memory-graph|agent-vault|config|prefs|federation|models|jev|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;

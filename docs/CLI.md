@@ -104,6 +104,9 @@ Commands:
  Browser
   camoufox *           Power the anti-detection VNC browser + read its password
 
+ Bot desktops  (read-mostly; never relays a bot command)
+  desktop *            status | containers | screenshot <c> [screen] | start|stop|restart|logs <c>
+
  Apps
   apps                 App-store runtime apps
   mapp *               Managed apps; shell-list / shell-save <JSON|@file> / shell-domain <id> / shell-domain-save <id> <JSON|@file> review external connections and their public domain
