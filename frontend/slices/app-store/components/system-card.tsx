@@ -35,7 +35,19 @@ export function SystemCard({
         style={{ background: entry.gradient }}
       >
         <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-xl bg-white/20" />
-        <Icon className="relative size-6" />
+        {entry.artwork ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={entry.artwork}
+            alt=""
+            aria-hidden
+            className="relative size-7 object-contain"
+            draggable={false}
+            decoding="async"
+          />
+        ) : (
+          <Icon className="relative size-6" />
+        )}
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">

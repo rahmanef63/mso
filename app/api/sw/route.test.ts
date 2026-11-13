@@ -21,5 +21,28 @@ describe("GET /api/sw", () => {
     expect(text).toContain("self.addEventListener(\"activate\"");
     expect(text).toContain("self.addEventListener(\"fetch\"");
     expect(text).toContain("/manifest.webmanifest");
+    for (const asset of [
+      "/brand/official/camoufox.webp",
+      "/brand/official/hermes.webp",
+      "/brand/official/openclaw.webp",
+      "/brand/official/9router.webp",
+      "/brand/official/n8n.webp",
+      "/brand/official/orca.webp",
+      "/brand/official/dokploy.webp",
+      "/brand/official/cloudflare.webp",
+      "/brand/official/composio.webp",
+      "/brand/official/doku.webp",
+    ]) {
+      expect(text).toContain(asset);
+    }
+    for (const staleAsset of [
+      "/app-icons/camoufox.webp",
+      "/app-icons/hermes.webp",
+      "/app-icons/openclaw.webp",
+      "/app-icons/macos/openclaw.webp",
+      "/app-icons/windows/openclaw.webp",
+    ]) {
+      expect(text).not.toContain(staleAsset);
+    }
   });
 });
