@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 const BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID || "dev";
 
 const APP_ICON_ASSETS = [
-  "assistant", "camoufox", "claude", "code", "create", "docs", "files",
-  "hermes", "launchpad", "links", "mission-control", "monitor", "openclaw",
+  "assistant", "claude", "code", "create", "docs", "files",
+  "launchpad", "links", "mission-control", "monitor",
   "reel", "settings", "store", "studio", "terminal", "viewer",
 ].map((name) => `/app-icons/${name}.webp`);
 
@@ -12,10 +12,17 @@ const OFFICIAL_BRAND_ICON_ASSETS = [
   "/brand/official/camoufox.webp",
   "/brand/official/hermes.webp",
   "/brand/official/openclaw.webp",
+  "/brand/official/9router.webp",
+  "/brand/official/n8n.webp",
+  "/brand/official/dokploy.webp",
+  "/brand/official/cloudflare.webp",
+  "/brand/official/orca.webp",
+  "/brand/official/composio.webp",
+  "/brand/official/doku.webp",
 ];
 
 const PLATFORM_APP_ICON_ASSETS = [
-  "files", "terminal", "code", "monitor", "settings", "assistant", "camoufox", "store", "docs", "studio", "claude", "reel", "viewer", "create", "links", "hermes", "openclaw",
+  "files", "terminal", "code", "monitor", "settings", "assistant", "store", "docs", "studio", "claude", "reel", "viewer", "create", "links",
 ].flatMap((name) => [
   `/app-icons/macos/${name}.webp`,
   `/app-icons/windows/${name}.webp`,

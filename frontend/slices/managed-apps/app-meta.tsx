@@ -18,6 +18,7 @@ export interface ManagedAppMeta {
   loader: "HermesApp" | "OpenClawApp" | "NineRouterApp" | "OrcaApp";
   icon: LucideIcon | AppIconComponent;
   artwork?: string;
+  artworkBackground?: string;
   tone?: string;
 }
 
@@ -27,6 +28,7 @@ export const MANAGED_APP_META: Record<ManagedAppId, ManagedAppMeta> = {
     gradient: "linear-gradient(160deg,#8b5cf6,#4f46e5)",
     loader: "HermesApp",
     icon: Bot,
+    artwork: "/brand/official/hermes.webp",
     tone: "text-violet-400",
   },
   openclaw: {
@@ -34,6 +36,8 @@ export const MANAGED_APP_META: Record<ManagedAppId, ManagedAppMeta> = {
     gradient: "linear-gradient(160deg,#f97316,#dc2626)",
     loader: "OpenClawApp",
     icon: Workflow,
+    artwork: "/brand/official/openclaw.webp",
+    artworkBackground: "#f5fbff",
     tone: "text-orange-400",
   },
   "9router": {
@@ -48,6 +52,7 @@ export const MANAGED_APP_META: Record<ManagedAppId, ManagedAppMeta> = {
     gradient: "linear-gradient(160deg,#0284c7,#1e3a8a)",
     loader: "OrcaApp",
     icon: SquareCode,
+    artwork: "/brand/official/orca.webp",
     tone: "text-sky-400",
   },
 };
@@ -62,8 +67,16 @@ export const MANAGED_APP_NAMES: Record<ManagedAppId, string> = {
 export function AppMark({ id, className }: { id: ManagedAppId; className?: string }) {
   const meta = MANAGED_APP_META[id];
   if (meta.artwork) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={meta.artwork} alt="" aria-hidden className={`${className ?? "size-4"} object-contain`} draggable={false} />;
+    const imageClass = meta.artworkBackground ? "size-[84%] object-contain" : "size-full object-contain";
+    return (
+      <span
+        className={`${className ?? "size-4"} ${meta.artworkBackground ? "inline-grid place-items-center overflow-hidden rounded-md" : "inline-block"}`}
+        style={meta.artworkBackground ? { background: meta.artworkBackground } : undefined}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={meta.artwork} alt="" aria-hidden className={imageClass} draggable={false} decoding="async" />
+      </span>
+    );
   }
   const Icon = meta.icon as LucideIcon;
   return <Icon className={`${className ?? "size-4"} ${meta.tone ?? ""}`} />;

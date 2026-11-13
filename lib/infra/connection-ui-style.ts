@@ -10,7 +10,7 @@ export const CONNECTION_MANAGER_STYLE = String.raw`
 .integration .primary{border-color:var(--primary);background:var(--primary);color:var(--primary-foreground)}
 .integration .danger{color:var(--destructive-text)}
 .integration .provider-mark{display:grid;place-items:center;flex:none;width:var(--brand-size);height:var(--brand-size);border:var(--stroke) solid var(--border);border-radius:var(--radius-control);background:var(--secondary);color:var(--foreground)}
-.integration .provider-mark svg{width:var(--icon-size);height:var(--icon-size);fill:currentColor}
+.integration .provider-mark svg{width:var(--icon-size);height:var(--icon-size);fill:currentColor}.integration .provider-mark img{display:block;max-width:100%;max-height:100%;object-fit:contain}
 .integration .integration-signin{display:inline-flex;align-items:center;min-height:var(--control-size);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);border-radius:var(--radius-control);text-decoration:none;background:var(--primary);color:var(--primary-foreground)}
 .integration .identity-action-icon{width:var(--icon-size);height:var(--icon-size);flex:none;pointer-events:none}
 .integration .identity-icon-action{display:inline-flex;align-items:center;justify-content:center;flex:none;width:var(--control-size);min-width:var(--control-size);min-height:var(--control-size);padding:0}

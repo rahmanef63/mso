@@ -83,23 +83,6 @@ function tileSvg(Icon, top, bottom) {
   </svg>`;
 }
 
-function brandTileSvg(top, bottom) {
-  return `
-  <svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="bg" x1="24" y1="12" x2="170" y2="188" gradientUnits="userSpaceOnUse">
-        <stop stop-color="${top}"/><stop offset="1" stop-color="${bottom}"/>
-      </linearGradient>
-      <linearGradient id="shine" x1="96" y1="0" x2="96" y2="110" gradientUnits="userSpaceOnUse">
-        <stop stop-color="white" stop-opacity="0.18"/><stop offset="1" stop-color="white" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    <rect width="192" height="192" rx="43" fill="url(#bg)"/>
-    <rect x="1" y="1" width="190" height="190" rx="42" fill="none" stroke="white" stroke-opacity="0.18" stroke-width="2"/>
-    <path d="M18 42C18 26.536 30.536 14 46 14H146C161.464 14 174 26.536 174 42V78C141 60 51 60 18 78V42Z" fill="url(#shine)"/>
-  </svg>`;
-}
-
 async function writeWebp(name, input) {
   const file = path.join(OUT, `${name}.webp`);
   await sharp(input)
@@ -110,25 +93,9 @@ async function writeWebp(name, input) {
   console.log(`${name}.webp\t${Math.round(stat.size / 1024)} KB`);
 }
 
-async function makeBrand(name, source, top, bottom, logoSize = 116) {
-  const bg = Buffer.from(brandTileSvg(top, bottom));
-  const logo = await sharp(path.join(ROOT, source))
-    .resize(logoSize, logoSize, { fit: "contain", withoutEnlargement: false })
-    .png()
-    .toBuffer();
-  const composite = await sharp(bg)
-    .composite([{ input: logo, gravity: "centre" }])
-    .png()
-    .toBuffer();
-  await writeWebp(name, composite);
-}
-
 await fs.mkdir(OUT, { recursive: true });
 for (const [name, Icon, top, bottom] of ICONS) {
   await writeWebp(name, Buffer.from(tileSvg(Icon, top, bottom)));
 }
-await makeBrand("camoufox", "public/brand/camoufox.png", "#203342", "#0d665f", 122);
-await makeBrand("hermes", "public/brand/hermes.png", "#8d74ff", "#4544c4", 114);
-await makeBrand("openclaw", "public/brand/openclaw.svg", "#ff8b3f", "#cf2b2b", 120);
 
-console.log(`generated ${ICONS.length + 3} WebP app icons in ${OUT}`);
+console.log(`generated ${ICONS.length} WebP app icons in ${OUT}`);

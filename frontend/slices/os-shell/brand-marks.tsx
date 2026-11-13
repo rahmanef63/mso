@@ -20,6 +20,29 @@ function officialMark(src: string): AppIconComponent {
   return Mark;
 }
 
+/** A neutral brand tile keeps monochrome/transparent marks legible in both themes. */
+function officialMarkOnBackground(src: string, background: string, scale = "78%"): AppIconComponent {
+  const Mark: AppIconComponent = ({ className: cls }) => (
+    <span
+      className={`relative grid size-full place-items-center overflow-hidden rounded-[var(--radius-icon)] ${cls ?? ""}`}
+      style={{ background }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        className="object-contain"
+        style={{ width: scale, height: scale }}
+        draggable={false}
+        decoding="async"
+      />
+    </span>
+  );
+  Mark.displayName = `OfficialArtworkTile(${src})`;
+  return Mark;
+}
+
 /** One app identity with distinct native-looking artwork per desktop shell. */
 function platformMark(fallback: string, macos: string, windows: string): AppIconComponent {
   const Mark: AppIconComponent = ({ className: cls }) => {
@@ -106,11 +129,18 @@ export const APP_MARKS: Record<string, AppIconComponent> = {
     "/app-icons/windows/docs.webp",
   ),
   hermes: officialMark("/brand/official/hermes.webp"),
-  openclaw: officialMark("/brand/official/openclaw.webp"),
+  openclaw: officialMarkOnBackground("/brand/official/openclaw.webp", "#f5fbff", "84%"),
+  n8n: officialMark("/brand/official/n8n.webp"),
   "9router": officialMark("/brand/official/9router.webp"),
+  dokploy: officialMarkOnBackground("/brand/official/dokploy.webp", "#111827", "78%"),
+  cloudflare: officialMarkOnBackground("/brand/official/cloudflare.webp", "#111827", "74%"),
+  orca: officialMark("/brand/official/orca.webp"),
 };
 
 export const HermesMark = APP_MARKS.hermes;
 export const OpenClawMark = APP_MARKS.openclaw;
 export const NineRouterMark = APP_MARKS["9router"];
+export const DokployMark = APP_MARKS.dokploy;
+export const CloudflareMark = APP_MARKS.cloudflare;
+export const OrcaMark = APP_MARKS.orca;
 export const CamoufoxMark = APP_MARKS["camoufox-browser"];

@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import sharp from "sharp";
 import { ActiveShellProvider, type ShellId } from "@/features/appshell";
 import { APP_MARKS } from "./brand-marks";
 
@@ -22,12 +24,41 @@ describe("third-party official app marks", () => {
     ["hermes", "/brand/official/hermes.webp"],
     ["openclaw", "/brand/official/openclaw.webp"],
     ["9router", "/brand/official/9router.webp"],
+    ["n8n", "/brand/official/n8n.webp"],
+    ["orca", "/brand/official/orca.webp"],
+    ["dokploy", "/brand/official/dokploy.webp"],
+    ["cloudflare", "/brand/official/cloudflare.webp"],
   ])("keeps %s shell-invariant and official", (id, src) => {
     const html = markup(id);
     expect(html).toContain(`src="${src}"`);
     expect(html).not.toContain("shell-artwork-macos");
     expect(html).not.toContain("shell-artwork-windows");
     expect((html.match(/<img\b/g) ?? []).length).toBe(1);
+  });
+  it.each(["openclaw", "orca", "dokploy", "cloudflare", "composio", "doku"])("ships %s artwork as a 192px alpha lossless WebP tile", async (name) => {
+    const metadata = await sharp(`public/brand/official/${name}.webp`).metadata();
+    expect(metadata.format).toBe("webp");
+    expect(metadata.width).toBe(192);
+    expect(metadata.height).toBe(192);
+    expect(metadata.hasAlpha).toBe(true);
+    const webp = readFileSync(`public/brand/official/${name}.webp`);
+    expect(webp.toString("ascii", 12, 16)).toBe("VP8L");
+  });
+
+  it("preserves OpenClaw's official pixel-lobster pixels exactly", async () => {
+    const expected = await sharp("public/brand/official/openclaw.svg")
+      .resize(192, 192, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .raw()
+      .toBuffer();
+    const actual = await sharp("public/brand/official/openclaw.webp").raw().toBuffer();
+    expect(actual).toEqual(expected);
+  });
+
+  it("uses a dark neutral tile behind monochrome Dokploy and Cloudflare marks", () => {
+    expect(markup("dokploy")).toContain("background:#111827");
+    expect(markup("cloudflare")).toContain("background:#111827");
+    expect(markup("openclaw")).toContain("background:#f5fbff");
+    expect(markup("openclaw")).toContain("rounded-[var(--radius-icon)]");
   });
 });
 

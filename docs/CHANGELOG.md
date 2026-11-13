@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `managed-apps` drop the chrome bar, put controls on the terminal strip
 - `integrations` addressable connections and one sidebar surface
 
 **Fixed**

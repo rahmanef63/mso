@@ -1,3 +1,31 @@
+## 2026-11-13 — Official app marks reach the shell, the store and the picker
+
+Ten built-in windows were still drawing a Lucide glyph while a finished official-mark set
+sat unmerged in a stranded worktree: n8n, Orca, Dokploy, Cloudflare, plus the Hermes,
+OpenClaw and 9Router marks that only existed as generated tiles. The dock, the App Store
+catalog and the integration provider picker each had their own hard-coded icon path, so a
+single mark had to be added three times and was added zero times.
+
+`APP_MARKS` now owns every official mark, including a `officialMarkOnBackground()` tile that
+gives monochrome marks (OpenClaw, Dokploy, Cloudflare) a neutral ground so they stay legible
+in both themes. The App Store reads `SystemEntry.artwork` and the connection picker reads
+`PROVIDER_ICON_ASSETS` with `PROVIDER_ICON_TILE_COLORS`, so Composio, Dokploy and DOKU render
+their real multi-colour lockups instead of a flattened path. Telegram, Discord, Google OAuth,
+Search Console and Analytics join `PROVIDER_ICON_PATHS` as monochrome currentColor marks.
+
+The generated legacy tiles for camoufox, hermes and openclaw are gone: `makeBrand()` and
+`brandTileSvg()` are removed from `scripts/gen-app-icons.mjs`, their PNG/SVG sources are
+deleted, and the service worker no longer precaches the retired `/app-icons/*` paths. Every
+replacement is lossless WebP at 192px with alpha, and `SOURCES.md` pins the upstream commit
+for the vector and pixel-art sources.
+
+Verified by 38 focused tests over mark rendering, per-shell invariance, tile contrast,
+WebP format/alpha/VP8L, the provider asset map and the service-worker asset list. Sharp
+compares the OpenClaw raster against its retained SVG pixel for pixel. TypeScript, ESLint,
+the architecture ratchets, WCAG contrast in both themes, docs currency and the instance
+literal guard are clean. Real vendor artwork at other DPI and the remaining Windows/macOS
+platform art direction stay explicit limits.
+
 ## 2026-11-12 — No chrome bar on a CLI-only managed app
 
 After the two bands became one, the remaining 44px row still only held a sentence and a
@@ -65,7 +93,6 @@ Local gates: `tsc --noEmit` clean, `eslint . --max-warnings=0` clean, 1026 test 
 tests passing, architecture within ratchets, contrast AA with zero failures. Browser checks
 ran against synthetic connections only. Not done: migrating the remaining sidebar consumers
 to a ratio, and the dev-only `frame-ancestors` decision for the T3 preview panel.
-
 ## 2026-11-04: restrict Markdown transcript file export
 
 Markdown transcripts may contain server-provided content. The TUI now prints them for
