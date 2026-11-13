@@ -155,3 +155,9 @@ the current-reference doc.
 ## Independent CI pilot
 
 [SELF-HOSTED-CI.md](./SELF-HOSTED-CI.md) is the current manual-runner reference and Actions migration gap matrix. It does not claim completed security parity or deployment automation.
+
+## Active Svelte implementation
+
+[SVELTE-IMPLEMENTATION.md](./SVELTE-IMPLEMENTATION.md) records the incremental execution
+plan, static preview boundary, feature parity ledger and measured cutover requirements.
+Production remains Next/React until the cutover gate is met.

@@ -4,6 +4,14 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-14
+
+**Fixed**
+
+- `settings` keep a stored model id, and stop edits from erasing the model list
+- `security` match the lockfile chain without a hand-escaped pattern
+- `security` record one unfixed advisory, and prove the chain still holds
+
 ## 2026-11-13
 
 **Added**
@@ -32,6 +40,12 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Other**
 
 - Add a desktop observer API for bot desktop containers
+
+## 2026-11-09
+
+**Added**
+
+- `svelte` add isolated static entry and session-gated monitor
 
 ## 2026-11-04
 
@@ -1367,68 +1381,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `security` expose sanitized alert annotations
 - release security and visual documentation fixes as app 0.2.4
-
-## 2026-09-04
-
-**Added**
-
-- `mcp` simplify ChatGPT UI to Block and Page
-- `assistant` turn Alfa into MSO cockpit
-
-**Fixed**
-
-- `mcp` align widgets with rahmanef palette
-- `release` bound local dependency audit
-
-**Changed**
-
-- `mcp` dedupe ChatGPT CSP metadata
-
-## 2026-09-03
-
-**Added**
-
-- `mcp` embed Play Together securely
-- `mcp` add secure ChatGPT MSO Surface
-- `agent` add P10 memory lifecycle calibration
-- `mcp` complete Fresh 3 plugin contracts
-- `mcp` maximize Fresh 3 operator capabilities
-- `mcp` harden ChatGPT profile and project bridge
-
-**Fixed**
-
-- `mcp` correct Fresh 3 Surface scope
-- `mcp` open contextual MSO views
-- `runtime` prevent live Next build corruption
-- `mcp` harden Open in MSO navigation
-- `agent` calibrate correction memory semantics
-- `agent` compare normalized token proofs per row
-- `mcp` advertise implemented protocol era
-- `mcp` support trusted browser probes
-- `oauth` issue distinct dynamic client ids
-- `mcp` make read pipeline schema portable
-
-**Faster**
-
-- `agent` add P8 calibration harness
-- `agent` add repeatable corpus runner
-- `agent` expand objective repo corpus
-
-**Changed**
-
-- `mcp` unify ChatGPT Surface UI
-
-**Tests**
-
-- `agent` calibrate local semantic memory retrieval
-- separate corpus accounting ownership
-- keep Fresh 3 within architecture ratchets
-- `gateway` await complete browser argv capture
-
-**Docs**
-
-- bound Cognitive Runtime claims to verified evidence
-- refresh maintainability changelog
-- `agent` record P9 memory calibration
-- `agent` record P8 calibration baseline
-- `agent` record P7 repeated corpus baseline

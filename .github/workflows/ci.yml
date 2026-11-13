@@ -45,6 +45,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install isolated Svelte dependencies
+        run: bun run svelte:install
+
+      - name: Check and build isolated Svelte entry
+        run: bun run svelte:check && bun run svelte:build && bun run svelte:audit
+
       - name: Validate native dependency
         run: node -e "require('node-pty')"
 
@@ -86,6 +92,9 @@ jobs:
 
       - name: Install browser
         run: node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Svelte migration browser journeys
+        run: bun run svelte:e2e
 
       - name: Required browser journeys
         run: bun run e2e:release

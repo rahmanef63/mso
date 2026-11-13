@@ -50,6 +50,7 @@
   "exclude": [
     "node_modules",
     "frontend/slices/**/slice.contract.ts",
-    "**/zz-*"
+    "**/zz-*",
+    "frontend/svelte/**"
   ]
 }

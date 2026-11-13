@@ -1,0 +1,27 @@
+{
+  "extends": "$app/tsconfig",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "types": [
+      "node",
+      "$app/types"
+    ]
+  },
+  "include": [
+    "src",
+    "tests",
+    "*.js"
+  ],
+  "exclude": [
+    "src/service-worker"
+  ]
+}

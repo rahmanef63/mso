@@ -1,5 +1,10 @@
 # MSO migration plan — Svelte / Bun / Rust
 
+> Product decision updated 2026-11-09: the owner requested Svelte implementation in
+> tested increments, with frequent integration to main. The current execution plan and
+> explicit feature parity ledger are in [SVELTE-IMPLEMENTATION.md](./SVELTE-IMPLEMENTATION.md).
+> The measurements and paused decision below describe October, not completed migration.
+
 Status: **measurement complete, migration largely decided away.** This header said "open plan,
 not implemented" on 2026-10-28; it is wrong now and was rewritten rather than left to mislead.
 Current state, 2026-10-30:

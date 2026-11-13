@@ -88,7 +88,13 @@ jobs:
         run: >-
           docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/src:ro"
           ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734
-          scan source --recursive /src
+          scan source --recursive --config /src/osv-scanner.toml /src
+
+      # osv-scanner silences an advisory by id, so a future copy under a different
+      # parent would be silenced too. This narrows the recorded exception back to
+      # the reviewed chain and fails when the expiry passes.
+      - name: Verify the recorded dependency exception still applies
+        run: node scripts/audit-exceptions.mjs
 
   semgrep:
     name: Semgrep OWASP/SAST
