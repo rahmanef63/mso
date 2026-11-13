@@ -68,7 +68,7 @@ const configFor = () =>
     cliScript: CLI,
   });
 async function writeOwnedUnit(overrides = {}) {
-  await mkdir(path.dirname(unitPath()), { recursive: true });
+  await mkdir(path.dirname(unitPath()), { recursive: true, mode: 0o700 });
   await writeFile(unitPath(), unitText(overrides), { mode: 0o644 });
   await writeFile(path.join(root(), "managed-service.json"), JSON.stringify(configFor()), { mode: 0o600 });
 }
