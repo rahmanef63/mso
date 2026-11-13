@@ -96,6 +96,7 @@ describe("model id safety", () => {
       "claude-opus-5-5-high",
       "meta-llama/llama-4-405b",       // OpenRouter vendor/model
       "deepseek-v4.1-flash:free",      // OpenRouter :free suffix
+      "cx/gpt-6-astra[1m]",            // 9router variant suffix (measured live)
       "Qwen2.5_Coder_32B",
       "o4-mini",
     ]) {
