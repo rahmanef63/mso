@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { toast, useFeatureState } from "@/features/appshell";
 import { useSettingsWindow } from "../lib/window-context";
 import { Plus } from "lucide-react";
@@ -8,10 +9,12 @@ import { SettingsBlock } from "@/features/shell-settings";
 import { CustomProviderForm } from "./custom-provider-form";
 import { OAuthConnect } from "./oauth-connect";
 import { ProviderList, type ConnectedProvider } from "./provider-list";
+import { ProviderModelsDialog } from "./provider-models-dialog";
 
 // The provider-management block below the active-provider config: OAuth sign-in,
-// add-a-custom-endpoint, and the connected-provider list with delete. `reload`
-// re-fetches /api/config in the parent after any change.
+// add-a-custom-endpoint, the connected-provider list with per-provider model
+// management, and delete. `reload` re-fetches /api/config in the parent after
+// any change.
 export function ProviderManage({
   providers,
   selected,
@@ -26,6 +29,7 @@ export function ProviderManage({
   const [key, setKey] = useFeatureState(winId, "provider-key", "", { sensitive: true });
   const [json, setJson] = useFeatureState(winId, "provider-json", "", { sensitive: true });
   const [submitting] = useFeatureState(winId, "provider-submitting", false);
+  const [managing, setManaging] = useState<ConnectedProvider | null>(null);
   const toggleForm = () => {
     if (showAdd && submitting) return void toast("Wait for the provider request to finish before closing the form.");
     if (showAdd && (key || json) && !window.confirm("Discard the unsaved API key or JSON?")) return;
@@ -69,9 +73,21 @@ export function ProviderManage({
 
       {providers.length > 0 && (
         <SettingsBlock>
-          <ProviderList providers={providers} selected={selected} onChanged={reload} />
+          <ProviderList
+            providers={providers}
+            selected={selected}
+            onChanged={reload}
+            onManageModels={(provider) => setManaging(provider)}
+          />
         </SettingsBlock>
       )}
+
+      <ProviderModelsDialog
+        provider={managing}
+        open={managing !== null}
+        onOpenChange={(open) => { if (!open) setManaging(null); }}
+        onSaved={reload}
+      />
     </>
   );
 }

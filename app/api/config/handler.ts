@@ -105,7 +105,7 @@ export async function handlePostConfig(req: NextRequest): Promise<Response> {
     return NextResponse.json({ ok: true });
   }
 
-  // ── Add a custom provider ───────────────────────────────────────────────────
+  // ── Add or edit a custom provider ───────────────────────────────────────────
   if (body.customProvider) {
     const c = body.customProvider;
     const slug = slugifyProvider(String(c.name ?? ""));
@@ -113,27 +113,34 @@ export async function handlePostConfig(req: NextRequest): Promise<Response> {
     if (isBuiltinProvider(slug) || slug === "openai-codex") {
       return NextResponse.json({ error: `"${slug}" is a built-in provider — choose another name` }, { status: 400 });
     }
-    if (!c.apiKey || !c.apiKey.trim()) return NextResponse.json({ error: "API key is required" }, { status: 400 });
+    const existing = (await readConfig()).customProviders?.[slug];
+    // Editing an already-connected provider (adding models, changing protocol) must not
+    // force the owner to paste the key again — they no longer have it, it only lives
+    // server-side. A key is required only for the first connect.
+    const key = c.apiKey?.trim() ?? "";
+    if (!key && !existing) return NextResponse.json({ error: "API key is required" }, { status: 400 });
     let safe: URL;
     try {
-      safe = (await resolveSafeProviderEndpoint(String(c.baseURL ?? c.baseUrl ?? ""))).url;
+      safe = (await resolveSafeProviderEndpoint(String(c.baseURL ?? c.baseUrl ?? existing?.baseUrl ?? ""))).url;
     } catch (e) {
       return NextResponse.json({ error: (e as Error).message }, { status: 400 });
     }
-    const protocol = c.protocol === "anthropic" ? "anthropic" : "openai";
-    const models = (c.models ?? []).map((m) => String(m).trim()).filter(Boolean);
+    const protocol = c.protocol === "anthropic" ? "anthropic" : c.protocol === "openai" ? "openai" : existing?.protocol ?? "openai";
+    // Omitted `models` keeps what is stored; an explicit array replaces it. Before this,
+    // omitting the field wrote `models: []`, so any edit silently erased the model list.
+    const models = c.models === undefined
+      ? existing?.models
+      : (c.models ?? []).map((m) => String(m).trim()).filter(Boolean);
     await upsertCustomProvider(slug, {
       baseUrl: safe.toString().replace(/\/$/, ""),
       protocol,
-      ...(models.length ? { models } : {}),
+      ...(models?.length ? { models } : {}),
     });
-    await hostCredentialStore().setKey(undefined, slug, c.apiKey.trim());
-    const model = body.model?.trim() || models[0];
-    const selected = body.select !== false && Boolean(model);
-    if (selected) {
-      await writeConfig({ provider: slug, model });
-    }
-    return NextResponse.json({ ok: true, slug, selected });
+    if (key) await hostCredentialStore().setKey(undefined, slug, key);
+    if (body.select === false) return NextResponse.json({ ok: true, slug, selected: false });
+    const model = body.model?.trim() || models?.[0];
+    if (model) await writeConfig({ provider: slug, model });
+    return NextResponse.json({ ok: true, slug, selected: Boolean(model) });
   }
 
   // ── Set a built-in provider / model / key ──────────────────────────────────
