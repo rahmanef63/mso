@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-13
+
+**Added**
+
+- `shell` every official app mark reaches the dock, the store and the picker
+
 ## 2026-11-12
 
 **Added**
@@ -1481,31 +1487,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - cover maintainability architecture boundaries
 - pin ZAP Docker Hub mirror
 - cover RASMIC orchestration
-
-## 2026-09-01
-
-**Added**
-
-- `agent` ship cognitive runtime p1
-- `agent` humanize sessions and add yolo mode
-- `mcp` ship cognitive runtime p0
-- `agent` add interrupt-safe terminal controls
-- `agent` add arrow picker and skill states
-- `agent` align model and session terminal UX
-- `install` make upgrades agent-friendly
-- `agent` add interactive slash palette
-- `agent` add project-aware slash skills
-- `agent` persist terminal and MCP sessions
-- `mcp` render live workflow progress in ChatGPT
-- `cli` add MSO folder ASCII icon
-
-**Fixed**
-
-- `agent` resolve resumes across full session store
-- `mcp` remove session lookup contention
-- `agent` wake prompt after child tty sigint
-- `cli` clarify version and update labels
-- `agent` stabilize terminal banner navigation
-- `cli` make updates visible and idempotent
-- `9router` proxy over internal Docker network
-- `mcp` preserve app-only workflow status schema
