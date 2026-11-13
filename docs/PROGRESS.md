@@ -1,3 +1,25 @@
+## 2026-11-14 — One recorded dependency exception, with a chain check and an expiry
+
+The Svelte entry brought `deepmerge@4.3.1` in as a devDependency of
+`@sveltejs/vite-plugin-svelte@7.3.1`, and OSV fails the scan on
+GHSA-gcqx-w48m-w2h4 (CVE-2026-93753, CVSS 5.3). There is no fixed version: 4.3.1 is
+the newest release and the upstream advisory is closed as unfixed on master. The
+package is build-time only, never parses untrusted input and never ships to a runtime,
+and removing it would mean replacing the Svelte build toolchain.
+
+`osv-scanner.toml` records that single advisory with an expiry and a reason, which is
+how this repository has handled an unfixed dependency before. Because osv-scanner
+silences an advisory by id alone, `scripts/audit-exceptions.mjs` narrows it back to the
+reviewed decision: the package must still arrive only through the named dev toolchain,
+the lockfile must still contain it, and the date must still be in the future. An
+unknown advisory, a missing expiry, a moved lockfile or an expired date fails the gate
+rather than silently widening the exception. `audit` now runs the guard, and the CI OSV
+step passes the same config while `security-core.yml` runs the guard as its own step.
+
+Verified: OSV reports `No issues found` with one advisory explicitly filtered and
+named in the log, and the guard rejects an expired date, an unknown advisory and a
+missing expiry. No scanner rule, no `continue-on-error` and no dismissal was added.
+
 ## 2026-11-13 — Official app marks reach the shell, the store and the picker
 
 Ten built-in windows were still drawing a Lucide glyph while a finished official-mark set
@@ -5735,3 +5757,21 @@ Screenshot evidence previously lived in unrelated scratch directories or only in
 ### 2026-10-22 — Composio session MCP credential
 - `POST /api/v3.1/tool_router/session` has no `mcp` request field and its 201 response carries `mcp.url` without headers, so a stored session previously had no credential and could never be called. `mcpHeaders` is now the exact header `composioAuthHeader` returned for the credential that authenticated that same create call (`x-api-key` project, `x-user-api-key` user, `x-org-api-key` org), matching `docs/sessions-via-mcp`. A future response `mcp.headers` still wins verbatim.
 - The session MCP URL host is validated against the existing Composio redirect allowlist plus `app.composio.dev` (the spec example host); any other host fails closed with `invalid_composio_mcp_host`. Header values stay server-side: the route still returns only `mcpUrl`.
+
+## 2026-11-09: isolated static Svelte migration entry
+
+The owner resumed Svelte implementation with frequent reviewed integration to main; the
+reported symptom is a heavy server. The new frontend/svelte package builds static assets,
+not a React island or a second production SSR service. Its first journey checks the existing
+device session and reads a one-shot System Monitor snapshot using the shared host DTO.
+No auth policy, host state, production routing or deployment service was changed.
+
+Separate frozen dependencies, Svelte checks, Node behavior tests, browser fixtures and a
+nested dependency audit are wired into verification. Tests cover signed-out access, malformed
+responses, revocation, retry, cancellation/disposal and a fixed loopback GET-only preview
+proxy. Browser coverage samples 320/390/1440 px in light/dark, keyboard skip/refresh and
+320 px at 200% text. Full five-shell parity and real device/production-host evidence are not
+claimed. Exact release/gate evidence belongs in the PR; see SVELTE-IMPLEMENTATION.md for the
+feature ledger, remaining milestones, production CSP integration and server resource gate.
+
+This increment does not remove Next from the backend and does not claim an RSS/CPU win.

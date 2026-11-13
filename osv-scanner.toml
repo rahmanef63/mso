@@ -1,0 +1,30 @@
+# OSV-Scanner configuration.
+#
+# An entry here is a recorded decision with an expiry date, not a blanket
+# suppression. Each one names the single advisory, the single ecosystem and the
+# reason it cannot be fixed today. When the fix lands, or the date passes, the
+# scan fails again and the entry must be removed rather than extended.
+#
+# Read the reason before extending a date. "The scanner was inconvenient" is not
+# one. AGENTS.md forbids scanner suppression to fake green; this file exists so a
+# genuine unfixed dependency is visible in review instead of silently dropped.
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2026-12-14T00:00:00Z
+reason = """
+deepmerge 4.3.1 prototype poisoning (CVE-2026-93753, CVSS 5.3). There is no fixed
+version: 4.3.1 is the newest release and the upstream advisory is closed as
+unfixed on master. The package reaches this repo only as a devDependency of
+@sveltejs/vite-plugin-svelte 7.3.1 (also latest), a build-time tool that never
+ships to a runtime, never parses untrusted request bodies and never merges
+attacker-controlled input. Removing it would mean replacing the Svelte build
+toolchain, which is a larger change than this migration increment.
+
+The chain is verified in frontend/svelte/bun.lock:
+  deepmerge@4.3.1 <- @sveltejs/vite-plugin-svelte@7.3.1 <- dev
+
+Re-check on expiry: if @sveltejs/vite-plugin-svelte ships a release that drops
+or replaces deepmerge, upgrade and delete this entry. Do not extend the date
+without recording why the upstream situation changed or did not.
+"""

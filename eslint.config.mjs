@@ -9,6 +9,7 @@ const config = [
       ".next/**",
       "node_modules/**",
       ".claude/worktrees/**", // linked task checkouts; lint each worktree from its own root
+      "frontend/svelte/**", // separately checked Svelte package, not Next/React
       "os-browser/**", // separate sidecar package (plain Node)
       "public/**",
       "next-env.d.ts",
