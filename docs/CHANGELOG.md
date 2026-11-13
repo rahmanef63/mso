@@ -12,6 +12,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `security` match the lockfile chain without a hand-escaped pattern
 - `security` record one unfixed advisory, and prove the chain still holds
 
+**Tests**
+
+- `managed-apps` pin owned-unit fixture dir mode
+
 ## 2026-11-13
 
 **Added**
