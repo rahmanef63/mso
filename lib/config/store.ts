@@ -66,8 +66,11 @@ export function safeProviderId(value: string): string {
 // providers, into a path. Nothing validated the model half of a `provider/model` ref — only the
 // provider was checked — so a config value could carry anything into an outbound request.
 // Deliberately permissive about the shapes real catalogues use (OpenRouter's `vendor/model`,
-// `:free` suffixes, dots and underscores) and strict about everything else.
-const MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:\/-]{0,199}$/;
+// `:free` suffixes, dots and underscores) and strict about everything else. Brackets are listed
+// because 9router-style routers expose variant suffixes (`cx/gpt-6-astra[1m]`); a stored id that
+// the regex rejected used to throw inside resolveModelRef and surface as a bogus
+// `no_api_key:<provider>` 501, so a perfectly valid model looked like a missing credential.
+const MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:\/[\]-]{0,199}$/;
 
 export function safeModelId(value: string): string {
   if (!MODEL_ID_RE.test(value) || RESERVED_RECORD_KEYS.has(value) || value.includes("..")) {
