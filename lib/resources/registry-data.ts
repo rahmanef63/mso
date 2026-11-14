@@ -1,6 +1,6 @@
 import type { SliceBudgetEntry } from "./types";
 import { STATIC, poll, withWorker } from "./profiles";
-import { idle, limited } from "./registry-entry";
+import { bounded, idle, limited } from "./registry-entry";
 
 /**
  * The registry: one entry per feature slice under frontend/slices.
@@ -14,7 +14,7 @@ export const REGISTRY: readonly SliceBudgetEntry[] = [
   limited(
     "agent-group",
     withWorker(STATIC, "lib/agent-group/hermes-runner.ts", 57),
-    { max: 30, file: "lib/agent-group/http.ts", line: 45, note: "agent-groups limiter: 30 for action=run, 60 otherwise, per device" },
+    { max: 30, file: "lib/agent-group/http.ts", line: 45, note: "agent-groups limiter: 30 per 60 s for action=run, 60 per 60 s otherwise, per device" },
     "Runs several Hermes profiles per discussion: each turn spawns a headless child (lib/agent-group/hermes-runner.ts:57) under a 30/min run limiter.",
   ),
   limited(
@@ -44,7 +44,7 @@ export const REGISTRY: readonly SliceBudgetEntry[] = [
   limited(
     "auth",
     poll(60_000, "frontend/slices/auth/lib/use-session.tsx", 101),
-    { max: 30, file: "app/api/auth/login/handler.ts", line: 25, note: "GLOBAL_MAX_ATTEMPTS = 30 login attempts per window; per IP it is the tighter 5 at line 22" },
+    { max: 30, file: "app/api/auth/login/handler.ts", line: 25, note: "GLOBAL_MAX_ATTEMPTS = 30 login attempts per 60 s window (WINDOW_MS, line 23); per IP the tighter 5 at line 22" },
     "Session revalidation every 60 s. Login is the slice's only externally limited call and keeps its own specialised limiter.",
   ),
   limited(
@@ -78,7 +78,7 @@ export const REGISTRY: readonly SliceBudgetEntry[] = [
   limited(
     "extensions",
     STATIC,
-    { max: 120, file: "lib/mcp/tools-project-mcp-manage.ts", line: 11, note: "project.mcp.manage: 20/min, with an explicit inspect override of 120/min" },
+    { max: 120, file: "lib/mcp/tools-project-mcp-manage.ts", line: 11, note: "project.mcp.manage: 20 per 60 s, with an explicit inspect override of 120 per 60 s" },
     "Installs and inspects project MCP servers and skills; inspection runs at the 120/min override.",
   ),
   limited(
@@ -95,14 +95,13 @@ export const REGISTRY: readonly SliceBudgetEntry[] = [
   limited(
     "image-editor",
     STATIC,
-    { max: 120, file: "lib/mcp/tools-edit.ts", line: 13, note: "document and raster saves go through the bounded fs write/edit path" },
+    { max: 120, file: "lib/mcp/tools-edit.ts", line: 13, note: "fs.edit limiter: 120 per 60 s (same budget as files-manager)" },
     "Layered raster work is client-side; persistence is bounded fs writes.",
   ),
-  limited(
+  bounded(
     "image-picker",
-    STATIC,
-    { max: 20, file: "app/api/v1/stock/providers.ts", line: 40, note: "OPENVERSE_ANON_MAX_PAGE_SIZE = 20 results per anonymous upstream call" },
-    "Stock search is a keyless external call with a 20-result page cap; that route declares no request-rate limiter, so the page cap is the cited ceiling.",
+    { file: "app/api/v1/stock/providers.ts", line: 40, note: "no request-rate limiter; the cited bound is 20 results per anonymous upstream page" },
+    "Stock search is a keyless external call with a 20-result page cap and no request-rate limiter, so its call cost per minute is unknown rather than bounded.",
   ),
   limited(
     "infrastructure",
@@ -125,20 +124,18 @@ export const REGISTRY: readonly SliceBudgetEntry[] = [
   limited(
     "media-studio",
     STATIC,
-    { max: 120, file: "lib/mcp/tools-edit.ts", line: 13, note: "saves land on /api/v1/fs/upload (lib/save-image.ts:62), inside the shared 120/min edit budget" },
+    { max: 120, file: "lib/mcp/tools-edit.ts", line: 13, note: "fs.edit limiter: 120 per 60 s, which the /api/v1/fs/upload save path shares" },
     "Composes media in the browser and uploads it; no server compute beyond the bounded upload.",
   ),
-  limited(
+  bounded(
     "media-viewer",
-    STATIC,
-    { max: 16, file: "app/api/v1/fs/raw/handler.ts", line: 10, note: "readAdmission(4, 16): 4 concurrent raw streams per actor, 16 globally" },
+    { file: "app/api/v1/fs/raw/handler.ts", line: 10, note: "no request-rate limiter; the cited bound is 4 concurrent raw streams per actor, 16 globally" },
     "Streams raw bytes with Range requests; the honest ceiling is the raw-stream admission budget, not a request-per-minute limit.",
   ),
-  limited(
+  bounded(
     "memory-graph",
-    STATIC,
-    { max: 160, file: "lib/memory-graph/vault.ts", line: 10, note: "MAX_FILES = 160 per graph build; depth 6, 48 KiB/note (lines 11-13)" },
-    "Builds one bounded graph per request rather than scanning the vault unbounded.",
+    { file: "lib/memory-graph/vault.ts", line: 10, note: "no request-rate limiter; the cited bound is 160 files per graph build" },
+    "Builds one bounded graph per request (160 files, depth 6, 48 KiB per note) rather than scanning the vault unbounded.",
   ),
   limited(
     "n8n",
@@ -178,7 +175,7 @@ export const REGISTRY: readonly SliceBudgetEntry[] = [
   limited(
     "reel-editor",
     STATIC,
-    { max: 120, file: "lib/mcp/tools-edit.ts", line: 13, note: "media saves use the shared 120/min edit budget; uploads cap at 100 MiB (lib/host/fs-upload.ts:13)" },
+    { max: 120, file: "lib/mcp/tools-edit.ts", line: 13, note: "fs.edit limiter: 120 per 60 s; uploads additionally cap at 100 MiB per file (lib/host/fs-upload.ts:13)" },
     "Decodes and re-encodes media locally, then writes it back through the bounded upload path.",
   ),
   idle(

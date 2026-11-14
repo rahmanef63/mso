@@ -134,7 +134,21 @@ describe("slice resource registry", () => {
     }
   });
 
-  it("only attributes tools to slices that exist", () => {
+  it("only assigns a call ceiling from a limiter that is actually a call rate", () => {
+    // Guards the unit mistake this registry made once: a file count, a page size and a
+    // concurrent-stream limit were each reported as "calls per minute". A cited call
+    // ceiling must come from a limiter whose note says per-minute/per-60s, or from a
+    // poll interval converted by the profile.
+    for (const entry of REGISTRY) {
+      const field = entry.provenance.externalCallsPerMinute;
+      if (entry.budget.externalCallsPerMinute === null || entry.budget.externalCallsPerMinute === 0) continue;
+      if (field.kind === "derived") continue; // poll interval: 60000/ms, stated in the note
+      expect(field.kind, entry.slice).toBe("cited");
+      expect(field.note, `${entry.slice} cites a bound that is not a call rate`).toMatch(/per (?:60 s|minute|min)|\/min/i);
+    }
+  });
+
+  it("does not attribute tools to slices that exist", () => {
     for (const row of ATTRIBUTION) {
       expect(onDisk, `${row.tool} -> ${row.slice}`).toContain(row.slice);
       expect(row.evidence.line).toBeGreaterThan(0);

@@ -1,5 +1,6 @@
 import type { SliceBudgetEntry } from "./types";
-import { absent, cite } from "./provenance";
+import { absent, cite, unmeasured } from "./provenance";
+import { STATIC } from "./profiles";
 import type { BudgetProfile } from "./profiles";
 
 /**
@@ -46,6 +47,30 @@ export function idle(slice: string, profile: BudgetProfile, rationale: string): 
     provenance: {
       ...profile.provenance,
       externalCallsPerMinute: absent(slice, `${NO_CALL_NOTE}, so its call cost is zero`),
+      maySpawnWorker: absent(slice, ABSENCE_NOTE),
+    },
+    rationale,
+  };
+}
+
+/** A bound that exists in code but is NOT a request rate. */
+export type OtherBound = { file: string; line: number; note: string };
+
+/**
+ * A slice whose only cited ceiling is something other than calls per minute (files per
+ * build, concurrent streams, results per page).
+ *
+ * The call field is explicitly `unmeasured`, because putting a file count or a page
+ * size into "calls per minute" would report a different quantity under this field's
+ * name. The other bound belongs in the note and the rationale.
+ */
+export function bounded(slice: string, bound: OtherBound, rationale: string): SliceBudgetEntry {
+  return {
+    slice,
+    budget: STATIC.budget,
+    provenance: {
+      ...STATIC.provenance,
+      externalCallsPerMinute: unmeasured(`no request-rate limiter exists; the cited bound is ${bound.note} (${bound.file}:${bound.line})`),
       maySpawnWorker: absent(slice, ABSENCE_NOTE),
     },
     rationale,
