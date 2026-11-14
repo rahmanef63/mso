@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `auth` read the retry store through one descriptor, closing a TOCTOU gap
 - `auth` load the Nakama follower lazily so mso passwd resolves
 - `settings` keep a stored model id, and stop edits from erasing the model list
 - `security` match the lockfile chain without a hand-escaped pattern

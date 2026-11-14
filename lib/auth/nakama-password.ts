@@ -62,17 +62,23 @@ const pendingStore = () =>
 
 async function readPending(): Promise<string | null> {
   const pinned = await pinSecurityStorePath(pendingStore());
+  // One descriptor for both the safety checks and the read: lstat-then-read on a
+  // path is a time-of-check/time-of-use gap (CodeQL js/file-system-race), and a
+  // swapped file could be read after passing the 0600 check.
+  let handle: Awaited<ReturnType<typeof fs.open>> | null = null;
   try {
-    const stat = await fs.lstat(pinned.file), uid = process.getuid?.();
+    handle = await fs.open(pinned.file, "r");
+    const stat = await handle.stat(), uid = process.getuid?.();
     if (!stat.isFile() || !stat.size || stat.size > MAX_PENDING_BYTES || (stat.mode & 0o077) || (uid !== undefined && stat.uid !== uid)) {
       throw new NakamaSyncError("unsafe_retry_store");
     }
-    const parsed = JSON.parse(await fs.readFile(pinned.file, "utf8")) as { previous?: unknown };
+    const parsed = JSON.parse(await handle.readFile("utf8")) as { previous?: unknown };
     return typeof parsed.previous === "string" && parsed.previous ? parsed.previous : null;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   } finally {
+    await handle?.close().catch(() => undefined);
     await pinned.directory.close().catch(() => undefined);
   }
 }
