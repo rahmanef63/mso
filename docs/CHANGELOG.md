@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-14
 
+**Added**
+
+- `auth` follow the MSO login password into Nakama (#296)
+
 **Fixed**
 
 - `settings` keep a stored model id, and stop edits from erasing the model list
@@ -14,10 +18,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Changed**
 
-- `store` one row primitive and one catalog model
+- `store` one row primitive and one catalog model (#297)
 
 **Tests**
 
+- `passwd` keep the fixture self-contained after the Nakama follow-up
 - `managed-apps` pin owned-unit fixture dir mode
 
 ## 2026-11-13

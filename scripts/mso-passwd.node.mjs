@@ -18,6 +18,16 @@ function fixture() {
     mkdirSync(path.dirname(path.join(root, name)), { recursive: true, mode: 0o700 });
     copyFileSync(path.join(repo, name), path.join(root, name));
   }
+  // `login-password.ts` follows the Nakama admin password after a rotation. That
+  // module reaches `@/lib/*` aliases, which do not resolve inside this copied
+  // fixture, and this suite is about the login password rather than the follow-up.
+  // A stub keeps the fixture self-contained; the real follower has its own suite in
+  // lib/auth/nakama-password.test.ts.
+  writeFileSync(
+    path.join(root, "lib/auth/nakama-password.ts"),
+    'export async function followNakamaPassword(): Promise<"not_configured"> { return "not_configured"; }\n',
+    { mode: 0o600 },
+  );
   return root;
 }
 const env = { ...process.env, MSO_ENV: "", OS_ENV: "", MSO_BASE: "", OS_BASE: "" };
