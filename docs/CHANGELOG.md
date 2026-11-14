@@ -6,12 +6,27 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-14
 
+**Added**
+
+- `auth` follow the MSO login password into Nakama (#296)
+- `capabilities` account for resources per feature slice (#298)
+
 **Fixed**
 
-- `security` honour a reviewed OSV exception in the alert gate
+- `auth` keep nakama-password under the 220-line ratchet
+- `auth` read the retry store through one descriptor, closing a TOCTOU gap
+- `auth` load the Nakama follower lazily so mso passwd resolves
 - `settings` keep a stored model id, and stop edits from erasing the model list
 - `security` match the lockfile chain without a hand-escaped pattern
 - `security` record one unfixed advisory, and prove the chain still holds
+
+**Changed**
+
+- `store` one row primitive and one catalog model (#297)
+
+**Tests**
+
+- `managed-apps` pin owned-unit fixture dir mode
 
 ## 2026-11-13
 

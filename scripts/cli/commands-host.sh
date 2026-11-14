@@ -69,6 +69,7 @@ case "$cmd" in
       *) die "usage: mso $U_unit" ;;
     esac ;;
   packages) jget "/api/v1/sys/packages" ;;
+  slice-resources) jget "/api/v1/sys/slice-resources" ;;
   cleanup) if [ "${1-}" = "--run" ]; then jpost "/api/v1/sys/cleanup"; else jget "/api/v1/sys/cleanup"; fi ;;
   status) jget "/api/status" ;;
   health) jget "/api/auth/me" ;;

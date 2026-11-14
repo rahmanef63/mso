@@ -75,6 +75,38 @@ describe("HttpAdapter — managed apps", () => {
 });
 
 
+describe("HttpAdapter — slice resources", () => {
+  const api = HttpAdapter({ url: "" });
+
+  it("reads the sys/slice-resources route and preserves the evidence labels", async () => {
+    const payload = {
+      generatedAt: "2026-11-14T00:00:00.000Z",
+      bufferCapacity: 2048,
+      droppedSamples: 0,
+      slices: [{
+        slice: "system-monitor", accounted: true, rationale: "polls telemetry", windowMs: 60_000, calls: 12,
+        fields: [{
+          field: "externalCallsPerMinute", budget: 30, actual: 12, evidence: "estimated", status: "within",
+          provenance: { kind: "cited", file: "lib/host/sys-services-service.ts", line: 14, note: "30 per 60 s" },
+        }],
+      }],
+      unaccountedSlices: ["brand-new-slice"],
+      unaccounted: { calls: 3, wallMs: 40, cpuMs: 9 },
+      worst: [],
+      scope: { kind: "installation", detail: "process-global ledger" },
+      enforcement: { enabled: false, setting: "OS_SLICE_RESOURCE_ENFORCEMENT", applies_to: "concurrent-tasks only", detail: "off" },
+    };
+    const f = mockFetch(payload);
+    const result = await api.sys.sliceResources();
+    expect(String(f.mock.calls[0]?.[0] ?? "")).toBe("/api/v1/sys/slice-resources");
+    // The evidence label must survive the wire: the panel renders it, and losing it
+    // would present an estimate as a measurement.
+    expect(result).toEqual(payload);
+    expect(result.slices[0].fields[0].evidence).toBe("estimated");
+    expect(result.unaccountedSlices).toEqual(["brand-new-slice"]);
+  });
+});
+
 describe("HttpAdapter — project candidates", () => {
   const api = HttpAdapter({ url: "" });
 

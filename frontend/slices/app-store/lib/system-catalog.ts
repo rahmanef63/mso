@@ -21,8 +21,8 @@ import {
   Plug,
   MessageSquareMore,
   Users,
-  type LucideIcon,
 } from "lucide-react";
+import type { SystemEntry } from "./store-catalog";
 
 // The built-in apps + shell features the owner can turn on/off from the store.
 // This is the canonical toggle list — it must include items even while they are
@@ -30,19 +30,10 @@ import {
 // live registry (the registry only holds ENABLED apps). `id` MUST match the
 // AppDescriptor.id / FeatureDescriptor.id in shell.manifest.ts so os-root can
 // filter the manifest by the disabled set. Pure data — no React.
+// The row shape is the shared `SystemEntry` in store-catalog.ts, so built-ins and
+// curated apps share one metadata model.
 
-export type SystemKind = "app" | "feature";
-
-export type SystemEntry = {
-  id: string;
-  title: string;
-  kind: SystemKind;
-  icon: LucideIcon;
-  artwork?: string;
-  gradient: string;
-  desc: string;
-  required?: boolean; // can never be disabled (the App Store itself)
-};
+export type { SystemKind, SystemEntry } from "./store-catalog";
 
 export const SYSTEM_CATALOG: SystemEntry[] = [
   // ── Built-in apps ─────────────────────────────────────────────────────────

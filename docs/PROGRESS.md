@@ -1,3 +1,98 @@
+## 2026-11-14 — Nakama follows the MSO login password, without becoming a login dependency
+
+Nakama kept its own hashed admin password, so the operator had to remember to change it
+by hand every time Settings rotated `OS_LOGIN_PASSWORD`. #296 makes it follow.
+
+The hook is the end of `rotateLoginPassword` in `lib/auth/login-password.ts`, after
+`writeEnvFile` and `process.env.OS_LOGIN_PASSWORD = input.next`, so `setLocalPassword`
+(`mso passwd` / the local CLI path) and `POST /api/auth/password` are both covered by one
+call. `lib/auth/nakama-password.ts` signs in with the password Nakama still has, then calls
+`POST /v1/auth/change-password` with the session cookie and the `__Host-nakama_csrf` value
+as `X-CSRF-Token`. The rotation returns success before this matters: the follower is
+`.catch()`-ed and returns a result, so MSO login never depends on Nakama being up.
+
+A failed sync is not swallowed. It is audited as `auth.nakama` with `ok: false` and a
+reason category only (`change_http_4xx`, `login_http_401`, `ECONNREFUSED`, `timeout`), and
+the previous password is written to a 0600 owner-private retry record so `reconcileNakamaPassword`
+in `instrumentation.ts` can replay it at boot. The reconcile probes the current password
+first, so a change call whose response was lost converges instead of retrying the old
+password forever. Nothing about the Nakama password reaches a response body, the browser,
+a committed file or a log line.
+
+Opt in with `NAKAMA_BASE_URL` + `NAKAMA_ADMIN_EMAIL`; with either unset MSO makes no Nakama
+call at all. The operational story and the one uncovered case (a first-install password
+that was created rather than rotated) are in `docs/TROUBLESHOOTING.md`.
+
+Verified: 11 tests in `lib/auth/nakama-password.test.ts` (call shape, 4xx surfaced while
+the rotation still completes, unreachable → queued, idempotent converge, oldest queued
+password retained, insecure base URL refused), plus the existing rotation, route, audit and
+env-example suites. Live proof against a real Nakama container is still required before
+this can be called operationally verified.
+
+## 2026-11-14 — The App Store has one row primitive and one catalog model
+
+Three cards rendered the same row. `store-app-card` and `system-card` carried byte-identical
+shell (`flex gap-3 p-3.5`), 12x12 gradient glyph tile, overlay span and body block, differing
+only in tile content and one overlay. Two catalogs (`CatalogApp`, `SystemEntry`) repeated
+`title`/`gradient`/`desc`, and `apps-panel` rebuilt the store's menu inside the render body.
+
+`components/store-tile.tsx` now owns the row: `StoreTile` (shell, tile, overlay, title/meta,
+description, trailing action slot) and `StoreGlyph` (gradient tile + overlay, `none` for the
+hero). The three cards are thin wrappers supplying glyph and buttons; the installed/uninstall
+hover verbs stay in them because that is their behaviour, not the row's. `CatalogEntryBase`
+declares the shared metadata once and `CatalogApp`/`SystemEntry`/`CatalogEntry` narrow it, so
+`system-catalog.ts` imports its row type instead of redeclaring it. `mergeCatalog` is untouched
+and now covered by three tests (persisted rows win, curated default survives, foreign rows
+ignored). The panel's menu is a module constant and both grids share one `StoreGrid`.
+
+Verified no visual change by dumping `renderToStaticMarkup` for all 68 card states (6 curated
+apps x installed/uninstalled x grid/hero, 22 built-ins x installed/uninstalled) before and
+after the refactor and diffing with class-token order normalized: 0 mismatches. The only real
+drift the diff caught was a dropped `shadow-sm` on the hero tile, which was restored.
+`grep -rc "flex gap-3 p-3.5" frontend/slices/app-store` went from 2 files to 1.
+
+## 2026-11-14 — Slice cost becomes observable: a cited registry, a measured ledger, and enforcement that stays off
+
+MSO had 32 feature slices and no answer to "what does this slice cost". The only cost
+signals were whole-host: a per-result byte bound, a request-count limiter, a scope ceiling and
+the System Monitor's host gauges. A slice could be expensive in a way nothing named.
+
+`lib/resources/` now holds a per-slice registry with five fields (CPU-time per minute, memory,
+concurrent slots, external calls per minute, may-spawn-worker). Every number is labelled with
+its provenance: `cited` at `file:line`, `derived` from named inputs, `policy` from an explicit
+declaration in `lib/resources/policy.ts`, or `unmeasured`. There is no bare literal, and the
+one place a number could have been invented (memory) stays `not-instrumented` rather than
+borrowing result bytes as a proxy. `registry.test.ts` reads the real `frontend/slices/`
+directory, so a new slice without an entry fails the test instead of reporting as free.
+
+The ledger measures at the honest point: `lib/capabilities/execute.ts` now records wall time,
+a `process.cpuUsage()` delta, in-flight concurrency per slice and result bytes for every
+capability call. Attribution comes from `lib/resources/attribution.ts`, which only asserts a
+tool belongs to a slice where both modules exist for the same concept. Anything else records
+`slice: null` and reports in an `unaccounted` block, so a total is never quietly completed by
+guessing. The ledger's own limits are stated in the module: CPU is process-scoped and therefore
+an upper bound under concurrency, and the 2048-sample buffer is process-local.
+
+`GET /api/v1/sys/slice-resources` follows the `/api/v1/sys/*` neighbours and stays owner-only
+through the existing default-deny role policy; it is deliberately absent from
+`VIEWER_READ_PATHS`. The System Monitor gained a fourth tab rendering the worst offenders
+through the existing `GlassPanel`, with a per-field evidence label so no estimate reads as a
+fact. The report is installation-wide and says so: MSO has no per-tenant resource ledger.
+
+Enforcement is a separate decision and is **off**. `OS_SLICE_RESOURCE_ENFORCEMENT=1` is the
+only enabling value, because `"false"` and `"0"` are truthy strings. Only the concurrent-task
+ceiling is scoped, since that ceiling already exists in code; CPU and call-rate refusals are not
+implemented because a process-scoped CPU figure is not admissible evidence for refusing one
+slice's call.
+
+Honest coverage: 32 of 32 slices are registered, but measurement is partial. A slice with no
+attributed capability call yet reports declared budgets with `not-instrumented` actuals, which
+is why the report labels every field instead of totalling them into one number.
+
+Verified: 64 targeted tests green across the registry, ledger, report arithmetic, the route's
+auth and role policy, and executor instrumentation; typecheck and lint clean; the architecture
+ratchet stayed at 47/47 `filesOver220` by compacting the new registry rather than raising it.
+
 ## 2026-11-14 — One recorded dependency exception, with a chain check and an expiry
 
 The Svelte entry brought `deepmerge@4.3.1` in as a devDependency of

@@ -66,6 +66,7 @@ export type {
   OsApi, Unsub, HostAccessRole, HostAccess, SysStats, FsEntry, FsRoot, FsList, FsUsage, FsHit,
   UploadFile, UploadResult, UploadProgress, ExecResult, Process, ServiceScope, ServiceAction,
   SystemService, ServiceInventory, ServiceLogs, PackageUpdate, PackageUpdateSummary, AppManifest,
+  SliceResourceReport, SliceResourceRow,
 } from "./lib/host-api";
 // F1–F20 window-manager + productivity libs (each module exports its own
 // public surface — commands/badges/layouts/recents/window-commands/window-title/

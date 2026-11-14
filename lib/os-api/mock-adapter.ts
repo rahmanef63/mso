@@ -2,13 +2,41 @@ import type { OsApi } from "./types";
 import { GiB, delay, loadDemoTree, saveDemoTree } from "./mock-data";
 import { makeMockFs } from "./mock-fs";
 
+/**
+ * Demo slice row. Every field is labelled with its evidence class so the panel can
+ * render provenance in mock mode instead of showing numbers with no origin.
+ */
+function mockSliceRow(
+  slice: string,
+  budget: number,
+  actual: number,
+  evidence: "measured" | "estimated" | "over",
+): import("@/lib/contracts/os-api").SliceResourceRow {
+  return {
+    slice,
+    accounted: true,
+    rationale: "Mock fixture; the live report reads the real registry.",
+    windowMs: 60_000,
+    calls: actual,
+    fields: [
+      {
+        field: "externalCallsPerMinute",
+        budget,
+        actual,
+        evidence: evidence === "over" ? "estimated" : evidence,
+        status: actual > budget ? "over" : "within",
+        provenance: { kind: "policy", file: "lib/os-api/mock-adapter.ts", line: 0, note: "demo value" },
+      },
+    ],
+  };
+}
+
 // In-browser simulation of the VPS daemon. Default adapter — the whole OS is
 // demoable with zero backend. Mirrors os-rr's MockAdapter contract.
 // Split: mock-data.ts owns the seed/fixtures + persistence, mock-fs.ts owns
 // the fs port (CLAUDE.md max-200-LOC). This file is the assembly point.
 export function MockAdapter(): OsApi {
-  const tree = loadDemoTree();
-  const persist = () => saveDemoTree(tree);
+  const tree = loadDemoTree();  const persist = () => saveDemoTree(tree);
   const services = [
     { unit: "mso.service", scope: "user" as const, load: "loaded", active: "active", sub: "running", description: "Manef Shell OS", controllable: true },
     { unit: "demo-worker.service", scope: "user" as const, load: "loaded", active: "failed", sub: "failed", description: "Demo background worker", controllable: true },
@@ -86,6 +114,23 @@ export function MockAdapter(): OsApi {
           { name: "openssl", current: "3.0.2-0ubuntu1", candidate: "3.0.2-0ubuntu1.18", architecture: "amd64" },
           { name: "curl", current: "8.5.0-2", candidate: "8.5.0-2ubuntu10", architecture: "amd64" },
         ],
+      }),
+      // Demo data only. The live route measures real capability calls; this fixture
+      // exists so the panel renders in mock mode without pretending to be measured.
+      sliceResources: () => delay({
+        generatedAt: new Date().toISOString(),
+        bufferCapacity: 2048,
+        droppedSamples: 0,
+        slices: [
+          mockSliceRow("system-monitor", 30, 60, "measured"),
+          mockSliceRow("assistant", 120, 34, "estimated"),
+          mockSliceRow("workflows", 30, 41, "over"),
+        ],
+        unaccountedSlices: [],
+        unaccounted: { calls: 0, wallMs: 0, cpuMs: 0 },
+        worst: [mockSliceRow("workflows", 30, 41, "over")],
+        scope: { kind: "installation", detail: "Demo data. The live report is installation-wide because the capability ledger is process-global." },
+        enforcement: { enabled: false, setting: "OS_SLICE_RESOURCE_ENFORCEMENT", applies_to: "concurrent-tasks only", detail: "Demo mode reports only." },
       }),
     },
     apps: {
