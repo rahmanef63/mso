@@ -90,10 +90,7 @@ async function writePending(previous: string | null): Promise<void> {
     if (previous || error.code !== "ENOENT") throw error;
   };
   try {
-    if (!previous) {
-      await fs.unlink(pinned.file).catch(remove);
-      return;
-    }
+    if (!previous) { await fs.unlink(pinned.file).catch(remove); return; }
     const temporary = `${pinned.file}.${randomUUID()}.tmp`;
     try {
       await fs.writeFile(temporary, JSON.stringify({ previous }), { mode: 0o600, flag: "wx" });
@@ -142,8 +139,7 @@ async function changePassword(config: NakamaConfig, session: { cookie: string; c
   if (!response.ok) throw new NakamaSyncError(`change_http_${response.status}`);
 }
 
-// Only a category or a status code reaches the trail; a provider body is never read
-// into a message because a rejection can echo submitted values.
+// Only a category or status code reaches the trail: a provider body could echo submitted values.
 function reasonOf(error: unknown): string {
   if (error instanceof NakamaSyncError) return error.reason;
   const message = (error as Error | undefined)?.message ?? "";
