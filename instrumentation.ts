@@ -31,6 +31,12 @@ export async function register() {
       import("./lib/mcp/federation/batonly-worker")
         .then(({ startBatonlyFederationWorker }) => startBatonlyFederationWorker())
         .catch(() => undefined),
+      // Safety net for #296: a rotation made while Nakama was down leaves a private
+      // retry record, and this closes the gap at boot. Best-effort by design — MSO
+      // never fails to start because the follower could not reach Nakama.
+      import("./lib/auth/nakama-password")
+        .then(({ reconcileNakamaPassword }) => reconcileNakamaPassword())
+        .catch(() => undefined),
     ]);
     // systemd liveness: when the unit sets WatchdogSec, systemd exposes
     // NOTIFY_SOCKET + WATCHDOG_USEC. Node has no native AF_UNIX SOCK_DGRAM
