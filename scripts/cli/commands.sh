@@ -42,6 +42,7 @@ U_stats="stats [--json] | stats --usage [--days N] [--json] [--models]"
 U_run="run <prompt…> [--json] [--file <path>] [--thinking] [--approve-scope read|write|exec] [--continue|-c|--resume <ref>]"
 U_session="session list [limit]|show [id|name|latest]|export [id|name|latest] [--out <file>]|import <file|-> [--title <title>]"
 U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> <unit>"
+U_slice_resources="slice-resources"
 U_reset="reset [--scope config|all] [--json] [--apply --confirm <preview-token>]"
 U_uninstall="uninstall [--purge] [--remove-code] [--service name.service] [--json] [--apply --confirm <preview-token>]"
 U_update="update [--rebuild] | status | reconcile | log | --auto on|off | --channel stable|main"
@@ -110,7 +111,7 @@ mso_cli_main() {
   if [ "$cmd" = agent ] || [ "$cmd" = chat ]; then set -- "${AGENT_START_ARGS[@]}" "$@"; fi
 
   case "$cmd" in
-    version|--version|-V|-v|ls|cat|raw|share|usage|search|project-candidates|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|cleanup|status|health|doctor)
+    version|--version|-V|-v|ls|cat|raw|share|usage|search|project-candidates|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|slice-resources|cleanup|status|health|doctor)
       mso_cmd_host "$cmd" "$@" ;;
     agent|chat|model|setup|onboard|provider|providers|integrations|channels|agent-groups|flow|workflow|gateway|domain|heartbeat|web|camoufox|desktop|apps|mapp|term|run|session)
       mso_cmd_runtime "$cmd" "$@" ;;
