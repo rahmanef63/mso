@@ -1,3 +1,34 @@
+## 2026-11-14 — Nakama follows the MSO login password, without becoming a login dependency
+
+Nakama kept its own hashed admin password, so the operator had to remember to change it
+by hand every time Settings rotated `OS_LOGIN_PASSWORD`. #296 makes it follow.
+
+The hook is the end of `rotateLoginPassword` in `lib/auth/login-password.ts`, after
+`writeEnvFile` and `process.env.OS_LOGIN_PASSWORD = input.next`, so `setLocalPassword`
+(`mso passwd` / the local CLI path) and `POST /api/auth/password` are both covered by one
+call. `lib/auth/nakama-password.ts` signs in with the password Nakama still has, then calls
+`POST /v1/auth/change-password` with the session cookie and the `__Host-nakama_csrf` value
+as `X-CSRF-Token`. The rotation returns success before this matters: the follower is
+`.catch()`-ed and returns a result, so MSO login never depends on Nakama being up.
+
+A failed sync is not swallowed. It is audited as `auth.nakama` with `ok: false` and a
+reason category only (`change_http_4xx`, `login_http_401`, `ECONNREFUSED`, `timeout`), and
+the previous password is written to a 0600 owner-private retry record so `reconcileNakamaPassword`
+in `instrumentation.ts` can replay it at boot. The reconcile probes the current password
+first, so a change call whose response was lost converges instead of retrying the old
+password forever. Nothing about the Nakama password reaches a response body, the browser,
+a committed file or a log line.
+
+Opt in with `NAKAMA_BASE_URL` + `NAKAMA_ADMIN_EMAIL`; with either unset MSO makes no Nakama
+call at all. The operational story and the one uncovered case (a first-install password
+that was created rather than rotated) are in `docs/TROUBLESHOOTING.md`.
+
+Verified: 11 tests in `lib/auth/nakama-password.test.ts` (call shape, 4xx surfaced while
+the rotation still completes, unreachable → queued, idempotent converge, oldest queued
+password retained, insecure base URL refused), plus the existing rotation, route, audit and
+env-example suites. Live proof against a real Nakama container is still required before
+this can be called operationally verified.
+
 ## 2026-11-14 — The App Store has one row primitive and one catalog model
 
 Three cards rendered the same row. `store-app-card` and `system-card` carried byte-identical

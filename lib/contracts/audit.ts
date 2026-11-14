@@ -54,4 +54,6 @@ export type AuditAction =
   | "auth.device"
   | "auth.account"
   | "auth.password"
+  /** Keeping the self-hosted Nakama admin password equal to MSO's (#296). */
+  | "auth.nakama"
   | "framework.error";
