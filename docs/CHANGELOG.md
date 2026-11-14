@@ -8,14 +8,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `auth` follow the MSO login password into Nakama (#296)
+- `auth` follow the MSO login password into Nakama (#299)
 - `capabilities` account for resources per feature slice (#298)
 
 **Fixed**
 
-- `auth` keep nakama-password under the 220-line ratchet
-- `auth` read the retry store through one descriptor, closing a TOCTOU gap
-- `auth` load the Nakama follower lazily so mso passwd resolves
 - `settings` keep a stored model id, and stop edits from erasing the model list
 - `security` match the lockfile chain without a hand-escaped pattern
 - `security` record one unfixed advisory, and prove the chain still holds
