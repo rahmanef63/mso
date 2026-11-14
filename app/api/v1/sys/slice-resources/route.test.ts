@@ -16,10 +16,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/agent/server", () => ({ verifyAuth: mocks.verifyAuth }));
 vi.mock("@/lib/auth/require-session", () => ({ getSessionContext: mocks.session }));
 vi.mock("@/lib/resources/slices", () => ({ knownSliceDirectories: mocks.knownSlices }));
-vi.mock("@/lib/resources/ledger", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/resources/ledger")>()),
-  aggregateSliceUsage: () => ({ buckets: mocks.buckets(), dropped: mocks.dropped() }),
-}));
+vi.mock("@/lib/resources/ledger", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...(actual as Record<string, unknown>),
+    aggregateSliceUsage: () => ({ buckets: mocks.buckets(), dropped: mocks.dropped() }),
+  };
+});
 
 import { GET } from "./route";
 

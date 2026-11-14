@@ -19,10 +19,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Changed**
 
-- `store` one row primitive and one catalog model
+- `store` one row primitive and one catalog model (#297)
 
 **Tests**
 
+- `slice-resources` keep the route mock parseable by the SAST scanner
 - `capabilities` fail a registry citation that stops resolving
 - `managed-apps` pin owned-unit fixture dir mode
 
