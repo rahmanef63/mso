@@ -1,6 +1,7 @@
 import { constants as fsConstants, promises as fs } from "fs";
 import path from "path";
 import { constantTimeEq, MAX_COMPARE_BYTES } from "./session";
+import { followNakamaPassword } from "./nakama-password";
 
 // Rotates the existing login secret. There is no password hash and no second
 // credential store: login still compares OS_LOGIN_PASSWORD in constant time,
@@ -144,4 +145,8 @@ export async function rotateLoginPassword(input: {
   await writeEnvFile(file, replaceLoginPassword(text, input.next));
   process.env.OS_LOGIN_PASSWORD = input.next;
   failures.delete(actor);
+  // Followed, not required: MSO's own login is already updated and must not depend on
+  // Nakama. The follower returns a result and audits its own failure, so a rotation the
+  // remote missed is reported and queued for the boot reconcile instead of rolling back.
+  await followNakamaPassword({ current: input.current, next: input.next, actor }).catch(() => undefined);
 }
