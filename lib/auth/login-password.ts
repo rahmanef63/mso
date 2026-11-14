@@ -1,7 +1,6 @@
 import { constants as fsConstants, promises as fs } from "fs";
 import path from "path";
 import { constantTimeEq, MAX_COMPARE_BYTES } from "./session";
-import { followNakamaPassword } from "./nakama-password";
 
 // Rotates the existing login secret. There is no password hash and no second
 // credential store: login still compares OS_LOGIN_PASSWORD in constant time,
@@ -101,6 +100,17 @@ export async function readLoginPasswordEnvironment(file: string): Promise<string
   } finally {
     await handle?.close();
   }
+}
+
+// Nakama is optional, so it is loaded lazily and only when it is configured. This module
+// must parse and run under plain node (`mso passwd`), which resolves relative and bare
+// specifiers only: a tsconfig path alias inside the follower, or a follower that cannot
+// load at all, must never take down password rotation. The follower audits its outcome.
+async function followNakamaPassword(input: { current: string; next: string; actor: string }): Promise<void> {
+  if (!(process.env.NAKAMA_BASE_URL ?? "").trim() || !(process.env.NAKAMA_ADMIN_EMAIL ?? "").trim()) return;
+  await import("./nakama-password")
+    .then(({ followNakamaPassword: follow }) => follow(input))
+    .catch(() => undefined);
 }
 
 async function writeEnvFile(file: string, text: string): Promise<void> {
