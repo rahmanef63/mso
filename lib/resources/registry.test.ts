@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { knownSliceDirectories } from "./slices";
 import { REGISTRY } from "./registry-data";
@@ -102,6 +102,21 @@ describe("slice resource registry", () => {
       // A field with no cited ceiling must be null, not a fabricated number.
       if (entry.provenance.externalCallsPerMinute.kind === "unmeasured")
         expect(entry.budget.externalCallsPerMinute).toBeNull();
+    }
+  });
+
+  it("points every citation at a file and line that exist", () => {
+    // A file:line citation that no longer exists is worse than no citation: it looks
+    // verified. This reads the cited file and checks the line is inside it.
+    for (const entry of REGISTRY) {
+      for (const [field, provenance] of Object.entries(entry.provenance)) {
+        if (provenance.line === 0) continue; // absence claims have no line
+        const file = join(process.cwd(), provenance.file);
+        expect(existsSync(file), `${entry.slice}.${field} cites a missing file ${provenance.file}`).toBe(true);
+        const lines = readFileSync(file, "utf8").split("\n").length;
+        expect(provenance.line, `${entry.slice}.${field} cites ${provenance.file}:${provenance.line} past EOF`)
+          .toBeLessThanOrEqual(lines);
+      }
     }
   });
 
