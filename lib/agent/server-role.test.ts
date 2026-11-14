@@ -58,4 +58,11 @@ describe("host API role policy", () => {
     expect(requiredRoleForRequest(req("GET", "/api/v1/sys/services/logs"))).toBe("operator");
     expect(requiredRoleForRequest(req("GET", "/api/v1/sys/packages"))).toBe("viewer");
   });
+
+  // The slice resource report names the owner's own cost profile and has no
+  // tenant/org dimension, so it must stay owner. It is intentionally absent from
+  // VIEWER_READ_PATHS: adding it there would quietly publish it to every role.
+  it("keeps the slice resource report owner-only", () => {
+    expect(requiredRoleForRequest(req("GET", "/api/v1/sys/slice-resources"))).toBe("owner");
+  });
 });

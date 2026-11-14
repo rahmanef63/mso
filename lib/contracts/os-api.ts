@@ -42,6 +42,46 @@ export type AppManifest = { name: string; slug: string; runtime: string; entry: 
 export type ManagedAppSummary = { id: string; name: string; installed: boolean; running: boolean };
 export type ManagedAppAction = "start" | "stop" | "restart" | "backup";
 export type BrowserState = { installed: boolean; running: boolean; autostart: boolean };
+
+/** Evidence class for one reported number. A budget is never a measurement. */
+export type SliceEvidence =
+  | "measured"
+  | "estimated"
+  | "declared-only"
+  | "undeclared"
+  | "not-instrumented"
+  | "under-sampled";
+
+/** One budget field with its budget, its actual value, and where each came from. */
+export type SliceBudgetField = {
+  field: "cpuMsPerMinute" | "memoryMiB" | "concurrentTasks" | "externalCallsPerMinute" | "maySpawnWorker";
+  budget: number | boolean | null;
+  actual: number | boolean | null;
+  evidence: SliceEvidence;
+  status: "over" | "within" | "unknown";
+  provenance: { kind: string; file: string; line: number; note: string };
+};
+
+export type SliceResourceRow = {
+  slice: string;
+  accounted: boolean;
+  rationale: string;
+  windowMs: number;
+  calls: number;
+  fields: SliceBudgetField[];
+};
+
+export type SliceResourceReport = {
+  generatedAt: string;
+  bufferCapacity: number;
+  droppedSamples: number;
+  slices: SliceResourceRow[];
+  unaccountedSlices: string[];
+  unaccounted: { calls: number; wallMs: number; cpuMs: number };
+  worst: SliceResourceRow[];
+  scope: { kind: string; detail: string };
+  enforcement: { enabled: boolean; setting: string; applies_to: string; detail: string };
+};
 export type ProjectCandidateRow = {
   path: string;
   kind: "path" | "skill";
@@ -90,6 +130,8 @@ export type OsApi = {
     serviceLogs: (scope: ServiceScope, unit: string, limit?: number) => Promise<ServiceLogs>;
     servicePower: (scope: ServiceScope, unit: string, action: ServiceAction) => Promise<SystemService>;
     packageUpdates: () => Promise<PackageUpdateSummary>;
+    /** Per-slice budget vs measured usage. Owner-only on the live adapter. */
+    sliceResources: () => Promise<SliceResourceReport>;
   };
   apps: {
     list: () => Promise<ManagedAppSummary[]>;

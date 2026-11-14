@@ -5,5 +5,5 @@ export type {
   UploadFile, UploadResult, UploadProgress, ExecResult, Process, ServiceScope, ServiceAction,
   SystemService, ServiceInventory, ServiceLogs, PackageUpdate, PackageUpdateSummary, AppManifest,
   ManagedAppSummary, ManagedAppAction, BrowserState, ProjectCandidateRow, ProjectCandidateContentMatch,
-  ProjectCandidateSearchResult, OsApi,
+  ProjectCandidateSearchResult, OsApi, SliceResourceReport, SliceResourceRow, SliceBudgetField, SliceEvidence,
 } from "@/lib/contracts/os-api";

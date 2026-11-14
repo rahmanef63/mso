@@ -42,7 +42,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `quicklinks` | Website shortcuts/favicons |
 | `reel-editor` | Video/reel timeline editor |
 | `shell-settings` | Shared shell settings UI primitives |
-| `system-monitor` | Live metrics/processes plus service inventory/logs/allowlisted lifecycle and cache-only package updates |
+| `system-monitor` | Live metrics/processes, service inventory/logs/allowlisted lifecycle, cache-only package updates, and per-slice budget vs measured resource use |
 | `workflows` | Server-native automation editor with schedule/webhook/channel triggers, channel send, flow control, private history/versions/variables and node-level logs |
 
 ## AppShell feature directories (10)

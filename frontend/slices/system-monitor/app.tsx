@@ -12,11 +12,12 @@ import { Sparkline } from "./components/sparkline";
 import { ProcessTable } from "./components/process-table";
 import { ServicesPanel } from "./components/services-panel";
 import { PackageUpdatesPanel } from "./components/package-updates-panel";
+import { SliceResourcesPanel } from "./components/slice-resources-panel";
 import { useStatsHistory } from "./lib/use-stats-history";
 import { MONITOR_VARS, type MonitorVar } from "./lib/palette";
 import { fmtGiBPair, fmtMBs, fmtPct } from "./lib/format";
 
-type MonitorTab = "overview" | "services" | "updates";
+type MonitorTab = "overview" | "services" | "updates" | "slices";
 
 export default function SystemMonitor() {
   const api = useOsApi();
@@ -25,7 +26,7 @@ export default function SystemMonitor() {
   const { stats, procs, cpuSeries, netSeries, gpu, error, processError, lastUpdated, refresh } = useStatsHistory(tab === "overview");
 
   usePublishInspector("system-monitor", {
-    subject: tab === "overview" ? "VPS host" : tab === "services" ? "systemd services" : "package updates",
+    subject: tab === "overview" ? "VPS host" : tab === "services" ? "systemd services" : tab === "updates" ? "package updates" : "slice resource budgets",
     props: [
       { label: "View", value: tab },
       { label: "Role", value: api.access.role },
@@ -36,7 +37,7 @@ export default function SystemMonitor() {
     ],
     actions: tab === "overview" ? [{ id: "refresh", label: "Refresh", run: refresh }] : [],
     context: `System Monitor ${tab}; role=${api.access.role}; mode=${api.mode}`,
-    suggestions: tab === "overview" ? ["Why is CPU high?", "What's using memory?"] : tab === "services" ? ["Which service is failing?"] : ["Summarize cached updates"],
+    suggestions: tab === "overview" ? ["Why is CPU high?", "What's using memory?"] : tab === "services" ? ["Which service is failing?"] : tab === "updates" ? ["Summarize cached updates"] : ["Which slice is over budget?"],
   }, [tab, stats, procs.length, api.mode, api.access.role, refresh]);
 
   const toolbarItems: ToolbarItem[] = tab === "overview"
@@ -55,7 +56,7 @@ export default function SystemMonitor() {
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           <Tabs className="min-w-0">
             <TabsList className="max-w-full overflow-x-auto">
-              {(["overview", "services", "updates"] as const).map((value) => (
+              {(["overview", "services", "updates", "slices"] as const).map((value) => (
                 <TabsTrigger key={value} active={tab === value} onClick={() => setTab(value)} className="capitalize">{value}</TabsTrigger>
               ))}
             </TabsList>
@@ -67,6 +68,7 @@ export default function SystemMonitor() {
       {tab === "overview" ? <Overview stats={stats} procs={procs} cpuSeries={cpuSeries} netSeries={netSeries} gpu={api.mode === "mock" ? gpu : undefined} error={error} processError={processError} lastUpdated={lastUpdated} refresh={refresh} /> : null}
       {tab === "services" ? <ServicesPanel /> : null}
       {tab === "updates" ? <PackageUpdatesPanel /> : null}
+      {tab === "slices" ? <SliceResourcesPanel /> : null}
     </AppFrame>
   );
 }
