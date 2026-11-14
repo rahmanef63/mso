@@ -1,23 +1,49 @@
-// Curated demo catalog for the App Store slice. Pure data — no React.
+// Catalog model + curated store data for the App Store slice. Pure data — no React.
 // Each entry carries the full metadata an install needs; installing flips the
 // persisted row to installed=true (and the app then appears in the host's
 // launcher via useInstalledApps). `glyph` is a key the shell
 // resolves through lib/glyph.ts (grid|code|globe|image|music|gauge|folder|cloud).
+//
+// ONE catalog model covers both lists: the curated installable apps below and
+// the OS built-ins in system-catalog.ts. Row metadata (title/gradient/desc) is
+// declared once in `CatalogEntryBase`, so the two grids cannot drift apart;
+// `CatalogEntry` is the union a renderer takes when it accepts either.
+
+import type { LucideIcon } from "lucide-react";
+
+/** Row metadata every catalog entry shares. */
+export type CatalogEntryBase = {
+  title: string;
+  gradient: string;
+  desc: string;
+};
 
 export type StoreCategory = "Productivity" | "Media" | "Dev" | "System";
 
-export type CatalogApp = {
+/** Built-in app vs shell feature (the System group renders both). */
+export type SystemKind = "app" | "feature";
+
+export type CatalogApp = CatalogEntryBase & {
   appId: string;
-  title: string;
-  glyph: string;
-  gradient: string;
+  glyph: string; // key into lib/glyph.ts
   runtime: string; // html | node | python | shell
   entry: string; // https URL for html apps, or a stub entry point
   category: StoreCategory;
-  desc: string;
   /** true installed-state, reconciled from the persisted registry. */
   installed: boolean;
 };
+
+/** A built-in app or shell feature toggled on/off (see system-catalog.ts). */
+export type SystemEntry = CatalogEntryBase & {
+  id: string;
+  kind: SystemKind;
+  icon: LucideIcon;
+  artwork?: string;
+  required?: boolean; // can never be disabled (the App Store itself)
+};
+
+/** Either catalog row. Narrow with `"appId" in entry`. */
+export type CatalogEntry = CatalogApp | SystemEntry;
 
 export const CATEGORIES: StoreCategory[] = [
   "Productivity",

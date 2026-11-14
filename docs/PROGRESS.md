@@ -1,3 +1,25 @@
+## 2026-11-14 — The App Store has one row primitive and one catalog model
+
+Three cards rendered the same row. `store-app-card` and `system-card` carried byte-identical
+shell (`flex gap-3 p-3.5`), 12x12 gradient glyph tile, overlay span and body block, differing
+only in tile content and one overlay. Two catalogs (`CatalogApp`, `SystemEntry`) repeated
+`title`/`gradient`/`desc`, and `apps-panel` rebuilt the store's menu inside the render body.
+
+`components/store-tile.tsx` now owns the row: `StoreTile` (shell, tile, overlay, title/meta,
+description, trailing action slot) and `StoreGlyph` (gradient tile + overlay, `none` for the
+hero). The three cards are thin wrappers supplying glyph and buttons; the installed/uninstall
+hover verbs stay in them because that is their behaviour, not the row's. `CatalogEntryBase`
+declares the shared metadata once and `CatalogApp`/`SystemEntry`/`CatalogEntry` narrow it, so
+`system-catalog.ts` imports its row type instead of redeclaring it. `mergeCatalog` is untouched
+and now covered by three tests (persisted rows win, curated default survives, foreign rows
+ignored). The panel's menu is a module constant and both grids share one `StoreGrid`.
+
+Verified no visual change by dumping `renderToStaticMarkup` for all 68 card states (6 curated
+apps x installed/uninstalled x grid/hero, 22 built-ins x installed/uninstalled) before and
+after the refactor and diffing with class-token order normalized: 0 mismatches. The only real
+drift the diff caught was a dropped `shadow-sm` on the hero tile, which was restored.
+`grep -rc "flex gap-3 p-3.5" frontend/slices/app-store` went from 2 files to 1.
+
 ## 2026-11-14 — One recorded dependency exception, with a chain check and an expiry
 
 The Svelte entry brought `deepmerge@4.3.1` in as a devDependency of
