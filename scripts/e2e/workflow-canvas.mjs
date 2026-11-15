@@ -123,7 +123,11 @@ export async function workflowCanvasJourney(page, fixture) {
   await canvas.getByRole("button", { name: "Zoom out" }).click();
   await canvas.getByRole("button", { name: "Fit view" }).click();
 
-  await page.getByRole("button", { name: "Directory", exact: true }).click();
+  // "Directory" is not unique on this page: the Organization surface renders its own
+  // Directory/Map toggle with the same accessible name. Scope the open click to the
+  // workflow details rail so the locator resolves to one element.
+  const detailsRail = page.getByRole("navigation", { name: "Workflow details" });
+  await detailsRail.getByRole("button", { name: "Directory", exact: true }).click();
   const directory = page.locator('[data-slot="workflow-directory-panel"]');
   await expect(directory.getByPlaceholder("Search tools…")).toBeVisible();
   await expect(directory.getByText("agent_memory_search", { exact: true })).toBeVisible();

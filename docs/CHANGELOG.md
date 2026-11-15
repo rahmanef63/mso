@@ -18,6 +18,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `e2e` scope the workflow Directory click to its details rail
 - `update` assert the 401 and 403 messages stay distinct
 
 **Docs**
@@ -26,6 +27,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Other**
 
+- Say "signed out", not "no desktops", and stop polling a refusal
 - Register the slice, cite its limits, and keep Settings on page one
 - Give the bot-desktop API a screen, and let it see :1..:3
 
