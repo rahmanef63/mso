@@ -15,7 +15,7 @@ import { useDesktops } from "./lib/use-desktops";
  * finished and unreachable, which is the same as absent.
  */
 export default function BotDesktopsApp() {
-  const { desktops, running, loading, error, busy, logs, refresh, act, clearLogs } = useDesktops();
+  const { desktops, running, loading, error, blocked, busy, logs, refresh, act, clearLogs } = useDesktops();
 
   return (
     <div data-slot="bot-desktops" className="@container flex h-full min-h-0 min-w-0 flex-col bg-[color:var(--window-bg)] text-[color:var(--text)]">
@@ -25,7 +25,7 @@ export default function BotDesktopsApp() {
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold">Bot desktops</h2>
             <p className="truncate text-[11px] text-[color:var(--text-dim)]">
-              {loading ? "Reading the host…" : `${desktops.length} found · ${running} running`}
+              {loading ? "Reading the host…" : error ? "Not available" : `${desktops.length} found · ${running} running`}
             </p>
           </div>
         </div>
@@ -44,10 +44,14 @@ export default function BotDesktopsApp() {
         {error && (
           <p role="alert" className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600">
             {error}
+            {blocked && <span className="mt-1 block text-[color:var(--text-dim)]">Refresh will retry once you are signed in.</span>}
           </p>
         )}
 
-        {!loading && desktops.length === 0 && (
+        {/* "Nothing to show" and "you may not look" are different states. Saying
+            "no desktops on this host" to a signed-out visitor is a lie that sends
+            them hunting for a Docker problem instead of signing in. */}
+        {!loading && desktops.length === 0 && !error && (
           <div className="rounded-xl border border-[color:var(--separator)] bg-[color:var(--surface)] p-4 text-xs text-[color:var(--text-dim)]">
             No bot desktops on this host. They appear once grokbot runs with
             <code className="mx-1 rounded bg-[color:var(--inset)] px-1 py-0.5 font-mono">DESKTOP_MODE=docker</code>

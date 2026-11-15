@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   desktopAction,
+  isPermissionError,
   isRunning,
   listDesktops,
   type BotDesktop,
@@ -22,28 +23,36 @@ export function useDesktops() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [logs, setLogs] = useState<{ container: string; lines: string[] } | null>(null);
+  // A permission failure is not transient: polling it every ten seconds forever
+  // just fills the network log with 401s and never succeeds. Stop until the user
+  // asks again (the refresh button, or signing in and reopening the app).
+  const [blocked, setBlocked] = useState(false);
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
+  const fetchNow = useCallback(async (signal?: AbortSignal) => {
     try {
       setDesktops(await listDesktops(signal));
       setError(null);
+      setBlocked(false);
     } catch (cause) {
       if (signal?.aborted) return;
-      setError(cause instanceof Error ? cause.message : "Could not read bot desktops");
+      const message = cause instanceof Error ? cause.message : "Could not read bot desktops";
+      setError(message);
+      if (isPermissionError(cause)) setBlocked(true);
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    if (blocked) return; // no timer while the answer is a refusal
     const controller = new AbortController();
-    const initial = window.setTimeout(() => void refresh(controller.signal), 0);
+    const initial = window.setTimeout(() => void fetchNow(controller.signal), 0);
     const tick = () => {
-      if (!document.hidden) void refresh(controller.signal);
+      if (!document.hidden) void fetchNow(controller.signal);
     };
     const timer = window.setInterval(tick, 10_000);
     const onVisibility = () => {
-      if (!document.hidden) void refresh(controller.signal);
+      if (!document.hidden) void fetchNow(controller.signal);
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
@@ -52,7 +61,7 @@ export function useDesktops() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [refresh]);
+  }, [fetchNow, blocked]);
 
   const act = useCallback(
     async (container: string, action: LifecycleAction) => {
@@ -76,5 +85,11 @@ export function useDesktops() {
 
   const running = useMemo(() => desktops.filter(isRunning).length, [desktops]);
 
-  return { desktops, running, loading, error, busy, logs, refresh, act, clearLogs: () => setLogs(null) };
+  /** The button path: clear the latch first, then read once. */
+  const refresh = useCallback(async () => {
+    setBlocked(false);
+    await fetchNow();
+  }, [fetchNow]);
+
+  return { desktops, running, loading, error, blocked, busy, logs, refresh, act, clearLogs: () => setLogs(null) };
 }

@@ -23,9 +23,27 @@ export interface LifecycleResult {
   logs?: string[];
 }
 
+/**
+ * A refusal is not a transient fault, and the caller must be able to tell them
+ * apart without matching on message text: polling a 401 forever is a bug, retrying
+ * a network blip is correct.
+ */
+export class PermissionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PermissionError";
+  }
+}
+
+export const isPermissionError = (cause: unknown): boolean => cause instanceof PermissionError;
+
 /** Every bot desktop container this host knows about (label grokbot.desktop=1). */
 export async function listDesktops(signal?: AbortSignal): Promise<BotDesktop[]> {
   const response = await fetch("/api/v1/desktop/containers", { cache: "no-store", signal });
+  // 401 is a deployment state (nobody signed in), not a fault: say what to do about
+  // it rather than passing the API's bare word through to a person.
+  if (response.status === 401) throw new PermissionError("Sign in to MSO as the owner to see bot desktops.");
+  if (response.status === 403) throw new PermissionError("This account cannot read bot desktops. An owner role is required.");
   const payload = (await response.json().catch(() => ({}))) as { containers?: BotDesktop[]; error?: string };
   if (!response.ok) throw new Error(payload.error ?? `Could not read bot desktops (${response.status})`);
   return payload.containers ?? [];
