@@ -7,6 +7,28 @@ import { getUpdateStatus, startUpdate } from "@/lib/host/self-update";
 import { clearAutoUpdatePause } from "@/lib/prefs/auto-update-state";
 import { parseUpdateChannel } from "@/lib/prefs/updates";
 
+// Same-origin for a mutating browser call: the request's own host or the
+// installation's configured public origin. The public origin alone is wrong on a
+// loopback dev/cockpit visit, where it can never match and the UI reports the
+// refusal as an authorization problem.
+function sameOrigin(req: Request): boolean {
+  const origin = req.headers.get("origin");
+  if (!origin) return true;
+  const host = req.headers.get("host") ?? new URL(req.url).host;
+  try {
+    if (new URL(origin).host === host) return true;
+  } catch {
+    return false;
+  }
+  const configured = process.env.OS_PUBLIC_ORIGIN?.trim();
+  if (!configured) return false;
+  try {
+    return new URL(origin).origin === new URL(configured).origin;
+  } catch {
+    return false;
+  }
+}
+
 export async function handleGetSysUpdate(req: Request): Promise<Response> {
   if (!(await verifyAuth(req))) return json({ error: "unauthorized" }, 401);
   try {
@@ -21,8 +43,12 @@ export async function handlePostSysUpdate(req: Request): Promise<Response> {
   try {
     const body = (await readJson(req).catch(() => ({}))) as { rebuildOnly?: unknown; action?: unknown; channel?: unknown };
     if (body.action === "check") {
-      const origin = new URL(process.env.OS_PUBLIC_ORIGIN || req.url).origin;
-      if (req.headers.get("origin") !== origin) return json({ error: "same_origin_required" }, 403);
+      // A browser on this host is same-origin even when OS_PUBLIC_ORIGIN names the
+      // public hostname: comparing only against the configured origin rejected
+      // every loopback visit with 403, which the UI then reported as "Sign in as
+      // an Owner". Accept the request's own host as well, exactly like
+      // /api/v1/fs/upload; the configured origin stays allowed for a proxied browse.
+      if (!sameOrigin(req)) return json({ error: "same_origin_required" }, 403);
       if (rateLimited("sys-update-check", 6, 60_000)) return json({ error: "rate_limited" }, 429);
       const status = await getUpdateStatus(true);
       audit({ action: "sys.update", target: "check", ok: true });
