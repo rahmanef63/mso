@@ -77,6 +77,51 @@ describe("mso update channel selection", () => {
     expect(git(f.repo, "rev-parse", "HEAD")).not.toBe(git(f.repo, "rev-parse", "origin/main"));
   });
 
+  it("follows main when no prefs file exists, matching the documented default", () => {
+    // The shell fallback and UPDATE_PREF_DEFAULTS in lib/prefs/updates.ts must agree.
+    // When they disagreed, a fresh install silently resolved `stable`, and the newest
+    // tag here predates `bin/mso`, so `mso update status` died with no output at all.
+    const f = fixture();
+    const out = execFileSync(UPDATE, ["status"], { env: f.env, encoding: "utf8" });
+    expect(out).toContain("channel: main");
+    expect(fs.existsSync(path.join(f.home, ".mso/prefs.json"))).toBe(false);
+  });
+
+  it("survives a release tag that predates bin/mso", () => {
+    // v0.2.0 is the repository's first commit and has no bin/mso, so
+    // `git show v0.2.0:bin/mso` fails. Under `set -euo pipefail` that killed the
+    // whole command with exit 128 and empty output instead of a readable status.
+    // Build the shape directly: a root commit with no CLI, tagged, then the CLI added.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mso-update-nocli-")); roots.push(root);
+    const repo = path.join(root, "repo"), remote = path.join(root, "remote.git"), home = path.join(root, "home"), fakeBin = path.join(root, "bin");
+    fs.mkdirSync(path.join(repo, "scripts/lib"), { recursive: true }); fs.mkdirSync(home); fs.mkdirSync(fakeBin);
+    for (const lib of LIBS) fs.copyFileSync(path.join(ROOT, "scripts/lib", lib), path.join(repo, "scripts/lib", lib));
+    git(repo, "init", "-q", "-b", "main"); git(repo, "config", "user.name", "MSO Test"); git(repo, "config", "user.email", "mso@example.invalid");
+    // Root commit: no bin/mso anywhere. This is what v0.2.0 really looks like.
+    fs.writeFileSync(path.join(repo, "ancient.txt"), "before the CLI existed\n");
+    git(repo, "add", "ancient.txt"); git(repo, "commit", "-q", "-m", "before the CLI existed");
+    git(repo, "tag", "-a", "v0.2.0", "-m", "legacy release with no bin/mso");
+    // Then the CLI appears, on the same line of history.
+    fs.mkdirSync(path.join(repo, "bin"));
+    fs.writeFileSync(path.join(repo, "bin/mso"), '#!/bin/sh\nVERSION="1.0.0"\n', { mode: 0o755 });
+    git(repo, "add", "."); git(repo, "commit", "-q", "-m", "add the CLI");
+    git(root, "init", "--bare", "-q", remote); git(repo, "remote", "add", "origin", remote);
+    git(repo, "push", "-q", "-u", "origin", "main", "--tags");
+    fs.writeFileSync(path.join(fakeBin, "systemctl"), "#!/bin/sh\nexit 3\n", { mode: 0o755 });
+    fs.mkdirSync(path.join(home, ".mso"), { recursive: true });
+    setChannel(home, "stable");
+    const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, PATH: `${fakeBin}:${process.env.PATH}`,
+      MSO_UPDATE_ROOT: repo, MSO_UPDATE_STATE_DIR: path.join(root, "update-state"),
+      MSO_UPDATE_NOTICE_DIR: path.join(root, "notice") };
+    // The tag is the newest release and is reachable from origin/main, so it IS the
+    // stable target. The command must still report, not abort.
+    const out = spawnSync(UPDATE, ["status"], { env, encoding: "utf8" });
+    expect(out.stderr).not.toContain("bin/mso");
+    expect(out.status).toBe(0);
+    expect(out.stdout).toContain("channel: stable");
+    expect(out.stdout).toContain("release v0.2.0");
+  });
+
   it("says out loud when stable has no tag to follow at all", () => {
     const f = fixture();
     setChannel(f.home, "stable");
