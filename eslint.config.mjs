@@ -9,6 +9,8 @@ const config = [
       ".next/**",
       "node_modules/**",
       ".claude/worktrees/**", // linked task checkouts; lint each worktree from its own root
+      ".worktrees/**", // same: per-branch task checkouts under .git/info/exclude, linted from their own root
+      "**/.worktrees/**", // and any nested checkout root that carries them
       "frontend/svelte/**", // separately checked Svelte package, not Next/React
       "os-browser/**", // separate sidecar package (plain Node)
       "public/**",
