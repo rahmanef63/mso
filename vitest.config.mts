@@ -4,6 +4,16 @@ import { fileURLToPath } from "node:url";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
+// AGENTS.md tells an operator on a busy shared host to bound concurrency with
+// `VITEST_MAX_WORKERS=2` before touching coverage or timeouts. Nothing read that
+// variable, so the advice was inert: the gate still ran every suite at maximum
+// parallelism and unrelated 15s suites (gateway, store-security, tenant routes) timed
+// out while a build shared the box. A documented knob that no code reads is worse than
+// no knob, because the operator believes they applied the mitigation. Honour the same
+// variable Vitest's own CLI uses for maxForks/maxThreads.
+const boundedWorkers = Number.parseInt(process.env.VITEST_MAX_WORKERS ?? "", 10);
+const maxWorkers = Number.isInteger(boundedWorkers) && boundedWorkers > 0 ? boundedWorkers : undefined;
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -19,6 +29,7 @@ export default defineConfig({
   test: {
     // Shell/systemd lifecycle fixtures can exceed Vitest's 5s default under the full parallel gate.
     testTimeout: 15_000,
+    maxWorkers,
     // Cache transformed modules INSIDE THIS CHECKOUT, not in the shared
     // `node_modules/.vitest-cache`.
     //
