@@ -13,6 +13,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `update` let the Settings update check work on the host itself
 - `auth` stop the onboarding dialog from desyncing hydration
 
+**Tests**
+
+- `update` assert the 401 and 403 messages stay distinct
+
 ## 2026-11-15
 
 **Fixed**
