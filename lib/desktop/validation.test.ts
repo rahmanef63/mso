@@ -55,7 +55,7 @@ describe("container ids cannot become anything but an argument", () => {
 });
 
 describe("screen values are re-built by the server", () => {
-  it("normalises both accepted spellings to ':' + two digits", () => {
+  it("normalises both accepted spellings to ':' + digits", () => {
     expect(parseScreen("99")).toBe(":99");
     expect(parseScreen(":99")).toBe(":99");
     expect(parseScreen(":01")).toBe(":01");
@@ -63,12 +63,22 @@ describe("screen values are re-built by the server", () => {
     expect(parseScreen(" 01 ")).toBe(":01");
   });
 
-  it("rejects anything that is not two digits", () => {
+  it("accepts the extra displays a bot box actually creates", () => {
+    // grokbot's Docker backend starts :99 plus :1 :2 :3. A two-digit-only rule
+    // rejected 3 of the 4 screens, so MSO could screenshot the primary display and
+    // nothing else.
+    for (const ok of ["1", ":1", "2", ":2", "3", ":3"]) {
+      expect(parseScreen(ok), ok).toMatch(/^:[0-9]{1,2}$/);
+    }
+  });
+
+  it("rejects anything that is not a display number", () => {
     for (const hostile of [
       "0",
       ":0",
       "100",
       ":099",
+      ":000",
       "99; id",
       ":99 -window",
       "$(id)",
@@ -76,9 +86,10 @@ describe("screen values are re-built by the server", () => {
       ":a9",
       "99\n:1",
       "",
-      ":1",
-      "1",
+      "00",
       ":00",
+      "-1",
+      ":1.5",
     ]) expect(() => parseScreen(hostile), hostile).toThrow();
   });
 });

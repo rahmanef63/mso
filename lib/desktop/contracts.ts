@@ -11,11 +11,16 @@ export const DESKTOP_LABEL = "grokbot.desktop=1";
 const CONTAINER_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{11,63}$/;
 
 /**
- * Two digits, optionally prefixed with ':'. This is the documented hard
- * requirement: `^:?[0-9]{2}$`. It permits `:99` (the primary display) and the
- * two-digit extra displays, and rejects every single-digit display.
+ * One or two digits, optionally prefixed with ':'. This permits `:99` (the primary
+ * display) and `:1`..`:3` (the extra displays a bot box creates), and rejects
+ * everything that is not a display number.
+ *
+ * Single digits are allowed on purpose: grokbot's Docker backend starts `:99` plus
+ * `:1`, `:2`, `:3`, so a two-digit-only rule made every screen but the primary
+ * unscreenshotable from MSO. The server still rebuilds the value as `:` + digits, so
+ * widening the range does not widen what can reach an argv.
  */
-const SCREEN_RE = /^:?[0-9]{2}$/;
+const SCREEN_RE = /^:?[0-9]{1,2}$/;
 
 export type DesktopLifecycleAction = "start" | "stop" | "restart" | "logs";
 
@@ -65,7 +70,7 @@ export function parseScreen(raw: string | null | undefined): string {
   if (!value) throw new HostError("screen is required", 400);
   if (!SCREEN_RE.test(value)) {
     throw new HostError(
-      "Invalid screen: expected two digits, optionally prefixed with ':'",
+      "Invalid screen: expected one or two digits, optionally prefixed with ':'",
       400,
     );
   }

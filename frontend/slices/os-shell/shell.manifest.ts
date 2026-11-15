@@ -29,6 +29,7 @@ import { organizationApp } from "@/features/organization";
 import { memoryGraphApp } from "@/features/memory-graph";
 import { agentVaultApp } from "@/features/agent-vault";
 import { cloudflareApp, dokployApp } from "@/features/infrastructure";
+import { botDesktopsApp } from "@/features/bot-desktops";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
 import { serverConnectionStatusFeature } from "./server-connection-status";
 import { APP_MARKS } from "./brand-marks";
@@ -68,6 +69,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(mediaViewerApp), "viewer"),
   withSlug(withArtwork(appStoreApp), "store"),
   pin(withSlug(withArtwork(systemMonitorApp), "monitor")),
+  withSlug(withArtwork(botDesktopsApp), "bot-desktops"),
   withSlug(withArtwork(assistantApp), "assistant"),
   withSlug(withArtwork(hermesApp), "hermes"),
   withSlug(withArtwork(openclawApp), "openclaw"),
