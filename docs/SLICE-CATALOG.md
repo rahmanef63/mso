@@ -3,12 +3,12 @@
 > **Current reference.** Counts are checked against the directory tree by
 > `scripts/check-docs.mjs`; the directory remains the final authority.
 
-<!-- slice-catalog: slices=32 appshell-features=10 -->
+<!-- slice-catalog: slices=33 appshell-features=10 -->
 
 Every application is a vertical slice under `frontend/slices/`. Host-facing slices use the
 shared API/host seam rather than reaching arbitrary Node host APIs from client code.
 
-## Slices (31)
+## Slices (33)
 
 | Slug | Purpose |
 |---|---|
@@ -18,6 +18,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `appshell` | Generic desktop/mobile shell framework |
 | `assistant` | Alfa assistant, agents/playbooks and tool activity |
 | `auth` | Authentication UI/helpers |
+| `bot-desktops` | Bot desktop containers created by grokbot: per-display live screenshots and the lifecycle verbs the desktop API exposes |
 | `camoufox-browser` | Remote Camoufox/noVNC Browser app |
 | `channels` | Provider-neutral Telegram/Discord channel configuration, status, send/test, inbound URLs and workflow binding |
 | `code-editor` | Code/text editor with integrated terminal |

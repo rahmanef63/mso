@@ -20,6 +20,15 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `update` assert the 401 and 403 messages stay distinct
 
+**Docs**
+
+- `slices` document bot-desktops and refresh derived counts
+
+**Other**
+
+- Register the slice, cite its limits, and keep Settings on page one
+- Give the bot-desktop API a screen, and let it see :1..:3
+
 ## 2026-11-15
 
 **Fixed**
