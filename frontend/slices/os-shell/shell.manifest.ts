@@ -69,7 +69,6 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(mediaViewerApp), "viewer"),
   withSlug(withArtwork(appStoreApp), "store"),
   pin(withSlug(withArtwork(systemMonitorApp), "monitor")),
-  withSlug(withArtwork(botDesktopsApp), "bot-desktops"),
   withSlug(withArtwork(assistantApp), "assistant"),
   withSlug(withArtwork(hermesApp), "hermes"),
   withSlug(withArtwork(openclawApp), "openclaw"),
@@ -93,6 +92,10 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(quicklinksApp), "links"),
   withSlug(withArtwork(createAppApp), "create"),
   withSlug(withArtwork(orcaApp), "orca"),
+  // Appended, never inserted: the mobile home page holds 24 icons and the test
+  // below pins Channels, Docs and Settings inside that page. A new built-in that
+  // lands mid-list pushes Settings to index 24 and silently breaks that promise.
+  withSlug(withArtwork(botDesktopsApp), "bot-desktops"),
 ];
 
 // Shell features — the generic brand-free set now lives INSIDE the appshell

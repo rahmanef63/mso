@@ -48,6 +48,12 @@ export const REGISTRY: readonly SliceBudgetEntry[] = [
     "Session revalidation every 60 s. Login is the slice's only externally limited call and keeps its own specialised limiter.",
   ),
   limited(
+    "bot-desktops",
+    poll(10_000, "frontend/slices/bot-desktops/lib/use-desktops.ts", 44),
+    { max: 60, file: "lib/desktop/http.ts", line: 32, note: "desktop-containers limiter: 60 reads per 60 s; screenshot is 30/min (line 47) and lifecycle 12/min (line 85)" },
+    "Polls the bot container inventory every 10 s while visible, and every card renders a screenshot from /api/v1/desktop/screenshot, which runs `docker exec` in the container; lifecycle verbs are the tighter 12/min budget.",
+  ),
+  limited(
     "camoufox-browser",
     STATIC,
     { max: 12, file: "lib/camoufox/http.ts", line: 36, note: "camoufox limiter: 12 per 60 s" },

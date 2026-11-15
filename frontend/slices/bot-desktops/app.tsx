@@ -138,6 +138,10 @@ function DesktopCard({
       </div>
 
       {live ? (
+        // A live container frame, not a static asset: the bytes come from
+        // /api/v1/desktop/screenshot, which runs `docker exec` per request. next/image
+        // would try to optimise and cache a URL whose content changes every reload.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={screenshotUrl(desktop.name, screen, generation)}
           alt={`Bot desktop ${desktop.name} display :${screen}`}
