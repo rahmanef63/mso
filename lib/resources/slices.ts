@@ -13,7 +13,9 @@ export const SLICES_ROOT = join(process.cwd(), "frontend", "slices");
 /** Directory names under frontend/slices, sorted. Empty when the root is missing. */
 export function knownSliceDirectories(root: string = SLICES_ROOT): string[] {
   try {
-    return readdirSync(root, { withFileTypes: true })
+    // `turbopackIgnore` is load-bearing: without it the tracer follows this readdir
+    // and pulls the whole project (source + public/) into the server bundle.
+    return readdirSync(/* turbopackIgnore: true */ root, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort();
