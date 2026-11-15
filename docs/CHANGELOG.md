@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `update` keep refusing an Origin-less update check
 - `integrations` let the provider picker load its brand marks
 - `update` let the Settings update check work on the host itself
 - `auth` stop the onboarding dialog from desyncing hydration
