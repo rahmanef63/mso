@@ -1,13 +1,23 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
-function run(options: { count?: number; scorecard?: boolean; filterIgnored?: boolean; denied?: boolean; noAnalysis?: boolean; paginate?: boolean; stale?: boolean; hostile?: boolean; args?: string[]; readyAfter?: number; branchMoved?: boolean; wrongRef?: boolean; analysisError?: boolean; invalidAnalysis?: boolean } = {}) {
+function run(options: { count?: number; scorecard?: boolean; filterIgnored?: boolean; denied?: boolean; noAnalysis?: boolean; paginate?: boolean; stale?: boolean; hostile?: boolean; args?: string[]; readyAfter?: number; branchMoved?: boolean; wrongRef?: boolean; analysisError?: boolean; invalidAnalysis?: boolean; message?: string; scannerToml?: string | null } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), "mso-alert-report-test-")); roots.push(root);
+  // An explicit osv-scanner.toml needs its own script copy so the reviewed-exception
+  // lookup resolves inside this fixture root instead of the real checkout.
+  let script = path.join(process.cwd(), "scripts/security-alerts.mjs");
+  if (options.scannerToml !== undefined) {
+    const scripts = path.join(root, "scripts");
+    mkdirSync(scripts, { recursive: true });
+    copyFileSync(script, path.join(scripts, "security-alerts.mjs"));
+    if (options.scannerToml) writeFileSync(path.join(root, "osv-scanner.toml"), options.scannerToml);
+    script = path.join(scripts, "security-alerts.mjs");
+  }
   const stub = `const options=${JSON.stringify(options)};
     process.argv=['node','security-alerts.mjs',...(options.args??[])];
     let clock=0,analyses=0,branches=0,waits=0,inventories=0;
@@ -20,10 +30,10 @@ function run(options: { count?: number; scorecard?: boolean; filterIgnored?: boo
       if(url.includes('/alerts?')){inventories++;value=Array.from({length:options.count??0},(_,i)=>({number:i+1,state:'open',tool:{name:'CodeQL'},rule:{id:options.hostile?'js/test%0A::error::boom':'js/test',severity:'warning',security_severity_level:'high'}}));
         if(options.scorecard&&(!url.includes('tool_name=CodeQL')||options.filterIgnored))value.push({number:137,state:'open',tool:{name:'Scorecard'},rule:{id:'SASTID',security_severity_level:'medium'}});
         if(options.paginate){if(url.includes('page=2'))value=[];else headers={link:'<https://api.github.com/next>; rel="next"'};}}
-      if(url.includes('/instances?'))value=[{ref:'refs/heads/main',state:'open',location:{path:options.hostile?'../escape.ts':'lib/test.ts',start_line:3},message:{text:'review me'}}];
+      if(url.includes('/instances?'))value=[{ref:'refs/heads/main',state:'open',location:{path:options.hostile?'../escape.ts':'lib/test.ts',start_line:3},message:{text:options.message??'review me'}}];
       if(url.includes('/analyses?')){analyses++;value=options.invalidAnalysis?{}:options.noAnalysis?[]:[{id:1,commit_sha:(options.stale||analyses<=(options.readyAfter??0)?'b':'a').repeat(40),tool:{name:'CodeQL'},ref:options.wrongRef?'refs/heads/other':'refs/heads/main',error:options.analysisError?'failed':''}];}
       return new Response(JSON.stringify(value),{status:200,headers});
-    };await import(${JSON.stringify(path.join(process.cwd(), "scripts/security-alerts.mjs"))});console.log('FETCH_COUNTS '+JSON.stringify({analyses,branches,waits,inventories}));`;
+    };await import(${JSON.stringify(script)});console.log('FETCH_COUNTS '+JSON.stringify({analyses,branches,waits,inventories}));`;
   const result = spawnSync(process.execPath, ["--input-type=module", "-e", stub], { encoding: "utf8", timeout: 10_000,
     env: { NODE_ENV: "test", PATH: process.env.PATH, GITHUB_TOKEN: "synthetic-test-value", GITHUB_REPOSITORY: "example/repository", RUNNER_TEMP: root } });
   let report: { openCount: number; alerts: unknown[]; closed: unknown[]; ref: string; tool: string } | undefined;
@@ -65,6 +75,45 @@ describe("GitHub open-alert evidence", () => {
   });
   it.each(["Scorecard", "", "--inventory"])("rejects unsupported tool selection: %s", (tool) => {
     expect(run({ args: ["--tool", tool] }).status).not.toBe(0);
+  });
+});
+
+
+describe("reviewed OSV exceptions do not double-count a Scorecard advisory", () => {
+  // The stub pins Date.now to the epoch, so these dates bracket that clock
+  // deterministically instead of depending on when the suite runs.
+  const activeToml = '[[IgnoredVulns]]\nid = "GHSA-gcqx-w48m-w2h4"\nignoreUntil = 2999-01-01T00:00:00Z\nreason = """test fixture"""\n';
+  const expiredToml = '[[IgnoredVulns]]\nid = "GHSA-gcqx-w48m-w2h4"\nignoreUntil = 1969-12-31T00:00:00Z\nreason = """test fixture"""\n';
+  const advisory = (id: string) => `score is 9: 1 existing vulnerabilities detected: Warn: Project is vulnerable to: https://osv.dev/${id}`;
+  it("skips a Scorecard alert naming an active reviewed advisory", () => {
+    const result = run({ scorecard: true, message: advisory("GHSA-gcqx-w48m-w2h4"), scannerToml: activeToml });
+    expect(result.status).toBe(0);
+    expect(result.report).toMatchObject({ openCount: 0, tool: "all" });
+    expect(result.stdout).toContain("REVIEWED_EXCEPTION 137 GHSA-gcqx-w48m-w2h4 2999-01-01T00:00:00Z");
+    expect(result.stdout).not.toContain("title=Code scanning #137");
+  });
+  it("still fails a Scorecard alert whose reviewed exception has expired", () => {
+    const result = run({ scorecard: true, message: advisory("GHSA-gcqx-w48m-w2h4"), scannerToml: expiredToml });
+    expect(result.status).toBe(1);
+    expect(result.report?.openCount).toBe(1);
+    expect(result.stdout).not.toContain("REVIEWED_EXCEPTION");
+  });
+  it("still fails a Scorecard alert naming an advisory that is not recorded", () => {
+    const result = run({ scorecard: true, message: advisory("GHSA-0000-0000-0000"), scannerToml: activeToml });
+    expect(result.status).toBe(1);
+    expect(result.report?.openCount).toBe(1);
+    expect(result.stdout).not.toContain("REVIEWED_EXCEPTION");
+  });
+  it("does not extend a reviewed exception to CodeQL findings", () => {
+    const result = run({ count: 1, message: advisory("GHSA-gcqx-w48m-w2h4"), scannerToml: activeToml });
+    expect(result.status).toBe(1);
+    expect(result.report?.openCount).toBe(1);
+    expect(result.stdout).not.toContain("REVIEWED_EXCEPTION");
+  });
+  it("treats a missing osv-scanner.toml as no reviewed exceptions", () => {
+    const result = run({ scorecard: true, message: advisory("GHSA-gcqx-w48m-w2h4"), scannerToml: "" });
+    expect(result.status).toBe(1);
+    expect(result.report?.openCount).toBe(1);
   });
 });
 
