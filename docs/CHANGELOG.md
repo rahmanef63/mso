@@ -4,6 +4,20 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-16
+
+**Fixed**
+
+- `integrations` let the provider picker load its brand marks
+- `update` let the Settings update check work on the host itself
+- `auth` stop the onboarding dialog from desyncing hydration
+
+## 2026-11-15
+
+**Fixed**
+
+- `resources` stop Turbopack tracing the whole project from the slice readdir
+
 ## 2026-11-14
 
 **Added**
@@ -1318,80 +1332,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - `infra` allow Baton build SHA metadata
-
-## 2026-09-06
-
-**Added**
-
-- `infra` add bounded Dokploy application deploy
-- `infra` separate DOKU payment and MCP credentials
-- `infra` add private DOKU MCP connections
-- `infra` add private Convex env presence checks
-- `infra` add safe Dokploy deployment recovery
-- `infra` manage Convex Cloud custom domains safely
-- `infra` add bounded Dokploy public env rollout
-
-**Fixed**
-
-- `infra` allow bounded Dokploy public env values
-- `mcp` preserve compact integration headroom
-- `infra` expose bounded Dokploy integration operations
-- `infra` support modern pinned DNS lookups
-
-## 2026-09-05
-
-**Added**
-
-- `integrations` detect local SI-Coder migration
-- `agent` add native integrations slash skill
-- `integrations` polish Finder TUI frame and UX
-- `integrations` use Finder-style column browser
-- `integrations` add interactive terminal navigator
-- `hostinger` add Mail API connection operations
-- `integrations` add portable JSON transfer and standalone import adapter
-- `integrations` unify native users connections and source-aware execution
-- `artifacts` add private per-session screenshot storage and retention
-- `integrations` add native secure credential setup in browser and MCP Page
-- add safe local maintenance and visual README
-- `mcp` preserve restricted project service bridge
-
-**Fixed**
-
-- `security` enforce actual branch code-scanning alerts
-- `security` make import preview confirmations opaque
-- `security` key portable import preview confirmations
-- `mcp` render one bounded inline Page preview
-- preserve home-relative stores and prove tunnel rollback completion
-- `security` verify exact branch dispositions and narrow message origins
-- `security` retain artifact-lock compatibility and require fresh scan evidence
-- `security` pin store paths and eliminate unsafe file-read patterns
-- `mcp` add explicit browser sign-in for reviewed embedded apps
-- `security` gate on actual GitHub open findings
-- `integrations` repair embedded setup and complete native provider catalog
-- `integrations` recover setup UI and cached chat links
-- `release` wait for HTTP readiness before validating served assets
-- `mcp` initialize page previews and verify embedded app readiness
-- reconcile maintenance handoff and CLI version contracts
-- `security` close exec expansion gap and exact test discovery
-- `security` harden share audit and release verification
-- `update` handle diverged checkout explicitly
-
-**Changed**
-
-- remove unused symbols and enforce compiler checks
-
-**Tests**
-
-- make insecure-permission fixture explicit under private umask
-- validate PR integration and maintenance safety boundaries
-
-**Docs**
-
-- show the interactive mso terminal in README
-- restore inline demo and lead with agent capabilities
-- `mcp` document service tokens and update reconciliation
-
-**Chores**
-
-- `security` expose sanitized alert annotations
-- release security and visual documentation fixes as app 0.2.4
