@@ -1,3 +1,26 @@
+## 2026-11-16 — Onboarding stops reporting a hydration mismatch it caused itself
+
+Every signed-in page logged two console errors: "Encountered a script tag while rendering
+React component" against `app/layout.tsx:86`, and "Hydration failed" whose diff pointed at
+Next's `MetadataOutlet` script. Neither was the cause. `FirstLoginOnboarding` seeded its open
+state with `useState(() => typeof window !== "undefined" && shouldOpenOnboarding(...))`. The
+server never sees `localStorage`, so it rendered the dialog closed while the client rendered
+it open; React rebuilt from the nearest boundary, and the first thing that rebuild reported
+was the metadata script it had just re-created. The pre-hydration theme script in the layout
+was innocent, and removing it changed nothing.
+
+Open state is now external: `useSyncExternalStore(subscribeOnboarding, () =>
+shouldOpenOnboarding(onboardingStorage()), () => false)`. Both passes start closed and React
+re-reads storage immediately after hydration, so the guide still opens by itself on a browser
+that never dismissed it. Settings → Account → About → Maintenance → Setup still reopens it
+after dismissal, through its own `reopened` state fed by the existing `ONBOARDING_OPEN` event,
+because that explicit request must survive a `done` marker in storage.
+
+Verified with `frontend/slices/auth/lib/first-login-onboarding.test.tsx` (the server render
+never contains the dialog) plus a browser pass over `/`, `/files`, `/docs`, `/settings` and
+`/workflows`: zero console errors, and the guide still visible after hydration. Next is also
+bumped 16.4.3 → 16.4.6, which is unrelated to this bug and did not fix it on its own.
+
 ## 2026-11-14 — Nakama follows the MSO login password, without becoming a login dependency
 
 Nakama kept its own hashed admin password, so the operator had to remember to change it

@@ -1,24 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialog } from "@/features/appshell";
 import { useSession } from "../lib/use-session";
-import { ONBOARDING_KEY, ONBOARDING_OPEN, ONBOARDING_STEPS, onboardingStorage, readOnboardingProgress, shouldOpenOnboarding, writeOnboardingProgress, type OnboardingProgress } from "../lib/onboarding-state";
+import { ONBOARDING_KEY, ONBOARDING_OPEN, ONBOARDING_STEPS, onboardingStorage, notifyOnboarding, readOnboardingProgress, shouldOpenOnboarding, subscribeOnboarding, writeOnboardingProgress, type OnboardingProgress } from "../lib/onboarding-state";
 import { OnboardingReadiness } from "./onboarding-readiness";
 import { OnboardingProjectPicker } from "./onboarding-project";
 import { OnboardingReceipt } from "./onboarding-receipt";
 
 const LABELS = { welcome: "Start", readiness: "Readiness", project: "Project", receipt: "First result" };
+// Server pass and first client pass both start closed; React re-reads storage
+// right after hydration, so the guide still opens by itself when undismissed.
+const closedOnServer = () => false;
 
 export function FirstLoginOnboarding() {
   const { role } = useSession();
-  const [open, setOpen] = useState(() => typeof window !== "undefined" && shouldOpenOnboarding(onboardingStorage()));
+  // Open state is external (localStorage), never React state seeded from
+  // `window`. The old `useState(() => window…)` opened the dialog on the client
+  // only, so the subtree existed in one tree and not the other: React reported a
+  // hydration mismatch and rebuilt from the nearest boundary, which is how a
+  // Next MetadataOutlet script ended up framed as the culprit in the console.
+  const open = useSyncExternalStore(subscribeOnboarding, () => shouldOpenOnboarding(onboardingStorage()), closedOnServer);
+  // Settings → Account → About → Maintenance → Setup reopens the guide even
+  // after it was dismissed, so the explicit request is its own state.
+  const [reopened, setReopened] = useState(false);
   const [progress, setProgress] = useState<OnboardingProgress>(() => readOnboardingProgress(onboardingStorage()));
   const [storageError, setStorageError] = useState(false);
 
   useEffect(() => {
-    const reopen = () => setOpen(true);
+    const reopen = () => setReopened(true);
     window.addEventListener(ONBOARDING_OPEN, reopen);
     return () => window.removeEventListener(ONBOARDING_OPEN, reopen);
   }, []);
@@ -30,7 +41,8 @@ export function FirstLoginOnboarding() {
 
   function close() {
     try { onboardingStorage()?.setItem(ONBOARDING_KEY, "done"); } catch { setStorageError(true); }
-    setOpen(false);
+    setReopened(false);
+    notifyOnboarding();
   }
 
   function navigate(href: string) {
@@ -43,7 +55,7 @@ export function FirstLoginOnboarding() {
   const index = steps.indexOf(step);
   const next = steps[index + 1];
 
-  return <ResponsiveDialog open={open} onOpenChange={(value) => { if (!value) close(); }} size="lg" contentClassName="z-[70]">
+  return <ResponsiveDialog open={open || reopened} onOpenChange={(value) => { if (!value) close(); }} size="lg" contentClassName="z-[70]">
     <ResponsiveDialog.Header>
       <ResponsiveDialog.Title>Set up MSO</ResponsiveDialog.Title>
       <ResponsiveDialog.Description>Check this host, choose a project and keep evidence of your first action.</ResponsiveDialog.Description>
