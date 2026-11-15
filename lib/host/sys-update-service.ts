@@ -13,7 +13,10 @@ import { parseUpdateChannel } from "@/lib/prefs/updates";
 // refusal as an authorization problem.
 function sameOrigin(req: Request): boolean {
   const origin = req.headers.get("origin");
-  if (!origin) return true;
+  // No Origin at all is not browser same-origin proof, so it stays refused. Every
+  // browser sends one on a POST; this only lets non-browser callers through if it
+  // were allowed, which is the opposite of what this gate is for.
+  if (!origin) return false;
   const host = req.headers.get("host") ?? new URL(req.url).host;
   try {
     if (new URL(origin).host === host) return true;
