@@ -8,6 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `lint` keep git-excluded task worktrees out of repo-wide typecheck and lint
+- `update` read status on a tag that predates the CLI, and default to main
 - `update` keep refusing an Origin-less update check
 - `integrations` let the provider picker load its brand marks
 - `update` let the Settings update check work on the host itself
