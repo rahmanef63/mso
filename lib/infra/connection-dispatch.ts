@@ -1,3 +1,4 @@
+import { queryComposioInventory } from "./composio-inventory";
 import { isGoogleProvider, GOOGLE_APP_PROVIDER, googlePublicOrigin } from "./google-native-config";
 import { bindGoogleApp, disconnectGoogle, runNativeGoogle, nativeGoogleStatus, googleOperations } from "./google-native";
 import { integrationManage } from "./connection-manage";
@@ -123,7 +124,7 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
   }
   return withIntegrationSelection(selection,async()=>({identity:route,result:await verb.run()}));
 }
-export const queryIntegrationAction=(input:Record<string,unknown>)=>integrationQuery(safeActionInput(input));
+export const queryIntegrationAction=(input:Record<string,unknown>)=>input.view==="broker"?queryComposioInventory(safeActionInput(input)):integrationQuery(safeActionInput(input));
 
 /**
  * One branch for both Composio operations so the key-kind routing cannot drift.

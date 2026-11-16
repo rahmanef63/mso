@@ -241,7 +241,12 @@ mso integrations execute '{"user":"rahman","provider":"dokploy","connection":"pr
 ## Machine tools and operation coverage
 
 `integration_query` reads catalog/users/connections/Integration Variables, resolves an
-identity, and returns source-aware setup instructions. `integration_manage` performs
+identity, and returns source-aware setup instructions. `view=broker` requires explicit
+`user`, `provider=composio` and `connection`; it reads at most50 connected-account
+metadata rows using that exact Platform project/user key. Follow `nextCursor` with
+`cursor` until `complete=true`. No account credential/state blob or raw provider error
+is returned. This read works without creating a Git workspace and does not authorize
+Composio tool execution. Connect/organization keys require their own supported route. `integration_manage` performs
 confirmed user, connection, Integration Variable, folder-binding, credential-deletion or
 hosted-authorization actions.
 `integration_execute` takes explicit user/provider/connection and returns a route,
