@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `convex` support team access tokens for cloud management
 - `test` honour VITEST_MAX_WORKERS instead of documenting it and ignoring it
 - `lint` keep git-excluded task worktrees out of repo-wide typecheck and lint
 - `update` read status on a tag that predates the CLI, and default to main
@@ -28,6 +29,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Other**
 
+- a screenshot no longer fails on a display that is still booting
 - Say "signed out", not "no desktops", and stop polling a refusal
 - Register the slice, cite its limits, and keep Settings on page one
 - Give the bot-desktop API a screen, and let it see :1..:3
