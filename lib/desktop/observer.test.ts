@@ -101,6 +101,36 @@ describe("screenshot argv is server-constructed", () => {
     const { deps } = harness({ code: 1, stderr: "refusing display arg: :77" });
     await expect(screenshotDesktop(ID, "77", deps)).rejects.toMatchObject({ status: 502 });
   });
+
+  // A box that was just started boots its displays one at a time, so a screenshot may
+  // arrive while X is still coming up. Measured on a real container: :3 failed 3/3
+  // times right after `start` before this retry existed.
+  it("waits for a display that is still booting instead of failing the request", async () => {
+    let execs = 0;
+    const runBytes = vi.fn(async () => {
+      execs += 1;
+      if (execs < 3) {
+        return { code: 1, stdout: Buffer.alloc(0), stderr: "import: unable to open X server `:3' @ error/import.c" };
+      }
+      return { code: 0, stdout: PNG, stderr: "" };
+    });
+    const run = vi.fn(async () => ({ code: 0, stdout: PS_LINE, stderr: "" }));
+    const png = await screenshotDesktop(ID, "3", { run, runBytes, hasDocker: async () => true });
+    expect(png.equals(PNG)).toBe(true);
+    expect(execs).toBe(3);
+  });
+
+  it("does not retry an error that is not a booting display", async () => {
+    let execs = 0;
+    const runBytes = vi.fn(async () => {
+      execs += 1;
+      // A missing tool would fail forever; retrying it only delays the report.
+      return { code: 127, stdout: Buffer.alloc(0), stderr: "exec: grokbot-shot: not found" };
+    });
+    const run = vi.fn(async () => ({ code: 0, stdout: PS_LINE, stderr: "" }));
+    await expect(screenshotDesktop(ID, "3", { run, runBytes, hasDocker: async () => true })).rejects.toMatchObject({ status: 502 });
+    expect(execs).toBe(1);
+  });
 });
 
 describe("lifecycle is four verbs and nothing else", () => {
