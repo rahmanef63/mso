@@ -9,6 +9,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - `integrations` inspect named Composio accounts with read scope
+- `convex` support team access tokens for cloud management
 - `test` honour VITEST_MAX_WORKERS instead of documenting it and ignoring it
 - `lint` keep git-excluded task worktrees out of repo-wide typecheck and lint
 - `update` read status on a tag that predates the CLI, and default to main

@@ -75,7 +75,7 @@ export function summarizeInfraProvider(id: InfraProviderRef, values: InfraProvid
   if(canonical==="doku"&&!(values.paymentClientId&&values.paymentSecretKey&&values.paymentEnvironment)&&!(values.mcpClientId&&values.mcpApiKey&&values.environment))missing.push("Payment Client ID + Secret Key or MCP Client ID + API Key, plus environment");
   if (canonical === "convex") {
     const kind = convexDeploymentKind(values);
-    if (kind === "self-hosted" ? !(values.apiUrl && values.adminKey) : !values.personalToken && !(values.deployKey && values.deploymentName)) missing.push(kind === "self-hosted" ? "self-hosted deployment URL and admin key" : "Convex Cloud personal token or deployment key and name");
+    if (kind === "self-hosted" ? !(values.apiUrl && values.adminKey) : !values.teamToken && !values.personalToken && !(values.deployKey && values.deploymentName)) missing.push(kind === "self-hosted" ? "self-hosted deployment URL and admin key" : "Convex Cloud team access token, legacy personal token, or deployment key and name");
   }
   const safeValues = Object.fromEntries(def.fields
     .filter((field) => values[field.key])

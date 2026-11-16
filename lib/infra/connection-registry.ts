@@ -4,7 +4,7 @@ import { canonicalProviderId, convexDeploymentKind, listInfraProviderDefinitions
 import { setupFields, setupGuidance, setupMethods, type SetupMethod } from "./setup-guidance";
 import { IntegrationError, type ConnectionSource, type IntegrationConnection } from "./identity";
 /** Convex keeps every pre-collapse method id; `admin` is the self-hosted shape. */
-const CONVEX_METHODS = ["personal", "deployment", "admin"] as const;
+const CONVEX_METHODS = ["team", "deployment", "admin", "personal"] as const;
 /**
  * The stored method id for a values bag, used by the legacy projection and
  * credential deletion. Inference matches `convexDeploymentKind`: an `apiUrl`
@@ -12,7 +12,7 @@ const CONVEX_METHODS = ["personal", "deployment", "admin"] as const;
  */
 export function convexMethod(values: Record<string, string>): SetupMethod {
   if (convexDeploymentKind(values) === "self-hosted") return "admin";
-  return values.deployKey || values.deploymentName ? "deployment" : "personal";
+  return values.deployKey || values.deploymentName ? "deployment" : values.teamToken ? "team" : "personal";
 }
 export const convexMethods = () => [...CONVEX_METHODS];
 const COMPOSIO: Record<string, {toolkit:string; managed:boolean; methods:string[]}> = {

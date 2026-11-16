@@ -8,7 +8,7 @@ import {
   type RunConvexCli,
 } from "./convex-cloud-cli-runner";
 import {
-  convexCloudPersonalToken,
+  convexCloudManagementToken,
   withConvexEphemeralDeployKey,
 } from "./convex-cloud-key";
 import { IntegrationError } from "./identity";
@@ -26,7 +26,7 @@ export async function deployConvexCloudProject(
   deps: RunnerDeps = {},
 ) {
   const deployment = convexDeploymentName(input.deploymentName);
-  const token = await convexCloudPersonalToken();
+  const token = await convexCloudManagementToken();
   const { project, executable } = await convexProjectContext(input.projectPath);
   const fetchImpl = deps.fetchImpl ?? fetch;
   const execute = deps.runCli ?? runConvexCli;
@@ -65,7 +65,7 @@ export async function importConvexCloudSnapshot(
   const deployment = convexDeploymentName(input.deploymentName);
   if (input.mode !== "replace-all" && input.mode !== "append")
     throw new IntegrationError("invalid_convex_import_mode");
-  const token = await convexCloudPersonalToken();
+  const token = await convexCloudManagementToken();
   const { project, executable } = await convexProjectContext(input.projectPath);
   const snap = await convexSnapshotContext(input.snapshotPath);
   const fetchImpl = deps.fetchImpl ?? fetch;
