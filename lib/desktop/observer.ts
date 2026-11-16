@@ -25,6 +25,13 @@ export { listDesktopContainers } from "@/lib/desktop/inventory";
 /** Screenshot tool installed inside the bot desktop image. */
 const SHOT_PROGRAM = "grokbot-shot";
 
+/**
+ * How long a screenshot waits for a display that a just-started box is still booting.
+ * Long enough for :3 (~1s measured), short enough that a box whose entrypoint died
+ * reports the error instead of hanging the request.
+ */
+const SCREEN_BOOT_MS = 8_000;
+
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 /** PNG magic number. A tool that prints an error to stdout must not become an image. */
@@ -51,12 +58,28 @@ export async function screenshotDesktop(
   // cost zero host work.
   const display = parseScreen(screen);
   const name = (await requireObservedContainer(resolved, container)).name;
-  const result = await resolved.runBytes("docker", ["exec", name, SHOT_PROGRAM, display], 30_000);
-  if (result.code !== 0) throw failure("exec", { ...result, stdout: result.stderr });
-  if (!isPng(result.stdout)) {
-    throw new HostError("Screenshot producer did not return a PNG", 502);
+
+  // A box that was just started (or restarted, or created) boots one Xvfb per display
+  // in sequence: :99 answers in ~150ms while :3 needs about a second. The UI offers a
+  // `start` button directly above the frame, so clicking it and looking at :3 used to
+  // fail every time with "unable to open X server :3" (measured 3/3). Retry while the
+  // display is still coming up; a display that never appears still fails, and every
+  // other error is reported immediately.
+  const deadline = Date.now() + SCREEN_BOOT_MS;
+  for (let attempt = 0; ; attempt += 1) {
+    const result = await resolved.runBytes("docker", ["exec", name, SHOT_PROGRAM, display], 30_000);
+    if (result.code === 0) {
+      if (!isPng(result.stdout)) {
+        throw new HostError("Screenshot producer did not return a PNG", 502);
+      }
+      return result.stdout;
+    }
+    const stillBooting = /unable to open X server|Can't open display/i.test(result.stderr);
+    if (!stillBooting || Date.now() > deadline) {
+      throw failure("exec", { ...result, stdout: result.stderr });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
   }
-  return result.stdout;
 }
 
 export interface DesktopLifecycleResult {
