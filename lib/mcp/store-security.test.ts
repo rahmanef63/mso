@@ -63,7 +63,11 @@ describe("durable MCP credential isolation", () => {
     });
     await expect(state.readMcpStore()).rejects.toThrow(/changed while reading/);
   });
-  it("bounds many rotations, prunes expired access, preserves absolute expiry and rate limits the authenticated family", async () => {
+  // 300 durable rotations: each one rewrites a private file under a lock, so this
+  // needs ~10s of real I/O and cannot fit the 15s global testTimeout once the gate
+  // runs suites in parallel. The bound is raised here, on the one test that must do
+  // that much work, rather than globally where it would hide a genuinely hung test.
+  it("bounds many rotations, prunes expired access, preserves absolute expiry and rate limits the authenticated family", { timeout: 60_000 }, async () => {
     const clock = vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
     await store.storeOAuthGrant({ accessToken: "a0", refreshToken: "r0", clientId: "bounded", label: "fixture", scope: "exec", resource: "https://fixture.invalid/mcp", grantId: "bounded" });
     for (let index = 1; index <= 300; index++) {

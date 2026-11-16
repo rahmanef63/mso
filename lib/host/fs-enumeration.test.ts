@@ -10,6 +10,9 @@ vi.stubEnv("OS_FS_READ_ROOTS", root);
 const { listDir, searchFs } = await import("./fs-enumeration");
 afterAll(async () => { vi.unstubAllEnvs(); await rm(root, { recursive: true, force: true }); });
 
+// 10,001 fixture files plus concurrent enumeration: ~15s of real filesystem work that
+// cannot fit the 15s global testTimeout when the gate runs suites in parallel. Raised
+// for this test only, so a genuinely hung test still fails fast elsewhere.
 it("bounds oversized listings, sparse searches and concurrent work, releasing admission after failure", async () => {
   const large = path.join(root, "large"); await mkdir(large);
   for (let n = 0; n < 10_001; n++) await writeFile(path.join(large, `entry-${n}`), "");
@@ -20,7 +23,7 @@ it("bounds oversized listings, sparse searches and concurrent work, releasing ad
   await Promise.allSettled([first, second]);
   await expect(listDir(root)).resolves.toMatchObject({ entries: [{ name: "large" }] });
   await expect(listDir(root, true, AbortSignal.abort())).rejects.toMatchObject({ status: 408 });
-}, 15_000);
+}, 60_000);
 
 it("bounds the complete listing response including configured-root metadata", async () => {
   process.env.OS_FS_READ_ROOTS = [root, ...Array(12_000).fill("/")].join(path.delimiter);

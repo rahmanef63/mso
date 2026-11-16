@@ -18,6 +18,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- give the two heavy I/O suites their own timeout
 - `e2e` scope the workflow Directory click to its details rail
 - `update` assert the 401 and 403 messages stay distinct
 
