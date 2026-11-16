@@ -10,9 +10,10 @@ vi.mock("@/lib/workflow", () => ({
   activeWorkflowForActor: vi.fn(async () => ({ id: "flow-test", orchestration: { isolation: "isolated-worktree" } })),
   recordWorkflowStep: vi.fn(async () => undefined), replayHandlesFromResult: vi.fn(() => []),
 }));
-vi.mock("@/lib/capabilities/activity", async original => ({
-  ...(await original<typeof import("@/lib/capabilities/activity")>()), recordCapabilityActivity: vi.fn(async () => undefined),
-}));
+vi.mock("@/lib/capabilities/activity", async original => {
+  const actual = await original();
+  return { ...(actual as Record<string, unknown>), recordCapabilityActivity: vi.fn(async () => undefined) };
+});
 vi.mock("@/lib/tenancy/capability", () => ({ tenantCapabilityPlan: vi.fn(async () => null) }));
 import { executeCapabilityCall } from "@/lib/capabilities/execute";
 import { INTEGRATION_TOOLS } from "@/lib/mcp/tools-integrations";
