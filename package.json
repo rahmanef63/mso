@@ -75,7 +75,7 @@
     "svelte:audit": "cd frontend/svelte && bun audit --audit-level=high"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.135.0",
+    "@anthropic-ai/sdk": "^1.6.0",
     "@imgly/background-removal": "^1.7.0",
     "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/react-alert-dialog": "^1.2.1",
