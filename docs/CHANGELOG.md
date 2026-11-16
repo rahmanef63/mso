@@ -29,6 +29,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Other**
 
+- a screenshot no longer fails on a display that is still booting
 - Say "signed out", not "no desktops", and stop polling a refusal
 - Register the slice, cite its limits, and keep Settings on page one
 - Give the bot-desktop API a screen, and let it see :1..:3
