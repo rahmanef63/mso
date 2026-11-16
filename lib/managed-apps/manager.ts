@@ -1,5 +1,6 @@
 import "server-only";
 import os from "node:os";
+import { appVersion, forgetAppVersion } from "./app-version";
 import { managedAppHealth } from "./health";
 import { createBackup } from "./backups";
 import { getManagedAppDefinition, listManagedAppDefinitions } from "./catalog";
@@ -9,7 +10,7 @@ import { acquireOperation, activeOperation, releaseOperation, withManagedAppOper
 import { redact } from "./redact";
 import { listJobRecords } from "./job-store";
 import { detectOrca, detectOwnedOrcaForStop, invalidateOrcaIntegrityCache, orcaUnknownDiagnostic, ORCA_SERVICE, type ManagedInstallation } from "./orca-installation";
-import { commandExists, resolveCommand, runProgram } from "./runner";
+import { commandExists, runProgram } from "./runner";
 import { managedRunState, running, systemdState } from "./service-state";
 import { userBusEnv, userBusUnavailable } from "./user-bus";
 import type { ManagedAppAction, ManagedAppDefinition, ManagedAppId, ManagedAppLogs, ManagedAppView } from "./types";
@@ -84,27 +85,8 @@ function directDashboardUrl(definition: ManagedAppDefinition): string | null {
   return address ? `http://${address}:${definition.publicPort}` : null;
 }
 
-// `--version` forks the app's own binary, which is not free (hermes: ~0.44 s of CPU
-// per call on this host) — and the Managed Apps panel re-polls every 10 s, for a
-// string that only changes on upgrade. Cached per app id; performManagedAppAction
-// drops the entry, since an install/restart is the only thing that can move it.
-const VERSION_TTL_MS = 60_000;
-const versionCache = new Map<ManagedAppId, { value: string | null; at: number }>();
-
-async function version(definition: ManagedAppDefinition): Promise<string | null> {
-  const hit = versionCache.get(definition.id);
-  if (hit && Date.now() - hit.at < VERSION_TTL_MS) return hit.value;
-  let value: string | null = null;
-  // Resolved to a path, not spawned by bare name: under systemd the unit's PATH
-  // does not contain ~/.local/bin, where both upstream CLIs install themselves.
-  const program = await resolveCommand(definition.command);
-  if (program) {
-    const result = await runProgram(program, ["--version"], 10_000);
-    value = result.code === 0 ? result.stdout.trim().split(/\r?\n/)[0]?.slice(0, 160) || null : null;
-  }
-  versionCache.set(definition.id, { value, at: Date.now() });
-  return value;
-}
+// `--version` for the Details pane lives in app-version.ts: it is display
+// metadata that must never hold this list's response open (see that module).
 
 function actionsFor(installation: ManagedInstallation): ManagedAppAction[] {
   if (installation.type === "systemd" || installation.type === "docker") return ["start", "stop", "restart", "backup"];
@@ -142,7 +124,7 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
     installationType: installation.type,
     state,
     healthy: isHealthy,
-    version: await version(definition),
+    version: appVersion(definition),
     dashboardAvailable: isRunning && isHealthy !== false && !stopOnlyOwned,
     publicDashboardUrl: domainView.domain?.phase === "ready" ? `https://${domainView.domain.hostname}` : directDashboardUrl(definition),
     ...domainView,
@@ -225,7 +207,7 @@ export async function performManagedAppAction(id: ManagedAppId, action: ManagedA
       else await runLifecycle(installation, action);
     } finally {
       releaseOperation(id);
-      versionCache.delete(id);
+      forgetAppVersion(id);
       if (id === "orca") invalidateOrcaIntegrityCache();
     }
   });

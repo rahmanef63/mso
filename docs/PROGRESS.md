@@ -69,6 +69,51 @@ credential change or provider action. Provider errors omit raw payloads and cred
 unknown fields, malformed responses and changing connection revisions fail closed.
 Existing exec/write scope, source isolation and provider mutation guards remain intact.
 
+## 2026-11-16 — A managed app's version string no longer holds its window shut
+
+Seven surfaces were reported as thin or blank: hermes, openclaw, 9router, orca, n8n,
+connections and links. All seven were measured in a real browser against the live cockpit
+with an owner session. The honest split: four already work, one was a real defect, one is
+waiting on infrastructure, and one is empty data rather than an empty feature.
+
+Hermes, OpenClaw, 9Router and Orca each render their own dashboard inside the window. Orca
+was the real defect: its frame stayed blank for 13 to 19 seconds, or for the whole session
+when two loads overlapped.
+
+The cause was not Orca. `version()` in `lib/managed-apps/manager.ts` awaited
+`<app> --version` inline while building `/api/v1/managed-apps`, and that list is what
+`ManagedAppsSurface` waits for before painting anything. Measured on this host, `hermes
+--version` is 15.4 s wall (it boots a Python environment) against a 10 s cap, so the probe
+could never succeed and always cost the full cap. The panel re-polls that list every 10 s
+and the answer cache only lasts 60 s, so an open window paid it again every minute.
+
+Detection and the app-host proxy also share one process. With three detect calls in flight,
+average latency of twelve Orca assets went 1.13 s to 2.17 s. Serving the same list from a
+frozen snapshot instead brought Orca's blank window down to 9 to 10 s, which is what named
+the detect poll as the cause rather than the app.
+
+`lib/managed-apps/app-version.ts` now owns the probe. A known answer returns without forking,
+a stale one is refreshed in the background, and concurrent callers share one in-flight probe
+per app so overlapping window polls cannot stack child processes. The cap drops to 4 s, which
+still covers every probe that can finish at all. A cold list went from 20.2 s to 3.8 s, warm
+polls from 1.2 to 1.8 s down to 1.1 s, and the version strings still appear one poll later.
+
+Not changed, and why. n8n is not an MSO defect: `n8n.antinrml.com` has no Traefik route (the
+edge answers 404) while the real instance answers on host loopback `:5678` with
+`X-Frame-Options: SAMEORIGIN`, so it could not be framed even once routed. Fixing it means
+publishing a host and changing that host's frame policy, which is a deployment decision.
+Connections frames the native Integrations manager and paints its provider list. Quicklinks
+renders the project-neutral fallback because `~/.mso/prefs.json` holds no `quicklinks`
+section yet; that is owner data, not a broken empty state. Orca's own detect still costs
+about 5 s per 30 s window because the adapter rehashes its release on `--version`, which is
+real but separate work.
+
+Verified: 7 tests in `lib/managed-apps/app-version.test.ts` cover resolve-by-path, the 4 s
+cap, one shared probe for concurrent callers, cache reuse, background refresh and re-probe
+after an install; `manager.test.ts` asserts the view returns without waiting for the version.
+All 444 tests under `lib/managed-apps` pass, and typecheck plus the architecture ratchet are
+unchanged. Browser evidence, per surface, is in the audit recorded for this task.
+
 ## 2026-11-16 — Onboarding stops reporting a hydration mismatch it caused itself
 
 Every signed-in page logged two console errors: "Encountered a script tag while rendering

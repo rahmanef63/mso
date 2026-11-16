@@ -19,6 +19,8 @@ vi.mock("./user-bus", () => ({
 
 const { runProgram, commandExists, resolveCommand } = await import("./runner");
 const { getManagedApp, performManagedAppAction } = await import("./manager");
+const { appVersion, probeAppVersion, forgetAppVersion } = await import("./app-version");
+const { getManagedAppDefinition } = await import("./catalog");
 
 const ok = (stdout: string) => ({ code: 0, stdout, stderr: "" });
 /** systemd 255 on an unknown unit: rc 0 from `show`, LoadState=not-found. */
@@ -150,24 +152,17 @@ describe("detection survives the environment a systemd system unit actually gets
     expect(view.installationType).toBe("package");
   });
 
-  it("runs --version by resolved path, never by bare name", async () => {
-    // version() memoises per app id for 60 s, and earlier tests in this file
-    // already primed hermes. Step past the TTL so this asserts a real call rather
-    // than silently passing on a cache hit.
-    vi.useFakeTimers();
-    try {
-      vi.setSystemTime(new Date(Date.now() + 120_000));
-      systemctl({});
-      vi.mocked(resolveCommand).mockResolvedValue("/home/someone/.local/bin/hermes");
-      await getManagedApp("hermes");
-
-      const versionCall = vi
-        .mocked(runProgram)
-        .mock.calls.find((call) => (call[1] as string[])[0] === "--version");
-      expect(versionCall?.[0]).toBe("/home/someone/.local/bin/hermes");
-    } finally {
-      vi.useRealTimers();
-    }
+  it("never holds the view open for the version string", async () => {
+    // The pane shows "unknown" until a measurement lands, and the panel re-polls.
+    // A first call must therefore return without the probe's answer, not after it.
+    forgetAppVersion("hermes");
+    vi.mocked(resolveCommand).mockResolvedValue("/home/someone/.local/bin/hermes");
+    vi.mocked(runProgram).mockImplementation(async (_command: string, args: readonly string[]) =>
+      (args[0] === "--version" ? ok("Hermes 9.9\n") : NOT_FOUND));
+    const view = await getManagedApp("hermes");
+    expect(view.version).toBeNull();
+    await probeAppVersion(getManagedAppDefinition("hermes"));
+    expect(appVersion(getManagedAppDefinition("hermes"))).toBe("Hermes 9.9");
   });
 });
 
