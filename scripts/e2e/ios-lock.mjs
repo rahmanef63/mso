@@ -118,7 +118,11 @@ try {
       await page.keyboard.press("Enter");
       await expect(face).toHaveCount(0);
       await expect(page.locator('[data-slot="ios-search-pill"]')).toBeFocused();
+      // Unlock removes inert from #shell-main a tick later; clicking while it is still
+      // inert burns the 30s actionability retry. Bound the wait on the real condition.
+      await expect(page.locator("#shell-main")).not.toHaveAttribute("inert", /.*/);
       const tile = page.locator('button[aria-label="Files"]:visible').first();
+      await expect(tile).toBeEnabled();
       await tile.click({ button: "right" });
       const menu = page.locator('[data-slot="ios-quick-actions"]');
       await expect(menu).toBeVisible();
