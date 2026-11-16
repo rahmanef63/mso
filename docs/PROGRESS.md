@@ -7,7 +7,9 @@ could discover the existing PostHog accounts without coupling a read to source i
 
 `integration_query` now has a bounded read-only `broker` view. It uses the exact selected
 credential owner and named connection, projects only account identifiers/status/toolkit,
-and exposes a cursor for complete pagination. It performs no OAuth/session creation,
+and exposes a cursor for complete pagination. Connect keys discover tool schemas on
+the fixed Connect MCP endpoint; Platform keys list account metadata on the Platform API.
+Direct Composio calls also retain the explicit named connection when selecting their key. It performs no OAuth/session creation,
 credential change or provider action. Provider errors omit raw payloads and credentials;
 unknown fields, malformed responses and changing connection revisions fail closed.
 Existing exec/write scope, source isolation and provider mutation guards remain intact.

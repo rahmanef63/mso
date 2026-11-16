@@ -1,3 +1,4 @@
+import { listMcpToolPage } from "@/lib/host/project-mcp-catalog";
 import { callMcpServerTool, listMcpServerTools } from "@/lib/host/project-mcp-client";
 import type { ProjectMcpServer } from "@/lib/host/project-mcp-config";
 import { composioKeyKind } from "./composio";
@@ -64,4 +65,18 @@ export async function callComposioConnectTool(values: InfraProviderValues, tool:
   try { result = await callMcpServerTool(composioConnectServer(values), tool, args); }
   catch (error) { throw new IntegrationError(String(redactConnectValue(error instanceof Error ? error.message : "composio_connect_tool_failed", token)), 502); }
   return redactConnectValue(result, token);
+}
+
+export async function listComposioConnectToolPage(values: InfraProviderValues, cursor?: string) {
+  const token = connectToken(values);
+  try {
+    const page = await listMcpToolPage(composioConnectServer(values), { cursor, limit: 50 });
+    const safe = {
+      tools: page.tools.map(tool => ({ name: tool.name, description: tool.description ?? "", inputSchema: tool.inputSchema })),
+      nextCursor: page.nextCursor ?? null, complete: page.complete,
+    };
+    return redactConnectValue(safe, token) as typeof safe;
+  } catch (error) {
+    throw new IntegrationError(String(redactConnectValue(error instanceof Error ? error.message : "composio_connect_tools_failed", token)), 502);
+  }
 }

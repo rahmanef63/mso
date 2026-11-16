@@ -137,7 +137,7 @@ async function composioOperation(provider:string,selection:ConnectionSelector,op
   // A store that cannot resolve a Composio row for this owner falls through to the
   // Platform path unchanged, which raises its own existing error.
   let values:Record<string,string>|undefined;
-  try{values=await directConnectionValues("composio",{user:selection.user});}catch{values=undefined;}
+  try{values=await directConnectionValues("composio",provider==="composio"?selection:{user:selection.user});}catch{values=undefined;}
   if(values){
     const kind=composioKeyKind(values);
     if(kind==="connect"){

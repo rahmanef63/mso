@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `composio` retain named Connect identity during discovery and execution
 - `integrations` inspect named Composio accounts with read scope
 - `convex` support team access tokens for cloud management
 - `test` honour VITEST_MAX_WORKERS instead of documenting it and ignoring it
