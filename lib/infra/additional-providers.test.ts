@@ -10,13 +10,14 @@ describe("one Convex provider definition", () => {
     const fields = getInfraProviderDefinition("convex").fields;
     const keys = fields.map((field) => field.key);
     // Cloud shape + self-hosted shape live in ONE schema.
-    expect(keys).toEqual(["deploymentKind", "personalToken", "deployKey", "deploymentName", "apiUrl", "adminKey"]);
-    expect(fields.filter((field) => field.secret).map((field) => field.key)).toEqual(["personalToken", "deployKey", "adminKey"]);
+    expect(keys).toEqual(["deploymentKind", "teamToken", "personalToken", "deployKey", "deploymentName", "apiUrl", "adminKey"]);
+    expect(fields.filter((field) => field.secret).map((field) => field.key)).toEqual(["teamToken", "personalToken", "deployKey", "adminKey"]);
     expect(fields.find((field) => field.key === "deploymentKind")?.secret).toBe(false);
   });
 
   it("keeps the existing method ids so a connection still declares HOW it authenticates", () => {
-    expect(setupMethods("convex").map((method) => method.id)).toEqual(["personal", "deployment", "admin"]);
+    expect(setupMethods("convex").map((method) => method.id)).toEqual(["team", "deployment", "admin", "personal"]);
+    expect(setupFields("convex", "team").map((field) => field.key)).toEqual(["teamToken"]);
     expect(setupFields("convex", "personal").map((field) => field.key)).toEqual(["personalToken"]);
     expect(setupFields("convex", "deployment").map((field) => field.key)).toEqual(["deployKey", "deploymentName"]);
     expect(setupFields("convex", "admin").map((field) => field.key)).toEqual(["apiUrl", "adminKey"]);

@@ -37,7 +37,7 @@ export type ConvexMigrationPlan = {
   conflicts: ConvexMigrationConflict[];
 };
 
-const SECRET_KEYS = ["personalToken", "deployKey", "adminKey"] as const;
+const SECRET_KEYS = ["teamToken", "personalToken", "deployKey", "adminKey"] as const;
 
 function legacyRows(state: IntegrationState) {
   const out: { user: string; rows: Record<string, IntegrationConnection> }[] = [];
@@ -99,7 +99,7 @@ export async function migrateConvexConnections(): Promise<ConvexMigrationPlan> {
           ...row,
           id: entry.connection,
           provider: "convex",
-          authMethod: values.deploymentKind === "self-hosted" ? "admin" : row.authMethod === "deployment" ? "deployment" : "personal",
+          authMethod: values.deploymentKind === "self-hosted" ? "admin" : row.authMethod === "deployment" ? "deployment" : row.authMethod === "team" || values.teamToken ? "team" : "personal",
           values,
         },
       };
