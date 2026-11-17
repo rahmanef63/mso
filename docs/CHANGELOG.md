@@ -16,6 +16,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `convex,integrations` resolve regional Convex host and theme native select popups
 
+**Chores**
+
+- `verify` fail closed when bun cannot read lockfileVersion 2
+
 **Other**
 
 - `infra` preserve uncommitted MSO host-password provider draft
