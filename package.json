@@ -48,6 +48,7 @@
     "bench:cache-calibration": "bun scripts/bench-agent-cache.mjs",
     "mcp:catalog": "node scripts/gen-mcp-catalog.mjs",
     "audit:strict": "node scripts/audit.mjs --strict",
+    "audit:native": "node scripts/audit-native-tool.mjs",
     "test:features": "node scripts/test-features.mjs",
     "screenshot:cli": "node scripts/capture-cli.mjs",
     "check:instance-literals": "bun scripts/check-instance-literals.mjs",
