@@ -14,6 +14,7 @@ describe("additional native credential providers", () => {
       expect(m.fields.length).toBeGreaterThan(0); expect(m.guidance.steps.length).toBeGreaterThan(1);
       expect(m.guidance.url).toMatch(/^https:\/\//); expect(m.guidance.reference).toMatch(/^https:\/\//);
     }
+    expect(setupFields("convex-cloud", "team").map(f => f.key)).toEqual(["teamToken"]);
     expect(setupFields("convex-cloud", "personal").map(f => f.key)).toEqual(["personalToken"]);
     expect(setupFields("convex-cloud", "deployment").map(f => f.key)).toEqual(["deployKey", "deploymentName"]);
     expect(() => setupFields("convex-cloud", "organization")).toThrow();

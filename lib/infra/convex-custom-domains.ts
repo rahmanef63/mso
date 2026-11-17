@@ -1,5 +1,5 @@
 import { IntegrationError } from "./identity";
-import { readInfraProvider } from "./store";
+import { convexCloudManagementToken } from "./convex-cloud-key";
 import {
   convexAuthHeaders,
   convexCheckedJson,
@@ -12,18 +12,12 @@ import {
   type FetchLike,
 } from "./convex-cloud-core";
 
-async function personalToken(): Promise<string> {
-  const values = await readInfraProvider("convex-cloud"),
-    token = values.personalToken;
-  if (!token) throw new IntegrationError("convex_personal_token_required", 409);
-  return token;
-}
 export async function listConvexCustomDomains(
   name: string,
   fetchImpl: FetchLike = fetch,
 ) {
   const deployment = convexDeploymentName(name),
-    token = await personalToken();
+    token = await convexCloudManagementToken();
   const body = await convexCheckedJson(
     "convex_cloud",
     convexManagementUrl(deployment, "custom_domains"),
@@ -43,7 +37,7 @@ export async function ensureConvexCustomDomain(
   const deployment = convexDeploymentName(input.deploymentName),
     host = convexDomainName(input.domain),
     requestDestination = convexDestination(input.requestDestination),
-    token = await personalToken();
+    token = await convexCloudManagementToken();
   const beforeBody = await convexCheckedJson(
     "convex_cloud",
     convexManagementUrl(deployment, "custom_domains"),
