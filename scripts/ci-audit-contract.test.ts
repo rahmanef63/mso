@@ -6,7 +6,7 @@ type Step = { name?: string; run?: string; "continue-on-error"?: boolean };
 type Job = { steps: Step[]; permissions?: Record<string, string>; "continue-on-error"?: boolean };
 const workflow = parse(readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8")) as {
   permissions: Record<string, string>;
-  jobs: { verify: Job; "dependency-watch": Job };
+  jobs: Record<string, Job> & { verify: Job; "dependency-watch": Job };
 };
 
 describe("CI dependency audit safeguards", () => {
@@ -23,5 +23,11 @@ describe("CI dependency audit safeguards", () => {
     expect(workflow.jobs["dependency-watch"].steps.some(step => step.run === "bun run audit:strict")).toBe(true);
     expect(workflow.permissions).toEqual({ contents: "read" });
     expect(workflow.jobs.verify.permissions).toBeUndefined();
+  });
+  it("routes the node-gyp bootstrap audit through the recorded waiver list", () => {
+    const runs = Object.values(workflow.jobs).flatMap(job => (job.steps ?? []).map(step => step.run ?? ""));
+    // A raw `npm audit` here bypasses the osv-scanner.toml waivers.
+    expect(runs.filter(run => /^npm audit\b/.test(run))).toEqual([]);
+    expect(workflow.jobs.verify.steps.some(step => step.run === "node scripts/audit-native-tool.mjs")).toBe(true);
   });
 });
