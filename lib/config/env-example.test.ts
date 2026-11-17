@@ -46,6 +46,11 @@ const NOT_A_KNOB: Record<string, string> = {
   SHELL: "the OS's",
   PATH: "standard executable search path inherited by the lifecycle test harness",
   HOME: "the OS's",
+  // Standard OS temp-root variables. vitest.setup.ts repoints them at a harmless
+  // directory on shared hosts; they are never MSO configuration.
+  TMPDIR: "standard OS temp root; vitest.setup.ts repoints it per test worker, never MSO config",
+  TMP: "standard OS temp root; vitest.setup.ts repoints it per test worker, never MSO config",
+  TEMP: "standard OS temp root; vitest.setup.ts repoints it per test worker, never MSO config",
   XDG_RUNTIME_DIR: "set by logind, or by the unit — see lib/managed-apps/user-bus.ts",
   // Standard XDG base directory. Read only as the default parent of the update timer
   // units; MSO_SYSTEMD_USER_DIR is the documented override.
