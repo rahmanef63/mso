@@ -118,7 +118,13 @@ try {
       await page.keyboard.press("Enter");
       await expect(face).toHaveCount(0);
       await expect(page.locator('[data-slot="ios-search-pill"]')).toBeFocused();
-      const tile = page.locator('button[aria-label="Files"]:visible').first();
+      // Off-screen pager pages keep layout (so they match `:visible`) but carry
+      // `inert`, which Playwright 1.65 treats as an actionability gate. Scroll the
+      // tile's page into view first: the pager's scroll handler is what activates
+      // it and clears `inert` for the visible page.
+      const tile = page.locator('button[aria-label="Files"]').first();
+      await tile.scrollIntoViewIfNeeded();
+      await expect(page.locator('section.snap-center:not([inert]) button[aria-label="Files"]').first()).toBeVisible();
       await tile.click({ button: "right" });
       const menu = page.locator('[data-slot="ios-quick-actions"]');
       await expect(menu).toBeVisible();
