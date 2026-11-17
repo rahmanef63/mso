@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-18
 
+**Fixed**
+
+- `gate` waive GHSA-fc5q-39xc-vjpf with a dated, reasoned exception
+
 **Tests**
 
 - `gate` stop the suite inheriting a protected TMPDIR and bound worker fan-out

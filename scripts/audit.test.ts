@@ -64,6 +64,11 @@ describe("dependency audit evidence boundary", () => {
       expect(result.stderr).toContain("GHSA-vfj7-8cjw-p6xm");
     }
   });
+  it("exempts only the dated picomatch waiver", () => {
+    const result = audit(JSON.stringify({ picomatch: [{ severity: "high", url: "https://github.com/advisories/GHSA-fc5q-39xc-vjpf" }] }), 1);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("clean at high/critical. (strict)");
+  });
   it("retries an inconclusive registry probe before giving up", () => {
     const result = audit("{}", 0, true, "1.3.14", 2);
     expect(result.status).toBe(0);

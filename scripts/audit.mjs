@@ -38,7 +38,12 @@ if (process.argv.slice(2).some((arg) => arg !== "--strict")) {
 }
 
 // GHSA/CVE -> reason + acceptance date, only when no upstream fix exists.
-const IGNORE = {};
+const IGNORE = {
+  "GHSA-fc5q-39xc-vjpf": {
+    reason: "picomatch ReDoS; affected <=4.0.7 and 4.0.7 is the current upstream latest, so no patched release exists. Reachable only through dev/build tooling (tinyglobby -> fdir -> picomatch), not from untrusted runtime input.",
+    accepted: "2026-11-18",
+  },
+};
 function unavailable(reason) {
   console.error(`audit: ${reason}; ${STRICT ? "INCOMPLETE (strict gate failed)" : "SKIPPED (not a security pass)"}`);
   process.exit(STRICT ? 2 : 0);
