@@ -30,12 +30,25 @@ const AUDIT_BUDGET_MS = num(process.env.MSO_AUDIT_BUDGET_MS, 90_000);
 const RECEIPT_PATH = process.env.MSO_AUDIT_RECEIPT
   ?? path.join(os.homedir(), ".cache", "mso", "audit-receipt.json");
 const RECEIPT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const LOCKFILE = path.join(process.cwd(), "bun.lock");
-const STRICT = process.argv.includes("--strict");
-if (process.argv.slice(2).some((arg) => arg !== "--strict")) {
-  console.error("usage: node scripts/audit.mjs [--strict]");
+const USAGE = "usage: node scripts/audit.mjs [--dir <path>] [--strict]";
+let dirArg = ".";
+let strictArg = false;
+const argv = process.argv.slice(2);
+for (let i = 0; i < argv.length; i += 1) {
+  if (argv[i] === "--strict") { strictArg = true; continue; }
+  if (argv[i] === "--dir") {
+    dirArg = argv[i + 1] ?? "";
+    if (!dirArg || dirArg.startsWith("--")) { console.error(USAGE); process.exit(2); }
+    i += 1;
+    continue;
+  }
+  if (argv[i].startsWith("--dir=")) { dirArg = argv[i].slice("--dir=".length); continue; }
+  console.error(USAGE);
   process.exit(2);
 }
+const DIR = path.resolve(dirArg);
+const LOCKFILE = path.join(DIR, "bun.lock");
+const STRICT = strictArg;
 
 // GHSA/CVE -> reason + acceptance date, only when no upstream fix exists.
 const IGNORE = {};
@@ -93,7 +106,7 @@ while (attempts < AUDIT_ATTEMPTS) {
   if (remaining <= 0) { sawTimeout = true; break; }
   attempts += 1;
   res = spawnSync("bun", ["audit", "--json"], {
-    encoding: "utf8", timeout: Math.min(AUDIT_TIMEOUT_MS, remaining), killSignal: "SIGTERM",
+    cwd: DIR, encoding: "utf8", timeout: Math.min(AUDIT_TIMEOUT_MS, remaining), killSignal: "SIGTERM",
   });
   if (!inconclusive(res)) break;
   if (res.error?.code === "ETIMEDOUT" || res.signal) sawTimeout = true;

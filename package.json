@@ -72,7 +72,7 @@
     "svelte:check": "cd frontend/svelte && bun run check && bun run test",
     "svelte:build": "cd frontend/svelte && bun run build",
     "svelte:e2e": "cd frontend/svelte && bun run test:browser",
-    "svelte:audit": "cd frontend/svelte && bun audit --audit-level=high"
+    "svelte:audit": "node scripts/audit.mjs --dir=frontend/svelte"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

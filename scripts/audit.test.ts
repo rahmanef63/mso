@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
-function audit(report: string, code = 0, strict = true, version = "1.3.14", flaky = 0, receipt?: string) {
+function audit(report: string, code = 0, strict = true, version = "1.3.14", flaky = 0, receipt?: string, dir?: string) {
   const root = mkdtempSync(path.join(tmpdir(), "mso-audit-contract-"));
   chmodSync(root, 0o700); roots.push(root);
   const bin = path.join(root, "bin"); mkdirSync(bin);
@@ -22,7 +22,7 @@ process.stdout.write(process.env.FIXTURE_REPORT ?? '');
 process.stderr.write('private-registry-diagnostic');
 process.exit(Number(process.env.FIXTURE_EXIT));
 `, { mode: 0o700 });
-  return spawnSync(process.execPath, [path.join(process.cwd(), "scripts/audit.mjs"), ...(strict ? ["--strict"] : [])], {
+  return spawnSync(process.execPath, [path.join(process.cwd(), "scripts/audit.mjs"), ...(strict ? ["--strict"] : []), ...(dir ? ["--dir", dir] : [])], {
     encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env.PATH}`,
       FIXTURE_BUN_VERSION: version, FIXTURE_REPORT: report, FIXTURE_EXIT: String(code),
       FIXTURE_FLAKY: String(flaky), FIXTURE_COUNTER: path.join(root, "counter"),
@@ -94,5 +94,17 @@ describe("dependency audit evidence boundary", () => {
   it("applies the documented high/critical threshold to a valid lower-severity report", () => {
     const result = audit(JSON.stringify({ example: [{ severity: "moderate", id: 1 }] }), 1);
     expect(result.status).toBe(0); expect(result.stdout).toContain("clean at high/critical");
+  });
+  it("honours --dir by auditing that directory's lockfile", () => {
+    const parent = mkdtempSync(path.join(tmpdir(), "mso-audit-dir-")); chmodSync(parent, 0o700); roots.push(parent);
+    const sub = path.join(parent, "nested"); mkdirSync(sub);
+    writeFileSync(path.join(sub, "bun.lock"), "{}\n");
+    const receipt = path.join(parent, "receipt.json");
+    const result = audit("{}", 0, true, "1.3.14", 0, receipt, sub);
+    expect(result.status).toBe(0); expect(result.stdout).toContain("clean");
+  });
+  it("fails closed on an unknown argument", () => {
+    const result = spawnSync(process.execPath, [path.join(process.cwd(), "scripts/audit.mjs"), "--bogus"], { encoding: "utf8" });
+    expect(result.status).toBe(2); expect(result.stderr).toContain("usage:");
   });
 });
