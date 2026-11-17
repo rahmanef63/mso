@@ -28,3 +28,25 @@ Re-check on expiry: if @sveltejs/vite-plugin-svelte ships a release that drops
 or replaces deepmerge, upgrade and delete this entry. Do not extend the date
 without recording why the upstream situation changed or did not.
 """
+
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2026-12-14T00:00:00Z
+reason = """
+picomatch ReDoS (GHSA-fc5q-39xc-vjpf, CVSS 8.7). Affected is <=4.0.7 and 4.0.7 is
+the current npm latest, so no patched release exists to upgrade to. The package
+reaches this repo only through dev/build tooling (tinyglobby -> fdir ->
+picomatch) pulled in by vite, vitest and eslint-config-next. Those build tools
+glob local source paths; this repo never passes untrusted runtime input to a glob
+matcher, and nothing in this chain ships to the running server.
+
+The chain is verified in bun.lock:
+  picomatch@4.0.7 <- tinyglobby@0.2.17 <- dev
+
+The same waiver is recorded in scripts/audit.mjs so the native bun audit and this
+OSV scan agree; scripts/audit-exceptions.mjs re-verifies this chain.
+
+Re-check on expiry: when picomatch ships a release past 4.0.7, upgrade and delete
+this entry. Do not extend the date without recording why the upstream situation
+changed or did not.
+"""

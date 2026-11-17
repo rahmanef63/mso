@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `gate` cover GHSA-fc5q-39xc-vjpf in all three audit mechanisms
 - `gate` route svelte:audit through scripts/audit.mjs so one waiver map governs both audits
 - `gate` waive GHSA-fc5q-39xc-vjpf with a dated, reasoned exception
 
