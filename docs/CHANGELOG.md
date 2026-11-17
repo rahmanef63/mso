@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `host` read the disk gauge from a readable root, and load preset fonts
 
+**Tests**
+
+- `auth` keep the device-store CLI test off the owner's real store
+
 ## 2026-11-16
 
 **Fixed**
