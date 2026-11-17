@@ -87,7 +87,7 @@ export function isConvexDeploymentKind(value: unknown): value is ConvexDeploymen
 }
 
 /** Secret keys a Convex connection may carry. Values move between THESE keys only. */
-export const CONVEX_SECRET_KEYS = ["personalToken", "deployKey", "adminKey"] as const;
+export const CONVEX_SECRET_KEYS = ["teamToken", "personalToken", "deployKey", "adminKey"] as const;
 const CONVEX_PUBLIC_KEYS = ["deploymentName", "apiUrl"] as const;
 
 /**

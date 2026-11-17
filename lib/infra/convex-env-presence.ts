@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { obj } from "./http";
 import { IntegrationError } from "./identity";
-import { readInfraProvider } from "./store";
+import { convexCloudManagementToken } from "./convex-cloud-key";
 import {
   convexAuthHeaders,
   convexCheckedJson,
@@ -20,18 +20,13 @@ function requestedNames(value: unknown): string[] {
     throw new IntegrationError("invalid_convex_env_names");
   return names;
 }
-async function personalToken(): Promise<string> {
-  const token = (await readInfraProvider("convex-cloud")).personalToken;
-  if (!token) throw new IntegrationError("convex_personal_token_required", 409);
-  return token;
-}
 export async function getConvexEnvPresence(
   input: { deploymentName: string; names: string[] },
   fetchImpl: FetchLike = fetch,
 ) {
   const deployment = convexDeploymentName(input.deploymentName),
     names = requestedNames(input.names),
-    token = await personalToken(),
+    token = await convexCloudManagementToken(),
     keyName = `mso-env-presence-${randomUUID()}`;
   const created = obj(
     await convexCheckedJson(

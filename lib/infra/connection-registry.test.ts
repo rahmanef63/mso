@@ -26,7 +26,7 @@ describe("integration connection registry", () => {
     // One catalog entry, and its methods still declare HOW it authenticates.
     const rows = connectionCatalog().filter((row) => row.id === "convex");
     expect(rows).toHaveLength(1);
-    expect(rows[0].sources.find((s) => s.id === "direct")!.methods.map((m) => m.id)).toEqual(["personal", "deployment", "admin"]);
+    expect(rows[0].sources.find((s) => s.id === "direct")!.methods.map((m) => m.id)).toEqual(["team", "deployment", "admin", "personal"]);
   });
 
   it("resolves the convex-cloud alias to convex in exactly one place", () => {
@@ -50,6 +50,7 @@ describe("integration connection registry", () => {
     // Legacy rows predate the field entirely.
     expect(convexDeploymentKind({ apiUrl: "https://api.example.test", adminKey: "k" })).toBe("self-hosted");
     expect(convexDeploymentKind({ personalToken: "pat" })).toBe("cloud");
+    expect(convexDeploymentKind({ teamToken: "team-token" })).toBe("cloud");
     expect(convexDeploymentKind({ deployKey: "key", deploymentName: "happy-otter-123" })).toBe("cloud");
     // An explicit value wins over the inference, and no third kind is invented.
     expect(convexDeploymentKind({ deploymentKind: "cloud", apiUrl: "https://api.example.test" })).toBe("cloud");

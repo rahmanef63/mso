@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { obj } from "./http";
 import { IntegrationError } from "./identity";
-import { readInfraProvider } from "./store";
+import { convexCloudManagementToken } from "./convex-cloud-key";
 import {
   convexAuthHeaders,
   convexCanonicalOrigin,
@@ -20,12 +20,6 @@ const EPHEMERAL_ACTIONS = [
   "deployment:env:view",
   "deployment:env:write",
 ] as const;
-async function personalToken(): Promise<string> {
-  const values = await readInfraProvider("convex-cloud"),
-    token = values.personalToken;
-  if (!token) throw new IntegrationError("convex_personal_token_required", 409);
-  return token;
-}
 async function withEphemeralDeployKey<T>(
   deployment: string,
   token: string,
@@ -85,7 +79,7 @@ export async function getConvexCanonicalUrls(
   fetchImpl: FetchLike = fetch,
 ) {
   const deployment = convexDeploymentName(name),
-    token = await personalToken();
+    token = await convexCloudManagementToken();
   const canonical = await withEphemeralDeployKey(
     deployment,
     token,
@@ -113,7 +107,7 @@ export async function setConvexCanonicalUrl(
   const deployment = convexDeploymentName(input.deploymentName),
     requestDestination = convexDestination(input.requestDestination),
     url = convexCanonicalOrigin(input.url),
-    token = await personalToken();
+    token = await convexCloudManagementToken();
   if (url) {
     const body = await convexCheckedJson(
       "convex_cloud",

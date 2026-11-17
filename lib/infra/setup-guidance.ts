@@ -3,17 +3,18 @@ import { ADDITIONAL_GUIDANCE, type AdditionalProviderId } from "./additional-pro
 import { getInfraProviderDefinition, resolveProviderId } from "./catalog";
 import type { InfraProviderId, InfraProviderRef } from "./types";
 
-export const SETUP_METHOD_IDS = ["direct", "project", "organization", "personal", "deployment", "admin", "mail", "payment", "mcp", "oauth-app", "oauth2"] as const;
+export const SETUP_METHOD_IDS = ["direct", "project", "organization", "team", "personal", "deployment", "admin", "mail", "payment", "mcp", "oauth-app", "oauth2"] as const;
 export type SetupMethod = typeof SETUP_METHOD_IDS[number];
-/** One Convex product, two credential shapes; every pre-collapse method id survives. */
+/** One Convex provider supports team, legacy personal, deployment and self-hosted credentials. */
 const CONVEX_FIELD_KEYS: Record<string, string[] | null> = {
+  team: ["teamToken"],
   personal: ["personalToken"],
   deployment: ["deployKey", "deploymentName"],
   admin: ["apiUrl", "adminKey"],
   direct: null, // pre-collapse self-hosted rows keep their declared requirements
 };
 function convexFields(provider: InfraProviderId, method: SetupMethod) {
-  if (!(method in CONVEX_FIELD_KEYS)) throw new Error("Choose a Convex personal token, deployment key or self-hosted admin key");
+  if (!(method in CONVEX_FIELD_KEYS)) throw new Error("Choose a Convex team token, legacy personal token, deployment key or self-hosted admin key");
   const keys = CONVEX_FIELD_KEYS[method];
   // Method fields stay CREDENTIAL fields only. `deploymentKind` is a non-secret
   // routing fact on the provider definition; it is not asked for per method and is
@@ -52,7 +53,7 @@ function fieldsFor(provider: InfraProviderId, method: SetupMethod) {
 }
 export function setupMethod(provider: InfraProviderRef, method?: string): SetupMethod {
   const canonical = resolveProviderId(provider) ?? throwUnsupported();
-  const value = method ?? (canonical === GOOGLE_APP_PROVIDER ? "oauth-app" : isGoogleProvider(canonical) ? "oauth2" : canonical === "composio" ? "project" : canonical === "convex" ? "personal" : canonical === "doku" ? "mcp" : "direct");
+  const value = method ?? (canonical === GOOGLE_APP_PROVIDER ? "oauth-app" : isGoogleProvider(canonical) ? "oauth2" : canonical === "composio" ? "project" : canonical === "convex" ? "team" : canonical === "doku" ? "mcp" : "direct");
   if (!(SETUP_METHOD_IDS as readonly string[]).includes(value)) throw new Error("Unsupported authentication method");
   fieldsFor(canonical, value as SetupMethod);
   return value as SetupMethod;
@@ -65,7 +66,7 @@ export function setupMethods(provider: InfraProviderRef): Array<{id: SetupMethod
   if (isGoogleProvider(id)) return [{ id: "oauth2", label: "Native Google OAuth · read-only" }];
   if (id === "hostinger") return [{ id: "direct", label: "Account API token" }, { id: "mail", label: "Scoped Mail API token" }];
   if (id === "composio") return [{ id: "project", label: "Project API key" }, { id: "organization", label: "Organization API key" }];
-  if (id === "convex") return [{ id: "personal", label: "Convex Cloud · personal access token" }, { id: "deployment", label: "Convex Cloud · deployment key" }, { id: "admin", label: "Self-hosted · deployment URL + admin key" }];
+  if (id === "convex") return [{ id: "team", label: "Convex Cloud · team access token (recommended)" }, { id: "deployment", label: "Convex Cloud · deployment key" }, { id: "admin", label: "Self-hosted · deployment URL + admin key" }, { id: "personal", label: "Convex Cloud · personal token (legacy)" }];
   if (id === "doku") return [{id:"payment",label:"Payment REST · Client ID + Secret Key"},{id:"mcp",label:"MCP · Client ID + API Key"}];
   return [{ id: "direct", label: "Direct credential" }];
 }

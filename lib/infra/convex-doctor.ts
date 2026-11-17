@@ -5,7 +5,7 @@ import { request, TIMEOUT_MS } from "./http";
  * Convex has ONE provider and two credential shapes. The doctor therefore picks
  * its probe from the stored SHAPE, never from a provider id:
  *  - `apiUrl` present ⇒ self-hosted deployment (admin key at /api/check_admin_key)
- *  - otherwise ⇒ Convex Cloud (deployment key + name, or a personal access token)
+ *  - otherwise ⇒ Convex Cloud (deployment key + name, team token or legacy personal token)
  *
  * "Deployment unreachable" and "admin key rejected" are deliberately different
  * messages: an operator fixes a different thing in each case. `Convex HTTP <status>`
@@ -73,6 +73,15 @@ export async function doctorConvex(values: Record<string, string>): Promise<stri
     if (!present(values.deployKey) || !present(values.deploymentName)) return null;
     await checked("Convex Cloud", cloudDeploymentInfoUrl(values.deploymentName), { authorization: `Convex ${values.deployKey}`, accept: "application/json" });
     return "authenticated; deployment access verified";
+  }
+  // Team access tokens must be checked through token_details, never the
+  // PAT-only list_personal_access_tokens endpoint (which may return 403).
+  if (present(values.teamToken)) {
+    const response = await checked("Convex Cloud", "https://api.convex.dev/v1/token_details", { authorization: "Bearer " + values.teamToken, accept: "application/json" });
+    const details = response.body;
+    if (!details || typeof details !== "object" || Array.isArray(details) || (details as Record<string, unknown>).type !== "teamToken")
+      throw new Error("Convex Cloud token_details did not identify a team access token");
+    return "team access token authenticated; team identity verified";
   }
   // The official OpenAPI explicitly declares PAT authentication here. Only
   // authentication status escapes; the token inventory is discarded.

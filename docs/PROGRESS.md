@@ -1,3 +1,19 @@
+## 2026-11-16 — Read Composio account inventory without a source-changing workflow
+
+Named Composio project keys could be configured, but the agent could only inspect local
+connection metadata or use a mixed exec-scope tool. A provider-only workflow had no Git
+workspace, while binding it to a dirty owner repository refused startup. Neither path
+could discover the existing PostHog accounts without coupling a read to source isolation.
+
+`integration_query` now has a bounded read-only `broker` view. It uses the exact selected
+credential owner and named connection, projects only account identifiers/status/toolkit,
+and exposes a cursor for complete pagination. Connect keys discover tool schemas on
+the fixed Connect MCP endpoint; Platform keys list account metadata on the Platform API.
+Direct Composio calls also retain the explicit named connection when selecting their key. It performs no OAuth/session creation,
+credential change or provider action. Provider errors omit raw payloads and credentials;
+unknown fields, malformed responses and changing connection revisions fail closed.
+Existing exec/write scope, source isolation and provider mutation guards remain intact.
+
 ## 2026-11-16 — Onboarding stops reporting a hydration mismatch it caused itself
 
 Every signed-in page logged two console errors: "Encountered a script tag while rendering
