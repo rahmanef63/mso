@@ -4,10 +4,14 @@ import { HostError } from "@/lib/host/host-error";
 const mocks = vi.hoisted(() => ({
   verifyAuth: vi.fn(async () => true),
   usage: vi.fn(async () => ({ used: 1024, total: 4096 })),
+  usageDefaultPath: vi.fn(() => "/home/owner/projects"),
 }));
 
 vi.mock("@/lib/agent/server", () => ({ verifyAuth: mocks.verifyAuth }));
-vi.mock("@/lib/host/fs-api", () => ({ usage: mocks.usage }));
+vi.mock("@/lib/host/fs-api", () => ({
+  usage: mocks.usage,
+  usageDefaultPath: mocks.usageDefaultPath,
+}));
 
 import { GET } from "./route";
 
@@ -45,11 +49,15 @@ describe("GET /api/v1/fs/usage", () => {
     expect(await res.json()).toEqual({ error: "Not found" });
   });
 
-  it("defaults to ~ when path parameter is omitted", async () => {
+  it("defaults to a configured readable root, not bare ~", async () => {
+    // `~` is outside the default read roots, so defaulting to it made this route
+    // fail closed for every caller that omitted the parameter.
     const res = await get();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ used: 1024, total: 4096 });
-    expect(mocks.usage).toHaveBeenCalledWith("~");
+    expect(mocks.usageDefaultPath).toHaveBeenCalled();
+    expect(mocks.usage).toHaveBeenCalledWith("/home/owner/projects");
+    expect(mocks.usage).not.toHaveBeenCalledWith("~");
   });
 
   it("reads usage for a custom valid path", async () => {
