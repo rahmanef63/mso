@@ -134,9 +134,13 @@ function contentSecurityPolicy(nonce: string, frameable = false): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${DEV_SCRIPT_SRC}`,
-    "style-src 'self' 'unsafe-inline'",
+    // Appearance presets name families the app does not bundle; fonts.ts injects
+    // one fonts.googleapis.com stylesheet and the files come from
+    // fonts.gstatic.com. Allowing both is data-only (style/font), so script-src
+    // stays nonce+strict-dynamic below.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
     "connect-src 'self' https://staticimgly.com blob: data:",
     "worker-src 'self' blob:",
     "child-src 'self' blob:",
