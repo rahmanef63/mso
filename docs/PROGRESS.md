@@ -1,3 +1,18 @@
+## 2026-11-18 — The audit waiver finally expires on its own
+
+`scripts/audit.mjs` carried `accepted: "2026-11-18"` next to the picomatch waiver, and
+nothing read it. Setting that date to 2020 still printed `clean at high/critical` and
+exited 0 under `--strict`, so the one waiver in the repository was permanent in
+practice while `osv-scanner.toml` and `scripts/audit-native-tool.mjs` both enforced
+theirs. A waiver nobody can outlive is not a review, it is a suppression.
+
+The rule now lives in `scripts/lib/audit-waivers.mjs`: expiry is 90 days after
+acceptance, an unparseable date counts as expired, and the check runs before the
+registry probe so a network failure cannot be what hides a stale exception. With the
+date in the tree that is 2027-02-16. `scripts/lib/audit-waivers.test.ts` pins the
+boundary (day 89 valid, day 90 expired) and the negative control fails with
+`expired waiver(s) in scripts/audit.mjs`.
+
 ## 2026-11-16 — Read Composio account inventory without a source-changing workflow
 
 Named Composio project keys could be configured, but the agent could only inspect local
