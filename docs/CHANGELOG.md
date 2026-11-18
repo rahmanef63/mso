@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `host,ui` rebase #314 onto main — readable disk root, preset font CSP, off the owner's device store (#326)
 - `managed-apps` rebase #323 onto main so the thin-surface fix can land (#325)
 - `gate` one audit waiver record, one expiry rule, no withdrawn waivers (#327)
 
@@ -28,16 +29,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Other**
 
 - `infra` preserve uncommitted MSO host-password provider draft
-
-## 2026-11-17
-
-**Fixed**
-
-- `host` read the disk gauge from a readable root, and load preset fonts
-
-**Tests**
-
-- `auth` keep the device-store CLI test off the owner's real store
 
 ## 2026-11-16
 
@@ -1315,3 +1306,52 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Added**
 
 - `mcp` expose complete ChatGPT tool surface
+
+## 2026-09-09
+
+**Added**
+
+- `integrations` unify semantic credential management
+- add bounded Dokploy Dockerfile build operation
+- `mcp` add session cards, readable logs and handover guide
+- split MCP access and add plugin registry
+
+**Fixed**
+
+- `mcp` keep ChatGPT Page iframe-free
+- `mcp` make Page surface registry instance-dynamic
+- `update` harden release verification and settings UX
+- `auth` harden browser session persistence
+- `integrations` synchronize owner-local SC credential snapshots
+- `security` eliminate parser gaps and enforce strict SAST coverage
+- `gateway` wait for launcher handoff before tracking tunnel identity
+- `build` separate runtime inputs and clarify mobile MCP guides
+- `a11y` label settings controls and expose selected options
+- `settings` clarify MCP navigation and enforce zero-warning tests
+- persist the ready tunnel process identity after launcher exec
+- reject login redirects normalized into external destinations
+- isolate legacy browser credentials and close scanner findings
+- keep the session mode badge clear of mobile navigation
+- harden audited execution, integrations and release journeys
+
+**Faster**
+
+- `mcp` bound active session refresh to live leases
+
+**Changed**
+
+- `gateway` keep provisional readiness with pending lifecycle
+
+**Tests**
+
+- `pty` wait for terminal output to drain after exit
+- remove obsolete preview directory configuration
+- validate the bundle fixture before checking tag rejection
+- stabilize authenticated release journeys and retain build failure logs
+- distinguish desktop dock launch from icon selection
+- target accessible launchers and clarify delegated sign-in
+
+**Docs**
+
+- record extended production browser verification
+- record audit remediation verification and limits
