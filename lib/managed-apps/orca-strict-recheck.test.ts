@@ -23,7 +23,7 @@ vi.mock("./orca-installation", async (importOriginal) => {
 
 const { runProgram } = await import("./runner");
 const { detectOrca } = await import("./orca-installation");
-const { assertManagedAppStopped } = await import("./manager");
+const { assertManagedAppStopped, getManagedApp } = await import("./manager");
 
 describe("assertManagedAppStopped strict Orca recheck", () => {
   beforeEach(() => {
@@ -66,5 +66,35 @@ describe("assertManagedAppStopped strict Orca recheck", () => {
     });
 
     await expect(assertManagedAppStopped("orca")).rejects.toThrow(/install state cannot prove absence/);
+  });
+});
+
+describe("an owned Orca reports the version its receipt already proved", () => {
+  beforeEach(() => {
+    vi.mocked(runProgram).mockReset();
+    vi.mocked(detectOrca).mockReset();
+    vi.mocked(detectOrca).mockResolvedValue({
+      type: "systemd",
+      serviceName: "mso-orca.service",
+      serviceNames: ["mso-orca.service"],
+      owned: true,
+      version: "1.4.230",
+    });
+    // Detection verified the release; nothing here may fork the adapter again.
+    vi.mocked(runProgram).mockImplementation(async (cmd: string, args: readonly string[]) => {
+      if (cmd === "systemctl" && args.includes("show")) {
+        return { code: 0, stdout: "LoadState=loaded\nActiveState=active\n", stderr: "" };
+      }
+      return { code: 0, stdout: "", stderr: "" };
+    });
+  });
+
+  it("uses the proven version instead of re-probing with --version", async () => {
+    // The display probe caps at 4 s; Orca's own --version rehash needs about 8 s here,
+    // so a second fork can only ever answer null and the pane showed "unknown".
+    const app = await getManagedApp("orca", { settledVersion: true });
+    expect(app.version).toBe("1.4.230");
+    const forked = vi.mocked(runProgram).mock.calls.filter((call) => (call[1] as string[])[0] === "--version");
+    expect(forked).toEqual([]);
   });
 });
