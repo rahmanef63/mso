@@ -19,6 +19,14 @@ describe("CI dependency audit safeguards", () => {
     expect(steps.some(step => /^bun audit\b/.test(step.run ?? ""))).toBe(false);
     expect(workflow.jobs.verify["continue-on-error"]).toBeUndefined();
   });
+  it("runs the isolated Svelte audit strictly so a registry outage cannot pass the gate", () => {
+    const steps = workflow.jobs.verify.steps;
+    const svelte = steps.find(step => /svelte:audit/.test(step.run ?? ""));
+    expect(svelte).toBeDefined();
+    // Non-strict audit.mjs exits 0 on an unreachable registry. A CI gate must not.
+    expect(svelte!.run).toBe("bun run svelte:check && bun run svelte:build && bun run svelte:audit:strict");
+    expect(svelte!["continue-on-error"]).toBeUndefined();
+  });
   it("retains scheduled strict auditing and read-only workflow authority", () => {
     expect(workflow.jobs["dependency-watch"].steps.some(step => step.run === "bun run audit:strict")).toBe(true);
     expect(workflow.permissions).toEqual({ contents: "read" });
