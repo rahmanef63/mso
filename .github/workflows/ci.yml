@@ -49,7 +49,7 @@ jobs:
         run: bun run svelte:install
 
       - name: Check and build isolated Svelte entry
-        run: bun run svelte:check && bun run svelte:build && bun run svelte:audit
+        run: bun run svelte:check && bun run svelte:build && bun run svelte:audit:strict
 
       - name: Validate native dependency
         run: node -e "require('node-pty')"
