@@ -20,6 +20,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `infra` keep an operator host literal out of the portable source
 
+**Chores**
+
+- `verify` fail closed when the bun runtime cannot read lockfileVersion 2 (#317)
+
 ## 2026-11-18
 
 **Fixed**
