@@ -58,6 +58,16 @@ export function appVersion(definition: ManagedAppDefinition): string | null {
   return hit?.value ?? null;
 }
 
+/** The settled version, for the one caller that can afford to wait: the single-app
+ *  route behind `mso mapp show` and the Details pane. A list stays on appVersion(),
+ *  so its first paint is never held; a reader of ONE app gets the real string
+ *  instead of the null a cold cache would report as "unknown". */
+export async function settledAppVersion(definition: ManagedAppDefinition): Promise<string | null> {
+  const hit = cache.get(definition.id);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+  return probeAppVersion(definition);
+}
+
 /** An install/restart is the only thing that can move the string. */
 export function forgetAppVersion(id: ManagedAppId): void {
   cache.delete(id);

@@ -37,6 +37,11 @@ export type ManagedInstallation = {
   containerNames?: string[];
   /** True only for MSO's exact owned USER unit (fixed path, marker + argv, no symlink). */
   owned?: boolean;
+  /** Version string this detection ALREADY proved (Orca's receipt rehash prints it).
+   *  Present means the view must use it instead of forking `<command> --version` a
+   *  second time: that rehash costs about 8 s here and cannot finish inside the
+   *  display-probe cap, so the pane used to show "unknown" for an owned install. */
+  version?: string;
   /** Operator-facing reason a same-name/partial install was refused. */
   diagnostic?: string | null;
 };
@@ -153,7 +158,7 @@ export async function detectOrca({ env = process.env, home = os.homedir(), adapt
   const version = root !== null ? await verifiedInstallVersion(root, adapterPath, freshVerification) : null;
 
   if (unitIsOurs && version) {
-    return { type: "systemd", serviceName: ORCA_SERVICE, serviceNames: [ORCA_SERVICE], owned: true };
+    return { type: "systemd", serviceName: ORCA_SERVICE, serviceNames: [ORCA_SERVICE], owned: true, version };
   }
 
   const diagnostic = !rootResult.ok

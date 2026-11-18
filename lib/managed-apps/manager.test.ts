@@ -163,6 +163,8 @@ describe("detection survives the environment a systemd system unit actually gets
     expect(view.version).toBeNull();
     await probeAppVersion(getManagedAppDefinition("hermes"));
     expect(appVersion(getManagedAppDefinition("hermes"))).toBe("Hermes 9.9");
+    // A reader of ONE app can afford the probe, and null there reads as "unknown".
+    await expect(getManagedApp("hermes", { settledVersion: true })).resolves.toMatchObject({ version: "Hermes 9.9" });
   });
 });
 
