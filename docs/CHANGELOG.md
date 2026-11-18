@@ -12,6 +12,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `security` drop the deepmerge OSV waiver, withdrawn upstream
 - `gate` drop the waiver for the withdrawn picomatch advisory
 
+**Changed**
+
+- `gate` keep the exception checker under the file-size ratchet
+
 **Tests**
 
 - `infra` keep an operator host literal out of the portable source
