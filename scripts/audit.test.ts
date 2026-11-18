@@ -64,10 +64,12 @@ describe("dependency audit evidence boundary", () => {
       expect(result.stderr).toContain("GHSA-vfj7-8cjw-p6xm");
     }
   });
-  it("exempts only the dated picomatch waiver", () => {
+  it("no longer exempts the withdrawn picomatch advisory", () => {
+    // GHSA-fc5q-39xc-vjpf was withdrawn upstream on 2026-11-18T15:38:56Z, so the
+    // dated waiver was deleted. If the registry ever reports it again it must fail.
     const result = audit(JSON.stringify({ picomatch: [{ severity: "high", url: "https://github.com/advisories/GHSA-fc5q-39xc-vjpf" }] }), 1);
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("clean at high/critical. (strict)");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("GHSA-fc5q-39xc-vjpf");
   });
   it("retries an inconclusive registry probe before giving up", () => {
     const result = audit("{}", 0, true, "1.3.14", 2);

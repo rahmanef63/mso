@@ -1,3 +1,19 @@
+## 2026-11-19 — A withdrawn advisory stops holding a waiver slot
+
+GHSA-fc5q-39xc-vjpf (picomatch ReDoS) was withdrawn upstream at
+2026-11-18T15:38:56Z. `bun audit` no longer reports it, so `node scripts/audit.mjs
+--strict` was already exiting 0 before this change; the three waiver records still
+in the tree (osv-scanner.toml, the `IGNORE` map in scripts/audit.mjs, the `EXPECTED`
+list in scripts/audit-exceptions.mjs) described a fact that had stopped being true.
+A waiver for an advisory nobody reports is not extra safety, it is a stale
+suppression that silently widens the next time the same id is reused.
+
+The three picomatch records are deleted. The expiry machinery from the previous
+commit is untouched and still fails closed: a waiver absent from the lockfile, an
+empty or unparseable registry report, an unwaived critical advisory and a waiver
+accepted on 2020-01-01 all exit non-zero. The deepmerge exception
+(GHSA-gcqx-w48m-w2h4) stays: it is still open and still unfixed.
+
 ## 2026-11-18 — The audit waiver finally expires on its own
 
 `scripts/audit.mjs` carried `accepted: "2026-11-18"` next to the picomatch waiver, and

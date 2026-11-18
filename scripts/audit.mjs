@@ -54,12 +54,12 @@ const STRICT = strictArg;
 // GHSA/CVE -> reason + acceptance date, only when no upstream fix exists.
 // `accepted` is enforced: scripts/lib/audit-waivers.mjs expires it, so a waiver
 // cannot become permanent by being forgotten.
-const IGNORE = {
-  "GHSA-fc5q-39xc-vjpf": {
-    reason: "picomatch ReDoS; affected <=4.0.7 and 4.0.7 is the current upstream latest, so no patched release exists. Reachable only through dev/build tooling (tinyglobby -> fdir -> picomatch), not from untrusted runtime input.",
-    accepted: "2026-11-18",
-  },
-};
+//
+// Empty is the expected state. The last entry (GHSA-fc5q-39xc-vjpf, picomatch) was
+// withdrawn upstream on 2026-11-18T15:38:56Z, so `bun audit` no longer reports it and
+// the waiver stopped describing reality. Re-add an entry only with a reasoned reason
+// and a real acceptance date; the expiry check below keeps it temporary.
+const IGNORE = {};
 const STALE_WAIVERS = expiredWaivers(IGNORE);
 if (STALE_WAIVERS.length) {
   // Checked before any network call: an expired exception is local evidence, and a

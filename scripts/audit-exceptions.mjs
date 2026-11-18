@@ -30,17 +30,6 @@ const EXPECTED = [
     chain: ["@sveltejs/vite-plugin-svelte"],
     dev: true,
   },
-  {
-    // Only bun.lock is checked here. The same picomatch copy also sits in
-    // scripts/install/node-gyp/package-lock.json, whose prod block is scanned
-    // separately by `npm audit --prefix scripts/install/node-gyp --omit=dev`
-    // in CI, so a second lockfile reader would add no coverage.
-    id: "GHSA-fc5q-39xc-vjpf",
-    package: "picomatch",
-    lockfile: "bun.lock",
-    chain: ["tinyglobby"],
-    dev: true,
-  },
 ];
 
 function fail(message) {
