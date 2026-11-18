@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-19
+
+**Tests**
+
+- `infra` keep an operator host literal out of the portable source
+
 ## 2026-11-18
 
 **Fixed**
@@ -1339,19 +1345,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - record extended production browser verification
 - record audit remediation verification and limits
-
-## 2026-09-08
-
-**Added**
-
-- `desktop` give Finder, Explorer and Settings native platform layouts
-
-**Fixed**
-
-- `portability` allow configured auth query
-- `portability` derive instance MCP context
-- `integrations` verify self-hosted Convex admin keys
-
-**Chores**
-
-- standardize bun 1.4.2

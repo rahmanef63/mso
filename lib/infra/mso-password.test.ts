@@ -21,8 +21,8 @@ describe("mso-password", () => {
 
   it("normalises the host to a bare lowercase hostname", () => {
     expect(normalizeInfraValues("mso-password", {
-      host: "  MSO.Rahmanef.COM ", password: "x", expiresAt: "0",
-    }).host).toBe("mso.rahmanef.com");
+      host: "  MSO.Example.COM ", password: "x", expiresAt: "0",
+    }).host).toBe("mso.example.com");
   });
 
   it.each([
