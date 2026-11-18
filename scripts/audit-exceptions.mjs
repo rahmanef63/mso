@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-// Guard for the single recorded OSV exception in osv-scanner.toml.
+// Verifies the reviewed OSV exceptions recorded in osv-scanner.toml.
+//
+// There are currently none, so this check passes only while that stays true.
 //
 // osv-scanner's IgnoredVulns suppresses an advisory by id, which means a future
 // copy of that advisory under a different parent would also be silenced. This
-// check narrows it back to the decision actually reviewed: the advisory must
-// still exist, must still be unfixed upstream, and must still reach only the one
-// dev-only lockfile through the one build toolchain named in the reason.
+// check narrows each entry back to the decision actually reviewed: the advisory
+// must still exist, must still be unfixed upstream, and must still reach only the
+// named dev-only lockfile through the named build toolchain.
 //
 //   node scripts/audit-exceptions.mjs          # verify
 //   node scripts/audit-exceptions.mjs --check  # same; used by the gates
@@ -19,18 +21,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONFIG = path.join(ROOT, "osv-scanner.toml");
 
-/** The one exception this repo allows, with the chain that justifies it. */
-const EXPECTED = [
-  {
-    id: "GHSA-gcqx-w48m-w2h4",
-    package: "deepmerge",
-    lockfile: "frontend/svelte/bun.lock",
-    // Every parent must be one of these, and each must be a dev-only tool.
-    // A production dependency appearing here is a defect, not a wider exception.
-    chain: ["@sveltejs/vite-plugin-svelte"],
-    dev: true,
-  },
-];
+/** Reviewed exceptions this repo allows, each with the chain that justifies it. */
+const EXPECTED = [];
 
 function fail(message) {
   console.error(`audit-exceptions: ${message}`);
