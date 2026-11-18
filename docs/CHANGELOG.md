@@ -10,6 +10,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `security` record the one live Trivy waiver, drop the scanner coupling
 - `security` drop the deepmerge OSV waiver, withdrawn upstream
+- `gate` drop the waiver for the withdrawn picomatch advisory
 
 **Tests**
 
@@ -22,7 +23,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `gate` run the isolated Svelte audit strictly in CI
 - `gate` audit the node-gyp bootstrap through the recorded waivers
 - `gate` route svelte:audit through scripts/audit.mjs so one waiver map governs both audits
+- `gate` enforce the expiry of the dependency-audit waivers
 - `convex,integrations` resolve regional Convex host and theme native select popups
+- `gate` cover GHSA-fc5q-39xc-vjpf in all three audit mechanisms
+- `gate` waive GHSA-fc5q-39xc-vjpf with a dated, reasoned exception
 
 **Tests**
 

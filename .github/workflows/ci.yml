@@ -72,11 +72,9 @@ jobs:
       - name: Repository checks
         run: bun run check
 
+      # Single audit entry point: scripts/audit.mjs owns the one waiver map.
       - name: Audit dependencies
         run: bun run audit:strict
-
-      - name: Audit dependencies with native Bun
-        run: bun audit --audit-level=high
 
       - name: Audit locked native build tool
         run: node scripts/audit-native-tool.mjs
