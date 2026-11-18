@@ -6,19 +6,39 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-19
 
+**Fixed**
+
+- `security` record the one live Trivy waiver, drop the scanner coupling
+- `security` drop the deepmerge OSV waiver, withdrawn upstream
+- `gate` drop the waiver for the withdrawn picomatch advisory
+
+**Changed**
+
+- `gate` keep the exception checker under the file-size ratchet
+
 **Tests**
 
 - `infra` keep an operator host literal out of the portable source
+
+**Chores**
+
+- `verify` fail closed when the bun runtime cannot read lockfileVersion 2 (#317)
 
 ## 2026-11-18
 
 **Fixed**
 
+- `gate` run the isolated Svelte audit strictly in CI
+- `gate` audit the node-gyp bootstrap through the recorded waivers
+- `gate` route svelte:audit through scripts/audit.mjs so one waiver map governs both audits
+- `gate` enforce the expiry of the dependency-audit waivers
 - `convex,integrations` resolve regional Convex host and theme native select popups
+- `gate` cover GHSA-fc5q-39xc-vjpf in all three audit mechanisms
+- `gate` waive GHSA-fc5q-39xc-vjpf with a dated, reasoned exception
 
-**Chores**
+**Tests**
 
-- `verify` fail closed when bun cannot read lockfileVersion 2
+- `gate` stop the suite inheriting a protected TMPDIR and bound worker fan-out
 
 **Other**
 

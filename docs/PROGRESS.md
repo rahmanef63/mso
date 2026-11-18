@@ -21,6 +21,38 @@ Option rows are now painted from the same tokens in `setup-ui.ts`, `connection-u
 `portable/ui.ts`, `setup-page.ts` and `app/globals.css`; a style-contract test pins all five and
 the contrast gate stays at zero failures for 36 presets in both themes.
 
+## 2026-11-19 — A withdrawn advisory stops holding a waiver slot
+
+GHSA-fc5q-39xc-vjpf (picomatch ReDoS) was withdrawn upstream at
+2026-11-18T15:38:56Z. `bun audit` no longer reports it, so `node scripts/audit.mjs
+--strict` was already exiting 0 before this change; the three waiver records still
+in the tree (osv-scanner.toml, the `IGNORE` map in scripts/audit.mjs, the `EXPECTED`
+list in scripts/audit-exceptions.mjs) described a fact that had stopped being true.
+A waiver for an advisory nobody reports is not extra safety, it is a stale
+suppression that silently widens the next time the same id is reused.
+
+The three picomatch records are deleted. The expiry machinery from the previous
+commit is untouched and still fails closed: a waiver absent from the lockfile, an
+empty or unparseable registry report, an unwaived critical advisory and a waiver
+accepted on 2020-01-01 all exit non-zero. The deepmerge waiver is also gone: GHSA-gcqx-w48m-w2h4 was withdrawn on
+2026-11-16T18:55:38Z because it does not describe a vulnerability, so the recorded
+entry was stale as well.
+
+## 2026-11-18 — The audit waiver finally expires on its own
+
+`scripts/audit.mjs` carried `accepted: "2026-11-18"` next to the picomatch waiver, and
+nothing read it. Setting that date to 2020 still printed `clean at high/critical` and
+exited 0 under `--strict`, so the one waiver in the repository was permanent in
+practice while `osv-scanner.toml` and `scripts/audit-native-tool.mjs` both enforced
+theirs. A waiver nobody can outlive is not a review, it is a suppression.
+
+The rule now lives in `scripts/lib/audit-waivers.mjs`: expiry is 90 days after
+acceptance, an unparseable date counts as expired, and the check runs before the
+registry probe so a network failure cannot be what hides a stale exception. With the
+date in the tree that is 2027-02-16. `scripts/lib/audit-waivers.test.ts` pins the
+boundary (day 89 valid, day 90 expired) and the negative control fails with
+`expired waiver(s) in scripts/audit.mjs`.
+
 ## 2026-11-16 — Read Composio account inventory without a source-changing workflow
 
 Named Composio project keys could be configured, but the agent could only inspect local

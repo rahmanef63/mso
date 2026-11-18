@@ -48,6 +48,7 @@
     "bench:cache-calibration": "bun scripts/bench-agent-cache.mjs",
     "mcp:catalog": "node scripts/gen-mcp-catalog.mjs",
     "audit:strict": "node scripts/audit.mjs --strict",
+    "audit:native": "node scripts/audit-native-tool.mjs",
     "test:features": "node scripts/test-features.mjs",
     "screenshot:cli": "node scripts/capture-cli.mjs",
     "check:instance-literals": "bun scripts/check-instance-literals.mjs",
@@ -72,7 +73,8 @@
     "svelte:check": "cd frontend/svelte && bun run check && bun run test",
     "svelte:build": "cd frontend/svelte && bun run build",
     "svelte:e2e": "cd frontend/svelte && bun run test:browser",
-    "svelte:audit": "cd frontend/svelte && bun audit --audit-level=high"
+    "svelte:audit": "node scripts/audit.mjs --dir=frontend/svelte",
+    "svelte:audit:strict": "node scripts/audit.mjs --dir=frontend/svelte --strict"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

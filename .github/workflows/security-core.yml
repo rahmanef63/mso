@@ -56,6 +56,9 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           format: table
+          # Trivy looks for .trivyignore only; it does not auto-detect the
+          # .trivyignore.yaml used here, so the filesystem scan must be told.
+          trivyignores: .trivyignore.yaml
 
       - name: Generate CycloneDX SBOM
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0

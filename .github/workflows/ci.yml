@@ -49,7 +49,7 @@ jobs:
         run: bun run svelte:install
 
       - name: Check and build isolated Svelte entry
-        run: bun run svelte:check && bun run svelte:build && bun run svelte:audit
+        run: bun run svelte:check && bun run svelte:build && bun run svelte:audit:strict
 
       - name: Validate native dependency
         run: node -e "require('node-pty')"
@@ -72,14 +72,12 @@ jobs:
       - name: Repository checks
         run: bun run check
 
+      # Single audit entry point: scripts/audit.mjs owns the one waiver map.
       - name: Audit dependencies
         run: bun run audit:strict
 
-      - name: Audit dependencies with native Bun
-        run: bun audit --audit-level=high
-
       - name: Audit locked native build tool
-        run: npm audit --prefix scripts/install/node-gyp --omit=dev --audit-level=high
+        run: node scripts/audit-native-tool.mjs
 
       - name: Production build
         run: bun run build
@@ -161,4 +159,4 @@ jobs:
           node-version: 22
       - run: bun install --frozen-lockfile
       - run: bun run audit:strict
-      - run: npm audit --prefix scripts/install/node-gyp --omit=dev --audit-level=high
+      - run: node scripts/audit-native-tool.mjs
