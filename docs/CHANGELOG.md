@@ -6,6 +6,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-19
 
+**Fixed**
+
+- `security` record the one live Trivy waiver, drop the scanner coupling
+- `security` drop the deepmerge OSV waiver, withdrawn upstream
+
 **Tests**
 
 - `infra` keep an operator host literal out of the portable source
