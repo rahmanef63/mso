@@ -16,6 +16,7 @@ import { ensureFreshCodex } from "@/lib/ai/oauth/codex";
 import { streamCodex } from "@/lib/ai/codex-stream";
 import { streamOpenAI, type OaMsg, type OaTool } from "@/lib/ai/openai-stream";
 import { anthropicDonePayload } from "@/lib/ai/usage";
+import { anthropicClientHeaders } from "@/lib/ai/custom-provider-headers";
 import { boundedProviderFetch, PROVIDER_TIMEOUT_MS } from "./provider-response";
 
 export type SelectedModelEvent = "delta" | "tool_use" | "done";
@@ -167,6 +168,7 @@ export async function streamPreparedSelectedModel(opts: {
     apiKey: prepared.resolved.apiKey,
     baseURL: prepared.resolved.baseUrl,
     fetch: boundedProviderFetch(prepared.customProvider ? safeProviderFetch : fetch),
+    ...anthropicClientHeaders(prepared.customProvider, prepared.resolved.apiKey),
   });
   const ai = anthropic.messages.stream(
     {

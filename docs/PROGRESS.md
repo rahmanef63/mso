@@ -1,3 +1,18 @@
+## 2026-11-18 — A custom Anthropic gateway keeps the headers it already accepts
+
+`@anthropic-ai/sdk` v1 changes two things on the wire: the API key moves from `X-Api-Key`
+to `Authorization: Bearer`, and the default `anthropic-version` becomes `2026-10-21`.
+Both are correct against the first-party API, but an Anthropic-compatible gateway that
+enforces `x-api-key` or pins `2023-06-01` answers 401, which reaches the operator as a
+generic provider failure with nothing pointing at the SDK bump. Only the custom-provider
+path is affected; the first-party host follows the SDK default. Both places that build an
+`Anthropic` client now share `lib/ai/custom-provider-headers.ts`, so the streaming path and
+the Settings key test cannot drift: a key that tests green must also stream.
+`lib/ai/custom-provider-headers.test.ts` pins the outbound contract and fails without the
+override; the negative control (override removed) fails with the gateway's 401.
+
+## 2026-11-16 — Onboarding stops reporting a hydration mismatch it caused itself
+
 ## 2026-11-16 — Read Composio account inventory without a source-changing workflow
 
 Named Composio project keys could be configured, but the agent could only inspect local
