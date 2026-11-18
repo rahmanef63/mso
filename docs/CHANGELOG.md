@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `gate` apply a dated Trivy waiver for the same picomatch chain
 - `gate` run the isolated Svelte audit strictly in CI
 - `gate` audit the node-gyp bootstrap through the recorded waivers
 - `gate` cover GHSA-fc5q-39xc-vjpf in all three audit mechanisms
