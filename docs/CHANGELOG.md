@@ -14,7 +14,14 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `gate` run the isolated Svelte audit strictly in CI
+- `gate` audit the node-gyp bootstrap through the recorded waivers
+- `gate` route svelte:audit through scripts/audit.mjs so one waiver map governs both audits
 - `convex,integrations` resolve regional Convex host and theme native select popups
+
+**Tests**
+
+- `gate` stop the suite inheriting a protected TMPDIR and bound worker fan-out
 
 **Other**
 
