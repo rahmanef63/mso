@@ -1,5 +1,6 @@
 import { safeProviderFetch } from "@/lib/host/ssrf";
 import { request, TIMEOUT_MS } from "./http";
+import { resolveConvexDeploymentOrigin } from "./convex-cloud-core";
 
 /**
  * Convex has ONE provider and two credential shapes. The doctor therefore picks
@@ -36,12 +37,8 @@ export function selfHostedAdminKeyCheckUrl(rawUrl: string): string {
   return url.toString();
 }
 
-function cloudDeploymentInfoUrl(name: string): string {
-  const clean = name.trim().toLowerCase();
-  // Deployment names are hostname labels, not URLs. This keeps the request fixed
-  // to Convex Cloud and avoids accepting an attacker-controlled authority.
-  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(clean)) throw new Error("Convex Cloud invalid deployment name");
-  return `https://${clean}.convex.cloud/api/v1/deployment_info`;
+function cloudDeploymentInfoUrl(origin: string): string {
+  return `${origin}/api/v1/deployment_info`;
 }
 
 async function checked(provider: string, url: string, headers: HeadersInit, fetchImpl?: typeof fetch) {
@@ -71,7 +68,11 @@ export async function doctorConvex(values: Record<string, string>): Promise<stri
   }
   if (present(values.deployKey) || present(values.deploymentName)) {
     if (!present(values.deployKey) || !present(values.deploymentName)) return null;
-    await checked("Convex Cloud", cloudDeploymentInfoUrl(values.deploymentName), { authorization: `Convex ${values.deployKey}`, accept: "application/json" });
+    // A cloud deployment does not live at `<name>.convex.cloud` unless it was
+    // created in the default region. Resolve the real origin from the key first;
+    // a hardcoded host made a valid key look like a 404.
+    const origin = await resolveConvexDeploymentOrigin(values.deploymentName, values.deployKey, fetch);
+    await checked("Convex Cloud", cloudDeploymentInfoUrl(origin), { authorization: `Convex ${values.deployKey}`, accept: "application/json" });
     return "authenticated; deployment access verified";
   }
   // Team access tokens must be checked through token_details, never the

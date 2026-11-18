@@ -2,6 +2,10 @@ import { SETTINGS_COMPACT_MAX } from "@/lib/presentation/responsive-contract";
 // Shared by the browser route and the MCP Page; all visual values come from widget/shell semantic tokens.
 export const CONNECTION_MANAGER_STYLE = String.raw`
 .integration{container:integration / inline-size;color:var(--foreground);font:var(--type-small)/var(--line-body) var(--font-body)}
+/* Same UA-popup problem as the setup form: option rows inherit our near-inverted
+   --foreground but the popup surface is UA-painted, so a dark shell rendered
+   light text on a light popup. Both themes are served from these two tokens. */
+.integration select option{background-color:var(--surface);color:var(--foreground)}
 .integration :is(button,input,select,summary,a):focus-visible{outline:var(--focus-width) solid var(--primary);outline-offset:var(--focus-gap)}
 .integration button{min-height:var(--control-size);border:var(--stroke) solid var(--input);border-radius:var(--radius-control);background:var(--secondary);color:var(--secondary-foreground);padding:var(--space-2) var(--space-3);font:var(--type-small)/var(--line-body) var(--font-body);font-weight:var(--weight-medium);cursor:pointer}
 .integration summary{display:flex;align-items:center;min-height:var(--control-size);cursor:pointer}

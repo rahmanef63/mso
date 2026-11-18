@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-18
+
+**Fixed**
+
+- `convex,integrations` resolve regional Convex host and theme native select popups
+
 ## 2026-11-16
 
 **Fixed**
@@ -1345,15 +1351,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Chores**
 
 - standardize bun 1.4.2
-
-## 2026-09-07
-
-**Added**
-
-- `integrations` share a responsive connection workbench
-- `mcp` bind modular project tools to private integrations
-- `infra` ensure Dokploy GitHub applications
-
-**Fixed**
-
-- `infra` allow Baton build SHA metadata
