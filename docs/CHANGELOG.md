@@ -14,6 +14,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `native` ask the OS for a free loopback port instead of sampling 41000-61000
 - `infra` keep an operator host literal out of the portable source
 
 **Chores**
