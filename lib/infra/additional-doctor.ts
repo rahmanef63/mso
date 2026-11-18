@@ -144,6 +144,13 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
     }
     case "doku":
       return doctorDoku(values);
+    case "mso-password":
+      // Nothing here may call the other installation's login endpoint: a stored
+      // password is a record of what that host uses, not a request to sign in, and a
+      // probe would burn its rate limit and prove nothing this store needs to know.
+      // Returning null keeps the connection "not configured" for verification, which
+      // is honest — MSO did not check it.
+      return null;
     case "convex": {
       // One provider, two shapes. Read the kind from the values, not from the id.
       return doctorConvex(values);
