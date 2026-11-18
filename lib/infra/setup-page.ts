@@ -15,6 +15,10 @@ body{margin:0;background:var(--background);padding:var(--space-6);font-family:va
 .site-bar strong{display:flex;align-items:center;gap:var(--space-3);font-weight:var(--weight-strong)}.site-bar svg{width:var(--brand-size);height:var(--brand-size)}.site-bar span{color:var(--muted-foreground)}
 @media(max-width:${SETTINGS_COMPACT_MAX}){body{padding:0}.site-bar{padding:var(--space-3);flex-wrap:wrap}.site-bar span{overflow-wrap:anywhere}}
 button{border:var(--stroke) solid var(--input);border-radius:var(--radius-control);background:var(--secondary);color:var(--secondary-foreground);padding:var(--space-2) var(--space-3);font:var(--type-small)/var(--line-body) var(--font-body);cursor:pointer}a{color:var(--settings-action-text)}
+/* The integration page is raw HTML, so every native select in it (folder routing,
+   variables, export format) opened a UA-painted popup: a light surface under our
+   near-inverted option text. Paint the options from the same tokens. */
+select option{background-color:var(--surface);color:var(--foreground)}
 `;
 
 export function integrationSetupPage(embedded = false) {

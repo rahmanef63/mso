@@ -1,3 +1,26 @@
+## 2026-11-18 — Convex deploy keys resolve their regional host, and native selects stop rendering light-on-light
+
+Two separate operator-visible failures, both reproduced before changing anything.
+
+**Convex deployment key reported as HTTP 404.** A valid key (`prod:quiet-rooster-165|…`)
+failed verification with `Convex Cloud HTTP 404`. The key was never rejected: Convex Cloud
+deployments are regional (`<name>.<region>.convex.cloud`), and MSO probed the bare
+`<name>.convex.cloud` alias, which answers 404 for every deployment outside the default
+region. The same key returned `200` with full deployment info at
+`quiet-rooster-165.ap-southeast-2.convex.cloud`. Verification, canonical URLs and env-presence
+now resolve the real origin through the official `POST api.convex.dev/api/deployment/url_for_key`
+resolver, exactly like the Convex CLI, and refuse any origin that is not this deployment's own
+`.convex.cloud` host (no credentials are sent when it is refused). `convexDeploymentUrl` is gone;
+`resolveConvexDeploymentOrigin` + `convexDeploymentOriginUrl` replace it.
+
+**Native select popups were light-on-light in dark mode.** `<select>` triggers used the semantic
+tokens, but the option list is painted by the UA: Chromium gave it a light surface while the
+option text kept our near-inverted `--foreground`. Every dropdown in the Integrations surface
+(folder routing, variables, export format) and in the shell read as light text on a light popup.
+Option rows are now painted from the same tokens in `setup-ui.ts`, `connection-ui-style.ts`,
+`portable/ui.ts`, `setup-page.ts` and `app/globals.css`; a style-contract test pins all five and
+the contrast gate stays at zero failures for 36 presets in both themes.
+
 ## 2026-11-16 — Read Composio account inventory without a source-changing workflow
 
 Named Composio project keys could be configured, but the agent could only inspect local

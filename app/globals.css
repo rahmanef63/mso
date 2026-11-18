@@ -463,6 +463,20 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Native select popup theming ─────────────────────────────────────────────
+   `<select>` triggers use semantic tokens, but the OPTION list is painted by
+   the UA: Chromium gave it a light surface under our near-inverted
+   --foreground, so a dark shell read as light text on a light popup. Painting option
+   rows (and the trigger, when it uses the semantic secondary field) from the
+   same tokens makes both themes legible without a bespoke listbox component.
+   ponytail: one global rule for ~40 native selects; move to a themed popup only
+   if a UA stops honoring option colours. */
+select option,
+select optgroup {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
 /* ── Touch-target a11y (HIG 44px / Material 48dp) ──────────────────────────
    The app root is 14px, so rem-based control heights fall short of 44px
    (h-8 = 28px, h-9 = 31.5px). Lift form controls + menu rows on ANY coarse

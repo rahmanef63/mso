@@ -69,8 +69,59 @@ export function convexAuthHeaders(token: string, scheme: "Bearer" | "Convex") {
 export function convexManagementUrl(name: string, suffix: string) {
   return `https://api.convex.dev/v1/deployments/${encodeURIComponent(convexDeploymentName(name))}/${suffix}`;
 }
-export function convexDeploymentUrl(name: string, suffix: string) {
-  return `https://${convexDeploymentName(name)}.convex.cloud/api/v1/${suffix}`;
+const REGIONAL_HOST_RE =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.convex\.cloud$/;
+
+/**
+ * Convex Cloud deployments are REGIONAL: `<name>.<region>.convex.cloud`. The bare
+ * `<name>.convex.cloud` alias answers 404 for every deployment created in a
+ * non-default region, so a probe built from the deployment name alone reported a
+ * valid deploy key as "Convex Cloud HTTP 404". The official CLI resolves the real
+ * origin from the deploy key; do the same and keep the answer pinned to this
+ * deployment's own name (never an attacker-controlled authority).
+ */
+export async function resolveConvexDeploymentOrigin(
+  name: string,
+  deployKey: string,
+  fetchImpl: FetchLike,
+): Promise<string> {
+  const deployment = convexDeploymentName(name);
+  const body = await convexCheckedJson(
+    "convex_cloud",
+    "https://api.convex.dev/api/deployment/url_for_key",
+    {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({ deployKey }),
+    },
+    fetchImpl,
+  );
+  if (typeof body !== "string")
+    throw new IntegrationError("invalid_convex_deployment_url_response", 502);
+  let url: URL;
+  try {
+    url = new URL(body.trim());
+  } catch {
+    throw new IntegrationError("invalid_convex_deployment_url_response", 502);
+  }
+  const host = url.hostname.toLowerCase();
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    (url.pathname !== "/" && url.pathname !== "") ||
+    !REGIONAL_HOST_RE.test(host) ||
+    (host !== `${deployment}.convex.cloud` && !host.startsWith(`${deployment}.`))
+  )
+    throw new IntegrationError("invalid_convex_deployment_url_response", 502);
+  return url.origin;
+}
+
+/** One API call against the resolved regional origin of a cloud deployment. */
+export function convexDeploymentOriginUrl(origin: string, suffix: string) {
+  return `${origin}/api/v1/${suffix}`;
 }
 export async function convexCheckedJson(
   provider: string,

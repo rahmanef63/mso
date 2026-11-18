@@ -32,6 +32,19 @@ describe("Integrations visual token contract", () => {
     expect(value).not.toMatch(/(?:^|[:;,\s])(white|black)(?:[;,\s}]|$)/i);
   });
 
+  it("themes the UA-painted native select popup in both themes", () => {
+    // Regression: the option list is painted by the UA, so it kept a light surface
+    // under our near-inverted --foreground and every dropdown in dark mode read as
+    // light-on-light. Each shipped style sheet that renders a native select must
+    // paint option rows from the same semantic tokens.
+    for (const [name, css] of Object.entries(styles)) {
+      if (!/(^|[\s,{])select[\s,{:.]/.test(css)) continue;
+      expect(css, `${name} must theme native select options`).toMatch(/select option\{background-color:var\(--/);
+    }
+    const globals = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+    expect(globals).toMatch(/select option,\s*\nselect optgroup \{\s*\n\s*background-color: var\(--background\);\s*\n\s*color: var\(--foreground\);/);
+  });
+
   it("uses the shared Settings semantic surfaces and accent", () => {
     expect(CONNECTION_MANAGER_STYLE).toContain("var(--settings-card)");
     expect(CONNECTION_MANAGER_STYLE).toContain("var(--settings-sidebar)");
