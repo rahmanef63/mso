@@ -53,6 +53,26 @@ date in the tree that is 2027-02-16. `scripts/lib/audit-waivers.test.ts` pins th
 boundary (day 89 valid, day 90 expired) and the negative control fails with
 `expired waiver(s) in scripts/audit.mjs`.
 
+## 2026-11-17 — The disk gauge reads a root it can actually read, and preset fonts load
+
+Two defects that both failed silently, found by the parallel surface audit.
+
+`GET /api/v1/fs/usage` defaulted to `~` when no `path` was given. Read roots default to
+`[cwd, ~/projects]`, and `~` itself is not one of them, so every caller that omitted the
+parameter hit `Path outside readable roots`. The Storage widget and Settings → About both
+swallow that rejection in `catch {}`, so the gauge rendered `n/a` instead of reporting a
+failure. The route now defaults to the first configured read root, which is readable by
+construction, and the old test that pinned `"~"` was asserting the bug.
+
+The appearance presets name families the app does not bundle (DM Sans, Poppins,
+Merriweather, and others). `lib/appearance/presets/fonts.ts` injects one
+`fonts.googleapis.com` stylesheet for them and the files come from `fonts.gstatic.com`,
+but the cockpit CSP allowed neither. Every non-Geist preset therefore fell back to system
+fonts while logging a CSP violation on every page. The managed-app policy already allowed
+these origins, so the cockpit policy was the outlier. `style-src` and `font-src` now name
+those two hosts; `script-src` stays nonce plus `strict-dynamic` with no `unsafe-inline`,
+so the relaxation cannot execute code.
+
 ## 2026-11-16 — Read Composio account inventory without a source-changing workflow
 
 Named Composio project keys could be configured, but the agent could only inspect local
