@@ -11,7 +11,9 @@ import { MANAGED_APP_ACTIONS, type ManagedAppAction } from "@/lib/managed-apps/t
 export async function handleGetManagedApp(req: Request, id: string): Promise<Response> {
   if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!isManagedAppId(id)) return NextResponse.json({ error: "unknown managed application" }, { status: 404 });
-  return NextResponse.json({ app: await getManagedApp(id) });
+  // One app, one reader: this answer may wait for the version probe, because a null
+  // from a cold cache would be reported as "unknown" in the pane and in `mso mapp show`.
+  return NextResponse.json({ app: await getManagedApp(id, { settledVersion: true }) });
 }
 
 export async function handlePostManagedApp(req: Request, id: string): Promise<Response> {

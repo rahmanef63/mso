@@ -10,7 +10,7 @@ vi.mock("./runner", () => ({
 }));
 
 const { runProgram, resolveCommand } = await import("./runner");
-const { appVersion, probeAppVersion, forgetAppVersion } = await import("./app-version");
+const { appVersion, probeAppVersion, forgetAppVersion, settledAppVersion } = await import("./app-version");
 const { getManagedAppDefinition } = await import("./catalog");
 
 const hermes = getManagedAppDefinition("hermes");
@@ -86,5 +86,17 @@ describe("managed app version probe", () => {
     expect(appVersion(hermes)).toBeNull();
     await probeAppVersion(hermes);
     expect(probes()).toBe(2);
+  });
+
+  it("settles for a reader of one app instead of reporting a cold cache as unknown", async () => {
+    // The single-app route is the one place a wait is affordable: the caller already
+    // waits for detection, and `version: null` there means "unknown" to both the
+    // Details pane and `mso mapp show`.
+    expect(appVersion(hermes)).toBeNull();
+    await expect(settledAppVersion(hermes)).resolves.toBe("Hermes 1.0");
+    expect(probes()).toBe(1);
+    // A warm entry is served without forking again.
+    await expect(settledAppVersion(hermes)).resolves.toBe("Hermes 1.0");
+    expect(probes()).toBe(1);
   });
 });

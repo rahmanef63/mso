@@ -69,6 +69,42 @@ credential change or provider action. Provider errors omit raw payloads and cred
 unknown fields, malformed responses and changing connection revisions fail closed.
 Existing exec/write scope, source isolation and provider mutation guards remain intact.
 
+## 2026-11-18 — A single-app read waits for the version, a list still does not
+
+The 2026-11-16 change removed the blocking `--version` probe from the managed-apps
+list, which is what held Orca's window blank. It also left `getManagedApp()` returning
+the cold-cache `null`, and `null` is rendered as "unknown" in the Details pane and in
+`mso mapp show` (`/api/v1/managed-apps/[id]`). A first read of one app therefore
+reported nothing rather than the string it had just measured.
+
+`app-version.ts` gains `settledAppVersion()`: a warm entry is returned without forking,
+a cold one awaits the shared in-flight probe. `getManagedApp(id, { settledVersion: true })`
+uses it, and exactly two callers opt in: the single-app GET handler and the
+lifecycle reply (which forgets the cache entry first, so the caller gets the version
+the app reports after the restart). `listManagedApps()` and the panel's 10 s poll stay
+on the non-blocking `appVersion()`, so the window's first paint is still never held.
+
+Verified: `lib/managed-apps/app-version.test.ts` (8 tests) adds the settle-once case;
+`manager.test.ts` asserts the list view still returns `version: null` on a cold cache
+and that `getManagedApp("hermes", { settledVersion: true })` resolves to the measured
+string. Typecheck and eslint clean on all touched files.
+
+Owned Orca needed one more change. Its detection rehashes the release through the
+adapter's `--version` (about 8 s here) and that same call prints the verified version,
+but the view then forked the adapter a SECOND time through the 4 s display probe, which
+can never finish. `detectOrca` now returns that proven string (`ManagedInstallation.version`)
+and `getManagedApp` prefers it, so an owned Orca reports `1.4.230` and no second fork
+happens. `orca-strict-recheck.test.ts` asserts the version and an empty `--version` call
+list.
+
+Measured, 6 fresh mounts per arm, one variable (which build answers the cockpit origin),
+app origin untouched: live 4005 iframe shown 5028/6211/20735 ms (min/median/max) and app
+painted 12960/15053/33773 ms; patched build 2531/5712/13391 ms and 8478/13843/21444 ms.
+Every mount painted the app in both arms, so the frame is not broken either way; the
+patched build is faster at every percentile but the spread overlaps, and one mount in
+each arm was an outlier. That is not proof that the original 13 to 19 s blank window is
+gone under load, only that a single mount no longer waits on the version probe.
+
 ## 2026-11-16 — A managed app's version string no longer holds its window shut
 
 Seven surfaces were reported as thin or blank: hermes, openclaw, 9router, orca, n8n,

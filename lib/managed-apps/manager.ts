@@ -1,6 +1,6 @@
 import "server-only";
 import os from "node:os";
-import { appVersion, forgetAppVersion } from "./app-version";
+import { appVersion, forgetAppVersion, settledAppVersion } from "./app-version";
 import { managedAppHealth } from "./health";
 import { createBackup } from "./backups";
 import { getManagedAppDefinition, listManagedAppDefinitions } from "./catalog";
@@ -94,7 +94,11 @@ function actionsFor(installation: ManagedInstallation): ManagedAppAction[] {
   return [];
 }
 
-export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
+/** `settledVersion` is for readers of exactly ONE app (the [id] route, a lifecycle
+ *  reply): they waited for the rest of the view anyway, and a null a cold cache
+ *  produced reads as "unknown" in the pane and in `mso mapp show`. The list must
+ *  not pass it, or one slow app delays every window. */
+export async function getManagedApp(id: ManagedAppId, options: { settledVersion?: boolean } = {}): Promise<ManagedAppView> {
   const definition = getManagedAppDefinition(id);
   const installation = await detect(definition);
   let runState = await managedRunState(installation);
@@ -124,7 +128,11 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
     installationType: installation.type,
     state,
     healthy: isHealthy,
-    version: appVersion(definition),
+    // Orca's detection already rehashed the release and printed the verified version;
+    // forking `<command> --version` again would spend ~8 s to repeat it, and the
+    // display probe's 4 s cap guarantees that second fork fails.
+    version: installation.version
+      ?? (options.settledVersion ? await settledAppVersion(definition) : appVersion(definition)),
     dashboardAvailable: isRunning && isHealthy !== false && !stopOnlyOwned,
     publicDashboardUrl: domainView.domain?.phase === "ready" ? `https://${domainView.domain.hostname}` : directDashboardUrl(definition),
     ...domainView,
@@ -212,7 +220,9 @@ export async function performManagedAppAction(id: ManagedAppId, action: ManagedA
     }
   });
   const domain = action === "start" || action === "restart" ? await provisionDomainAfterStart(id) : null;
-  const view = await getManagedApp(id);
+  // Forgetting the entry above is what makes this worth waiting for: the caller
+  // gets the version the app reports AFTER the restart, not the pre-action one.
+  const view = await getManagedApp(id, { settledVersion: true });
   return domain?.domainDiagnostic ? { ...view, domainDiagnostic: domain.domainDiagnostic } : view;
 }
 
