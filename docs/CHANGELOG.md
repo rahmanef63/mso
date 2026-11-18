@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` record the one live Trivy waiver, drop the scanner coupling
 - `security` drop the deepmerge OSV waiver, withdrawn upstream
 
 **Tests**
