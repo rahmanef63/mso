@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `managed-apps` rebase #323 onto main so the thin-surface fix can land (#325)
 - `gate` one audit waiver record, one expiry rule, no withdrawn waivers (#327)
 
 **Tests**
@@ -22,7 +23,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `managed-apps` settle the version for a single-app read
 - `convex,integrations` resolve regional Convex host and theme native select popups
 
 **Other**
@@ -33,7 +33,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `managed-apps` stop the version probe from delaying the app window
 - `composio` retain named Connect identity during discovery and execution
 - `integrations` inspect named Composio accounts with read scope
 - `convex` support team access tokens for cloud management
