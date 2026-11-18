@@ -76,6 +76,7 @@ export default defineConfig({
       "proxy-framing.test.ts",
       "proxy-websocket.test.ts",
       "proxy-machine-protocol.test.ts",
+      "proxy-font-csp.test.ts",
     ],
     environment: "node",
     // `bun run coverage`, and it IS in `verify`, so these are gates.

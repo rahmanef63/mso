@@ -39,9 +39,20 @@ describe("device-store — an unreadable file must never look like an empty one"
     await fs.writeFile(manager, "#!/bin/sh\nprintf '%s\n' \"$*\" > \"$HOME/teardown-call\"\n", { mode: 0o700 });
     vi.stubEnv("MSO_SYSTEMCTL_BIN", manager);
     const command = path.resolve(__dirname, "../../scripts/approve-device.js");
-    const listing = execFileSync(process.execPath, [command, "--list"], { env: process.env, encoding: "utf8" });
+    // The child must get the SAME stubbed HOME. `process.env` is the parent's real
+    // environment: vi.stubEnv only updates process.env inside this process after the
+    // call, and a sandboxed store path is what keeps this test off the owner's real
+    // ~/.mso/auth-devices.json. Passing it explicitly also removes the cross-process
+    // race that made two concurrent gate runs corrupt that file.
+    const childEnv = {
+      ...process.env,
+      HOME: dir,
+      OS_DEVICE_STORE: path.join(dir, ".mso", "auth-devices.json"),
+      MSO_SYSTEMCTL_BIN: manager,
+    };
+    const listing = execFileSync(process.execPath, [command, "--list"], { env: childEnv, encoding: "utf8" });
     expect(listing).toContain(DEV);
-    execFileSync(process.execPath, [command, "--revoke", DEV], { env: process.env, encoding: "utf8" });
+    execFileSync(process.execPath, [command, "--revoke", DEV], { env: childEnv, encoding: "utf8" });
     expect((await api.listDevices()).approved[DEV]).toBeUndefined();
     expect(await fs.readFile(path.join(dir, "teardown-call"), "utf8")).toContain("--user stop camoufox-vnc.service");
     expect((await fs.stat(path.join(dir, ".mso/auth-devices.json"))).isFile()).toBe(true);
