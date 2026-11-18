@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,8 +12,15 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 // out while a build shared the box. A documented knob that no code reads is worse than
 // no knob, because the operator believes they applied the mitigation. Honour the same
 // variable Vitest's own CLI uses for maxForks/maxThreads.
+//
+// The default is bounded too, not "maximum parallelism": leaving maxWorkers undefined
+// spawned ~1052 workers on an 8-core box, so those same 15s suites timed out in the
+// full gate while passing in isolation. Size it to the machine instead.
 const boundedWorkers = Number.parseInt(process.env.VITEST_MAX_WORKERS ?? "", 10);
-const maxWorkers = Number.isInteger(boundedWorkers) && boundedWorkers > 0 ? boundedWorkers : undefined;
+const maxWorkers =
+  Number.isInteger(boundedWorkers) && boundedWorkers > 0
+    ? boundedWorkers
+    : Math.max(2, Math.min(8, os.availableParallelism?.() ?? os.cpus().length));
 
 export default defineConfig({
   resolve: {
@@ -30,6 +38,9 @@ export default defineConfig({
     // Shell/systemd lifecycle fixtures can exceed Vitest's 5s default under the full parallel gate.
     testTimeout: 15_000,
     maxWorkers,
+    // Runs in every worker before test modules load, so a host TMPDIR inside a
+    // protected control-plane root cannot poison fixture paths.
+    setupFiles: [path.join(root, "vitest.setup.ts")],
     // Cache transformed modules INSIDE THIS CHECKOUT, not in the shared
     // `node_modules/.vitest-cache`.
     //

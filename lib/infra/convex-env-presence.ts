@@ -6,8 +6,9 @@ import {
   convexAuthHeaders,
   convexCheckedJson,
   convexDeploymentName,
-  convexDeploymentUrl,
+  convexDeploymentOriginUrl,
   convexManagementUrl,
+  resolveConvexDeploymentOrigin,
   type FetchLike,
 } from "./convex-cloud-core";
 
@@ -45,9 +46,10 @@ export async function getConvexEnvPresence(
     throw new IntegrationError("invalid_convex_deploy_key_response", 502);
   let body: unknown, primary: unknown;
   try {
+    const origin = await resolveConvexDeploymentOrigin(deployment, deployKey, fetchImpl);
     body = await convexCheckedJson(
       "convex_deployment",
-      convexDeploymentUrl(deployment, "list_environment_variables"),
+      convexDeploymentOriginUrl(origin, "list_environment_variables"),
       { method: "GET", headers: convexAuthHeaders(deployKey, "Convex") },
       fetchImpl,
     );

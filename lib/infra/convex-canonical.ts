@@ -7,11 +7,12 @@ import {
   convexCanonicalOrigin,
   convexCheckedJson,
   convexDeploymentName,
-  convexDeploymentUrl,
+  convexDeploymentOriginUrl,
   convexDestination,
   convexManagementUrl,
   parseConvexCanonical,
   parseConvexDomains,
+  resolveConvexDeploymentOrigin,
   type ConvexRequestDestination,
   type FetchLike,
 } from "./convex-cloud-core";
@@ -84,9 +85,10 @@ export async function getConvexCanonicalUrls(
     deployment,
     token,
     async (deployKey) => {
+      const origin = await resolveConvexDeploymentOrigin(deployment, deployKey, fetchImpl);
       const body = await convexCheckedJson(
         "convex_deployment",
-        convexDeploymentUrl(deployment, "get_canonical_urls"),
+        convexDeploymentOriginUrl(origin, "get_canonical_urls"),
         { method: "GET", headers: convexAuthHeaders(deployKey, "Convex") },
         fetchImpl,
       );
@@ -129,9 +131,10 @@ export async function setConvexCanonicalUrl(
     deployment,
     token,
     async (deployKey) => {
+      const origin = await resolveConvexDeploymentOrigin(deployment, deployKey, fetchImpl);
       await convexCheckedJson(
         "convex_deployment",
-        convexDeploymentUrl(deployment, "update_canonical_url"),
+        convexDeploymentOriginUrl(origin, "update_canonical_url"),
         {
           method: "POST",
           headers: convexAuthHeaders(deployKey, "Convex"),
@@ -141,7 +144,7 @@ export async function setConvexCanonicalUrl(
       );
       const body = await convexCheckedJson(
         "convex_deployment",
-        convexDeploymentUrl(deployment, "get_canonical_urls"),
+        convexDeploymentOriginUrl(origin, "get_canonical_urls"),
         { method: "GET", headers: convexAuthHeaders(deployKey, "Convex") },
         fetchImpl,
       );

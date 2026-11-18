@@ -1,4 +1,4 @@
-export const INFRA_PROVIDER_IDS = ["dokploy", "cloudflare", "hostinger", "composio", "github", "vercel", "convex", "resend", "stripe", "clerk", "supabase", "telegram", "discord", "doku", "linear", "mcp", "openai-app", "google-oauth-app", "google-search-console", "google-analytics"] as const;
+export const INFRA_PROVIDER_IDS = ["dokploy", "cloudflare", "hostinger", "composio", "github", "vercel", "convex", "resend", "stripe", "clerk", "supabase", "telegram", "discord", "doku", "linear", "mcp", "mso-password", "openai-app", "google-oauth-app", "google-search-console", "google-analytics"] as const;
 export type InfraProviderId = (typeof INFRA_PROVIDER_IDS)[number];
 
 /**

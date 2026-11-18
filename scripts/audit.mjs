@@ -11,6 +11,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { expiredWaivers } from "./lib/audit-waivers.mjs";
 
 const FLOOR = new Set(["high", "critical"]);
 const num = (raw, fallback) => {
@@ -30,15 +31,44 @@ const AUDIT_BUDGET_MS = num(process.env.MSO_AUDIT_BUDGET_MS, 90_000);
 const RECEIPT_PATH = process.env.MSO_AUDIT_RECEIPT
   ?? path.join(os.homedir(), ".cache", "mso", "audit-receipt.json");
 const RECEIPT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const LOCKFILE = path.join(process.cwd(), "bun.lock");
-const STRICT = process.argv.includes("--strict");
-if (process.argv.slice(2).some((arg) => arg !== "--strict")) {
-  console.error("usage: node scripts/audit.mjs [--strict]");
+const USAGE = "usage: node scripts/audit.mjs [--dir <path>] [--strict]";
+let dirArg = ".";
+let strictArg = false;
+const argv = process.argv.slice(2);
+for (let i = 0; i < argv.length; i += 1) {
+  if (argv[i] === "--strict") { strictArg = true; continue; }
+  if (argv[i] === "--dir") {
+    dirArg = argv[i + 1] ?? "";
+    if (!dirArg || dirArg.startsWith("--")) { console.error(USAGE); process.exit(2); }
+    i += 1;
+    continue;
+  }
+  if (argv[i].startsWith("--dir=")) { dirArg = argv[i].slice("--dir=".length); continue; }
+  console.error(USAGE);
   process.exit(2);
 }
+const DIR = path.resolve(dirArg);
+const LOCKFILE = path.join(DIR, "bun.lock");
+const STRICT = strictArg;
 
 // GHSA/CVE -> reason + acceptance date, only when no upstream fix exists.
+// `accepted` is enforced: scripts/lib/audit-waivers.mjs expires it, so a waiver
+// cannot become permanent by being forgotten.
+//
+// Empty is the expected state. The last entry (GHSA-fc5q-39xc-vjpf, picomatch) was
+// withdrawn upstream on 2026-11-18T15:38:56Z, so `bun audit` no longer reports it and
+// the waiver stopped describing reality. Re-add an entry only with a reasoned reason
+// and a real acceptance date; the expiry check below keeps it temporary.
 const IGNORE = {};
+const STALE_WAIVERS = expiredWaivers(IGNORE);
+if (STALE_WAIVERS.length) {
+  // Checked before any network call: an expired exception is local evidence, and a
+  // registry timeout must never be what hides it.
+  console.error("audit: expired waiver(s) in scripts/audit.mjs:");
+  for (const line of STALE_WAIVERS) console.error(`  ${line}`);
+  console.error("Re-review the advisory; do not move the accepted date.");
+  process.exit(1);
+}
 function unavailable(reason) {
   console.error(`audit: ${reason}; ${STRICT ? "INCOMPLETE (strict gate failed)" : "SKIPPED (not a security pass)"}`);
   process.exit(STRICT ? 2 : 0);
@@ -93,7 +123,7 @@ while (attempts < AUDIT_ATTEMPTS) {
   if (remaining <= 0) { sawTimeout = true; break; }
   attempts += 1;
   res = spawnSync("bun", ["audit", "--json"], {
-    encoding: "utf8", timeout: Math.min(AUDIT_TIMEOUT_MS, remaining), killSignal: "SIGTERM",
+    cwd: DIR, encoding: "utf8", timeout: Math.min(AUDIT_TIMEOUT_MS, remaining), killSignal: "SIGTERM",
   });
   if (!inconclusive(res)) break;
   if (res.error?.code === "ETIMEDOUT" || res.signal) sawTimeout = true;

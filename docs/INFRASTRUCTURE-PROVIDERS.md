@@ -228,6 +228,25 @@ A provider is not complete merely because MSO can store its token. A new integra
 Prefer provider-native exact operations over generic `curl`/shell automation. Generic shell
 remains the escape hatch, not the product API.
 
+### Deploy the code before you write rows of a new provider
+
+**A provider id that the running server does not know makes the WHOLE integration store
+unreadable**, not just that one row. `lib/infra/connection-storage.ts` `validate()` calls
+`connectionMethod()` for every stored connection, so an unknown provider id throws
+`unknown_provider` and every read path — `mso provider list`, `mso integrations
+connections`, the browser UI, the MCP infographic — fails closed until the row is removed
+or the new code is live.
+
+Observed on 2026-11-18: two `mso-password` rows were written into
+`~/.mso/private/infra-providers.json` while the service still served the 2026-11-16 build.
+`mso integrations connections` began answering `404 unknown_provider` for *all* users.
+
+So the order is: land the provider code, deploy it, confirm the running build knows the id
+(`mso integrations connections <user> <provider>` returns rows, not `unknown_provider`),
+and only then create connections. If rows already exist against an older build, move them
+aside — do not "fix" it by deleting the store.
+
+
 ## Native Composio setup
 
 Composio project and organization keys are now supported by the native provider

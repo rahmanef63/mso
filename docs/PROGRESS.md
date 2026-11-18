@@ -1,17 +1,57 @@
-## 2026-11-18 — A custom Anthropic gateway keeps the headers it already accepts
+## 2026-11-18 — Convex deploy keys resolve their regional host, and native selects stop rendering light-on-light
 
-`@anthropic-ai/sdk` v1 changes two things on the wire: the API key moves from `X-Api-Key`
-to `Authorization: Bearer`, and the default `anthropic-version` becomes `2026-10-21`.
-Both are correct against the first-party API, but an Anthropic-compatible gateway that
-enforces `x-api-key` or pins `2023-06-01` answers 401, which reaches the operator as a
-generic provider failure with nothing pointing at the SDK bump. Only the custom-provider
-path is affected; the first-party host follows the SDK default. Both places that build an
-`Anthropic` client now share `lib/ai/custom-provider-headers.ts`, so the streaming path and
-the Settings key test cannot drift: a key that tests green must also stream.
-`lib/ai/custom-provider-headers.test.ts` pins the outbound contract and fails without the
-override; the negative control (override removed) fails with the gateway's 401.
+Two separate operator-visible failures, both reproduced before changing anything.
 
-## 2026-11-16 — Onboarding stops reporting a hydration mismatch it caused itself
+**Convex deployment key reported as HTTP 404.** A valid key (`prod:quiet-rooster-165|…`)
+failed verification with `Convex Cloud HTTP 404`. The key was never rejected: Convex Cloud
+deployments are regional (`<name>.<region>.convex.cloud`), and MSO probed the bare
+`<name>.convex.cloud` alias, which answers 404 for every deployment outside the default
+region. The same key returned `200` with full deployment info at
+`quiet-rooster-165.ap-southeast-2.convex.cloud`. Verification, canonical URLs and env-presence
+now resolve the real origin through the official `POST api.convex.dev/api/deployment/url_for_key`
+resolver, exactly like the Convex CLI, and refuse any origin that is not this deployment's own
+`.convex.cloud` host (no credentials are sent when it is refused). `convexDeploymentUrl` is gone;
+`resolveConvexDeploymentOrigin` + `convexDeploymentOriginUrl` replace it.
+
+**Native select popups were light-on-light in dark mode.** `<select>` triggers used the semantic
+tokens, but the option list is painted by the UA: Chromium gave it a light surface while the
+option text kept our near-inverted `--foreground`. Every dropdown in the Integrations surface
+(folder routing, variables, export format) and in the shell read as light text on a light popup.
+Option rows are now painted from the same tokens in `setup-ui.ts`, `connection-ui-style.ts`,
+`portable/ui.ts`, `setup-page.ts` and `app/globals.css`; a style-contract test pins all five and
+the contrast gate stays at zero failures for 36 presets in both themes.
+
+## 2026-11-19 — A withdrawn advisory stops holding a waiver slot
+
+GHSA-fc5q-39xc-vjpf (picomatch ReDoS) was withdrawn upstream at
+2026-11-18T15:38:56Z. `bun audit` no longer reports it, so `node scripts/audit.mjs
+--strict` was already exiting 0 before this change; the three waiver records still
+in the tree (osv-scanner.toml, the `IGNORE` map in scripts/audit.mjs, the `EXPECTED`
+list in scripts/audit-exceptions.mjs) described a fact that had stopped being true.
+A waiver for an advisory nobody reports is not extra safety, it is a stale
+suppression that silently widens the next time the same id is reused.
+
+The three picomatch records are deleted. The expiry machinery from the previous
+commit is untouched and still fails closed: a waiver absent from the lockfile, an
+empty or unparseable registry report, an unwaived critical advisory and a waiver
+accepted on 2020-01-01 all exit non-zero. The deepmerge waiver is also gone: GHSA-gcqx-w48m-w2h4 was withdrawn on
+2026-11-16T18:55:38Z because it does not describe a vulnerability, so the recorded
+entry was stale as well.
+
+## 2026-11-18 — The audit waiver finally expires on its own
+
+`scripts/audit.mjs` carried `accepted: "2026-11-18"` next to the picomatch waiver, and
+nothing read it. Setting that date to 2020 still printed `clean at high/critical` and
+exited 0 under `--strict`, so the one waiver in the repository was permanent in
+practice while `osv-scanner.toml` and `scripts/audit-native-tool.mjs` both enforced
+theirs. A waiver nobody can outlive is not a review, it is a suppression.
+
+The rule now lives in `scripts/lib/audit-waivers.mjs`: expiry is 90 days after
+acceptance, an unparseable date counts as expired, and the check runs before the
+registry probe so a network failure cannot be what hides a stale exception. With the
+date in the tree that is 2027-02-16. `scripts/lib/audit-waivers.test.ts` pins the
+boundary (day 89 valid, day 90 expired) and the negative control fails with
+`expired waiver(s) in scripts/audit.mjs`.
 
 ## 2026-11-16 — Read Composio account inventory without a source-changing workflow
 

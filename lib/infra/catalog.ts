@@ -122,6 +122,21 @@ export function normalizeInfraValues(id: InfraProviderId | string, raw: Record<s
     if (clean.length > 4096 || /[\x00-\x1f\x7f]/.test(clean)) throw new Error("Invalid integration field format");
     if (clean) out[key] = clean;
   }
+  if (provider === "mso-password") {
+    // One connection per MSO installation, so the host must be a bare hostname: a
+    // scheme, path or port would let two rows claim the same installation.
+    if (out.host !== undefined) {
+      if (out.host.includes("/") || out.host.includes(":") || out.host.includes(" ") || !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(out.host)) {
+        throw new Error("MSO host must be a bare hostname, without a scheme, port or path");
+      }
+      out.host = out.host.toLowerCase();
+    }
+    // Expiry is accepted only as "0" (never). A date would imply MSO rotates a
+    // password on another installation, which nothing here does.
+    if (out.expiresAt !== undefined && out.expiresAt !== "0") {
+      throw new Error('MSO host password expiresAt must be "0" (never)');
+    }
+  }
   if (provider === "dokploy" && out.apiUrl) {
     let parsed: URL;
     try { parsed = new URL(out.apiUrl); } catch { throw new Error("Dokploy API URL must be an absolute http(s) URL"); }

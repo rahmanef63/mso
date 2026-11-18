@@ -57,6 +57,8 @@ it("reads canonical URLs through a scoped short-lived deploy key and deletes it"
         ]);
         return json({ deployKey: DEPLOY_KEY });
       }
+      if (url.endsWith("/api/deployment/url_for_key"))
+        return json("https://happy-otter-123.ap-southeast-2.convex.cloud");
       if (url.endsWith("/get_canonical_urls")) {
         expect(new Headers(init?.headers).get("authorization")).toBe(
           `Convex ${DEPLOY_KEY}`,
@@ -105,6 +107,8 @@ it("sets canonical Cloud only after the matching custom domain is verified", asy
         });
       if (url.endsWith("/create_deploy_key"))
         return json({ deployKey: DEPLOY_KEY });
+      if (url.endsWith("/api/deployment/url_for_key"))
+        return json("https://happy-otter-123.ap-southeast-2.convex.cloud");
       if (url.endsWith("/update_canonical_url")) {
         expect(JSON.parse(String(init?.body))).toEqual({
           requestDestination: "convexCloud",
@@ -140,6 +144,8 @@ it("deletes the ephemeral key even when the deployment API fails", async () => {
     const url = String(input);
     if (url.endsWith("/create_deploy_key"))
       return json({ deployKey: DEPLOY_KEY });
+    if (url.endsWith("/api/deployment/url_for_key"))
+      return json("https://happy-otter-123.ap-southeast-2.convex.cloud");
     if (url.endsWith("/get_canonical_urls"))
       return json({ error: "boom" }, 500);
     if (url.endsWith("/delete_deploy_key")) {

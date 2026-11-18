@@ -1,0 +1,31 @@
+# Trivy ignore configuration.
+#
+# Trivy does not auto-detect this filename for a filesystem scan, so the
+# security workflow passes it explicitly as trivyignores. Nothing else in the
+# repo reads it except scripts/audit-exceptions.mjs, which verifies the entry
+# below against its reviewed table.
+#
+# An entry here is a dated reviewed decision with an expiry, not a blanket
+# suppression: it names the single advisory, the single path and the reason it
+# cannot be fixed today. When the fix lands, or the date passes, the scan fails
+# again and the entry must be deleted rather than extended. Extending a date
+# without recording why the upstream situation changed is forbidden. "The
+# scanner was inconvenient" is not a reason, and AGENTS.md forbids scanner
+# suppression to fake green.
+#
+# This advisory is recorded HERE and not in osv-scanner.toml because its
+# originating OSV record, GHSA-fc5q-39xc-vjpf, was withdrawn upstream on
+# 2026-11-18, so OSV-Scanner no longer reports it and an OSV waiver would have
+# nothing to silence. Trivy matches on the CVE id, and CVE-2026-112366 is still
+# live, so the scan still fails without this entry.
+
+vulnerabilities:
+  - id: CVE-2026-112366
+    paths:
+      - scripts/install/node-gyp/package-lock.json
+    statement: >-
+      picomatch ReDoS (HIGH). 4.0.7 is the latest npm release, so no patched
+      version exists to upgrade to. The copy sits only in the isolated node-gyp
+      bootstrap lockfile, which is install-time tooling that never ships to the
+      server and never globs untrusted runtime input.
+    expired_at: 2026-12-14T00:00:00Z
