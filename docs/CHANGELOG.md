@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `gate` stop the changelog gate flipping stale on a doubled squash suffix
+- `gate` stop the changelog gate flipping stale on a doubled squash suffix (#335)
 - `host,ui` rebase #314 onto main — readable disk root, preset font CSP, off the owner's device store (#326)
 - `managed-apps` rebase #323 onto main so the thin-surface fix can land (#325)
 - `gate` one audit waiver record, one expiry rule, no withdrawn waivers (#327)
