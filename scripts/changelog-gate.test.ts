@@ -157,4 +157,38 @@ describe("changelog staleness gate", () => {
     const after = readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
     expect(after.match(/a change that will be squashed/g)?.length, "still one row").toBe(1);
   });
+
+  // A squash can append more than one meta group. A branch that was itself a replay landed on
+  // main as "… (replay of #328) (#332)"; stripping only the last group left a key that no longer
+  // matched the bare subject, so main flipped stale after that merge and every open PR inherited
+  // a red changelog gate. The comparison must ignore the whole trailing run of meta groups.
+  it("treats a trailing run of squash and replay markers as the same row", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-changelog-replay-"));
+    roots.push(root);
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, "scripts/gen-changelog.mjs"), readFileSync(path.join(ROOT, "scripts/gen-changelog.mjs")));
+
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const commit = (file: string, subject: string) => {
+      writeFileSync(path.join(root, file), file);
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "add", "-A");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", subject);
+    };
+    git("init", "-q");
+    commit("a.txt", "feat(x): a replayed change");
+
+    const gen = () => spawnSync(process.execPath, ["scripts/gen-changelog.mjs"], { cwd: root, encoding: "utf8" });
+    const check = () => spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" }).status;
+    expect(gen().status).toBe(0);
+
+    // The same change lands once more, now carrying a replay marker AND a squash number.
+    commit("b.txt", "feat(x): a replayed change (replay of #328) (#332)");
+    expect(check(), "a doubled meta suffix must not invalidate the file").toBe(0);
+
+    // A genuinely different row must still fail, or the gate has stopped meaning anything.
+    const file = path.join(root, "docs/CHANGELOG.md");
+    writeFileSync(file, readFileSync(file, "utf8").replace("a replayed change", "a different change"));
+    expect(check(), "a real content difference is still stale").toBe(1);
+  });
 });
