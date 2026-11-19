@@ -1,3 +1,18 @@
+## 2026-11-19 — The Anthropic SDK major lands with its compatibility fix, not after it
+
+`@anthropic-ai/sdk` 0.135.0 → 1.6.0 is a major bump that changes how the client authenticates.
+The SDK now sends `Authorization: Bearer` and `anthropic-version: 2026-10-21` by default, which is
+correct for Anthropic's own API and wrong for every Anthropic-compatible gateway operators point
+MSO at. Merging the bump alone would have made streaming chat and the Settings "test key" button
+return 401 for BYOK gateways, with the key reported as invalid while it was fine.
+
+The bump therefore lands together with `lib/ai/custom-provider-headers.ts`, one helper applied at
+both `new Anthropic(...)` call sites (`lib/ai/selected-model-stream.ts` and
+`app/api/models/test/handler.ts`) that restores `x-api-key` and the pinned `anthropic-version` for
+custom gateways only. First-party traffic keeps the SDK defaults. A negative control with the
+override removed fails with `AuthenticationError: 401 x-api-key required`, which is the regression
+the test locks.
+
 ## 2026-11-18 — Convex deploy keys resolve their regional host, and native selects stop rendering light-on-light
 
 Two separate operator-visible failures, both reproduced before changing anything.
