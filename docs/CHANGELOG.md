@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `dast` reject a target that answers with an edge error page
 - `native` pick the loopback port from the OS, not a fixed Windows-hostile range (replay of #329) (#333)
 - `e2e` activate the pager page before right-clicking a home tile (replay of #328) (#332)
 - `infra` keep an operator host literal out of the portable source
