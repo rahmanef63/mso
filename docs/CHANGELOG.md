@@ -14,6 +14,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `e2e` activate the pager page before right-clicking a home tile
 - `infra` keep an operator host literal out of the portable source
 
 **Chores**
