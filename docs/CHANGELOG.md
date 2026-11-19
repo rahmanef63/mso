@@ -8,14 +8,15 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `gate` stop the changelog gate flipping stale on a doubled squash suffix
 - `host,ui` rebase #314 onto main — readable disk root, preset font CSP, off the owner's device store (#326)
 - `managed-apps` rebase #323 onto main so the thin-surface fix can land (#325)
 - `gate` one audit waiver record, one expiry rule, no withdrawn waivers (#327)
 
 **Tests**
 
+- `native` pick the loopback port from the OS, not a fixed Windows-hostile range (replay of #329) (#333)
 - `e2e` activate the pager page before right-clicking a home tile (replay of #328) (#332)
-- `native` ask the OS for a free loopback port instead of sampling 41000-61000
 - `infra` keep an operator host literal out of the portable source
 
 **Chores**

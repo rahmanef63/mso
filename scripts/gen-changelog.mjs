@@ -103,7 +103,22 @@ for (const [date, list] of byDay) {
 // So the PR suffix is stripped for comparison purposes: two rows whose subjects differ only
 // by " (#NNN)" are the same change. The bare form is kept, because the number adds nothing a
 // reader cannot get from git log.
-const stripPrSuffix = (s) => s.replace(/\s*\(#\d+\)\s*$/, "");
+//
+// A squash can append MORE than one meta group, in any order: a branch that was itself a
+// replay lands as "subject (replay of #328) (#332)". Stripping only the last group left the
+// comparison key as "subject (replay of #328)", so it no longer matched the bare subject it
+// had just replaced and main went stale after every such merge. Strip the whole trailing run
+// of meta groups, and require each one to be meta (a bare "#NNN" or a "replay of #NNN"), so a
+// subject that genuinely ends in parentheses is not mangled.
+const META_SUFFIX = /\s*\((?:\s*replay of\s*)?#\d+\s*\)\s*$/i;
+const stripPrSuffix = (s) => {
+  let out = s;
+  for (;;) {
+    const next = out.replace(META_SUFFIX, "");
+    if (next === out) return out;
+    out = next;
+  }
+};
 for (const [date, list] of byDay) {
   // Group by the suffix-free subject, then emit one row per change. The bare form wins when both
   // exist, so the file does not flip depending on whether it was regenerated before or after the
@@ -145,9 +160,21 @@ for (const day of days) {
 
 const text = out.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
 
+// The writer keeps a PR number when it is the subject's only occurrence, because it links the
+// line to its discussion. That makes the file depend on WHEN it was generated: a branch writes
+// the bare subject, then the squash that lands it appends " (#NNN)" and the same tree now
+// disagrees with itself. Making the writer drop every number would fix the gate by making the
+// file worse to read, so the comparison is what gets normalized instead: a difference that is
+// only a trailing meta group is not a stale changelog.
+const normalized = (markdown) =>
+  markdown
+    .split("\n")
+    .map((line) => (line.startsWith("- ") ? stripPrSuffix(line) : line))
+    .join("\n");
+
 if (process.argv.includes("--check")) {
   const current = safeRead(OUT);
-  if (current !== text) {
+  if (normalized(current) !== normalized(text)) {
     console.error("docs/CHANGELOG.md is stale — run: node scripts/gen-changelog.mjs");
     process.exit(1);
   }
