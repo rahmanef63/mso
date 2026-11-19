@@ -28,6 +28,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - `convex,integrations` resolve regional Convex host and theme native select popups
+- `ai` keep x-api-key and the pinned API version for custom Anthropic gateways
 
 **Other**
 

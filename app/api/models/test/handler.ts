@@ -7,6 +7,7 @@ import { safeProviderFetch } from "@/lib/host/ssrf";
 import { codexModels, ensureFreshCodex } from "@/lib/ai/oauth/codex";
 import { streamCodex } from "@/lib/ai/codex-stream";
 import { boundedProviderFetch, providerErrorText } from "@/lib/ai/provider-response";
+import { anthropicClientHeaders } from "@/lib/ai/custom-provider-headers";
 
 
 // Minimal inference validation of the SELECTED provider's key + endpoint. Session-gated POST.
@@ -65,6 +66,7 @@ export async function handlePostTest(): Promise<Response> {
       const a = new Anthropic({
         apiKey: resolved.apiKey, baseURL: resolved.baseUrl,
         fetch: boundedProviderFetch(customProvider ? safeProviderFetch : fetch),
+        ...anthropicClientHeaders(customProvider, resolved.apiKey),
       });
       await a.messages.create({ model: resolved.model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] }, { signal });
     } else {
