@@ -4,11 +4,7 @@ import { probeDastTarget, requireDastTarget } from "./check-dast-target.mjs";
 const TARGET = "https://mso.example.com/";
 
 function reply(status: number, body = "") {
-  return {
-    status,
-    body: null,
-    text: async () => body,
-  };
+  return new Response(body, { status });
 }
 
 describe("probeDastTarget", () => {
