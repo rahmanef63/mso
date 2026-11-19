@@ -14,7 +14,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
-- `e2e` activate the pager page before right-clicking a home tile
+- `e2e` activate the pager page before right-clicking a home tile (replay of #328) (#332)
+- `native` ask the OS for a free loopback port instead of sampling 41000-61000
 - `infra` keep an operator host literal out of the portable source
 
 **Chores**
