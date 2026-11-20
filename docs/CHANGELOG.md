@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-21
+
+**Added**
+
+- `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll
+
 ## 2026-11-20
 
 **Fixed**
@@ -1309,9 +1315,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `termux` add one-pass Android installer
 - `security` document fresh-install MCP exec exposure
-
-## 2026-09-10
-
-**Added**
-
-- `mcp` expose complete ChatGPT tool surface

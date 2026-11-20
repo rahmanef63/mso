@@ -25,20 +25,21 @@ export type ProviderUsage = {
 
 export type AgentTurn = {
   text: string;
+  reasoning?: string;
   toolUses: AiToolUse[];
   stopReason: string | null;
   usage?: ProviderUsage;
 };
 
-// One assistant turn with tools. Streams text via `onDelta`, then resolves with
-// the accumulated text + any tool_use blocks the model emitted (which the caller
-// executes and feeds back as a `tool` message on the next turn).
+// One assistant turn with tools. Streams text via `onDelta` and optional reasoning
+// via `onReasoning`, then resolves with accumulated text + any tool_use blocks.
 export async function streamAgentTurn(
   messages: AgentMsg[],
   tools: AiTool[],
   onDelta: (chunk: string) => void,
   signal?: AbortSignal,
   system?: string,
+  onReasoning?: (chunk: string) => void,
 ): Promise<AgentTurn> {
   const res = await fetch("/api/assistant", {
     method: "POST",
@@ -54,40 +55,48 @@ export async function streamAgentTurn(
   const dec = new TextDecoder();
   let buf = "";
   let text = "";
+  let reasoning = "";
   const toolUses: AiToolUse[] = [];
   let stopReason: string | null = null;
   let usage: ProviderUsage | undefined = undefined;
-  while (true) {
-    if (signal?.aborted) { await reader.cancel().catch(() => {}); break; }
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const blocks = buf.split("\n\n");
-    buf = blocks.pop() ?? "";
-    for (const block of blocks) {
-      let event = "message";
-      let data = "";
-      for (const line of block.split("\n")) {
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        else if (line.startsWith("data:")) data += line.slice(5).trim();
-      }
-      if (!data) continue;
-      if (event === "delta") { const t = JSON.parse(data) as string; text += t; onDelta(t); }
-      else if (event === "tool_use") toolUses.push(JSON.parse(data) as AiToolUse);
-      else if (event === "error") throw new Error(JSON.parse(data) as string);
-      else if (event === "done") {
-        const payload = JSON.parse(data) as { stopReason?: string; usage?: ProviderUsage };
-        stopReason = payload.stopReason ?? null;
-        if (payload.usage && typeof payload.usage === "object") {
-          usage = payload.usage;
+  try {
+    while (true) {
+      if (signal?.aborted) { await reader.cancel().catch(() => {}); break; }
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const blocks = buf.split("\n\n");
+      buf = blocks.pop() ?? "";
+      for (const block of blocks) {
+        let event = "message";
+        let data = "";
+        for (const line of block.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data += line.slice(5).trim();
+        }
+        if (!data) continue;
+        if (event === "delta") { const t = JSON.parse(data) as string; text += t; onDelta(t); }
+        else if (event === "reasoning") { const r = JSON.parse(data) as string; reasoning += r; onReasoning?.(r); }
+        else if (event === "tool_use") toolUses.push(JSON.parse(data) as AiToolUse);
+        else if (event === "error") throw new Error(JSON.parse(data) as string);
+        else if (event === "done") {
+          const payload = JSON.parse(data) as { stopReason?: string; usage?: ProviderUsage };
+          stopReason = payload.stopReason ?? null;
+          if (payload.usage && typeof payload.usage === "object") {
+            usage = payload.usage;
+          }
         }
       }
     }
+  } catch (err) {
+    if (!signal?.aborted) throw err;
+    await reader.cancel().catch(() => {});
   }
   return {
     text,
+    ...(reasoning ? { reasoning } : {}),
     toolUses,
-    stopReason,
+    stopReason: signal?.aborted ? "aborted" : stopReason,
     ...(usage !== undefined ? { usage } : {}),
   };
 }

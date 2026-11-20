@@ -32,6 +32,8 @@ type OaChunk = {
   choices?: Array<{
     delta?: {
       content?: string | null;
+      reasoning_content?: string | null;
+      reasoning?: string | null;
       tool_calls?: Array<{ index?: number; id?: string; function?: { name?: string; arguments?: string } }>;
     };
     finish_reason?: string | null;
@@ -86,7 +88,7 @@ export async function streamOpenAI(opts: {
   tools?: OaTool[];
   system: string;
   signal: AbortSignal;
-  emit: (event: "delta" | "tool_use" | "done", data: unknown) => void;
+  emit: (event: "delta" | "reasoning" | "tool_use" | "done", data: unknown) => void;
   fetchImpl?: typeof fetch;
 }): Promise<void> {
   const { resolved, messages, tools, system, emit } = opts;
@@ -145,6 +147,13 @@ export async function streamOpenAI(opts: {
       if (chunk.usage) usage = chatCompletionsProviderUsage(chunk.usage);
       const choice = chunk.choices?.[0];
       if (!choice) continue;
+      const reasoning = choice.delta?.reasoning_content ?? choice.delta?.reasoning;
+      if (reasoning) {
+        if (typeof reasoning !== "string") throw new Error("invalid provider content");
+        textBytes += Buffer.byteLength(reasoning);
+        if (textBytes > 1024 * 1024) throw new Error("provider text budget exceeded");
+        emit("reasoning", reasoning);
+      }
       if (choice.delta?.content) {
         if (typeof choice.delta.content !== "string") throw new Error("invalid provider content");
         textBytes += Buffer.byteLength(choice.delta.content);

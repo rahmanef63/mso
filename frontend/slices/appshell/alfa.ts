@@ -11,4 +11,6 @@ export * from "./lib/alfa-approvals";
 export * from "./lib/alfa-work-context";
 export { MessageBubble } from "./components/message-bubble";
 export type { ChatMessage, ToolCard } from "./components/message-bubble";
+export { ChatMarkdown } from "./components/chat-markdown";
+export { useChatAutoScroll, ScrollToBottomButton } from "./components/use-chat-autoscroll";
 export { ApprovalCard } from "./components/approval-card";

@@ -73,4 +73,24 @@ describe("streamOpenAI", () => {
       }),
     ).rejects.toThrow(/openai HTTP 401/);
   });
+
+  it("emits reasoning events for reasoning_content and reasoning deltas", async () => {
+    const pieces = [
+      `data: {"choices":[{"delta":{"reasoning_content":"Step 1. "}}]}\n\n`,
+      `data: {"choices":[{"delta":{"reasoning":"Step 2."}}]}\n\n`,
+      `data: {"choices":[{"delta":{"content":"Answer"}}]}\n\n`,
+      `data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n`,
+    ];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(sseStream(pieces), { status: 200 })));
+    const events: { e: string; d: unknown }[] = [];
+    await streamOpenAI({
+      resolved,
+      messages: [{ role: "user", text: "hi" }],
+      system: "sys",
+      signal: new AbortController().signal,
+      emit: (e, d) => events.push({ e, d }),
+    });
+    expect(events.filter((x) => x.e === "reasoning").map((x) => x.d).join("")).toBe("Step 1. Step 2.");
+    expect(events.filter((x) => x.e === "delta").map((x) => x.d).join("")).toBe("Answer");
+  });
 });
