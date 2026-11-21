@@ -16,6 +16,7 @@ import { appAllowedForRole } from "@/lib/auth/app-access";
 import { managedAppHost, managedAppOrigin, managedAppIdForHost } from "@/lib/managed-apps/origin";
 import { contentSecurityPolicy } from "@/lib/managed-apps/proxy-csp";
 import { pickResponseHeaders } from "@/lib/managed-apps/proxy-headers";
+import { resolveAuthorizedFrame } from "./app-authorization";
 import { t3App } from "./index";
 import { T3CodeApp } from "./app";
 
@@ -73,5 +74,33 @@ describe("T3 Code managed application integration", () => {
   it("exports T3CodeApp component and renders initial detecting state", () => {
     const html = renderToStaticMarkup(<T3CodeApp />);
     expect(html).toContain("Detecting T3 Code");
+  });
+
+  it("frames canonical T3 /pair#token=... URLs with app_ticket in the fragment and falls back safely", async () => {
+    const origin = "https://t3.mso.example.com";
+    const ok = (body: Record<string, unknown>) =>
+      new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+
+    const paired = await resolveAuthorizedFrame(
+      ok({ origin, ticket: "ticket_abc", webClientUrl: `${origin}/pair#token=t3_one_time_12345` }),
+      `${origin}/`,
+      "t3",
+    );
+    const parsed = new URL(paired.url);
+    expect(parsed.origin).toBe(origin);
+    expect(parsed.pathname).toBe("/pair");
+    expect(parsed.search).toBe("");
+    expect(parsed.hash).toContain("token=t3_one_time_12345");
+    expect(parsed.hash).toContain("app_ticket=ticket_abc");
+
+    const fallback = await resolveAuthorizedFrame(ok({ origin, ticket: "ticket_abc" }), `${origin}/`, "t3");
+    expect(new URL(fallback.url).pathname).toBe("/");
+
+    await expect(
+      resolveAuthorizedFrame(ok({ origin, ticket: "ticket_abc", webClientUrl: `${origin}/pair?token=leak#token=abc` }), `${origin}/`, "t3"),
+    ).rejects.toThrow("authorization origin mismatch");
+    await expect(
+      resolveAuthorizedFrame(ok({ origin, ticket: "ticket_abc", webClientUrl: `${origin}/other#token=abc` }), `${origin}/`, "t3"),
+    ).rejects.toThrow("authorization origin mismatch");
   });
 });

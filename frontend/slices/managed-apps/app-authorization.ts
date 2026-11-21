@@ -30,6 +30,14 @@ export async function resolveAuthorizedFrame(response: Response, embeddedSource:
     }
     if (!candidate.hash.startsWith("#pairing=")) throw new Error("authorization origin mismatch");
     targetSource = data.webClientUrl;
+  } else if (appId === "t3" && data.webClientUrl !== undefined && data.webClientUrl !== null) {
+    if (typeof data.webClientUrl !== "string") throw new Error("authorization origin mismatch");
+    const candidate = new URL(data.webClientUrl);
+    if (candidate.origin !== expectedOrigin || candidate.pathname !== "/pair" || candidate.search !== "") {
+      throw new Error("authorization origin mismatch");
+    }
+    if (!candidate.hash.startsWith("#token=")) throw new Error("authorization origin mismatch");
+    targetSource = data.webClientUrl;
   } else if (data.webClientUrl !== undefined && data.webClientUrl !== null) {
     throw new Error("authorization origin mismatch");
   }
