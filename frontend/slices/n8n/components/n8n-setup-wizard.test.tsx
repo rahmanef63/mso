@@ -25,6 +25,7 @@ describe("low-code n8n setup wizard and panels", () => {
         configurable
         revision="rev-1"
         loadMessage=""
+        initialMode="local"
         onSaved={vi.fn(async () => {})}
         onRefresh={vi.fn()}
         onOpenManaged={vi.fn()}

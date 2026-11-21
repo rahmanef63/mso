@@ -34,7 +34,7 @@ export function N8nSetupWizard({
   onOpenManaged: () => void;
   onClose?: () => void;
 }) {
-  const [mode, setMode] = useState<SetupMode>(initialMode ?? (existing ? "https" : "local"));
+  const [mode, setMode] = useState<SetupMode>(initialMode ?? "https");
 
   if (mode === "https") {
     return (

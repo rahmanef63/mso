@@ -103,17 +103,7 @@ export function ConnectAppForm({ existing, manifest, prefill, onClose }: {
           Link an app already running on this computer or a remote server. MSO will never stop or delete it.
         </FormDrawer.Description>
       </FormDrawer.Header>
-      <form onSubmit={submit} className="min-h-0 space-y-3.5 overflow-y-auto px-4 pb-4">
-        {!existing && !manifest && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Fill example:</span>
-            {PRESETS.map((preset) => (
-              <Button key={preset.label} type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setApp((cur) => ({ ...cur, ...preset.sample }))}>
-                {preset.label}
-              </Button>
-            ))}
-          </div>
-        )}
+      <form onSubmit={submit} className="min-h-0 space-y-3 overflow-y-auto px-4 pb-4">
         {manifest && (
           <div className="space-y-1 rounded-lg border p-3 text-sm">
             <p>Manifest: {manifest.id} · {manifest.version}</p>
@@ -122,7 +112,18 @@ export function ConnectAppForm({ existing, manifest, prefill, onClose }: {
           </div>
         )}
         <div className="space-y-1">
-          <Label htmlFor={`${prefix}-name`}>App name</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor={`${prefix}-name`}>App name</Label>
+            {!existing && !manifest && (
+              <div className="flex items-center gap-1">
+                {PRESETS.map((preset) => (
+                  <Button key={preset.label} type="button" size="sm" variant="ghost" className="h-5 px-1.5 text-[11px]" onClick={() => setApp((cur) => ({ ...cur, ...preset.sample }))}>
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
           <Input
             id={`${prefix}-name`}
             value={app.title}
@@ -142,7 +143,7 @@ export function ConnectAppForm({ existing, manifest, prefill, onClose }: {
           <p className="text-xs text-muted-foreground">Lowercase letters, numbers, and hyphens only (no spaces).</p>
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`${prefix}-url`}>App address (URL)</Label>
+          <Label htmlFor={`${prefix}-url`}>App URL</Label>
           <Input id={`${prefix}-url`} type="url" value={app.url} placeholder="https://app.yourdomain.com or http://127.0.0.1:8080" maxLength={2048} required onChange={(e) => change("url", e.target.value)} />
           <p className="text-xs text-muted-foreground">Use HTTPS to embed inside MSO, or HTTP (like http://127.0.0.1:8080) to open in a new tab. Never put passwords in the URL.</p>
         </div>
