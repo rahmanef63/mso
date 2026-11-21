@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { Loader2, RefreshCw, ServerCog, Settings2 } from "lucide-react";
 import type { AppProps } from "@/features/appshell";
 import { AppFrame } from "@/features/appshell";
-import { ManagedAppsSurface } from "@/features/managed-apps";
+import { loadManagedAppsSurface } from "@/features/managed-apps";
 import type { DiscoveredLocalApp, LocalDiscoverySnapshot } from "@/lib/contracts/app-discovery";
 import type { WorkflowEmbed } from "@/lib/contracts/surface-app";
-import type { ManagedAppView } from "@/lib/managed-apps/types";
+import type { ManagedAppId, ManagedAppView } from "@/lib/managed-apps/types";
 import { Button } from "@/components/ui/button";
 import { N8nMark } from "./components/n8n-connect-panel";
 import { N8nEmbedPanel } from "./components/n8n-embed-panel";
@@ -26,6 +26,7 @@ export default function N8nApp(_: AppProps) {
   const [forbidden, setForbidden] = useState(false);
   const [message, setMessage] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("auto");
+  const [ManagedSurface, setManagedSurface] = useState<ComponentType<{ focus: ManagedAppId; initialDetails?: boolean }> | null>(null);
 
   const request = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
@@ -92,6 +93,15 @@ export default function N8nApp(_: AppProps) {
   const showManaged = viewMode === "managed" || (viewMode === "auto" && managedInstalled && !n8n);
   const showSetup = viewMode === "setup" || (viewMode === "auto" && !n8n && !managedInstalled);
 
+  useEffect(() => {
+    if (!showManaged || ManagedSurface) return;
+    let active = true;
+    void loadManagedAppsSurface().then((Component) => {
+      if (active) setManagedSurface(() => Component);
+    });
+    return () => { active = false; };
+  }, [showManaged, ManagedSurface]);
+
   const embedActions = (
     <>
       <Button type="button" size="sm" variant="ghost" onClick={() => setViewMode("managed")} title="Install, update, or control local n8n">
@@ -141,7 +151,13 @@ export default function N8nApp(_: AppProps) {
               </div>
             </div>
             <div className="min-h-0 flex-1">
-              <ManagedAppsSurface focus="n8n" />
+              {ManagedSurface ? (
+                <ManagedSurface focus="n8n" />
+              ) : (
+                <div role="status" className="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" aria-hidden /> Loading n8n runtime controls...
+                </div>
+              )}
             </div>
           </div>
         ) : showSetup ? (
