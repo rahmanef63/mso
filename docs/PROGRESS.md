@@ -1,3 +1,22 @@
+## 2026-11-21 — T3 Code proxy forwards app WebSocket cookies, protocol header, and auto-pairing
+
+Live Playwright verification against the split-origin T3 managed-app host uncovered three protocol
+gaps in the initial T3 Code managed-app integration that left the framed app stuck on pairing or a
+blank screen:
+
+- `upstreamSocketHeaders()` deleted the `cookie` header unconditionally on WebSocket upgrades, so
+  T3's own `__Host-mapp_t3_t3_session_*` browser session cookie never reached `ws://127.0.0.1:3773/ws`
+  (producing upstream `401` and proxy `502`). It now unwraps only the target app's `__Host-mapp_<id>_*`
+  cookies using `upstreamCookieHeader()`, matching HTTP `buildUpstreamHeaders()` while keeping
+  cockpit and sibling-app cookies strictly isolated.
+- `APP_REQUEST_HEADERS` omitted `x-t3-orchestration-protocol`, causing T3's orchestration HTTP API
+  (`/api/orchestration/shell`) to reject requests with `400`. That static protocol header is now
+  forwarded only for `t3`.
+- `/api/v1/managed-apps/t3/session` now mints a short-lived one-time `/pair#token=...` URL via
+  `t3 auth pairing create --json` (validated strictly on the exact HTTPS T3 origin with fragment-only
+  token, falling back to `/` when unavailable), so opening T3 Code in MSO auto-pairs in one click
+  just like Orca.
+
 ## 2026-11-21 — Dedicated n8n workspace matches third-party iframe apps
 
 `frontend/slices/n8n/app.tsx` previously showed an unconfigured card linking to three unrelated

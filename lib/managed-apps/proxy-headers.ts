@@ -27,8 +27,12 @@ const REQUEST_HEADERS = [
 // own, so it cannot become ambient credential. Only the app's own JS sets it, only on
 // its own host, and a cross-origin fetch carrying it would need a CORS preflight the
 // upstream does not answer.
+// T3 Code sends `x-t3-orchestration-protocol: 2` on its orchestration HTTP API
+// routes and returns 400/426 when the header is absent. Safe to forward: static
+// protocol version header set by the T3 SPA, never an ambient browser credential.
 const APP_REQUEST_HEADERS: Record<string, readonly string[]> = {
   hermes: ["x-hermes-session-token"],
+  t3: ["x-t3-orchestration-protocol"],
 };
 
 // Frame-blocking and policy headers are absent by construction: no
@@ -120,7 +124,12 @@ const SOCKET_LOOPBACK_ORIGIN = new Set(["hermes"]);
 
 export function upstreamSocketHeaders(incoming: Headers, id?: string, base?: URL): Headers {
   const headers = new Headers(incoming);
-  headers.delete("cookie");
+  // Strip cockpit/MSO cookies unconditionally, but unwrap this app's own
+  // `__Host-mapp_<id>_*` cookies (e.g. T3 Code's `t3_session_*` browser cookie)
+  // using the exact same isolation boundary as HTTP `buildUpstreamHeaders`.
+  const appCookie = id ? upstreamCookieHeader(incoming.get("cookie"), cookiePrefix(id)) : null;
+  if (appCookie) headers.set("cookie", appCookie);
+  else headers.delete("cookie");
   headers.delete("authorization");
   if (id && base && SOCKET_LOOPBACK_ORIGIN.has(id)) {
     headers.set("host", base.host);

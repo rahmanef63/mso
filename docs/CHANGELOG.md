@@ -13,7 +13,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `n8n` dedicated single-bar iframe workspace, N8N_PUBLIC_URL support, and portability guard
+- `t3` forward T3 app cookies on WebSocket upgrades, protocol header, and auto-pairing
+- `n8n` dedicated single-bar iframe workspace, N8N_PUBLIC_URL support, and portability guard (#341)
 
 ## 2026-11-20
 

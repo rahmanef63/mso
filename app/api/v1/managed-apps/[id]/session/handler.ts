@@ -5,6 +5,7 @@ import { isManagedAppId } from "@/lib/managed-apps/catalog";
 import { managedAppOrigin } from "@/lib/managed-apps/origin";
 import { createManagedAppTicket } from "@/lib/managed-apps/session";
 import { getOrcaReadiness } from "@/lib/managed-apps/orca-readiness";
+import { createT3PairingClientUrl } from "@/lib/managed-apps/t3-pairing";
 import { IS_DEMO } from "@/lib/demo";
 
 const NO_STORE = { "cache-control": "no-store" } as const;
@@ -31,6 +32,14 @@ export async function handleGetManagedAppSession(_req: Request, id: string): Pro
         webClientUrl: readiness.webClientUrl,
         runtimeId: readiness.runtimeId,
       },
+      { headers: NO_STORE },
+    );
+  }
+
+  if (id === "t3") {
+    const webClientUrl = await createT3PairingClientUrl(origin);
+    return NextResponse.json(
+      webClientUrl ? { origin, ticket, webClientUrl } : { origin, ticket },
       { headers: NO_STORE },
     );
   }
