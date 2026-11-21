@@ -38,6 +38,7 @@ function affectedVitestDirs(files) {
   const targets = new Set();
   for (const file of files) {
     if (!existsSync(path.join(ROOT, file))) continue;
+    if (file.startsWith("frontend/svelte/")) continue;
     const mSlice = file.match(/^(frontend\/slices\/[^/]+)\//);
     if (mSlice) { targets.add(mSlice[1]); continue; }
     const mLib = file.match(/^(lib\/[^/]+)\//);
