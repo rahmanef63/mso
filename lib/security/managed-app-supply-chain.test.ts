@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = path.join(__dirname, "../..");
 const INSTALL = path.join(ROOT, "scripts/managed-app-install");
 const ROUTER = path.join(ROOT, "scripts/managed-app-9router");
+const T3 = path.join(ROOT, "scripts/managed-app-t3");
 const LOCK = path.join(ROOT, "security/managed-app-artifacts.env");
 const source = (file: string) => fs.readFileSync(file, "utf8");
 
@@ -19,6 +20,9 @@ describe("managed-app immutable artifact contract", () => {
     expect(lock).toMatch(/OPENCLAW_VERSION='[^']+'/);
     expect(lock).toMatch(/OPENCLAW_TARBALL_SHA512='[0-9a-f]{128}'/);
     expect(lock).toMatch(/NINE_ROUTER_IMAGE_REF='[^']+@sha256:[0-9a-f]{64}'/);
+    expect(lock).toMatch(/T3_VERSION='[^']+'/);
+    expect(lock).toMatch(/T3_LINUX_X64_SHA256='[0-9a-f]{64}'/);
+    expect(lock).toMatch(/T3_LINUX_ARM64_SHA256='[0-9a-f]{64}'/);
   });
 
   it("verifies Hermes installer bytes and pins the repository checkout", () => {
@@ -63,8 +67,18 @@ describe("managed-app immutable artifact contract", () => {
     expect(check).not.toContain("$BASE/api/version");
   });
 
-  it("keeps both lifecycle scripts syntactically valid", () => {
+  it("verifies pinned T3 Code tarballs by SHA-256 and binds loopback only", () => {
+    const script = source(T3);
+    expect(script).toContain("sha256sum -c -");
+    expect(script).toContain("--proto '=https'");
+    expect(script).toContain('BIND="127.0.0.1"');
+    expect(script).toContain("--host ${BIND} --port ${PORT}");
+    expect(script).not.toContain("releases/latest");
+  });
+
+  it("keeps all lifecycle scripts syntactically valid", () => {
     expect(() => execFileSync("bash", ["-n", INSTALL])).not.toThrow();
     expect(() => execFileSync("bash", ["-n", ROUTER])).not.toThrow();
+    expect(() => execFileSync("bash", ["-n", T3])).not.toThrow();
   });
 });

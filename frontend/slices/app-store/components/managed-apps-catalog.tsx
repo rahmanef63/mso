@@ -64,7 +64,9 @@ export function ManagedAppsCatalog({ query }: { query: string }) {
   }, []);
 
   const managedIds = useMemo(() => catalog?.entries.filter(entry => entry.kind === "managed").map(entry => entry.id) ?? [], [catalog]);
-  const managed = apps.filter(app => (managedIds.length === 0 || managedIds.includes(app.id) || app.installed) &&
+  // Show every locally reviewed managed adapter (even before the remote MANEF
+  // catalog lists it), ordered with remote catalog entries first.
+  const managed = apps.filter(app =>
     app.name.toLowerCase().includes(query.toLowerCase())).sort((a, b) => {
       const left = managedIds.indexOf(a.id), right = managedIds.indexOf(b.id);
       return (left < 0 ? managedIds.length : left) - (right < 0 ? managedIds.length : right);

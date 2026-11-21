@@ -7,6 +7,55 @@
  */
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
+const RETRYABLE_STATUSES = new Set([429, 503])
+const DEFAULT_MAX_RETRIES = 3
+const DEFAULT_RETRY_DELAY_MS = 1500
+const MAX_RETRY_DELAY_MS = 15000
+
+function safeUrlLabel(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl)
+    return `${parsed.hostname}${parsed.pathname}`
+  } catch {
+    return 'artifact'
+  }
+}
+
+function parseRetryAfterMs(headerValue, fallbackMs) {
+  if (!headerValue) return fallbackMs
+  const seconds = Number(headerValue)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(Math.max(Math.round(seconds * 1000), 100), MAX_RETRY_DELAY_MS)
+  }
+  const timestamp = Date.parse(headerValue)
+  if (Number.isFinite(timestamp)) {
+    const delta = timestamp - Date.now()
+    if (delta > 0) return Math.min(delta, MAX_RETRY_DELAY_MS)
+  }
+  return fallbackMs
+}
+
+function sleepWithSignal(ms, signal) {
+  if (signal?.aborted) {
+    const err = new Error('Artifact download aborted')
+    err.name = 'AbortError'
+    return Promise.reject(err)
+  }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer)
+      const err = new Error('Artifact download aborted')
+      err.name = 'AbortError'
+      reject(err)
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    timer.unref?.()
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
 
 export function assertFixedUrl(url, expectedUrl) {
   if (typeof expectedUrl !== 'string' || !expectedUrl.startsWith('https://')) {
@@ -47,10 +96,14 @@ export async function fetchPinnedResponse({
   expectedUrl,
   allowedRedirectHosts,
   fetchImpl,
-  signal
+  signal,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  retryDelayMs = DEFAULT_RETRY_DELAY_MS,
+  sleepImpl = sleepWithSignal
 }) {
   assertFixedUrl(url, expectedUrl)
   let current = url
+  let attempt = 0
   for (let hop = 0; hop <= 5; hop += 1) {
     const res = await fetchImpl(current, {
       signal,
@@ -69,8 +122,20 @@ export async function fetchPinnedResponse({
       current = await assertAllowedRedirect(location, allowedRedirectHosts, current)
       continue
     }
+    if (RETRYABLE_STATUSES.has(res.status) && attempt < maxRetries) {
+      await res.body?.cancel?.().catch?.(() => {})
+      const backoff = Math.min(retryDelayMs * 2 ** attempt, MAX_RETRY_DELAY_MS)
+      const waitMs = parseRetryAfterMs(res.headers?.get?.('retry-after'), backoff)
+      attempt += 1
+      await sleepImpl(waitMs, signal)
+      hop -= 1
+      continue
+    }
     if (!res.ok) {
-      throw new Error(`Failed to download artifact: HTTP ${res.status} ${res.statusText ?? ''}`.trim())
+      await res.body?.cancel?.().catch?.(() => {})
+      throw new Error(
+        `Failed to download artifact (${safeUrlLabel(current)}): HTTP ${res.status} ${res.statusText ?? ''}`.trim()
+      )
     }
     if (current !== expectedUrl && !allowedRedirectHosts) {
       throw new Error(`Refusing download from a non-fixed artifact URL: ${current}`)

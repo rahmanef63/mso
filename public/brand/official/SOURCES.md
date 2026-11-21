@@ -8,6 +8,7 @@ These WebP files are raster derivatives of the upstream projects' own brand asse
 - 9Router: `decolua/9router` — running `decolua/9router:0.5.55` image `/app/public/icons/icon-512.svg`
 - n8n: [n8n Brand System](https://guidelines.n8n.design/logo) — `n8n-symbol-accent.svg` (official Accent Pink `#FF91AC`); the app tile uses official Core Black `#191919`. Original SVG is retained at `../n8n.svg`.
 - Orca: `stablyai/orca` at `b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e` (pinned Orca IDE 1.4.230 source) — `resources/build/icon.png`
+- T3 Code: `pingdotgg/t3code` at `v0.1.11` — `client/icon-192x192.png` (rasterized losslessly at 192px as `t3.webp`)
 - Dokploy: `Dokploy/dokploy` at `3c6d5f611389fdb0eeab9e13285ae3d6828800c0` — `apps/dokploy/public/icon-dark.svg`; original SVG retained as `dokploy.svg`. The white mark is shown on a neutral dark tile for contrast.
 - Cloudflare: `simple-icons/simple-icons` at `1bb2f6e6ea50f920de8d2f3d273ae48564a5eaee` — `icons/cloudflare.svg` (CC0), rendered in official brand orange `#F38020`; original SVG retained as `cloudflare.svg`.
 

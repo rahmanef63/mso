@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll
+- `managed-apps` fix Orca audit findings and add T3 Code managed app
+- `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll (#339)
 
 ## 2026-11-20
 

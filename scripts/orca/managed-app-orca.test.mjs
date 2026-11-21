@@ -2,6 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { chmod, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { installReceiptPath } from './managed-paths.mjs'
@@ -10,7 +11,7 @@ import { readInstalledOrcaRelease } from './managed-receipt.mjs'
 import { getReleaseContentId } from './release-identity.mjs'
 
 const WRAPPER = fileURLToPath(new URL('../managed-app-orca', import.meta.url))
-const SCRATCH = '/home/antinrml/.hermes/cache/scratch/opencode'
+const SCRATCH = tmpdir()
 
 function adapter(args, env = {}) {
   return spawnSync(WRAPPER, args, {

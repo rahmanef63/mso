@@ -16,7 +16,7 @@ import { appStoreApp } from "@/features/app-store";
 import { createAppApp } from "@/features/create-app";
 import { systemMonitorApp } from "@/features/system-monitor";
 import { assistantApp } from "@/features/assistant";
-import { hermesApp, nineRouterApp, openclawApp, orcaApp } from "@/features/managed-apps";
+import { hermesApp, nineRouterApp, openclawApp, orcaApp, t3App } from "@/features/managed-apps";
 import { osSettingsApp } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
@@ -96,6 +96,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   // below pins Channels, Docs and Settings inside that page. A new built-in that
   // lands mid-list pushes Settings to index 24 and silently breaks that promise.
   withSlug(withArtwork(botDesktopsApp), "bot-desktops"),
+  withSlug(withArtwork(t3App), "t3"),
 ];
 
 // Shell features — the generic brand-free set now lives INSIDE the appshell

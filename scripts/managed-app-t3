@@ -1,0 +1,305 @@
+#!/usr/bin/env bash
+# MSO's lifecycle adapter for the standalone Linux server distribution of T3 Code.
+#
+# MSO is a pure gateway/remap shell: no T3 Code source is copied into MSO. This
+# adapter downloads the reviewed release tarball pinned in
+# security/managed-app-artifacts.env, verifies SHA-256 before extraction, installs
+# it into ~/.local/share/mso/t3/releases/t3-<version>, and manages the loopback-only
+# systemd USER unit `t3-code.service`.
+#
+# Contract: --version | check [--json] | status | install | update --yes |
+# uninstall --yes [--dry-run] | uninstall --help
+set -euo pipefail
+umask 077
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ARTIFACT_LOCK="$ROOT/security/managed-app-artifacts.env"
+[ -r "$ARTIFACT_LOCK" ] || { echo "missing managed-app artifact lock: $ARTIFACT_LOCK" >&2; exit 2; }
+# shellcheck source=security/managed-app-artifacts.env
+. "$ARTIFACT_LOCK"
+
+validate_lock() {
+  [[ "${T3_VERSION:-}" =~ ^[0-9][0-9A-Za-z.-]*$ ]] || return 1
+  [[ "${T3_LINUX_X64_TARBALL_URL:-}" == "https://github.com/pingdotgg/t3code/releases/download/v${T3_VERSION}/t3-${T3_VERSION}-linux-x64.tar.gz" ]] || return 1
+  [[ "${T3_LINUX_X64_SHA256:-}" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "${T3_LINUX_ARM64_TARBALL_URL:-}" == "https://github.com/pingdotgg/t3code/releases/download/v${T3_VERSION}/t3-${T3_VERSION}-linux-arm64.tar.gz" ]] || return 1
+  [[ "${T3_LINUX_ARM64_SHA256:-}" =~ ^[0-9a-f]{64}$ ]] || return 1
+}
+validate_lock || { echo "invalid T3 Code artifact lock in $ARTIFACT_LOCK" >&2; exit 2; }
+readonly T3_VERSION T3_LINUX_X64_TARBALL_URL T3_LINUX_X64_SHA256 T3_LINUX_ARM64_TARBALL_URL T3_LINUX_ARM64_SHA256
+
+SERVICE_NAME="t3-code.service"
+UNIT_PATH="$HOME/.config/systemd/user/$SERVICE_NAME"
+INSTALL_ROOT="${MSO_T3_ROOT:-$HOME/.local/share/mso/t3}"
+CURRENT_LINK="$INSTALL_ROOT/current"
+BIN_PATH="$CURRENT_LINK/t3"
+DATA_DIR="${T3CODE_HOME:-$HOME/.t3}"
+PORT="${T3_PORT:-3773}"
+BIND="127.0.0.1"
+BASE="http://${BIND}:${PORT}"
+
+[[ "$PORT" =~ ^[0-9]+$ ]] && [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ] || {
+  echo "invalid T3_PORT: $PORT" >&2
+  exit 2
+}
+
+ensure_user_bus() {
+  [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -S "${XDG_RUNTIME_DIR}/bus" ] && return 0
+  local uid
+  uid="$(id -u)"
+  if [ -S "/run/user/${uid}/bus" ]; then
+    export XDG_RUNTIME_DIR="/run/user/${uid}"
+    return 0
+  fi
+  return 1
+}
+
+resolve_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64)
+      TARBALL_URL="$T3_LINUX_X64_TARBALL_URL"
+      TARBALL_SHA256="$T3_LINUX_X64_SHA256"
+      TARBALL_NAME="t3-${T3_VERSION}-linux-x64.tar.gz"
+      TARBALL_DIR="t3-${T3_VERSION}-linux-x64"
+      ;;
+    aarch64|arm64)
+      TARBALL_URL="$T3_LINUX_ARM64_TARBALL_URL"
+      TARBALL_SHA256="$T3_LINUX_ARM64_SHA256"
+      TARBALL_NAME="t3-${T3_VERSION}-linux-arm64.tar.gz"
+      TARBALL_DIR="t3-${T3_VERSION}-linux-arm64"
+      ;;
+    *)
+      echo "unsupported architecture for T3 Code: $(uname -m) (linux x64 and arm64 are supported)" >&2
+      exit 1
+      ;;
+  esac
+}
+
+unit_present() { [ -f "$UNIT_PATH" ]; }
+
+installed_version() {
+  if [ -x "$BIN_PATH" ]; then
+    "$BIN_PATH" --version 2>/dev/null | head -n 1 | awk '{print $NF}' | sed 's/^v//' || true
+  fi
+}
+
+t3_answering() {
+  local body
+  body="$(curl -fsS --max-time 3 "$BASE/api/auth/session" 2>/dev/null || true)"
+  [[ "$body" == *"t3_session_"* ]]
+}
+
+cmd_version() {
+  local v
+  v="$(installed_version)"
+  if [ -n "$v" ]; then
+    echo "$v"
+    return 0
+  fi
+  echo "t3 is not installed" >&2
+  exit 1
+}
+
+cmd_check() {
+  local current has_update detail
+  current="$(installed_version)"
+  [ -n "$current" ] || { echo "t3 is not installed" >&2; exit 1; }
+  if [ "$current" = "$T3_VERSION" ]; then
+    has_update=false
+    detail="Installed T3 Code ${current} matches pinned release ${T3_VERSION}."
+  else
+    has_update=true
+    detail="Pinned T3 Code release ${T3_VERSION} is available (installed: ${current})."
+  fi
+  if [ "${1:-}" = "--json" ]; then
+    printf '{"currentVersion":"%s","latestVersion":"%s","hasUpdate":%s,"detail":"%s"}\n' \
+      "$current" "$T3_VERSION" "$has_update" "$detail"
+  else
+    echo "$detail"
+  fi
+}
+
+cmd_status() {
+  if unit_present; then
+    if ensure_user_bus && systemctl --user is-active --quiet "$SERVICE_NAME"; then
+      echo "running ($(installed_version || echo unknown)) on ${BASE}"
+      return 0
+    fi
+    echo "stopped ($(installed_version || echo unknown))"
+    return 0
+  fi
+  echo "not installed"
+}
+
+download_and_extract() {
+  resolve_arch
+  local release_dir="$INSTALL_ROOT/releases/$TARBALL_DIR"
+  local cache_dir="$INSTALL_ROOT/cache"
+  local tarball_path="$cache_dir/$TARBALL_NAME"
+  mkdir -p "$INSTALL_ROOT/releases" "$cache_dir" "$DATA_DIR"
+
+  if [ -f "$tarball_path" ]; then
+    if ! printf '%s  %s\n' "$TARBALL_SHA256" "$tarball_path" | sha256sum -c - >/dev/null 2>&1; then
+      rm -f "$tarball_path"
+    fi
+  fi
+
+  if [ ! -f "$tarball_path" ]; then
+    echo "==> downloading pinned T3 Code ${T3_VERSION} (${TARBALL_NAME})"
+    local tmp_dl
+    tmp_dl="$(mktemp "$cache_dir/.download.XXXXXX")"
+    trap 'rm -f "$tmp_dl"' RETURN
+    curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --max-time 300 \
+      "$TARBALL_URL" -o "$tmp_dl"
+    printf '%s  %s\n' "$TARBALL_SHA256" "$tmp_dl" | sha256sum -c - >/dev/null || {
+      echo "T3 Code tarball SHA-256 verification failed" >&2
+      return 1
+    }
+    mv -f "$tmp_dl" "$tarball_path"
+    trap - RETURN
+  else
+    echo "==> verified cached T3 Code tarball (${TARBALL_NAME})"
+  fi
+
+  if [ ! -x "$release_dir/t3" ]; then
+    echo "==> extracting T3 Code ${T3_VERSION}"
+    local stage
+    stage="$(mktemp -d "$INSTALL_ROOT/releases/.staging.XXXXXX")"
+    trap 'rm -rf "$stage"' RETURN
+    tar -xzf "$tarball_path" -C "$stage"
+    [ -x "$stage/$TARBALL_DIR/t3" ] || {
+      echo "extracted T3 Code archive is missing $TARBALL_DIR/t3" >&2
+      return 1
+    }
+    rm -rf "$release_dir"
+    mv "$stage/$TARBALL_DIR" "$release_dir"
+    rmdir "$stage" 2>/dev/null || rm -rf "$stage"
+    trap - RETURN
+  fi
+
+  ln -sfn "$release_dir" "$CURRENT_LINK"
+  chmod 700 "$release_dir/t3"
+}
+
+write_service_unit() {
+  mkdir -p "$(dirname "$UNIT_PATH")"
+  cat >"$UNIT_PATH" <<UNIT
+# mso-managed-app: t3
+[Unit]
+Description=T3 Code Web Workspace (MSO managed)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=${BIN_PATH} serve --host ${BIND} --port ${PORT} --base-dir ${DATA_DIR} --no-browser
+WorkingDirectory=${HOME}
+Environment=T3CODE_HOME=${DATA_DIR}
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+UNIT
+  chmod 644 "$UNIT_PATH"
+}
+
+cmd_install_or_update() {
+  local bind_mode="${MSO_INSTALL_GATEWAY_BIND:-loopback}"
+  if [ "$bind_mode" != "loopback" ]; then
+    echo "T3 Code install supports loopback only; refusing bind mode '$bind_mode'" >&2
+    exit 2
+  fi
+
+  ensure_user_bus || {
+    echo "cannot reach the systemd user bus for $(id -un); enable linger and provide XDG_RUNTIME_DIR" >&2
+    exit 1
+  }
+
+  download_and_extract
+  write_service_unit
+
+  echo "==> reloading systemd user daemon"
+  systemctl --user daemon-reload
+
+  # If another T3 Code runtime (for example desktop/WSL T3) already holds this
+  # loopback port while t3-code.service is inactive, keep the unit enabled and
+  # avoid clobbering the live process; otherwise start/restart our unit now.
+  if ! systemctl --user is-active --quiet "$SERVICE_NAME" && t3_answering; then
+    systemctl --user enable "$SERVICE_NAME" >/dev/null 2>&1 || true
+    echo "==> T3 Code is already answering on ${BASE}; installed pinned binary ${T3_VERSION} and registered ${SERVICE_NAME}"
+    return 0
+  fi
+
+  echo "==> starting ${SERVICE_NAME} on ${BASE}"
+  systemctl --user enable "$SERVICE_NAME" >/dev/null 2>&1 || true
+  systemctl --user restart "$SERVICE_NAME"
+
+  local i
+  for i in $(seq 1 30); do
+    if t3_answering; then
+      echo "==> T3 Code ${T3_VERSION} is healthy on ${BASE}"
+      return 0
+    fi
+    if ! systemctl --user is-active --quiet "$SERVICE_NAME"; then
+      echo "${SERVICE_NAME} exited before becoming healthy" >&2
+      journalctl --user -u "$SERVICE_NAME" -n 40 --no-pager >&2 || true
+      exit 1
+    fi
+    sleep 1
+  done
+  echo "${SERVICE_NAME} is running but ${BASE}/api/auth/session did not answer within 30s" >&2
+  exit 1
+}
+
+cmd_uninstall() {
+  local dry=0
+  if [ "${1:-}" = "--dry-run" ]; then
+    dry=1
+  fi
+  if [ "$dry" = 1 ]; then
+    echo "would stop and remove user unit: $UNIT_PATH"
+    echo "would remove MSO-managed T3 binaries: $INSTALL_ROOT"
+    echo "kept: user data and sessions in $DATA_DIR"
+    exit 0
+  fi
+
+  if ensure_user_bus && unit_present; then
+    systemctl --user disable --now "$SERVICE_NAME" >/dev/null 2>&1 || true
+  fi
+  rm -f "$UNIT_PATH"
+  if ensure_user_bus; then
+    systemctl --user daemon-reload >/dev/null 2>&1 || true
+  fi
+  rm -rf "$INSTALL_ROOT"
+  echo "removed ${SERVICE_NAME} and ${INSTALL_ROOT} (kept user data in ${DATA_DIR})"
+}
+
+case "${1:-}" in
+  --version) cmd_version ;;
+  check) shift; cmd_check "${1:-}" ;;
+  status) cmd_status ;;
+  install) cmd_install_or_update ;;
+  update)
+    [ "${2:-}" = "--yes" ] || { echo "update requires --yes" >&2; exit 2; }
+    cmd_install_or_update
+    ;;
+  uninstall)
+    shift
+    case "${1:-}" in
+      --help)
+        echo "usage: managed-app-t3 uninstall --yes [--dry-run]"
+        exit 0
+        ;;
+      --yes) shift; cmd_uninstall "${1:-}" ;;
+      *) echo "uninstall requires --yes" >&2; exit 2 ;;
+    esac
+    ;;
+  *)
+    echo "usage: managed-app-t3 --version|check [--json]|status|install|update --yes|uninstall --yes [--dry-run]" >&2
+    exit 2
+    ;;
+esac

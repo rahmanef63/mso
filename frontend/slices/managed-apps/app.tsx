@@ -88,6 +88,10 @@ export function OrcaApp() {
   return <ManagedAppsSurface focus="orca" />;
 }
 
+export function T3CodeApp() {
+  return <ManagedAppsSurface focus="t3" />;
+}
+
 /** ONE surface, and what it shows is the thing itself: the app's own dashboard when the
  *  app is there, and an install button when it is not. There used to be a
  *  `dashboard | manage` tab pair, which got both cases wrong — an absent app still mounted

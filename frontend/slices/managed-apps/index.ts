@@ -22,3 +22,4 @@ export const hermesApp = managedDescriptor("hermes");
 export const openclawApp = managedDescriptor("openclaw");
 export const nineRouterApp = managedDescriptor("9router");
 export const orcaApp = managedDescriptor("orca");
+export const t3App = managedDescriptor("t3");

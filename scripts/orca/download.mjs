@@ -62,7 +62,10 @@ export async function downloadToFile({
   signal,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   fetchImpl = globalThis.fetch,
-  allowedRedirectHosts
+  allowedRedirectHosts,
+  maxRetries,
+  retryDelayMs,
+  sleepImpl
 } = {}) {
   await assertFixedUrl(url, expectedUrl)
   if (!Number.isInteger(maxBytes) || maxBytes <= 0) {
@@ -95,7 +98,10 @@ export async function downloadToFile({
       expectedUrl,
       allowedRedirectHosts,
       fetchImpl,
-      signal: controller.signal
+      signal: controller.signal,
+      ...(maxRetries !== undefined ? { maxRetries } : {}),
+      ...(retryDelayMs !== undefined ? { retryDelayMs } : {}),
+      ...(sleepImpl !== undefined ? { sleepImpl } : {})
     })
 
     const declared = Number(res.headers?.get?.('content-length'))

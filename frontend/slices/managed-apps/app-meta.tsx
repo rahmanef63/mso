@@ -1,4 +1,4 @@
-import { Bot, SquareCode, Workflow, type LucideIcon } from "lucide-react";
+import { Bot, Code2, SquareCode, Workflow, type LucideIcon } from "lucide-react";
 import React, { createElement } from "react";
 import type { AppIconComponent } from "@/features/appshell";
 import type { ManagedAppId } from "@/lib/managed-apps/types";
@@ -15,7 +15,7 @@ export const NineRouterIcon: AppIconComponent = ({ className }) =>
 export interface ManagedAppMeta {
   title: string;
   gradient: string;
-  loader: "HermesApp" | "OpenClawApp" | "NineRouterApp" | "OrcaApp";
+  loader: "HermesApp" | "OpenClawApp" | "NineRouterApp" | "OrcaApp" | "T3CodeApp";
   icon: LucideIcon | AppIconComponent;
   artwork?: string;
   artworkBackground?: string;
@@ -55,6 +55,14 @@ export const MANAGED_APP_META: Record<ManagedAppId, ManagedAppMeta> = {
     artwork: "/brand/official/orca.webp",
     tone: "text-sky-400",
   },
+  t3: {
+    title: "T3 Code",
+    gradient: "linear-gradient(160deg,#18181b,#4f46e5)",
+    loader: "T3CodeApp",
+    icon: Code2,
+    artwork: "/brand/official/t3.webp",
+    tone: "text-indigo-400",
+  },
 };
 
 export const MANAGED_APP_NAMES: Record<ManagedAppId, string> = {
@@ -62,6 +70,7 @@ export const MANAGED_APP_NAMES: Record<ManagedAppId, string> = {
   openclaw: MANAGED_APP_META.openclaw.title,
   "9router": MANAGED_APP_META["9router"].title,
   orca: MANAGED_APP_META.orca.title,
+  t3: MANAGED_APP_META.t3.title,
 };
 
 export function AppMark({ id, className }: { id: ManagedAppId; className?: string }) {
@@ -87,4 +96,5 @@ export const MANAGED_APP_ICONS: Record<ManagedAppId, React.ReactNode> = {
   openclaw: <AppMark id="openclaw" />,
   "9router": <AppMark id="9router" />,
   orca: <AppMark id="orca" />,
+  t3: <AppMark id="t3" />,
 };
