@@ -83,6 +83,7 @@ come from the current slice directory/catalog. "Not ported" is not a regression 
 | appshell | Entry foundation only; window manager and five shells not ported |
 | assistant | Not ported |
 | auth | Existing session probe only; login/device management not ported |
+| bot-desktops | Not ported |
 | camoufox-browser | Not ported |
 | channels | Not ported |
 | code-editor | Not ported |

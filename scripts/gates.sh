@@ -41,22 +41,25 @@ fi
 
 fail() { echo ""; echo "❌ $1 push blocked."; [ -n "${2-}" ] && echo "   $2"; exit 1; }
 
-# ── Guard 1 — typecheck + lint + test.
+CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
+if [ "${MSO_GATE_FULL:-0}" != "1" ] && [ "${CI:-}" != "true" ] && [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "master" ]; then
+  echo "▶ running fast change-aware gate on feature branch '${CURRENT_BRANCH}' (set MSO_GATE_FULL=1 for full release gate)"
+  node scripts/run-smart-gate.mjs --pr-fast || fail "smart gate failed." "reproduce: bun run gate:smart -- --pr-fast"
+  exit 0
+fi
+
+# ── Guard 1 — typecheck + lint + test + architecture/docs/features/contrast checks.
 # MSO is self-contained: a fresh clone must never depend on a sibling/private repo
 # to decide whether it is safe to push. `bun run verify` is the canonical in-repo gate.
+# (check-cycles, check-architecture, check-features, check-docs, check-contrast already
+# run inside `bun run verify` -> `bun run check`, so they are not duplicated below.)
 echo "▶ running MSO verify"
 bun run verify || fail "verify failed." "reproduce: bun run verify"
 
-# ── Guard 1b — architecture and palette contrast regression gate.
+# ── Guard 1b — changelog freshness guard (explicitly retained for direct `git push`).
 # NOTE: check-slices.mjs used to run here. It and all 20 slice.json were deleted on
-# 2026-08-03 (commit 844eef3) — do NOT let a hook reinstall re-add that line.
-node scripts/check-cycles.mjs || fail "check-cycles: new import cycle introduced."
-node scripts/check-docs.mjs || fail "documentation drift detected." "fix current docs or their machine-readable markers before pushing."
-# docs/CHANGELOG.md is derived from git, so it can only be stale, never wrong —
-# and a stale one is what Settings → Account → About would show. `bun run ship` regenerates
-# it before committing; this catches a plain `git push`.
+# 2026-08-03 (commit 844eef3) and replaced by scripts/check-features.mjs in `bun run check`.
 node scripts/gen-changelog.mjs --check || fail "changelog stale — run: node scripts/gen-changelog.mjs (or use \`bun run ship\`)."
-node scripts/check-contrast.mjs || fail "contrast regression detected."
 
 # ── Guard 1c — dependency audit, high/critical only.
 # Must live HERE rather than rely on an external CI wrapper. The audit wrapper

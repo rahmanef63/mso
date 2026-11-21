@@ -2,7 +2,7 @@
 
 > Current reference. Describes what exists on `main`; `docs/PROGRESS.md` records why.
 
-MSO has 32 feature slices under `frontend/slices/`. Before this surface, the only cost
+MSO has 33 feature slices under `frontend/slices/`. Before this surface, the only cost
 signals were whole-host: `lib/capabilities/result-budget.ts` bounds one tool result,
 `lib/capabilities/rate-limit.ts` bounds request counts, `lib/capabilities/scope-policy.ts`
 bounds authority, and the `system-monitor` slice reports host CPU/memory/disk. None of them

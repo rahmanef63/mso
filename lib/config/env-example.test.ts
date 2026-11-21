@@ -26,6 +26,9 @@ const NOT_A_KNOB: Record<string, string> = {
   // Set by scripts/verify-build.sh in the out-of-tree archive it just built, so the
   // bundle budget knows those bytes describe that source rather than a stale .next.
   MSO_BUNDLE_BUILD_IS_CURRENT: "set by scripts/verify-build.sh for its own out-of-tree build; never user configuration",
+  MSO_VERIFY_FULL: "local gate override to force full Svelte and repository checks; tooling only",
+  MSO_CHANGELOG_STRICT: "local gate override to force strict changelog staleness check on non-main branches; tooling only",
+  GITHUB_EVENT_NAME: "injected by GitHub Actions; used by scripts/gen-changelog.mjs to defer changelog staleness checks on pull requests",
   // Private launcher-to-agent handoff. scripts/mso-cli-agent.sh owns these; users
   // should configure the public CLI knobs instead of persisting these in .env.local.
   MSO_AGENT_BASE: "internal mso-cli-agent launcher handoff for the selected loopback API base",

@@ -110,7 +110,7 @@ export default function CreateApp({ winId }: AppProps = {}) {
         setCreated(false);
       }, 1800);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Gagal membuat app");
+      setError(e instanceof Error ? e.message : "Could not create app");
     }
   };
 

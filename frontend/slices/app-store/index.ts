@@ -22,3 +22,4 @@ export { useDisabledIds } from "./lib/enabled-store";
 export { GLYPH_KEYS, glyphIcon } from "./lib/glyph";
 
 export { ShellAppsProvider, useShellApps, useExternalApps } from "./lib/shell-apps";
+export { ModularFeaturesProvider, useModularFeatures, useModularFeatureRegistry } from "./lib/modular-features";
