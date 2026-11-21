@@ -92,6 +92,10 @@ export function T3CodeApp() {
   return <ManagedAppsSurface focus="t3" />;
 }
 
+export function N8nManagedApp() {
+  return <ManagedAppsSurface focus="n8n" />;
+}
+
 /** ONE surface, and what it shows is the thing itself: the app's own dashboard when the
  *  app is there, and an install button when it is not. There used to be a
  *  `dashboard | manage` tab pair, which got both cases wrong — an absent app still mounted
@@ -101,9 +105,9 @@ export function T3CodeApp() {
  *  Everything MSO owns rather than shows — lifecycle, logs, version, update, rollback,
  *  uninstall — moved behind one Details toggle. It is the same ManagePane; it is just no
  *  longer what you land on. */
-function ManagedAppsSurface({ focus }: { focus: ManagedAppId }) {
+export function ManagedAppsSurface({ focus, initialDetails = false }: { focus: ManagedAppId; initialDetails?: boolean }) {
   const state = useManagedApps();
-  const [details, setDetails] = useState(false);
+  const [details, setDetails] = useState(initialDetails);
   const feature = useMemo(() => dashboardFeature(focus, NAME[focus]), [focus]);
   const app = useMemo(() => state.apps.find((entry) => entry.id === focus) ?? null, [focus, state.apps]);
   // Detection has to land before anything is drawn: rendering the frame first and swapping

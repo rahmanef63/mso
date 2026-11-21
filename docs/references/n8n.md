@@ -8,10 +8,12 @@
 
 ## What MSO uses
 
-A capability map, not an implementation: [`../N8N-PARITY.md`](../N8N-PARITY.md)
+A capability map plus an optional lifecycle adapter: [`../N8N-PARITY.md`](../N8N-PARITY.md)
 lists 31 n8n capability areas against MSO-native surfaces. The dedicated n8n
-window (`frontend/slices/n8n/`, 28 lines) renders an operator-supplied instance
-inside `ExternalAppFrame`; MSO does not proxy or re-serve n8n content.
+window (`frontend/slices/n8n/`) supports both connecting an external operator-supplied
+instance inside `ExternalAppFrame` and managing the operator's own self-hosted Docker
+runtime via `scripts/managed-app-n8n` (pulling the pinned official upstream image by
+digest on the operator's host). MSO ships no bundled n8n code, nodes, or images.
 
 ## Why the license matters here
 

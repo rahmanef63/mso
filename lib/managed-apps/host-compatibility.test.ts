@@ -12,10 +12,11 @@ describe("managed app install compatibility", () => {
     expect(managedAppInstallSupport(getManagedAppDefinition("9router"), host(true, true)).backend).toBe("docker");
     expect(managedAppInstallSupport(getManagedAppDefinition("orca"), host(true, true)).backend).toBe("user-systemd");
     expect(managedAppInstallSupport(getManagedAppDefinition("t3"), host(true, true)).backend).toBe("user-systemd");
+    expect(managedAppInstallSupport(getManagedAppDefinition("n8n"), host(true, true)).backend).toBe("docker");
   });
 
   it("blocks app combinations without the required backend before installing", () => {
-    for (const id of ["hermes", "openclaw", "9router", "orca", "t3"] as const) {
+    for (const id of ["hermes", "openclaw", "9router", "orca", "t3", "n8n"] as const) {
       const result = managedAppInstallSupport(getManagedAppDefinition(id), host(false, false));
       expect(result.supported).toBe(false);
       expect(result.reason).toMatch(/requires/);
@@ -24,6 +25,7 @@ describe("managed app install compatibility", () => {
     expect(managedAppInstallSupport(getManagedAppDefinition("9router"), host(true, false)).supported).toBe(false);
     expect(managedAppInstallSupport(getManagedAppDefinition("orca"), host(false, false)).supported).toBe(false);
     expect(managedAppInstallSupport(getManagedAppDefinition("t3"), host(false, true)).supported).toBe(false);
+    expect(managedAppInstallSupport(getManagedAppDefinition("n8n"), host(true, false)).supported).toBe(false);
   });
 
   it("supports linux x64 and arm64 hosts for T3 Code and fails closed on other architectures", () => {

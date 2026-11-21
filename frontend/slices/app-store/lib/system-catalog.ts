@@ -21,6 +21,10 @@ import {
   Plug,
   MessageSquareMore,
   Users,
+  Workflow,
+  Bot,
+  Code2,
+  SquareCode,
 } from "lucide-react";
 import type { SystemEntry } from "./store-catalog";
 
@@ -52,6 +56,13 @@ export const SYSTEM_CATALOG: SystemEntry[] = [
   { id: "assistant", title: "Alfa", kind: "app", icon: Sparkles, gradient: "linear-gradient(160deg,#7a5cff,#3aa0ff)", desc: "AI copilot for your VPS." },
   { id: "dokploy", title: "Dokploy", kind: "app", icon: ServerCog, artwork: "/brand/official/dokploy.webp", gradient: "linear-gradient(160deg,#111827,#2563eb)", desc: "Deploy and manage projects through the Dokploy API." },
   { id: "cloudflare", title: "Cloudflare", kind: "app", icon: Cloud, artwork: "/brand/official/cloudflare.webp", gradient: "linear-gradient(160deg,#1f2937,#111827)", desc: "Verify Cloudflare access and inspect DNS zones." },
+  { id: "workflows", title: "Workflows", kind: "app", icon: Workflow, gradient: "linear-gradient(160deg,#6366f1,#4338ca)", desc: "Native MSO visual workflow graphs and executions." },
+  { id: "n8n", title: "n8n", kind: "app", icon: Workflow, artwork: "/brand/official/n8n.webp", gradient: "linear-gradient(160deg,#ea4b71,#ff6d5a)", desc: "External n8n workspace with MSO install, updates, and SSH/remote connect." },
+  { id: "hermes", title: "Hermes", kind: "app", icon: Bot, artwork: "/brand/official/hermes.webp", gradient: "linear-gradient(160deg,#8b5cf6,#4f46e5)", desc: "Hermes Agent runtime and dashboard." },
+  { id: "openclaw", title: "OpenClaw", kind: "app", icon: Workflow, artwork: "/brand/official/openclaw.webp", gradient: "linear-gradient(160deg,#f97316,#dc2626)", desc: "OpenClaw runtime and control surface." },
+  { id: "9router", title: "9Router", kind: "app", icon: Globe, artwork: "/brand/official/9router.webp", gradient: "linear-gradient(160deg,#0ea5e9,#2563eb)", desc: "9Router AI gateway across providers." },
+  { id: "orca", title: "Orca", kind: "app", icon: SquareCode, artwork: "/brand/official/orca.webp", gradient: "linear-gradient(160deg,#0284c7,#1e3a8a)", desc: "Orca web workspace and coding environment." },
+  { id: "t3", title: "T3 Code", kind: "app", icon: Code2, artwork: "/brand/official/t3.webp", gradient: "linear-gradient(160deg,#18181b,#4f46e5)", desc: "T3 Code multi-agent coding workspace." },
   { id: "os-settings", title: "Settings", kind: "app", icon: Settings, gradient: "linear-gradient(160deg,#5b6070,#2b2f3a)", desc: "Appearance, server mode, devices." },
   { id: "app-store", title: "App Store", kind: "app", icon: Store, gradient: "linear-gradient(160deg,#9b5cff,#5b2fe0)", desc: "Install apps and toggle features.", required: true },
   // ── Shell features ────────────────────────────────────────────────────────

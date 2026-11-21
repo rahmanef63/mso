@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+# MSO lifecycle adapter for self-hosted n8n via official upstream Docker image.
+# MSO bundles no n8n source code, nodes, or images (Sustainable Use License).
+# This script only pulls and manages the pinned upstream image on the owner's
+# own host, bound to loopback by default, with persistent state in ~/.n8n.
+set -euo pipefail
+umask 077
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ARTIFACT_LOCK="$ROOT/security/managed-app-artifacts.env"
+[ -r "$ARTIFACT_LOCK" ] || { echo "missing managed-app artifact lock: $ARTIFACT_LOCK" >&2; exit 2; }
+# shellcheck source=security/managed-app-artifacts.env
+. "$ARTIFACT_LOCK"
+
+NAME="${N8N_CONTAINER:-n8n}"
+PORT="${N8N_PORT:-5678}"
+IMAGE="${N8N_IMAGE:-$N8N_IMAGE_REF}"
+case "$IMAGE" in
+  *@sha256:????????????????????????????????????????????????????????????????) ;;
+  *) echo "N8N_IMAGE must be an immutable @sha256 reference" >&2; exit 2 ;;
+esac
+EXPECTED_DIGEST="${IMAGE##*@}"
+[[ "$EXPECTED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+  echo "N8N_IMAGE digest must be lowercase sha256" >&2
+  exit 2
+}
+readonly N8N_IMAGE_REF IMAGE EXPECTED_DIGEST
+EXPOSE_PUBLIC="${N8N_EXPOSE_PUBLIC:-0}"
+case "$EXPOSE_PUBLIC" in
+  0) BIND=127.0.0.1 ;;
+  1) BIND=0.0.0.0 ;;
+  *) echo "N8N_EXPOSE_PUBLIC must be 0 or 1" >&2; exit 2 ;;
+esac
+DATA="${N8N_DATA:-$HOME/.n8n}"
+PROXY_NETWORK="${N8N_PROXY_NETWORK:-dokploy-network}"
+APP_ORIGIN="${MSO_INSTALL_APP_ORIGIN:-${N8N_PUBLIC_URL:-}}"
+BASE="http://127.0.0.1:${PORT}"
+
+DOCKER=(docker)
+resolve_docker() {
+  if docker version --format '{{.Server.Version}}' >/dev/null 2>&1; then
+    DOCKER=(docker)
+    return 0
+  fi
+  if sudo -n docker version --format '{{.Server.Version}}' >/dev/null 2>&1; then
+    DOCKER=(sudo -n docker)
+    return 0
+  fi
+  echo "docker daemon unavailable to the MSO service user" >&2
+  return 1
+}
+
+installed() { "${DOCKER[@]}" ps -a --format '{{.Names}}' | grep -qx "$NAME"; }
+
+image_has_expected_digest() {
+  local image="$1"
+  "${DOCKER[@]}" image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" 2>/dev/null \
+    | grep -Eq "@${EXPECTED_DIGEST}$"
+}
+
+running_image_matches_lock() {
+  installed || return 1
+  local image_id
+  image_id="$("${DOCKER[@]}" inspect --format '{{.Image}}' "$NAME" 2>/dev/null)" || return 1
+  "${DOCKER[@]}" image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image_id" 2>/dev/null \
+    | grep -Eq "@${EXPECTED_DIGEST}$"
+}
+
+label_version() {
+  local v
+  v="$("${DOCKER[@]}" inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' \
+    "$("${DOCKER[@]}" inspect --format '{{.Image}}' "$NAME" 2>/dev/null)" 2>/dev/null || true)"
+  if [ -n "$v" ]; then
+    echo "$v"
+    return
+  fi
+  if running_image_matches_lock; then
+    echo "${N8N_VERSION:-unknown}"
+  fi
+}
+
+cmd_version() {
+  resolve_docker
+  installed || { echo "n8n container not found" >&2; exit 1; }
+  local v
+  v="$(label_version)"
+  [ -n "$v" ] && { echo "$v"; return; }
+  echo "${N8N_VERSION:-unknown}"
+}
+
+cmd_check() {
+  resolve_docker
+  installed || { echo "n8n container not found" >&2; exit 1; }
+  local current latest has_update
+  current="$(label_version)"
+  [ -n "$current" ] || current="$("${DOCKER[@]}" inspect --format '{{.Image}}' "$NAME" 2>/dev/null | cut -c1-19)"
+  latest="${N8N_VERSION:-${EXPECTED_DIGEST:0:19}}"
+  if running_image_matches_lock; then has_update=false; else has_update=true; fi
+  printf '{"currentVersion":"%s","latestVersion":"%s","hasUpdate":%s}\n' "$current" "$latest" "$has_update"
+}
+
+cmd_update() {
+  resolve_docker
+  echo "==> pull $IMAGE"
+  "${DOCKER[@]}" pull "$IMAGE"
+  image_has_expected_digest "$IMAGE" || {
+    echo "pulled n8n image does not expose the locked digest $EXPECTED_DIGEST" >&2
+    exit 1
+  }
+
+  local owner
+  owner="$("${DOCKER[@]}" ps -a --format '{{.Names}} {{.Ports}}' | grep ":${PORT}->" | awk '{print $1}' || true)"
+  if [ -n "$owner" ] && [ "$owner" != "$NAME" ]; then
+    echo "abort: port $PORT is held by container '$owner', not $NAME" >&2
+    exit 1
+  fi
+
+  mkdir -p "$DATA"
+  local network_args=()
+  if "${DOCKER[@]}" network inspect "$PROXY_NETWORK" >/dev/null 2>&1; then
+    network_args=(--network "$PROXY_NETWORK")
+  fi
+
+  local origin_env=()
+  if [[ "$APP_ORIGIN" =~ ^https://[A-Za-z0-9._-]+(:[0-9]+)?/?$ ]]; then
+    local clean_origin="${APP_ORIGIN%/}"
+    origin_env=(
+      -e "N8N_EDITOR_BASE_URL=${clean_origin}/"
+      -e "WEBHOOK_URL=${clean_origin}/"
+    )
+  fi
+
+  echo "==> recreate $NAME (bind $BIND:$PORT${network_args:+, network $PROXY_NETWORK})"
+  "${DOCKER[@]}" rm -f "$NAME" 2>/dev/null || true
+  "${DOCKER[@]}" run -d \
+    --name "$NAME" \
+    --restart unless-stopped \
+    "${network_args[@]}" \
+    -p "$BIND:$PORT:5678" \
+    -v "$DATA:/home/node/.n8n" \
+    -e "N8N_HOST=0.0.0.0" \
+    -e "N8N_PORT=5678" \
+    -e "N8N_PROTOCOL=http" \
+    -e "N8N_PUSH_BACKEND=websocket" \
+    -e "N8N_SECURE_COOKIE=false" \
+    -e "N8N_DIAGNOSTICS_ENABLED=false" \
+    "${origin_env[@]}" \
+    "$IMAGE"
+
+  echo "==> wait for $BASE/healthz"
+  local i
+  for i in $(seq 1 45); do
+    sleep 1
+    if curl -fsS -o /dev/null -m 3 "$BASE/healthz"; then
+      running_image_matches_lock || { echo "running n8n image does not match the locked digest" >&2; return 1; }
+      echo "==> healthy after ${i}s ($(label_version))"
+      return 0
+    fi
+  done
+  echo "container is running but $BASE/healthz has not answered within 45s" >&2
+  "${DOCKER[@]}" ps --filter "name=$NAME" --format '{{.Status}} {{.Ports}}' >&2
+  exit 1
+}
+
+cmd_uninstall() {
+  local dry=0
+  case "${1:-}" in
+    --dry-run) dry=1 ;;
+  esac
+  if [ "$dry" = 1 ]; then
+    echo "would remove container: $NAME"
+    echo "kept: image $IMAGE, data $DATA"
+    exit 0
+  fi
+  resolve_docker
+  installed || { echo "n8n container not found, nothing to remove" >&2; exit 0; }
+  "${DOCKER[@]}" rm -f "$NAME"
+  echo "removed container $NAME (kept image $IMAGE and data $DATA)"
+}
+
+case "${1:-}" in
+--version) cmd_version ;;
+check) cmd_check ;;
+status)
+  resolve_docker
+  installed && "${DOCKER[@]}" ps --filter "name=$NAME" --format '{{.Status}} {{.Ports}}' || echo "not installed"
+  ;;
+install | update)
+  [ "${2:-}" = "--yes" ] || [ "$1" = "install" ] || { echo "update requires --yes" >&2; exit 2; }
+  cmd_update
+  ;;
+uninstall)
+  shift
+  case "${1:-}" in
+  --help)
+    echo "usage: managed-app-n8n uninstall --yes [--dry-run]"
+    exit 0
+    ;;
+  --yes) shift; cmd_uninstall "${1:-}" ;;
+  *) echo "uninstall requires --yes" >&2; exit 2 ;;
+  esac
+  ;;
+*)
+  echo "usage: managed-app-n8n --version|check [--json]|status|install|update --yes|uninstall --yes [--dry-run]" >&2
+  exit 2
+  ;;
+esac

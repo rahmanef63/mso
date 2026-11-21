@@ -9,6 +9,7 @@ describe("managed-app official artwork", () => {
     ["9router", "/brand/official/9router.webp"],
     ["orca", "/brand/official/orca.webp"],
     ["t3", "/brand/official/t3.webp"],
+    ["n8n", "/brand/official/n8n.webp"],
   ] as const)("renders the official %s mark in its management card", (id, src) => {
     expect(MANAGED_APP_META[id].artwork).toBe(src);
     const html = renderToStaticMarkup(<AppMark id={id} className="size-5" />);

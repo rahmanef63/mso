@@ -5,10 +5,10 @@ import { getManagedAppDefinition, isManagedAppId, listManagedAppDefinitions } fr
 import { MANAGED_APP_ACTIONS } from "./types";
 
 describe("managed app catalog", () => {
-  it("uses one shared catalog for Hermes, OpenClaw, 9Router, Orca and T3 Code", () => {
+  it("uses one shared catalog for Hermes, OpenClaw, 9Router, Orca, T3 Code and n8n", () => {
     const definitions = listManagedAppDefinitions();
-    expect(definitions.map((item) => item.id)).toEqual(["hermes", "openclaw", "9router", "orca", "t3"]);
-    expect(new Set(definitions.map((item) => item.id)).size).toBe(5);
+    expect(definitions.map((item) => item.id)).toEqual(["hermes", "openclaw", "9router", "orca", "t3", "n8n"]);
+    expect(new Set(definitions.map((item) => item.id)).size).toBe(6);
   });
 
   it("rejects arbitrary application ids and commands", () => {
@@ -17,6 +17,7 @@ describe("managed app catalog", () => {
     expect(isManagedAppId("9router")).toBe(true);
     expect(isManagedAppId("orca")).toBe(true);
     expect(isManagedAppId("t3")).toBe(true);
+    expect(isManagedAppId("n8n")).toBe(true);
     expect(isManagedAppId("hermes;rm -rf /")).toBe(false);
     expect(MANAGED_APP_ACTIONS).toEqual(["start", "stop", "restart", "backup"]);
   });
@@ -62,6 +63,18 @@ describe("managed app catalog", () => {
     expect(t3.dashboardUrl).toBe("http://127.0.0.1:3773");
     expect(t3.healthPath).toBe("/api/auth/session");
     expect(t3.stateDirName).toBe(".t3");
+  });
+
+  it("wires n8n to the repo-owned Docker adapter on loopback 5678", () => {
+    const n8n = getManagedAppDefinition("n8n");
+    expect(n8n.installBackends).toEqual(["docker"]);
+    expect(n8n.command).toBe(path.join(process.cwd(), "scripts", "managed-app-n8n"));
+    expect(n8n.commandProvesInstall).toBe(false);
+    expect(n8n.containerNames).toEqual(["n8n"]);
+    expect(n8n.dashboardUrl).toBe("http://127.0.0.1:5678");
+    expect(n8n.healthPath).toBe("/healthz");
+    expect(n8n.stateDirName).toBe(".n8n");
+    expect(n8n.publicPort).toBeUndefined();
   });
 
 });
