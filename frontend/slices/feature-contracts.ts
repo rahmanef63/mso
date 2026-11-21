@@ -42,7 +42,7 @@ export const FEATURE_CONTRACTS: Readonly<Record<string, SliceContract>> = {
   "media-studio": { surfaceKind: "canvas", minRole: "owner", stateStrategy: "legacy-local-storage", updatableTier: "extractable-modular", e2e: [] },
   "media-viewer": { surfaceKind: "frame", minRole: "viewer", stateStrategy: "ephemeral", updatableTier: "bundled-feature", e2e: [] },
   "memory-graph": { surfaceKind: "frame", minRole: "owner", stateStrategy: "legacy-local-storage", updatableTier: "extractable-modular", e2e: ["release"] },
-  n8n: { surfaceKind: "frame", minRole: "owner", stateStrategy: "server-api", updatableTier: "extractable-modular", e2e: [] },
+  n8n: { surfaceKind: "frame", minRole: "operator", stateStrategy: "server-api", updatableTier: "extractable-modular", e2e: ["workflow-embeds"] },
   organization: { surfaceKind: "frame", minRole: "owner", stateStrategy: "server-api", updatableTier: "extractable-modular", e2e: ["release"] },
   "os-settings": { surfaceKind: "frame", minRole: "viewer", stateStrategy: "feature-state", updatableTier: "core", e2e: ["release", "shell-status"] },
   "os-shell": { surfaceKind: "shell", minRole: "viewer", stateStrategy: "ephemeral", updatableTier: "core", e2e: ["release", "shell-status", "bundle-performance", "macos-figma"] },

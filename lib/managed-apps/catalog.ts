@@ -119,6 +119,23 @@ const definitions = {
     homeDir: expandHome(process.env.T3CODE_HOME),
     gradient: "linear-gradient(160deg,#18181b,#4f46e5)",
   },
+  n8n: {
+    id: "n8n",
+    installBackends: ["docker"],
+    name: "n8n",
+    description: "Self-hosted workflow automation workspace managed outside MSO core",
+    command: join(process.cwd(), "scripts", "managed-app-n8n"),
+    commandProvesInstall: false,
+    serviceNames: [],
+    containerNames: ["n8n"],
+    dashboardUrl: process.env.N8N_DASHBOARD_URL ?? "http://127.0.0.1:5678",
+    healthPath: "/healthz",
+    publicPort: process.env.N8N_EXPOSE_PUBLIC === "1" ? 5678 : undefined,
+    publicUrl: process.env.N8N_PUBLIC_URL,
+    stateDirName: ".n8n",
+    homeDir: expandHome(process.env.N8N_DATA),
+    gradient: "linear-gradient(160deg,#ea4b71,#ff6d5a)",
+  },
 } as const satisfies Record<ManagedAppId, ManagedAppDefinition>;
 
 export function isManagedAppId(value: string): value is ManagedAppId {

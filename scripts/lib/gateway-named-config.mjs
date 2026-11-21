@@ -15,7 +15,7 @@ function hostname(value) {
 function appHosts(template) {
   if (!template) return [];
   if (!template.startsWith('{id}') || template.split('{id}').length !== 2) reject('invalid managed app host template');
-  const hosts = ['hermes', 'openclaw', '9router'].map((id) => template.replace('{id}', id));
+  const hosts = ['hermes', 'openclaw', '9router', 'orca', 't3', 'n8n'].map((id) => template.replace('{id}', id));
   if (!hosts.every(hostname)) reject('invalid managed app host template');
   return hosts;
 }
@@ -45,7 +45,7 @@ function validateConfig(cfg, file, publicOrigin, localOrigin, template, exact = 
   const local = new URL(localOrigin), allowed = new Set(appHosts(template));
   if (allowed.has(publicHost)) reject('managed app host collides with cockpit');
   const rules = cfg.ingress;
-  if (!Array.isArray(rules) || rules.length < 2 || rules.length > 5) reject('named config requires cockpit and exact managed app ingress');
+  if (!Array.isArray(rules) || rules.length < 2 || rules.length > 2 + allowed.size) reject('named config requires cockpit and exact managed app ingress');
   const last = rules.at(-1);
   if (!object(last) || Object.keys(last).some((key) => key !== 'service') || last.service !== 'http_status:404') reject('named config must end in http_status:404');
   const seen = new Set();
