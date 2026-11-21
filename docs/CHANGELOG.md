@@ -8,6 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `n8n,app-store` add n8n managed app, local host discovery, and low-code remote/SSH connect (#344)
+- `rust-shell` add Stage R0 hybrid static host, Svelte shell bridge, and updated plan (#345)
 - `modular` add change-aware gates, modular feature packages, and … (#342)
 - `managed-apps` fix Orca audit findings and add T3 Code managed app (#340)
 - `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll (#339)
