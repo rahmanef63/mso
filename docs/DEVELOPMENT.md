@@ -242,6 +242,12 @@ the result **before** considering the change finished, not after the gate tells 
 for you by folding the regenerated file into the same commit with `--amend`; if you commit by
 hand, expect two commits or one extra `--amend`.
 
+A PR merged from the GitHub UI never runs `ship`, so `.github/workflows/changelog-autoregen.yml`
+regenerates `docs/CHANGELOG.md` on `main` after the merge and pushes a
+`docs(changelog): regenerate after merge` commit. Treat it as a safety net, not a substitute for
+`bun run ship` on the owner host: the workflow only repairs the derived file, it never builds,
+releases, or restarts anything.
+
 A `docs/`-only commit is not exempt. The generator lists every commit subject except the ones
 that only regenerate this file, so a commit that edits prose still adds a line and still leaves
 `docs/CHANGELOG.md` stale. That is precisely how this rule got written: three separate
