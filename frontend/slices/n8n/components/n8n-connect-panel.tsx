@@ -2,6 +2,7 @@
 
 import { useId, useState, type FormEvent } from "react";
 import { Loader2, RefreshCw, X } from "lucide-react";
+import type { RemoteProbeResult } from "@/lib/contracts/remote-connect";
 import type { WorkflowEmbed } from "@/lib/contracts/surface-app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,26 @@ export function N8nConnectPanel({
   const [authPath, setAuthPath] = useState(initial.authPath);
   const [embed, setEmbed] = useState(initial.embed);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [probe, setProbe] = useState<RemoteProbeResult | null>(null);
   const [error, setError] = useState("");
+
+  const testUrl = async () => {
+    const built = buildN8nSurfaceApp({ url, authPath, embed, existing });
+    if (!built.ok) { setError(built.error); return; }
+    setTesting(true); setError(""); setProbe(null);
+    try {
+      const res = await fetch("/api/v1/managed-apps/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "https-url", url: url.trim() }),
+      });
+      const data = (await res.json()) as RemoteProbeResult;
+      setProbe(data);
+      if (data.recommendation?.embedMode === "remote") setEmbed(false);
+    } catch { setError("Could not test this n8n URL."); }
+    finally { setTesting(false); }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -170,9 +190,14 @@ export function N8nConnectPanel({
                 </div>
               </details>
 
+              {probe ? <p role="status" className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">{probe.summary}</p> : null}
               {error ? <p role="alert" className="text-xs text-destructive-text">{error}</p> : null}
 
               <div className="flex flex-col gap-2">
+                <Button type="button" variant="outline" className="w-full" disabled={testing || saving || !url.trim()} onClick={() => void testUrl()}>
+                  {testing ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+                  {testing ? "Testing..." : "Test connection"}
+                </Button>
                 <Button type="submit" size="lg" className="w-full" disabled={!configurable || saving}>
                   {saving ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
                   {saving ? "Saving…" : existing ? "Save connection" : "Connect n8n"}
