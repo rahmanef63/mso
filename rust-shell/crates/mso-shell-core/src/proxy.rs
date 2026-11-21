@@ -35,6 +35,9 @@ const ROUTE_POLICIES: &[RoutePolicy] = &[
     RoutePolicy { path: "/api/v1/term/input", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/v1/term/resize", prefix: false, methods: &["POST"], max_body_bytes: 4 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/v1/term/close", prefix: false, methods: &["POST"], max_body_bytes: 4 * 1024, forward_authorization: false },
+    // Increment 3B host routes
+    RoutePolicy { path: "/api/v1/fs/delete", prefix: false, methods: &["DELETE"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/sys/services", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
     // Stage R2B machine protocol routes (CSRF-exempt, bearer-authenticated)
     RoutePolicy { path: "/mcp", prefix: false, methods: &["GET", "POST", "DELETE"], max_body_bytes: 1024 * 1024, forward_authorization: true },
     RoutePolicy { path: "/oauth/token", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: true },
@@ -275,7 +278,7 @@ fn parse_http_response(raw: &[u8], mode: UpstreamMode<'_>) -> Option<ProxyRespon
     Some(ProxyResponse { status, content_type, extra_headers, body })
 }
 
-fn decode_chunked(mut input: &[u8]) -> Option<Vec<u8>> {
+pub(crate) fn decode_chunked(mut input: &[u8]) -> Option<Vec<u8>> {
     let mut out = Vec::new();
     loop {
         let crlf = input.windows(2).position(|w| w == b"\r\n")?;
@@ -357,6 +360,17 @@ mod tests {
         assert!(match_route_policy("/.well-known/oauth-authorization-server").unwrap().forward_authorization);
         assert!(match_route_policy("/.well-known/agent-card.json").unwrap().forward_authorization);
         assert!(match_route_policy("/oauth/authorize").is_none());
+        // Increment 3B host routes and unlisted exec/run guard
+        let fs_del = match_route_policy("/api/v1/fs/delete").unwrap();
+        assert_eq!(fs_del.methods, &["DELETE"]);
+        assert_eq!(fs_del.max_body_bytes, 16 * 1024);
+        assert!(!fs_del.forward_authorization);
+        let sys_svc = match_route_policy("/api/v1/sys/services").unwrap();
+        assert_eq!(sys_svc.methods, &["GET", "POST"]);
+        assert_eq!(sys_svc.max_body_bytes, 16 * 1024);
+        assert!(!sys_svc.forward_authorization);
+        assert!(match_route_policy("/api/v1/exec/run").is_none());
+        assert!(match_route_policy("/api/v1/term/stream").is_none());
     }
 
     #[test]

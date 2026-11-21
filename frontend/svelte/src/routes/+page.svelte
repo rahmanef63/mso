@@ -3,7 +3,9 @@
   import Monitor from "../lib/Monitor.svelte";
   import DevicesPanel from "../lib/DevicesPanel.svelte";
   import ProcessesList from "../lib/monitor/ProcessesList.svelte";
+  import ServicesList from "../lib/monitor/ServicesList.svelte";
   import FilesManager from "../lib/files/FilesManager.svelte";
+  import TerminalApp from "../lib/terminal/TerminalApp.svelte";
   import WindowFrame from "../lib/shell/WindowFrame.svelte";
   import {
     createWindowStore,
@@ -18,6 +20,8 @@
   const APP_SLUGS: AppSlugMap = {
     files: "files",
     processes: "processes",
+    services: "services",
+    terminal: "terminal",
     devices: "devices",
   };
 
@@ -45,6 +49,8 @@
     const deep = urlToApp(window.location.pathname, APP_SLUGS);
     if (deep?.app === "files") winStore.openWindow("files", "Files", undefined, deep.path ?? "~", { multi: true });
     else if (deep?.app === "processes") winStore.openWindow("processes", "Processes");
+    else if (deep?.app === "services") winStore.openWindow("services", "Services");
+    else if (deep?.app === "terminal") winStore.openWindow("terminal", "Terminal");
     else if (deep?.app === "devices") winStore.openWindow("devices", "Devices");
     return unsub;
   });
@@ -108,7 +114,13 @@
         <button type="button" onclick={() => winStore.openWindow("processes", "Processes")}>
           Open Processes
         </button>
+        <button type="button" onclick={() => winStore.openWindow("services", "Services")}>
+          Open Services
+        </button>
         {#if activeSession.role === "owner"}
+          <button type="button" onclick={() => winStore.openWindow("terminal", "Terminal")}>
+            Open Terminal
+          </button>
           <button type="button" onclick={() => winStore.openWindow("devices", "Devices")}>
             Devices
           </button>
@@ -143,6 +155,10 @@
                   />
                 {:else if win.app === "processes"}
                   <ProcessesList />
+                {:else if win.app === "services"}
+                  <ServicesList />
+                {:else if win.app === "terminal"}
+                  <TerminalApp />
                 {:else if win.app === "devices" && activeSession.role === "owner"}
                   <DevicesPanel currentDeviceId={activeSession.deviceId} />
                 {/if}

@@ -8,7 +8,7 @@ test("no backend configured means no proxy", () => {
 
 test("only explicit loopback origins are accepted", () => {
   for (const origin of ["http://127.0.0.1:4005", "https://localhost:4005", "http://[::1]:4005"]) {
-    assert.equal(Object.keys(localReadProxy(origin)!).length, 8);
+    assert.equal(Object.keys(localReadProxy(origin)!).length, 17);
   }
   for (const origin of ["https://mso.example.com", "http://localhost.evil.test", "http://user:pass@localhost:4005",
     "http://localhost/path", "http://localhost/?x=1", "file:///etc/passwd", "http://localhost/#fragment"]) {
@@ -16,14 +16,16 @@ test("only explicit loopback origins are accepted", () => {
   }
 });
 
-test("proxy allowlist matches exact Increment 2A/3A auth and read paths, not siblings or exec", () => {
+test("proxy allowlist matches exact Increment 2A/3A/3B paths, not siblings or exec", () => {
   const proxy = localReadProxy("http://localhost:4005");
   assert.ok(proxy);
   const patterns = Object.keys(proxy).map((p) => new RegExp(p));
   for (const path of [
     "/api/auth/me", "/api/auth/login", "/api/auth/logout", "/api/auth/devices",
-    "/api/v1/sys/stats", "/api/v1/sys/stats?fresh=1", "/api/v1/sys/processes",
-    "/api/v1/fs/list?path=~", "/api/v1/fs/read?path=~/README.md",
+    "/api/v1/sys/stats", "/api/v1/sys/processes", "/api/v1/sys/services",
+    "/api/v1/fs/list?path=~", "/api/v1/fs/read?path=~/a", "/api/v1/fs/write",
+    "/api/v1/fs/mkdir", "/api/v1/fs/delete", "/api/v1/term/open",
+    "/api/v1/term/stream?id=t1", "/api/v1/term/input", "/api/v1/term/resize", "/api/v1/term/close",
   ]) {
     assert.equal(patterns.some((p) => p.test(path)), true, path);
   }
@@ -46,13 +48,13 @@ test("route methods and CSRF depth-2 are enforced before proxying", () => {
   assert.equal(r1.rec.status, 405);
   assert.equal(statsRoute.bypass({ method: "GET", headers: {} }, r1.res), undefined);
 
-  const loginRoute = proxy["^/api/auth/login(?:\\?|$)"];
+  const delRoute = proxy["^/api/v1/fs/delete(?:\\?|$)"];
   const r2 = makeRes();
-  assert.equal(loginRoute.bypass({ method: "GET", headers: {} }, r2.res), false);
+  assert.equal(delRoute.bypass({ method: "POST", headers: { "sec-fetch-site": "same-origin" } }, r2.res), false);
   assert.equal(r2.rec.status, 405);
   const r3 = makeRes();
-  assert.equal(loginRoute.bypass({ method: "POST", headers: { "sec-fetch-site": "cross-site" } }, r3.res), false);
+  assert.equal(delRoute.bypass({ method: "DELETE", headers: { "sec-fetch-site": "cross-site" } }, r3.res), false);
   assert.equal(r3.rec.status, 403);
   const r4 = makeRes();
-  assert.equal(loginRoute.bypass({ method: "POST", headers: { "sec-fetch-site": "same-origin" } }, r4.res), undefined);
+  assert.equal(delRoute.bypass({ method: "DELETE", headers: { "sec-fetch-site": "same-origin" } }, r4.res), undefined);
 });

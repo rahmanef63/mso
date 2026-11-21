@@ -13,6 +13,7 @@ use crate::proxy::{
     forward_api_request, forward_managed_app_request, match_route_policy, ForwardRequest,
     GLOBAL_MAX_BODY_BYTES,
 };
+use crate::sse::{is_term_stream_path, stream_sse_request, SseRequest};
 use crate::ws::{is_websocket_upgrade, tunnel_websocket, WsUpgradeRequest};
 use std::fs;
 use std::io;
@@ -131,6 +132,16 @@ fn to_ws_req<'a>(req: &'a ParsedRequest, managed_app_host: Option<&'a str>) -> W
         sec_websocket_extensions: req.sec_websocket_extensions.as_deref(),
         managed_app_host,
         client_head: &req.ws_head,
+    }
+}
+
+fn to_sse_req(req: &ParsedRequest) -> SseRequest<'_> {
+    SseRequest {
+        method: &req.method,
+        target: &req.target,
+        host: req.host.as_deref(),
+        cookie: req.cookie.as_deref(),
+        last_event_id: req.last_event_id.as_deref(),
     }
 }
 
@@ -283,6 +294,20 @@ fn handle_connection(stream: &mut TcpStream, cfg: &ServerConfig) {
             );
             return;
         }
+        if is_term_stream_path(&req.target) {
+            if let Some(upstream) = &cfg.api_origin {
+                let _ = stream_sse_request(stream, upstream, &to_sse_req(&req));
+                return;
+            }
+            let _ = write_response(
+                stream,
+                404,
+                "application/json; charset=utf-8",
+                &[("Cache-Control".into(), "no-store".into())],
+                br#"{"error":"not_found"}"#,
+            );
+            return;
+        }
         if let Some(upstream) = &cfg.api_origin {
             if match_route_policy(&req.target).is_some() {
                 let proxied = forward_api_request(upstream, &to_forward_req(&req));
@@ -405,6 +430,7 @@ mod tests {
 
     #[test]
     fn enforces_split_origin_machine_protocols_and_websocket_tunnels() {
+        let _guard = crate::ws::WS_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
         let dir = std::env::temp_dir().join(format!("mso-rust-srv-r2b-{nanos}"));
         fs::create_dir_all(&dir).unwrap();
@@ -522,5 +548,268 @@ mod tests {
         up_thread.join().unwrap();
         srv.stop();
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn streams_terminal_sse_incrementally_chunked_and_unchunked() {
+        use std::sync::mpsc;
+
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-sse-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+        let (tx_c1, rx_c1) = mpsc::channel::<()>();
+        let (tx_c2, rx_c2) = mpsc::channel::<()>();
+        let (tx_r1, rx_r1) = mpsc::channel::<()>();
+        let (tx_r2, rx_r2) = mpsc::channel::<()>();
+
+        let up_thread = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            // 1. Chunked SSE stream with barrier after each event before EOF
+            let (mut s1, _) = up_listener.accept().unwrap();
+            let n1 = s1.read(&mut buf).unwrap();
+            let r1 = String::from_utf8_lossy(&buf[..n1]);
+            assert!(r1.starts_with("GET /api/v1/term/stream?id=pty-1 HTTP/1.1"));
+            assert!(r1.contains("Accept: text/event-stream\r\n"));
+            assert!(r1.contains("Cookie: session=ok\r\n"));
+            assert!(r1.contains("Last-Event-ID: 42\r\n"));
+            assert!(r1.contains("Connection: close\r\n"));
+            let ev1 = b"id: 1\nevent: data\ndata: first\n\n";
+            let ev2 = b"id: 2\nevent: data\ndata: second\n\n";
+            s1.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=utf-8\r\nTransfer-Encoding: chunked\r\n\r\n").unwrap();
+            s1.write_all(format!("{:x}\r\n", ev1.len()).as_bytes()).unwrap();
+            s1.write_all(ev1).unwrap();
+            s1.write_all(b"\r\n").unwrap();
+            s1.flush().unwrap();
+            rx_c1.recv_timeout(Duration::from_secs(5)).expect("client must receive chunked event 1 before event 2");
+            // Split event 2 across two writes to prove incremental chunked decoding
+            s1.write_all(format!("{:x}\r\n", ev2.len()).as_bytes()).unwrap();
+            s1.write_all(&ev2[..10]).unwrap();
+            s1.flush().unwrap();
+            s1.write_all(&ev2[10..]).unwrap();
+            s1.write_all(b"\r\n").unwrap();
+            s1.flush().unwrap();
+            rx_c2.recv_timeout(Duration::from_secs(5)).expect("client must receive chunked event 2 before EOF");
+            s1.write_all(b"0\r\n\r\n").unwrap();
+            s1.flush().unwrap();
+            drop(s1);
+
+            // 2. Non-chunked SSE stream with barrier after each event before EOF
+            let (mut s2, _) = up_listener.accept().unwrap();
+            let n2 = s2.read(&mut buf).unwrap();
+            let r2 = String::from_utf8_lossy(&buf[..n2]);
+            assert!(r2.starts_with("GET /api/v1/term/stream?id=pty-2 HTTP/1.1"));
+            s2.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n").unwrap();
+            s2.write_all(ev1).unwrap();
+            s2.flush().unwrap();
+            rx_r1.recv_timeout(Duration::from_secs(5)).expect("client must receive raw event 1 before event 2");
+            s2.write_all(ev2).unwrap();
+            s2.flush().unwrap();
+            rx_r2.recv_timeout(Duration::from_secs(5)).expect("client must receive raw event 2 before EOF");
+            drop(s2);
+
+            // 3. Upstream 401 JSON error on /api/v1/term/stream
+            let (mut s3, _) = up_listener.accept().unwrap();
+            let _ = s3.read(&mut buf).unwrap();
+            s3.write_all(b"HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\n\r\n{\"error\":\"unauthorized\"}").unwrap();
+            drop(s3);
+        });
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+        })
+        .unwrap();
+
+        let read_until = |sock: &mut TcpStream, acc: &mut String, needle: &str| {
+            let mut b = [0u8; 512];
+            while !acc.contains(needle) {
+                let n = sock.read(&mut b).expect("expected incremental SSE bytes before timeout");
+                assert!(n > 0, "unexpected EOF waiting for {needle:?}, got: {acc:?}");
+                acc.push_str(&String::from_utf8_lossy(&b[..n]));
+            }
+        };
+
+        // Case 1: Chunked SSE
+        let mut c1 = TcpStream::connect(srv.addr()).unwrap();
+        c1.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        c1.write_all(b"GET /api/v1/term/stream?id=pty-1 HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=ok\r\nLast-Event-ID: 42\r\n\r\n").unwrap();
+        let mut out1 = String::new();
+        read_until(&mut c1, &mut out1, "data: first\n\n");
+        assert!(out1.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert!(out1.contains("Content-Type: text/event-stream; charset=utf-8\r\n"));
+        assert!(out1.contains("Cache-Control: no-cache, no-store\r\n"));
+        assert!(out1.contains("X-Content-Type-Options: nosniff\r\n"));
+        assert!(out1.contains("Connection: close\r\n"));
+        tx_c1.send(()).unwrap();
+        read_until(&mut c1, &mut out1, "data: second\n\n");
+        tx_c2.send(()).unwrap();
+        let mut tail1 = String::new();
+        c1.read_to_string(&mut tail1).unwrap();
+        assert!(tail1.is_empty(), "expected clean EOF after 0-chunk, got: {tail1:?}");
+
+        // Case 2: Non-chunked SSE
+        let mut c2 = TcpStream::connect(srv.addr()).unwrap();
+        c2.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        c2.write_all(b"GET /api/v1/term/stream?id=pty-2 HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=ok\r\n\r\n").unwrap();
+        let mut out2 = String::new();
+        read_until(&mut c2, &mut out2, "data: first\n\n");
+        tx_r1.send(()).unwrap();
+        read_until(&mut c2, &mut out2, "data: second\n\n");
+        tx_r2.send(()).unwrap();
+        let mut tail2 = String::new();
+        c2.read_to_string(&mut tail2).unwrap();
+        assert!(tail2.is_empty());
+
+        // Case 3: Upstream 401 JSON relays cleanly
+        let mut c3 = TcpStream::connect(srv.addr()).unwrap();
+        c3.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        c3.write_all(b"GET /api/v1/term/stream?id=pty-3 HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").unwrap();
+        let mut out3 = String::new();
+        c3.read_to_string(&mut out3).unwrap();
+        assert!(out3.starts_with("HTTP/1.1 401 Unauthorized"));
+        assert!(out3.contains(r#"{"error":"unauthorized"}"#));
+
+        // Case 4: Non-GET on /api/v1/term/stream returns 405 + Allow: GET (same-origin) and 403 (cross-site)
+        let mut c4 = TcpStream::connect(srv.addr()).unwrap();
+        c4.write_all(b"POST /api/v1/term/stream HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 0\r\n\r\n").unwrap();
+        let mut out4 = String::new();
+        c4.read_to_string(&mut out4).unwrap();
+        assert!(out4.starts_with("HTTP/1.1 405 Method Not Allowed"));
+        assert!(out4.contains("Allow: GET\r\n"));
+
+        let mut c5 = TcpStream::connect(srv.addr()).unwrap();
+        c5.write_all(b"POST /api/v1/term/stream HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 0\r\n\r\n").unwrap();
+        let mut out5 = String::new();
+        c5.read_to_string(&mut out5).unwrap();
+        assert!(out5.starts_with("HTTP/1.1 403 Forbidden"));
+
+        up_thread.join().unwrap();
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn enforces_increment_3b_routes_csrf_and_unlisted_exec_run() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-3b-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+        let up_thread = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            // 1. DELETE /api/v1/fs/delete
+            let (mut s1, _) = up_listener.accept().unwrap();
+            let n1 = s1.read(&mut buf).unwrap();
+            let r1 = String::from_utf8_lossy(&buf[..n1]);
+            assert!(r1.starts_with("DELETE /api/v1/fs/delete HTTP/1.1"));
+            assert!(r1.contains(r#"{"path":"tmp/a.txt"}"#));
+            s1.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"ok\":true}").unwrap();
+            drop(s1);
+
+            // 2. GET /api/v1/sys/services
+            let (mut s2, _) = up_listener.accept().unwrap();
+            let n2 = s2.read(&mut buf).unwrap();
+            let r2 = String::from_utf8_lossy(&buf[..n2]);
+            assert!(r2.starts_with("GET /api/v1/sys/services HTTP/1.1"));
+            s2.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"services\":[]}").unwrap();
+            drop(s2);
+
+            // 3. POST /api/v1/sys/services
+            let (mut s3, _) = up_listener.accept().unwrap();
+            let n3 = s3.read(&mut buf).unwrap();
+            let r3 = String::from_utf8_lossy(&buf[..n3]);
+            assert!(r3.starts_with("POST /api/v1/sys/services HTTP/1.1"));
+            assert!(r3.contains(r#"{"action":"restart"}"#));
+            s3.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"ok\":true}").unwrap();
+            drop(s3);
+        });
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // /api/v1/fs/delete: CSRF-blocked cross-origin, 405 on GET, 200 on same-origin DELETE
+        assert!(send("DELETE /api/v1/fs/delete HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 20\r\n\r\n{\"path\":\"tmp/a.txt\"}").starts_with("HTTP/1.1 403 Forbidden"));
+        let del_get = send("GET /api/v1/fs/delete HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(del_get.starts_with("HTTP/1.1 405 Method Not Allowed") && del_get.contains("Allow: DELETE\r\n"));
+        let del_ok = send("DELETE /api/v1/fs/delete HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 20\r\n\r\n{\"path\":\"tmp/a.txt\"}");
+        assert!(del_ok.starts_with("HTTP/1.1 200 OK") && del_ok.contains(r#"{"ok":true}"#));
+
+        // /api/v1/sys/services: GET allowed, POST CSRF-blocked cross-origin, 405 on DELETE, 200 on same-origin POST
+        let svc_get = send("GET /api/v1/sys/services HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(svc_get.starts_with("HTTP/1.1 200 OK") && svc_get.contains(r#"{"services":[]}"#));
+        assert!(send("POST /api/v1/sys/services HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 20\r\n\r\n{\"action\":\"restart\"}").starts_with("HTTP/1.1 403 Forbidden"));
+        let svc_del = send("DELETE /api/v1/sys/services HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(svc_del.starts_with("HTTP/1.1 405 Method Not Allowed") && svc_del.contains("Allow: GET, POST\r\n"));
+        let svc_post = send("POST /api/v1/sys/services HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 20\r\n\r\n{\"action\":\"restart\"}");
+        assert!(svc_post.starts_with("HTTP/1.1 200 OK") && svc_post.contains(r#"{"ok":true}"#));
+
+        // /api/v1/exec/run MUST remain unlisted (404)
+        let exec_post = send("POST /api/v1/exec/run HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(exec_post.starts_with("HTTP/1.1 404 Not Found") && exec_post.contains("not_found"));
+        let exec_get = send("GET /api/v1/exec/run HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(exec_get.starts_with("HTTP/1.1 404 Not Found"));
+
+        up_thread.join().unwrap();
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sse_rejects_non_loopback_or_https_upstream_and_matches_exact_path() {
+        use crate::sse::SseOutcome;
+
+        assert!(is_term_stream_path("/api/v1/term/stream"));
+        assert!(is_term_stream_path("/api/v1/term/stream?id=abc"));
+        assert!(!is_term_stream_path("/api/v1/term/stream/extra"));
+        assert!(!is_term_stream_path("/api/v1/term/open"));
+
+        let bad_origins = [
+            HostOrigin { scheme: "https".into(), host: "127.0.0.1".into(), port: 8443 },
+            HostOrigin { scheme: "http".into(), host: "10.0.0.5".into(), port: 4005 },
+        ];
+        for bad in bad_origins {
+            let l = TcpListener::bind("127.0.0.1:0").unwrap();
+            let addr = l.local_addr().unwrap();
+            let h = thread::spawn(move || {
+                let (mut s, _) = l.accept().unwrap();
+                stream_sse_request(&mut s, &bad, &SseRequest {
+                    method: "GET",
+                    target: "/api/v1/term/stream?id=1",
+                    host: Some("127.0.0.1"),
+                    cookie: None,
+                    last_event_id: None,
+                })
+            });
+            let mut c = TcpStream::connect(addr).unwrap();
+            let mut resp = String::new();
+            c.read_to_string(&mut resp).unwrap();
+            assert!(resp.starts_with("HTTP/1.1 502 Bad Gateway"));
+            assert_eq!(h.join().unwrap(), SseOutcome::Rejected(502));
+        }
     }
 }

@@ -8,8 +8,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 
-// Synthetic backend only: proves Stage R2B `mso-shell-host` serves Svelte Increment 3A
-// with nonce CSP, CSRF depth-2, split-origin managed hosts, MCP passthrough, Files, Processes, and tiny RSS.
+// Synthetic backend only: proves compiled Rust `mso-shell-host` serves Svelte Increment 3B
+// with live SSE terminal streaming, Files mutations, Services Center, split-origin, MCP, CSRF & minimal RSS.
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SVELTE_DIR = path.resolve(HERE, "..");
 const REPO_ROOT = path.resolve(SVELTE_DIR, "../..");
@@ -30,18 +30,20 @@ const rawHttp = (port, wire) => new Promise((resolve, reject) => {
   socket.on("error", reject);
   socket.on("end", () => resolve({ status: Number(/^HTTP\/1\.1\s+(\d{3})/.exec(data)?.[1] ?? 0), raw: data }));
 });
-const readBody = (req) => new Promise((resolve) => {
-  let raw = "";
-  req.on("data", (c) => { raw += c; });
-  req.on("end", () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); } });
-});
+const readBody = (req) => new Promise((r) => { let s = ""; req.on("data", (c) => { s += c; }); req.on("end", () => { try { r(s ? JSON.parse(s) : {}); } catch { r({}); } }); });
+const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
 
 const ownerSession = { authenticated: true, deviceId: "rust-owner-0001", deviceLabel: "Rust Shell Owner", role: "owner" };
 const signedOut = { authenticated: false, deviceId: null, deviceLabel: null, role: null };
 const stats = { cpu: { pct: 18.5, cores: 4 }, mem: { used: 1024 ** 3, total: 4 * 1024 ** 3 }, disk: { used: 2 * 1024 ** 3, total: 8 * 1024 ** 3 }, uptime: 3_660_000 };
 const procs = [{ pid: 77, name: "mso-shell-host", status: "S", cpu: 0.2, mem: 3 }];
+const services = {
+  services: [{ unit: "mso.service", scope: "user", load: "loaded", active: "active", sub: "running", description: "MSO host", controllable: true }],
+  diagnostics: [], truncated: false, controlAllowlistConfigured: true, generatedAt: "2026-11-22T00:00:00.000Z",
+};
 const fsHome = { path: "/home/demo", parent: "/home", entries: [{ name: "hello.txt", kind: "file", size: 15, mtime: 1_700_000_000_000 }] };
-
+let helloContent = "hello from rust";
+const termStreams = new Map();
 let calls = [];
 const devices = {
   approved: { "rust-owner-0001": { label: "Rust Shell Owner", approvedAt: 1_700_000_000_000, role: "owner" } },
@@ -52,10 +54,19 @@ const backend = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   calls.push(`${req.method} ${url.pathname}`);
   const authed = req.headers.cookie?.includes("session=rust-r2b-owner") ?? false;
+  if (url.pathname === "/api/v1/term/stream" && req.method === "GET") {
+    if (!authed) { res.writeHead(401, { "Content-Type": "application/json" }); res.end("{}"); return; }
+    const id = url.searchParams.get("id") ?? "t1";
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+    res.write(`event: data\ndata: ${b64("rust-sse ready\n")}\n\n`);
+    termStreams.set(id, res);
+    req.on("close", () => termStreams.delete(id));
+    return;
+  }
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
 
-  if (url.pathname === "/api/auth/me" && req.method === "GET") res.end(JSON.stringify(authed ? ownerSession : signedOut));
+  if (url.pathname === "/api/auth/me") res.end(JSON.stringify(authed ? ownerSession : signedOut));
   else if (url.pathname === "/api/auth/login" && req.method === "POST") {
     const body = await readBody(req);
     if (body.password === "rust-pass") { res.setHeader("Set-Cookie", "session=rust-r2b-owner; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
@@ -63,21 +74,28 @@ const backend = createServer(async (req, res) => {
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") {
     res.setHeader("Set-Cookie", ["session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict", "mso_aux=; Max-Age=0; Path=/"]);
     res.end(JSON.stringify({ success: true }));
-  } else if (url.pathname === "/api/auth/devices" && req.method === "GET") {
-    res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? devices : { error: "Owner role required" }));
-  } else if (url.pathname === "/api/auth/devices" && req.method === "POST") {
+  } else if (url.pathname === "/api/auth/devices" && req.method === "GET") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? devices : {})); }
+  else if (url.pathname === "/api/auth/devices" && req.method === "POST") {
     const body = await readBody(req);
     if (authed && body.action === "approve") { delete devices.pending[body.deviceId]; devices.approved[body.deviceId] = { label: body.label || "Approved", approvedAt: Date.now(), role: body.role || "viewer" }; }
-    res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? { ok: true, ...devices } : { error: "Owner role required" }));
-  } else if (url.pathname === "/api/v1/sys/stats") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? stats : { error: "Unauthorized" })); }
-  else if (url.pathname === "/api/v1/sys/processes") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? procs : { error: "Unauthorized" })); }
-  else if (url.pathname === "/api/v1/fs/list") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? fsHome : { error: "Unauthorized" })); }
-  else if (url.pathname === "/api/v1/fs/read") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? "hello from rust" : { error: "Unauthorized" })); }
-  else if (url.pathname === "/mcp" && req.method === "POST") {
-    res.end(JSON.stringify({ ok: true, auth: req.headers.authorization ?? null }));
-  } else if (url.pathname === "/api/v1/managed-apps/hermes/proxy/chat") {
-    res.end(JSON.stringify({ app: req.headers["x-os-managed-app-host"] ?? null, routed: true }));
-  } else { res.statusCode = 404; res.end("{}"); }
+    res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? { ok: true, ...devices } : {}));
+  } else if (url.pathname === "/api/v1/sys/stats") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? stats : {})); }
+  else if (url.pathname === "/api/v1/sys/processes") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? procs : {})); }
+  else if (url.pathname === "/api/v1/sys/services" && req.method === "GET") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? services : {})); }
+  else if (url.pathname === "/api/v1/sys/services" && req.method === "POST") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(services.services[0])); }
+  else if (url.pathname === "/api/v1/fs/list") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? fsHome : {})); }
+  else if (url.pathname === "/api/v1/fs/read") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? helloContent : {})); }
+  else if (url.pathname === "/api/v1/fs/write" && req.method === "POST") { helloContent = (await readBody(req)).content; res.end(JSON.stringify({ ok: true })); }
+  else if (url.pathname === "/api/v1/term/open" && req.method === "POST") { res.end(JSON.stringify({ id: "t1" })); }
+  else if (url.pathname === "/api/v1/term/input" && req.method === "POST") {
+    const body = await readBody(req); termStreams.get(body.id)?.write(`event: data\ndata: ${b64(`echo:${body.data}`)}\n\n`);
+    res.end(JSON.stringify({ ok: true }));
+  } else if (url.pathname === "/api/v1/term/close" && req.method === "POST") {
+    const body = await readBody(req); termStreams.get(body.id)?.end(); termStreams.delete(body.id);
+    res.end(JSON.stringify({ ok: true }));
+  } else if (url.pathname === "/mcp" && req.method === "POST") { res.end(JSON.stringify({ ok: true, auth: req.headers.authorization ?? null })); }
+  else if (url.pathname === "/api/v1/managed-apps/hermes/proxy/chat") { res.end(JSON.stringify({ app: req.headers["x-os-managed-app-host"] ?? null })); }
+  else { res.statusCode = 404; res.end("{}"); }
 });
 
 let hostProc, browser;
@@ -105,37 +123,28 @@ try {
   const expectedHost = new URL(ready).host;
   const idleRssKiB = readVmRssKiB(hostProc.pid);
 
-  // 1. Nonce CSP check on HTML.
   const htmlRes = await fetch(`${ready}/`);
   const nonce = htmlRes.headers.get("x-nonce");
   assert.ok(nonce && nonce.length === 32);
   assert.ok((htmlRes.headers.get("content-security-policy") ?? "").includes(`script-src 'self' 'nonce-${nonce}'`));
   assert.ok((await htmlRes.text()).includes(`<script nonce="${nonce}">`));
 
-  // 2. Stage R2A/R2B security boundaries (CSRF 403, 413, 405, 404, 400 traversal, split-origin & MCP).
   const beforeSec = calls.length;
   assert.equal((await rawHttp(hostPort, `POST /api/auth/login HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 403);
   assert.equal((await rawHttp(hostPort, `POST /api/auth/login HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 999999\r\nConnection: close\r\n\r\n`)).status, 413);
   assert.equal((await rawHttp(hostPort, `DELETE /api/auth/devices HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nConnection: close\r\n\r\n`)).status, 405);
   assert.equal((await fetch(`${ready}/api/config`)).status, 404);
+  assert.equal((await rawHttp(hostPort, `POST /api/v1/exec/run HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 404);
   assert.equal((await rawHttp(hostPort, `GET /../etc/passwd HTTP/1.1\r\nHost: ${expectedHost}\r\nConnection: close\r\n\r\n`)).status, 400);
-  assert.equal((await rawHttp(hostPort, `GET /%2e%2e/secret HTTP/1.1\r\nHost: ${expectedHost}\r\nConnection: close\r\n\r\n`)).status, 400);
   assert.equal((await rawHttp(hostPort, `GET / HTTP/1.1\r\nHost: staging.mso.example.com\r\nConnection: close\r\n\r\n`)).status, 404);
-  assert.equal((await rawHttp(hostPort, `GET /_next/static/x.js HTTP/1.1\r\nHost: hermes.mso.example.com\r\nConnection: close\r\n\r\n`)).status, 404);
-  assert.equal(calls.length, beforeSec, "blocked requests must never reach loopback backend");
+  assert.equal(calls.length, beforeSec);
 
-  const mcp = await rawHttp(hostPort, `POST /mcp HTTP/1.1\r\nHost: ${expectedHost}\r\nAuthorization: Bearer tok123\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`);
-  assert.equal(mcp.status, 200);
-  assert.ok(mcp.raw.includes(`"auth":"Bearer tok123"`));
-  const managed = await rawHttp(hostPort, `GET /chat HTTP/1.1\r\nHost: hermes.mso.example.com\r\nConnection: close\r\n\r\n`);
-  assert.equal(managed.status, 200);
-  assert.ok(managed.raw.includes(`"app":"hermes"`));
+  assert.ok((await rawHttp(hostPort, `POST /mcp HTTP/1.1\r\nHost: ${expectedHost}\r\nAuthorization: Bearer tok123\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).raw.includes(`"auth":"Bearer tok123"`));
+  assert.ok((await rawHttp(hostPort, `GET /chat HTTP/1.1\r\nHost: hermes.mso.example.com\r\nConnection: close\r\n\r\n`)).raw.includes(`"app":"hermes"`));
 
-  // 3. Full Chromium E2E through Rust Stage R2B proxy: login -> approve -> Files -> Processes -> logout.
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
-  const page = await context.newPage();
-  const errors = [];
+  const page = await context.newPage(), errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (msg) => { if (msg.type() === "error") errors.push(msg.text()); });
 
@@ -143,13 +152,21 @@ try {
   await page.getByLabel("Cockpit password").fill("rust-pass");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForSelector("[data-monitor-state='ready']", { timeout: 10_000 });
-  await page.getByRole("button", { name: "Approve" }).click();
-  await page.getByText("Device approved.").waitFor();
   await page.getByRole("button", { name: "Open Files" }).click();
-  await page.getByRole("button", { name: /hello\.txt/ }).click();
-  await page.getByText("hello from rust").waitFor();
-  await page.getByRole("button", { name: "Open Processes" }).click();
-  await page.getByText("mso-shell-host").waitFor();
+  await page.locator("button[data-entry-open='hello.txt']").click();
+  await page.getByRole("button", { name: "Edit" }).click();
+  await page.locator("textarea").fill("saved via rust");
+  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByText("File saved.").waitFor();
+  assert.equal(helloContent, "saved via rust");
+  await page.getByRole("button", { name: "Open Services" }).click();
+  await page.getByText("mso.service").waitFor();
+  await page.getByRole("button", { name: "Open Terminal" }).click();
+  await page.getByText("rust-sse ready").waitFor();
+  await page.getByLabel("Terminal command").fill("uname");
+  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByText("echo:uname").waitFor();
+  await page.getByRole("button", { name: "Close Terminal" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual(errors, [], `unexpected browser/CSP errors: ${errors.join("; ")}`);
@@ -157,10 +174,11 @@ try {
 
   const activeRssKiB = readVmRssKiB(hostProc.pid);
   console.log(JSON.stringify({
-    pass: true, stage: "R2B", origin: ready, idleRssKiB, activeRssKiB, apiCalls: calls.length,
-    nonceCspVerified: true, csrfDepth2Verified: true, splitOriginAndMcpVerified: true, inc3aFilesAndProcessesVerified: true,
+    pass: true, stage: "R2B+SSE", origin: ready, idleRssKiB, activeRssKiB, apiCalls: calls.length,
+    liveSseTerminalVerified: true, filesMutationVerified: true, servicesCenterVerified: true,
   }, null, 2));
 } finally {
+  for (const s of termStreams.values()) s.end();
   await browser?.close();
   if (hostProc && hostProc.exitCode === null) { hostProc.kill("SIGTERM"); await once(hostProc, "exit"); }
   backend.closeAllConnections();

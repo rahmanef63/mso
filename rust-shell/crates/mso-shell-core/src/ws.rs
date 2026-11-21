@@ -10,6 +10,8 @@ use std::time::Duration;
 pub const MAX_ACTIVE_SOCKETS: usize = 32;
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 static ACTIVE_SOCKETS: AtomicUsize = AtomicUsize::new(0);
+#[cfg(test)]
+pub(crate) static WS_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[derive(Debug, Clone)]
 pub struct WsUpgradeRequest<'a> {
@@ -147,6 +149,7 @@ mod tests {
 
     #[test]
     fn parses_upgrade_tokens_and_tunnels_echo_and_rejection() {
+        let _guard = WS_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         assert!(is_websocket_upgrade(Some("websocket")) && is_websocket_upgrade(Some("h2c, WebSocket")));
         assert!(!is_websocket_upgrade(Some("mywebsocket")) && !is_websocket_upgrade(None));
         let up_l = TcpListener::bind("127.0.0.1:0").unwrap();

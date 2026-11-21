@@ -12,6 +12,7 @@ pub struct ParsedRequest {
     pub cookie: Option<String>,
     pub authorization: Option<String>,
     pub accept: Option<String>,
+    pub last_event_id: Option<String>,
     pub origin: Option<String>,
     pub sec_fetch_site: Option<String>,
     pub content_type: Option<String>,
@@ -75,6 +76,7 @@ where
     let mut cookie = None;
     let mut authorization = None;
     let mut accept = None;
+    let mut last_event_id = None;
     let mut origin = None;
     let mut sec_fetch_site = None;
     let mut content_type = None;
@@ -96,6 +98,7 @@ where
                 "cookie" => cookie = Some(val.to_string()),
                 "authorization" => authorization = Some(val.to_string()),
                 "accept" => accept = Some(val.to_string()),
+                "last-event-id" => last_event_id = Some(val.to_string()),
                 "origin" => origin = Some(val.to_string()),
                 "sec-fetch-site" => sec_fetch_site = Some(val.to_string()),
                 "content-type" => content_type = Some(val.to_string()),
@@ -151,6 +154,7 @@ where
         cookie,
         authorization,
         accept,
+        last_event_id,
         origin,
         sec_fetch_site,
         content_type,
