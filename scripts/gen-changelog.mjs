@@ -190,13 +190,12 @@ if (process.argv.includes("--check")) {
 
 function shouldDeferOnPrBranch() {
   if (process.env.MSO_CHANGELOG_STRICT === "1") return false;
-  if (process.env.GITHUB_EVENT_NAME === "pull_request") return true;
   try {
-    const branch = execSync(`git -C "${ROOT}" branch --show-current`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-    if (!branch || branch === "main" || branch === "master") return false;
     execSync(`git -C "${ROOT}" rev-parse --verify origin/main`, { stdio: "ignore" });
     execSync(`git -C "${ROOT}" diff --quiet origin/main -- docs/CHANGELOG.md`, { stdio: "ignore" });
-    return true;
+    if (process.env.GITHUB_EVENT_NAME === "pull_request") return true;
+    const branch = execSync(`git -C "${ROOT}" branch --show-current`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return Boolean(branch && branch !== "main" && branch !== "master");
   } catch {
     return false;
   }
