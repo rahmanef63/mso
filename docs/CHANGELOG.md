@@ -14,6 +14,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` eliminate TOCTOU file race in modular feature registry via O_NOFOLLOW fd reads
 - `n8n` dedicated single-bar iframe workspace, N8N_PUBLIC_URL support, and portability guard (#341)
 
 ## 2026-11-20

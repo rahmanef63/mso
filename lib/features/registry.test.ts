@@ -81,8 +81,19 @@ describe("modular feature registry", () => {
     symlinkSync(secretFile, path.join(store, "secure-app", "dist", "leak.txt"));
     expect(() => readModularFeatureAsset("secure-app", "leak.txt", "owner", store)).toThrow(/asset_path_outside_package/);
 
+    // Symlinked ancestor directory escaping dist/ is refused.
+    symlinkSync(work, path.join(store, "secure-app", "dist", "escape-dir"));
+    expect(() => readModularFeatureAsset("secure-app", "escape-dir/secret.txt", "owner", store)).toThrow(/asset_path_outside_package/);
+
     // Tampering with entry file after install fails integrity check.
     writeFileSync(path.join(store, "secure-app", "dist", "index.html"), "<h1>tampered</h1>");
     expect(() => readModularFeatureAsset("secure-app", "index.html", "owner", store)).toThrow(/entry_integrity_mismatch/);
+
+    // Symlinked manifest.json is ignored by listModularFeatures and refused on read.
+    const symlinkPkg = path.join(store, "symlink-manifest");
+    mkdirSync(path.join(symlinkPkg, "dist"), { recursive: true });
+    symlinkSync(path.join(store, "secure-app", "manifest.json"), path.join(symlinkPkg, "manifest.json"));
+    expect(listModularFeatures("owner", store).features.map((f) => f.id)).not.toContain("symlink-manifest");
+    expect(() => readModularFeatureAsset("symlink-manifest", "index.html", "owner", store)).toThrow(/feature_not_found/);
   });
 });
