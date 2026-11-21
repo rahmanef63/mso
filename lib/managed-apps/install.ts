@@ -31,7 +31,7 @@ const INSTALL_SCRIPT = path.join(process.cwd(), "scripts", "managed-app-install"
 /** Hermes fetches uv, a Python, Node and ffmpeg before it does anything of its
  *  own, so it needs a budget several times OpenClaw's `npm i -g`. Both stay
  *  under the job layer's 1 h ceiling. */
-const INSTALL_TIMEOUT_MS: Record<ManagedAppId, number> = { hermes: 2_700_000, openclaw: 900_000, "9router": 900_000, orca: 900_000 };
+const INSTALL_TIMEOUT_MS: Record<ManagedAppId, number> = { hermes: 2_700_000, openclaw: 900_000, "9router": 900_000, orca: 900_000, t3: 900_000 };
 
 /** A key is never inspected beyond this: it is opaque upstream credential
  *  material, so the only questions worth asking are "could it break the
@@ -98,12 +98,14 @@ export async function startInstall(id: ManagedAppId, options: InstallOptions = {
   // a non-loopback bind would expose the runtime directly. Refuse it explicitly
   // even though sibling installers accept LAN/tailnet binds.
   if (id === "orca" && bind !== "loopback") throw new Error("Orca install supports loopback only; refusing a non-loopback bind");
+  if (id === "t3" && bind !== "loopback") throw new Error("T3 Code install supports loopback only; refusing a non-loopback bind");
   env.MSO_INSTALL_GATEWAY_BIND = bind;
 
   const key = options.apiKey?.trim();
-  // Orca ships no provider configuration and stores no API key; a key would only
-  // be silently dropped, so refuse rather than claim a configured install.
+  // Orca and T3 Code ship no MSO-side provider onboarding and store no key passed
+  // here; refuse rather than silently drop an API key.
   if (id === "orca" && (key || options.provider)) throw new Error("Orca does not accept a provider or API key");
+  if (id === "t3" && (key || options.provider)) throw new Error("T3 Code does not accept a provider or API key");
 
   // Where MSO will frame this app. OpenClaw's Control UI keeps its own origin
   // allowlist and rejects the socket before it opens otherwise — a healthy gateway

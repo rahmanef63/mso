@@ -9,7 +9,12 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Added**
 
 - `modular` add change-aware gates, modular feature packages, and feature contract ratchets
+- `managed-apps` fix Orca audit findings and add T3 Code managed app (#340)
 - `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll (#339)
+
+**Fixed**
+
+- `n8n` dedicated single-bar iframe workspace, N8N_PUBLIC_URL support, and portability guard (#341)
 
 ## 2026-11-20
 

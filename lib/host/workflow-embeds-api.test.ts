@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configuredSurfaceApps } from "@/lib/surfaces/config";
-import { listWorkflowEmbeds, workflowEmbeds } from "./workflow-embeds-api";
+import { envN8nSurfaceApp, listWorkflowEmbeds, workflowEmbeds } from "./workflow-embeds-api";
 const app = { id: "automation", title: "Automation", description: "Owner workspace", origin: "https://automation.example.test", startPath: "/home/workflows", renderer: "iframe" as const, presentation: "inline" as const, environment: "production" as const };
 afterEach(() => vi.unstubAllEnvs());
 describe("reviewed Workflows embed registry", () => {
@@ -40,5 +40,23 @@ describe("reviewed Workflows embed registry", () => {
     expect(apps[0]).toEqual(app);
     expect(apps[1].placements).toEqual(["workflows"]);
     expect(workflowEmbeds(apps, [])[0].sandbox).toBe("allow-scripts allow-forms");
+  });
+  it("resolves N8N_PUBLIC_URL when no registry entry exists and rejects unsafe URLs", async () => {
+    vi.stubEnv("MSO_SURFACE_APPS_JSON", "[]");
+    vi.stubEnv("N8N_PUBLIC_URL", "https://n8n.example.test/home/workflows");
+    const embeds = await listWorkflowEmbeds("https://cockpit.example.test");
+    expect(embeds).toHaveLength(1);
+    expect(embeds[0]).toMatchObject({ id: "n8n", title: "n8n", origin: "https://n8n.example.test", url: "https://n8n.example.test/home/workflows", renderer: "iframe" });
+    expect(envN8nSurfaceApp("http://n8n.example.test")).toBeNull();
+    expect(envN8nSurfaceApp("https://user:pass@n8n.example.test/")).toBeNull();
+    expect(envN8nSurfaceApp("https://n8n.example.test/?token=x")).toBeNull();
+    expect(envN8nSurfaceApp("https://n8n.example.test/a/../b")).toBeNull();
+  });
+  it("prefers an explicit owner registry n8n entry over N8N_PUBLIC_URL", async () => {
+    vi.stubEnv("MSO_SURFACE_APPS_JSON", JSON.stringify([{ ...app, id: "n8n", title: "n8n", origin: "https://custom-n8n.example.test", placements: ["n8n"] }]));
+    vi.stubEnv("N8N_PUBLIC_URL", "https://env-n8n.example.test");
+    const embeds = await listWorkflowEmbeds("https://cockpit.example.test");
+    expect(embeds).toHaveLength(1);
+    expect(embeds[0].origin).toBe("https://custom-n8n.example.test");
   });
 });

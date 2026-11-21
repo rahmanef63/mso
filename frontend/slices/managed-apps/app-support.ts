@@ -88,12 +88,27 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     pinLabel: "Version",
     pinHint: "Orca update and rollback are not available yet; only the pinned 1.4.230 web runtime installs.",
     pinPlaceholder: "",
-    installCommand: "bash scripts/managed-app-install orca install",
+    installCommand: "MSO_INSTALL_APP_ORIGIN=https://orca.mso.example.com bash scripts/managed-app-install orca",
     installNote:
-      "MSO verifies and installs the pinned Orca 1.4.230 web/Node release into ~/.local/share/mso/orca and starts the MSO-owned mso-orca.service user unit on loopback. It takes no provider key, and it requires a configured split app origin (NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE) so the browser can frame it: there is no same-origin fallback.",
+      "MSO verifies and installs the pinned Orca 1.4.230 web/Node release into ~/.local/share/mso/orca and starts the MSO-owned mso-orca.service user unit on loopback. Replace the origin above with your configured Orca split app host (NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE).",
     uninstallCommand: "",
     uninstallEffect: "Orca uninstall is not available yet.",
     stateDir: "~/.local/share/mso/orca",
+  },
+  t3: {
+    dryRun: false,
+    rollbackPin: false,
+    pinLabel: "Version",
+    pinHint:
+      "MSO installs one reviewed T3 Code Linux release tarball pinned by SHA-256 in security/managed-app-artifacts.env. Update reconciles the binary to that release; rollback restores ~/.t3 state snapshots.",
+    pinPlaceholder: "0.1.11",
+    installCommand: "bash scripts/managed-app-t3 install",
+    installNote:
+      "MSO downloads the pinned T3 Code release tarball, verifies SHA-256 before extraction, installs it into ~/.local/share/mso/t3, and registers the loopback-only t3-code.service user unit on port 3773 while keeping ~/.t3 data separate.",
+    uninstallCommand: "bash scripts/managed-app-t3 uninstall --yes",
+    uninstallEffect:
+      "Stops and removes t3-code.service and MSO-managed T3 binaries under ~/.local/share/mso/t3. Existing T3 Code data and sessions in ~/.t3 stay intact.",
+    stateDir: "~/.t3",
   },
 };
 

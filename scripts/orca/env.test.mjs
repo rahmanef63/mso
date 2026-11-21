@@ -9,8 +9,8 @@ describe('isolated environment with strict allowlist', () => {
   it('inherits only locale/terminal vars and fences every writable path', () => {
     const parentEnv = {
       PATH: '/custom/bin:/usr/local/bin:/usr/bin:/bin',
-      HOME: '/home/antinrml',
-      USER: 'antinrml',
+      HOME: '/home/operator',
+      USER: 'operator',
       LANG: 'en_US.UTF-8',
       LC_ALL: 'en_US.UTF-8',
       TERM: 'xterm-256color',
@@ -22,8 +22,8 @@ describe('isolated environment with strict allowlist', () => {
       BASH_ENV: '/malicious/bashrc',
       ENV: '/malicious/env',
       PYTHONPATH: '/malicious/python',
-      CODEX_HOME: '/home/antinrml/.codex',
-      CLAUDE_CONFIG_DIR: '/home/antinrml/.claude',
+      CODEX_HOME: '/home/operator/.codex',
+      CLAUDE_CONFIG_DIR: '/home/operator/.claude',
       SSH_AUTH_SOCK: '/tmp/ssh-agent.sock',
       ORCA_SECRET_INHERITED: 'leak',
       OPENAI_API_KEY: 'sk-secret123',

@@ -82,4 +82,47 @@ describe('bounded download url and redirect policy', () => {
       await rm(dir, { recursive: true, force: true })
     }
   })
+
+  it('retries transient HTTP 429/503 responses and includes the artifact host on exhaustion', async () => {
+    const dir = await scratch('retry-429')
+    try {
+      const dest = join(dir, 'ok.bin')
+      let attempts = 0
+      const result = await downloadToFile({
+        url: FIXED_URL,
+        expectedUrl: FIXED_URL,
+        destination: dest,
+        maxBytes: 16,
+        maxRetries: 2,
+        retryDelayMs: 1,
+        sleepImpl: async () => {},
+        fetchImpl: async () => {
+          attempts += 1
+          if (attempts < 3) {
+            return new Response('rate limited', { status: 429, headers: { 'retry-after': '1' } })
+          }
+          return responseFor([Buffer.from('ok')], { url: FIXED_URL })
+        }
+      })
+      assert.equal(attempts, 3)
+      assert.equal(result.size, 2)
+      assert.equal(await readFile(dest, 'utf8'), 'ok')
+
+      await assert.rejects(
+        downloadToFile({
+          url: FIXED_URL,
+          expectedUrl: FIXED_URL,
+          destination: join(dir, 'fail.bin'),
+          maxBytes: 16,
+          maxRetries: 1,
+          retryDelayMs: 1,
+          sleepImpl: async () => {},
+          fetchImpl: async () => new Response('rate limited', { status: 429 })
+        }),
+        /Failed to download artifact \(example\.invalid\/fixed-artifact\.bin\): HTTP 429/
+      )
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
 })

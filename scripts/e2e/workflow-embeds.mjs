@@ -90,6 +90,27 @@ try {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   }
 
+  // Unconfigured n8n must stay dedicated to n8n only (no Workflows/Organization/Integrations cards)
+  // and let the owner connect an HTTPS n8n URL inline.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await writeFile(path.join(fixture.dir, 'surface-apps.json'), JSON.stringify([]));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  const n8nSurface = page.locator('[data-slot="n8n-feature"]');
+  await expect(n8nSurface.locator('iframe[title="n8n automation editor"]')).toHaveCount(0);
+  await expect(n8nSurface.getByText('Native Workflows', { exact: true })).toHaveCount(0);
+  await expect(n8nSurface.getByText('Organization', { exact: true })).toHaveCount(0);
+  await expect(n8nSurface.getByText('Integrations', { exact: true })).toHaveCount(0);
+  await n8nSurface.getByLabel('n8n URL', { exact: true }).fill(app.origin + app.startPath);
+  await n8nSurface.getByText('Sign-in path (optional)', { exact: true }).click();
+  await n8nSurface.getByLabel('Sign-in path', { exact: true }).fill(app.externalAuthPath);
+  await n8nSurface.getByRole('button', { name: 'Connect n8n', exact: true }).click();
+  await expect(n8nSurface.locator('iframe[title="n8n automation editor"]')).toBeVisible();
+  await expect(page.frameLocator('iframe[title="n8n automation editor"]').getByRole('heading', { name: 'Fixture editor' })).toBeVisible();
+  await n8nSurface.getByRole('button', { name: 'n8n connection settings', exact: true }).click();
+  await expect(n8nSurface.getByLabel('n8n URL', { exact: true })).toHaveValue(app.origin + app.startPath);
+  await n8nSurface.getByRole('button', { name: 'Close n8n settings', exact: true }).click();
+  await expect(n8nSurface.locator('iframe[title="n8n automation editor"]')).toBeVisible();
+
   await fixture.setRole('viewer');
   expect(await page.evaluate(async () => (await fetch('/api/v1/workflow-embeds')).status)).toBe(403);
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));

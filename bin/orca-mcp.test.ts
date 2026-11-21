@@ -59,10 +59,10 @@ describe("orca-mcp tool table", () => {
 
 describe("orca-mcp host routing", () => {
   it("adds --environment for a paired runtime on every routed command", () => {
-    expect(buildArgv("orca_worktree_ps", { host: "antinrml", limit: 3 }))
-      .toEqual(["worktree", "ps", "--environment", "antinrml", "--limit", "3"]);
-    expect(buildArgv("orca_terminal_list", { host: "antinrml" }))
-      .toEqual(["terminal", "list", "--environment", "antinrml"]);
+    expect(buildArgv("orca_worktree_ps", { host: "remote-vps", limit: 3 }))
+      .toEqual(["worktree", "ps", "--environment", "remote-vps", "--limit", "3"]);
+    expect(buildArgv("orca_terminal_list", { host: "remote-vps" }))
+      .toEqual(["terminal", "list", "--environment", "remote-vps"]);
   });
 
   it("omits routing flags for the local host", () => {
@@ -76,14 +76,14 @@ describe("orca-mcp host routing", () => {
   });
 
   it("flags a bare environment name that must be resolved to an id", () => {
-    expect(needsEnvironmentId("orca_worktree_create", { host: "antinrml" })).toBe(true);
+    expect(needsEnvironmentId("orca_worktree_create", { host: "remote-vps" })).toBe(true);
     expect(needsEnvironmentId("orca_worktree_create", { host: "runtime:abc" })).toBe(false);
     expect(needsEnvironmentId("orca_worktree_create", {})).toBe(false);
-    expect(needsEnvironmentId("orca_worktree_ps", { host: "antinrml" })).toBe(false);
+    expect(needsEnvironmentId("orca_worktree_ps", { host: "remote-vps" })).toBe(false);
   });
 
   it("never routes orca_host_list, which rejects --environment", () => {
-    expect(buildArgv("orca_host_list", { host: "antinrml" })).toEqual(["host", "list"]);
+    expect(buildArgv("orca_host_list", { host: "remote-vps" })).toEqual(["host", "list"]);
   });
 });
 
@@ -119,10 +119,10 @@ describe("orca-mcp stdio server", () => {
   it("stamps each board row with the host it was routed to", async () => {
     const bin = fakeBin(`process.stdout.write(JSON.stringify({ result: { worktrees: [{ displayName: "a" }, { displayName: "b" }] } }));`);
     const local = await call(bin, "orca_worktree_ps", { limit: 2 });
-    const remote = await call(bin, "orca_worktree_ps", { host: "antinrml", limit: 2 });
+    const remote = await call(bin, "orca_worktree_ps", { host: "remote-vps", limit: 2 });
     const rows = (reply: { result: { content: { text: string }[] } }) => JSON.parse(reply.result.content[0].text).result.worktrees.map((r: { host: string }) => r.host);
     expect(rows(local as never)).toEqual(["local", "local"]);
-    expect(rows(remote as never)).toEqual(["antinrml", "antinrml"]);
+    expect(rows(remote as never)).toEqual(["remote-vps", "remote-vps"]);
   });
 
   it("times out instead of hanging on a wedged CLI", async () => {

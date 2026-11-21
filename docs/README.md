@@ -84,6 +84,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`OPENCLAW-INTEGRATION.md`](./OPENCLAW-INTEGRATION.md) | OpenClaw-specific integration behaviour |
 | [`9ROUTER-INTEGRATION.md`](./9ROUTER-INTEGRATION.md) | 9Router immutable Docker ownership, loopback default and explicit dashboard exposure |
 | [`ORCA-INTEGRATION.md`](./ORCA-INTEGRATION.md) | Orca web bridge readiness/identity contract, private state root and shared-runtime operator limits |
+| [`T3-INTEGRATION.md`](./T3-INTEGRATION.md) | T3 Code managed-app adapter, SHA-256 artifact pin, split-origin proxy/WebSocket framing and loopback service unit |
 | [`MODELS-INTEGRATION.md`](./MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex provider model |
 | [`SLICE-CATALOG.md`](./SLICE-CATALOG.md) | Current slice/AppShell feature inventory |
 | [`MODULAR-FEATURES.md`](./MODULAR-FEATURES.md) | Independent modular feature packages (`~/.mso/features/`), dynamic change-aware gates, and automated feature contracts |

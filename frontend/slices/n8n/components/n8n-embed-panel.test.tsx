@@ -19,4 +19,13 @@ describe("blocked external editor rendering", () => {
     const html = renderToStaticMarkup(<N8nEmbedPanel app={{ ...app, url: undefined }} />);
     expect(html).not.toContain("<iframe"); expect(html).not.toContain('href=');
   });
+  it("renders a minimal single-bar iframe surface matching third-party apps", () => {
+    const html = renderToStaticMarkup(<N8nEmbedPanel app={app} actions={<button type="button">Settings</button>} />);
+    expect(html).toContain("<iframe");
+    expect(html).toContain('title="n8n automation editor"');
+    expect(html).toContain("Open Editor");
+    expect(html).toContain("Settings");
+    expect(html).not.toContain("If blank, use Open");
+    expect(html).not.toContain("Embedding cannot be verified");
+  });
 });
