@@ -104,12 +104,15 @@ async function probeLocalExisting(endpoint: string, dataDir?: string): Promise<R
       checks.push({ label: "Data directory", status: "error", detail: "Data directory must stay inside your home folder (for example ~/.n8n)." });
     } else {
       try {
-        const real = await fs.realpath(resolved);
-        const homeReal = await fs.realpath(os.homedir());
+        // `turbopackIgnore` is load-bearing: the path comes from the operator's
+        // request, so Turbopack cannot resolve it and would trace the whole project
+        // (which the release gate treats as a build warning = failure).
+        const real = await fs.realpath(/* turbopackIgnore: true */ resolved);
+        const homeReal = await fs.realpath(/* turbopackIgnore: true */ os.homedir());
         if (real !== homeReal && !real.startsWith(`${homeReal}${path.sep}`)) {
           checks.push({ label: "Data directory", status: "error", detail: "Symlink points outside your home directory." });
         } else {
-          const stat = await fs.stat(real);
+          const stat = await fs.stat(/* turbopackIgnore: true */ real);
           checks.push({ label: "Data directory", status: stat.isDirectory() ? "ok" : "error", detail: stat.isDirectory() ? `Found folder ${dataDir.trim()}.` : "Path exists but is not a directory." });
         }
       } catch {
@@ -148,7 +151,7 @@ export async function probeSshConnection(input: Extract<RemoteProbeRequest, { mo
       checks.push({ label: "SSH key file", status: "error", detail: "Key file must be inside ~/.ssh (for example ~/.ssh/id_ed25519)." });
     } else {
       try {
-        const stat = await fs.lstat(candidate);
+        const stat = await fs.lstat(/* turbopackIgnore: true */ candidate);
         if (!stat.isFile() || stat.isSymbolicLink()) {
           checks.push({ label: "SSH key file", status: "error", detail: "Key path must be a regular file inside ~/.ssh." });
         } else if ((stat.mode & 0o077) !== 0) {
