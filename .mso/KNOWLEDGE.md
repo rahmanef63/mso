@@ -58,16 +58,3 @@ Compact facts agents need; cite PR numbers, do not re-litigate:
 ## Optional WIP
 
 - Unpushed local worktrees may exist on the Grok box under `/workspace` (forge / mobile / QA). Do not invent details you cannot verify from this machine.
-
-## n8n ingress (installed 2026-11-17)
-
-- `n8n.antinrml.com` is served by Traefik from `/etc/dokploy/traefik/dynamic/n8n-endpoint.yml`
-  (inside the `dokploy-traefik` container) to `http://n8n:5678`.
-- Container `n8n` and `dokploy-traefik` share the isolated network `mso-n8n-isolated`.
-  Before that, n8n sat only on `n8n_default` and Traefik could not resolve it, so the
-  hostname answered 404 from the Dokploy UI.
-- n8n still sends `X-Frame-Options: SAMEORIGIN` on GET, so it cannot be embedded. The MSO
-  surface entry in `~/.mso/surface-apps.json` therefore uses `renderer: "remote"` (opens a
-  tab) rather than an iframe. Do not flip it back to `iframe` without changing n8n's own
-  frame policy first.
-- Undo: remove that YAML file and `docker network disconnect mso-n8n-isolated n8n`.

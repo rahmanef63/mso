@@ -5,10 +5,10 @@
 const WORKTREE = { type: "string", description: "Worktree selector: active, current, name:<n>, branch:<b>, path:<p>, id:<repo>::<path>, issue:<n>" };
 const TERMINAL = { type: "string", description: "Runtime terminal handle from orca_terminal_list (e.g. term_123). Omit to target the current terminal." };
 const LIMIT = { type: "number", description: "Max rows to return" };
-// Which Orca host to act on. Omitted = this laptop. "antinrml" is the VPS runtime.
+// Which Orca host to act on. Omitted = this laptop. A paired runtime name targets a remote VPS.
 // Worktrees/terminals belong to the runtime that owns them: a handle from the VPS
 // is invalid locally, so every call must carry the same host as its target.
-const HOST = { type: "string", description: "Orca host selector. Omit for this laptop. Use \"antinrml\" (VPS runtime) or --host ssh:... for remote. Required when acting on a handle issued by another host." };
+const HOST = { type: "string", description: "Orca host selector. Omit for this laptop. Use a paired runtime name (e.g. \"remote-vps\") or --host ssh:... for remote. Required when acting on a handle issued by another host." };
 const obj = (properties, required) => ({ type: "object", properties, ...(required ? { required } : {}) });
 
 // values: string/number flags. switches: present-when-true booleans.
@@ -19,18 +19,18 @@ export const TOOLS = {
     argv: ["status"],
   },
   orca_host_list: {
-    description: "List every Orca host this laptop can target: local, SSH targets, and paired runtimes (e.g. the \"antinrml\" VPS). Use it to learn the host label before acting on a remote board.",
+    description: "List every Orca host this laptop can target: local, SSH targets, and paired runtimes (e.g. \"remote-vps\"). Use it to learn the host label before acting on a remote board.",
     inputSchema: obj({}),
     argv: ["host", "list"],
   },
   orca_worktree_list: {
-    description: "List Orca-managed worktrees — the units on the Orca board. Find a worktree selector here before creating terminals or launching agents. Pass host=\"antinrml\" for the VPS board; omitting host shows only this laptop.",
+    description: "List Orca-managed worktrees — the units on the Orca board. Find a worktree selector here before creating terminals or launching agents. Pass host=\"<remote-host>\" for a remote VPS board; omitting host shows only this laptop.",
     inputSchema: obj({ host: HOST, repo: { type: "string", description: "Repo selector: id:<id>, name:<name>, path:<path>" }, limit: LIMIT }),
     argv: ["worktree", "list"],
     values: { repo: "--repo", limit: "--limit" },
   },
   orca_worktree_ps: {
-    description: "Compact orchestration summary across worktrees: what each agent/terminal is doing now. Cheapest read of board state. Pass host=\"antinrml\" to read the VPS board.",
+    description: "Compact orchestration summary across worktrees: what each agent/terminal is doing now. Cheapest read of board state. Pass host=\"<remote-host>\" to read a remote VPS board.",
     inputSchema: obj({ host: HOST, limit: LIMIT }),
     argv: ["worktree", "ps"],
     values: { limit: "--limit" },
