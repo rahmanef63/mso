@@ -1,4 +1,5 @@
 import type { SysStats } from "../../../../lib/contracts/os-api";
+import { detectShellBridge, resolveApiUrl, type ShellBridge } from "./shell-bridge.ts";
 
 export type Session = {
   authenticated: boolean;
@@ -6,15 +7,22 @@ export type Session = {
   deviceLabel: string | null;
   role: "viewer" | "operator" | "owner" | null;
 };
-export type { SysStats };
+export type { SysStats, ShellBridge };
 export class ApiError extends Error {
   readonly status: number;
   constructor(message: string, status: number) { super(message); this.status = status; }
 }
 
-async function readJson(path: string, signal: AbortSignal, fetcher: typeof fetch): Promise<unknown> {
-  const response = await fetcher(path, {
-    method: "GET", credentials: "same-origin", cache: "no-store",
+async function readJson(
+  path: string,
+  signal: AbortSignal,
+  fetcher: typeof fetch,
+  bridge: ShellBridge = detectShellBridge(),
+): Promise<unknown> {
+  const response = await fetcher(resolveApiUrl(path, bridge), {
+    method: "GET",
+    credentials: bridge.apiBaseOrigin ? "include" : "same-origin",
+    cache: "no-store",
     signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
     headers: { Accept: "application/json" },
   });

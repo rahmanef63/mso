@@ -1,0 +1,8 @@
+[package]
+name = "mso-shell-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Zero-dependency Rust hybrid shell core: origin guards, static asset jail, CSP nonce, and bounded loopback HTTP host."
+
+[dependencies]

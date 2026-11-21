@@ -1,15 +1,19 @@
 # Svelte implementation and cutover plan
 
-Status: implementation restarted on 2026-11-09 at the owner's request. Deliver tested,
-reviewed increments to main; do not wait for the full rewrite to integrate completed work.
-This supersedes the paused product decision in MSO-MIGRATION.md, not its measurements.
+Status: implementation restarted on 2026-11-09 at the owner's request, and expanded on
+2026-11-21 to the **hybrid Svelte 5 static UI + Rust shell track** (see
+[`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md)). Deliver tested, reviewed increments to main;
+do not wait for the full rewrite to integrate completed work. This supersedes the paused
+product decision in MSO-MIGRATION.md, not its measurements.
 
 ## Goal and limits
 
-The reported symptom is a heavy server. The Svelte migration is the chosen first workstream;
-Rust is deferred. A static client can avoid adding another SSR service, but keeping Next as
-the API backend does not remove Next's RSS. No server resource improvement is claimed until
-measured on the same host, workload, build mode and session count.
+The reported symptoms are heavy server RAM (~284 MiB idle RSS) and hydration-bound client
+startup (~910 KiB first-load JS). The Svelte 5 static build is the shared frontend track for
+both Web/PWA and a future Tauri v2 desktop app, paired incrementally with the Rust shell plan
+in [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md). Keeping Next as the API backend does not
+remove Next's RSS. No full-server resource improvement is claimed until measured on the same
+host, workload, build mode and session count after cutover.
 
 Production is still Next/React. The Svelte entry is not a React island, is not mounted on the
 public cockpit origin, and does not change systemd, installers, state, tunnels or host policy.
@@ -18,11 +22,11 @@ public cockpit origin, and does not change systemd, installers, state, tunnels o
 
 | Increment | Deliverable and acceptance | State |
 |---|---|---|
-| 1 | Independently built static Svelte entry; existing session and one-shot metrics; cancellation, malformed/auth/error/retry tests; light/dark narrow/desktop browser proof | Implemented locally; release evidence belongs in the PR |
-| 2 | Framework-neutral session/login/device adapters and request context; live roles, cookie/CSRF/CSP contracts; no second login; managed-host and public OAuth/MCP parity | Not implemented |
+| 1 | Independently built static Svelte entry; existing session and one-shot metrics; cancellation, malformed/auth/error/retry tests; light/dark narrow/desktop browser proof | Merged on `main` (PR #285, 2026-11-09); audited 2026-11-21 with `perf:probe` readiness fix, `shell-bridge.ts` seam, and Stage R0 Rust static host proof |
+| 2 | Framework-neutral session/login/device adapters and request context; live roles, cookie/CSRF/CSP contracts; no second login; managed-host and public OAuth/MCP parity (paired with Rust Shell Stage R2) | Not implemented |
 | 3 | Window lifecycle, registry, URL/deep links and persistence; Files and Terminal against existing host contracts; single-window failure isolation | Not implemented |
 | 4 | Full feature parity matrix below, five shells, settings, media/editors and sensitive workflows; contract tests plus browser journeys | Not implemented |
-| 5 | One runtime selected at launch; full API/proxy/streaming parity without Next; exact-host RSS/CPU/latency comparison, supported installer/update path and rollback | Not implemented |
+| 5 | One runtime selected at launch; full API/proxy/streaming parity without Next (paired with Rust Shell Stage R3); exact-host RSS/CPU/latency comparison, supported installer/update path and rollback | Not implemented |
 
 Each increment uses a task branch and normal PR checks before main integration. Never force
 push, bypass branch protection or call a draft shipped. A source push is not a deployment.
@@ -65,8 +69,11 @@ change is added. A missing backend/HTML fallback is an unavailable state, not su
 Existing Secure, host-only cookie behavior still applies; a session on another hostname
 is not automatically available to this preview. Real login integration remains increment 2.
 
-Do not mount the generated HTML in production yet: the current nonce-based cockpit CSP,
-managed-host routing and bootstrap scripts need explicit integration and browser proof.
+Stage R0 (`rust-shell/crates/mso-shell-host`) also verifies serving `frontend/svelte/build`
+directly from a zero-dependency loopback Rust binary with per-request CSP nonces injected into
+the SvelteKit bootstrap script (`cd frontend/svelte && bun run test:rust-host`). Do not mount
+the generated HTML in production yet: managed-host routing, login/device flows, and full
+cockpit feature parity remain gated on Increments 2-5.
 Both media-query themes here use reviewed neutral tokens; appearance preference syncing,
 all five OS chromes and design-kit parity are not established by this preview.
 
