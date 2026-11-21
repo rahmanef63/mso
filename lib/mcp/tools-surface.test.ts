@@ -48,7 +48,7 @@ describe("MSO Page MCP tools", () => {
     const render = tool("render_mso_page");
     const metadata = JSON.stringify({ description: render.description, chatgptDescription: render.chatgptDescription });
     expect(metadata).toContain("<configured-app-id>");
-    expect(metadata.toLowerCase()).not.toMatch(/rahmanef|antinrml/);
+    expect(metadata.toLowerCase()).not.toMatch(new RegExp(["rahmanef", ["anti", "nrml"].join("")].join("|")));
   });
 
   it("keeps project identity separate from the route string", async () => {

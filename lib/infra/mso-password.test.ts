@@ -26,10 +26,10 @@ describe("mso-password", () => {
   });
 
   it.each([
-    "https://mso.antinrml.com",
-    "mso.antinrml.com/",
-    "mso.antinrml.com:4005",
-    "mso antinrml.com",
+    "https://mso.example.com",
+    "mso.example.com/",
+    "mso.example.com:4005",
+    "mso example.com",
     "-leading.example.com",
   ])("refuses %s as a host, so one install cannot be claimed twice", (host) => {
     expect(() => normalizeInfraValues("mso-password", { host, password: "x", expiresAt: "0" }))

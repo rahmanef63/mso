@@ -8,6 +8,7 @@ const forbidden = [
   ["mso-ui", "rahmanef", "com"].join("."),
   ["game", "rahmanef", "com"].join("."),
   ["", "home", "rahman"].join("/"),
+  ["anti", "nrml"].join(""),
 ];
 const candidates = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { encoding: "utf8" })
   .split("\n").filter(Boolean)

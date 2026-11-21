@@ -1,3 +1,25 @@
+## 2026-11-21 — Dedicated n8n workspace matches third-party iframe apps
+
+`frontend/slices/n8n/app.tsx` previously showed an unconfigured card linking to three unrelated
+MSO apps (`Native Workflows`, `Organization`, `Integrations`) with no inline way to connect an
+n8n instance, and when configured it stacked an outer `AppFrame` toolbar on top of
+`ExternalAppFrame`'s chrome and bottom disclaimer.
+
+The n8n slice now owns only n8n, matching third-party surfaces such as Hermes and 9Router:
+
+- Removed the `Native Workflows`, `Organization`, and `Integrations` shortcut cards and copy from
+  `frontend/slices/n8n/app.tsx` (each already has its own first-class app in `shell.manifest.ts`).
+- Replaced the unconfigured placeholder with `N8nConnectPanel`, a centered n8n-only setup and
+  settings surface backed by the existing owner-reviewed `POST /api/v1/workflow-embeds` endpoint
+  (`placements: ["n8n"]`, revision guard, HTTPS-only validation without credentials or query
+  parameters, embed/tab toggle, optional sign-in path), deriving its suggested host placeholder
+  dynamically from `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` (`appNamespaceHost("n8n")`) and
+  supporting `N8N_PUBLIC_URL` (matching `NINE_ROUTER_PUBLIC_URL`) with zero hardcoded domains.
+- Collapsed configured n8n framing into a single minimal action bar on `ExternalAppFrame`
+  (`minimal` mode with `Open n8n`, optional `Sign in`, `Reload n8n`, and a `Settings2` toggle
+  into connection settings) while preserving fail-closed cookie isolation, sandbox remounting,
+  and viewer-role demotion.
+
 ## 2026-11-21 — Alfa AI chat upgraded to standard modern chat UX across all surfaces
 
 Alfa's streaming chat (`frontend/slices/assistant`, `frontend/slices/appshell/components/`, and `lib/ai/`) had several UX and state gaps compared to standard modern AI chats: raw markdown text in the Desktop Right Dock and Mobile Sheet (`AlfaThread`), scroll hijacking on every streamed token, fixed-height composer without IME composition guard, ignored reasoning/thinking deltas, no retry/regenerate or edit-and-resend, dangling wire-history user turns on error, bracketed `[Context: ...]` strings leaked into visible user bubbles, and no direct New Chat button in the chat header.
@@ -175,7 +197,7 @@ per app so overlapping window polls cannot stack child processes. The cap drops 
 still covers every probe that can finish at all. A cold list went from 20.2 s to 3.8 s, warm
 polls from 1.2 to 1.8 s down to 1.1 s, and the version strings still appear one poll later.
 
-Not changed, and why. n8n is not an MSO defect: `n8n.antinrml.com` has no Traefik route (the
+Not changed, and why. n8n is not an MSO defect: the external n8n host had no Traefik route (the
 edge answers 404) while the real instance answers on host loopback `:5678` with
 `X-Frame-Options: SAMEORIGIN`, so it could not be framed even once routed. Fixing it means
 publishing a host and changing that host's frame policy, which is a deployment decision.

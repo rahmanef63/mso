@@ -1,15 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ExternalLink, LogIn, RefreshCw } from "lucide-react";
 import type { WorkflowEmbed } from "@/lib/contracts/surface-app";
 import { Button } from "@/components/ui/button";
 
-export function ExternalAppFrame({ app, frameTitle }: { app: WorkflowEmbed; frameTitle?: string }) {
-  return <ExternalAppFrameContent key={app.url} app={app} frameTitle={frameTitle} />;
+export function ExternalAppFrame({
+  app,
+  frameTitle,
+  actions,
+  minimal = false,
+}: {
+  app: WorkflowEmbed;
+  frameTitle?: string;
+  actions?: ReactNode;
+  minimal?: boolean;
+}) {
+  return <ExternalAppFrameContent key={app.url} app={app} frameTitle={frameTitle} actions={actions} minimal={minimal} />;
 }
 
-function ExternalAppFrameContent({ app, frameTitle }: { app: WorkflowEmbed; frameTitle?: string }) {
+function ExternalAppFrameContent({
+  app,
+  frameTitle,
+  actions,
+  minimal,
+}: {
+  app: WorkflowEmbed;
+  frameTitle?: string;
+  actions?: ReactNode;
+  minimal: boolean;
+}) {
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [slow, setSlow] = useState(false);
@@ -17,23 +37,25 @@ function ExternalAppFrameContent({ app, frameTitle }: { app: WorkflowEmbed; fram
     const timer = setTimeout(() => setSlow(true), 15000);
     return () => clearTimeout(timer);
   }, [revision, app.url]);
-  if (app.blocked || !app.url) return <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm" data-slot="external-app-frame" role="alert">
+  if (app.blocked || !app.url) return <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm" data-slot="external-app-frame" role="alert">
     <p>{app.reason || "This editor destination is unavailable."}</p>
     <p className="text-xs text-muted-foreground">No editor or login link is opened. Configure a separate cookie-isolated origin before connecting.</p>
+    {actions ? <div className="pt-1">{actions}</div> : null}
   </div>;
   const reload = () => { setLoading(true); setSlow(false); setRevision((value) => value + 1); };
   return <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="external-app-frame">
-    <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
-      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={app.origin}>If blank, use Open</span>
+    <div className={minimal ? "flex min-h-10 shrink-0 flex-wrap items-center justify-end gap-1.5 border-b border-border px-2 py-1" : "flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5"}>
+      {!minimal ? <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={app.origin}>If blank, use Open</span> : null}
       {app.loginUrl ? <Button asChild variant="ghost" size="sm"><a href={app.loginUrl} target="_blank" rel="noopener noreferrer"><LogIn className="size-4"/><span>Sign in</span></a></Button> : null}
       <Button asChild variant="outline" size="sm"><a href={app.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="size-4"/><span>Open {app.title}</span></a></Button>
-      {app.origin && app.url !== app.origin && app.url !== app.origin + "/" ? <Button asChild variant="ghost" size="sm"><a href={app.origin} target="_blank" rel="noopener noreferrer">Open home</a></Button> : null}
+      {!minimal && app.origin && app.url !== app.origin && app.url !== app.origin + "/" ? <Button asChild variant="ghost" size="sm"><a href={app.origin} target="_blank" rel="noopener noreferrer">Open home</a></Button> : null}
       {app.renderer === "iframe" ? <Button variant="ghost" size="icon" onClick={reload} aria-label={`Reload ${app.title}`} title={`Reload ${app.title}`}><RefreshCw className="size-4"/></Button> : null}
+      {actions}
     </div>
     {app.renderer === "iframe" ? <div className="relative min-h-0 min-w-0 flex-1">
       {loading ? <div className="absolute inset-x-0 top-0 z-10 border-b bg-background px-3 py-2 text-xs text-muted-foreground" role="status">{slow ? `Taking longer than expected. Open ${app.title} in a new tab if its login or frame policy blocks embedding.` : `Loading ${app.title}…`}</div> : null}
       <iframe key={`${revision}:${app.sandbox}`} src={app.url} title={frameTitle ?? `${app.title} application`} sandbox={app.sandbox} referrerPolicy="no-referrer" className="h-full w-full border-0 bg-background" onLoad={() => setLoading(false)} onError={() => { setLoading(true); setSlow(true); }}/>
     </div> : <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">{app.reason || `${app.title} opens in a separate tab. Embedded access is not enabled for this provider.`}</div>}
-    <p className="shrink-0 border-t px-3 py-1.5 text-xs text-muted-foreground [@media(max-height:520px)]:sr-only">{app.msoSession ? `Embedding cannot be verified. If the app is blank, use Open ${app.title}.` : `Embedding cannot be verified. If the app is blank, sign in or use Open ${app.title}.`}</p>
+    {!minimal ? <p className="shrink-0 border-t px-3 py-1.5 text-xs text-muted-foreground [@media(max-height:520px)]:sr-only">{app.msoSession ? `Embedding cannot be verified. If the app is blank, use Open ${app.title}.` : `Embedding cannot be verified. If the app is blank, sign in or use Open ${app.title}.`}</p> : null}
   </div>;
 }
