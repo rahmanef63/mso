@@ -1,11 +1,21 @@
-## 2026-11-21 — Modular feature packages, dynamic change-aware gates, and automated feature contracts
+## 2026-11-21 — T3 Code proxy forwards app WebSocket cookies, protocol header, and auto-pairing
 
-Three structural pain points surfaced during a full repository audit of all 33 slices, 5 gate runners, and the deployment pipeline: (1) prebuild and deployment were slow because `scripts/gates.sh` duplicated checks already run by `bun run verify`, `bun run verify` ran 5 Svelte steps unconditionally, `scripts/verify-build.sh` copied 2.3 GB of `node_modules` without reflinks and ran all E2E journeys sequentially, and `scripts/self-update.sh` ran a duplicate in-place `next build` after discarding the verified out-of-tree build; (2) every feature lived statically inside `BUILTIN_APPS`, requiring a full MSO rebuild and restart for any feature update; and (3) `docs/FRONTEND-CONTRACT.md` was prose-only, allowing divergent behavior across slices (only 17/33 using `AppFrame`, 4/33 using `AppSidebar`, 5/33 using `useFeatureState`, 11/33 calling `window.confirm()`, 4 slices with zero unit tests, and 97 production files compressed onto >400-char lines to pass `max-lines`).
+Live Playwright verification against the split-origin T3 managed-app host uncovered three protocol
+gaps in the initial T3 Code managed-app integration that left the framed app stuck on pairing or a
+blank screen:
 
-We landed all three foundations without weakening any release or security gate:
-- **Dynamic gates & single-build promotion:** Added `scripts/e2e/manifest.mjs`, `scripts/ci/affected.mjs` (`bun run gate:plan`), `scripts/run-smart-gate.mjs` (`bun run gate:smart`), and `scripts/run-svelte-if-changed.mjs`; removed duplicate checks from `scripts/gates.sh`; added `--reflink=auto`, `MSO_VERIFY_E2E_FILTER`, bounded parallel E2E jobs (`MSO_E2E_JOBS`), and verified `.next` staging/atomic promotion (`scripts/lib/promote-next-build.sh`) in `scripts/verify-build.sh` and `scripts/self-update.sh`.
-- **Independent modular features (`~/.mso/features/`):** Added `lib/contracts/modular-feature.ts`, `lib/features/registry.ts`, `lib/features/http-service.ts`, `/api/v1/features` + `/api/v1/features/[id]/asset/[...path]` (with live role checks, `realpath` containment, SHA-256 entry integrity, and sandboxed same-origin CSP), shell integration (`ModularFeaturesProvider` / `useModularFeatures` / `ModularFeatureApp`), and `scripts/feature-pack.mjs` (`bun run feature:pack init|deploy|list|remove`) so modular features can be updated atomically without rebuilding or restarting MSO core.
-- **Automated feature governance:** Added `frontend/slices/feature-contracts.ts`, `feature.boundaries.json`, and `scripts/check-features.mjs` wired into `bun run check`; added shared `<ConfirmDialog>` and `featureFetch()` primitives; added unit tests for all 4 previously untested slices (`bot-desktops`, `create-app`, `infrastructure`, `media-studio`) bringing `slicesWithoutTests` to 0; and cleaned up mixed Indonesian/English UI error strings and drifted slice counts in docs.
+- `upstreamSocketHeaders()` deleted the `cookie` header unconditionally on WebSocket upgrades, so
+  T3's own `__Host-mapp_t3_t3_session_*` browser session cookie never reached `ws://127.0.0.1:3773/ws`
+  (producing upstream `401` and proxy `502`). It now unwraps only the target app's `__Host-mapp_<id>_*`
+  cookies using `upstreamCookieHeader()`, matching HTTP `buildUpstreamHeaders()` while keeping
+  cockpit and sibling-app cookies strictly isolated.
+- `APP_REQUEST_HEADERS` omitted `x-t3-orchestration-protocol`, causing T3's orchestration HTTP API
+  (`/api/orchestration/shell`) to reject requests with `400`. That static protocol header is now
+  forwarded only for `t3`.
+- `/api/v1/managed-apps/t3/session` now mints a short-lived one-time `/pair#token=...` URL via
+  `t3 auth pairing create --json` (validated strictly on the exact HTTPS T3 origin with fragment-only
+  token, falling back to `/` when unavailable), so opening T3 Code in MSO auto-pairs in one click
+  just like Orca.
 
 ## 2026-11-21 — Dedicated n8n workspace matches third-party iframe apps
 

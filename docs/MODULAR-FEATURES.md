@@ -74,8 +74,18 @@ Additional build and release speedups:
   `verify-build.sh` via `scripts/lib/promote-next-build.sh`, eliminating the duplicate in-place
   `next build`.
 - `scripts/run-svelte-if-changed.mjs` skips the five isolated Svelte steps during local `verify`
-  when `frontend/svelte/**` and root dependencies are untouched (always runs in `CI=true` or
-  `MSO_VERIFY_FULL=1`).
+  when `frontend/svelte/**` is untouched (always runs in `CI=true` or `MSO_VERIFY_FULL=1`).
+- `scripts/gates.sh` automatically runs `scripts/run-smart-gate.mjs --pr-fast` on non-`main`
+  feature branches (~20-45s instead of ~12 min), while pushes to `main` (`bun run ship`) and
+  `bun run pr:local` (`MSO_GATE_FULL=1`) keep the complete release gate.
+
+### Conflict-free PR docs (`docs/progress/` & `docs/CHANGELOG.md`)
+
+- New PRs write standalone progress notes under `docs/progress/YYYY-MM-DD-<slug>.md` instead of
+  prepending to line 1 of `docs/PROGRESS.md`, eliminating cross-PR merge conflicts.
+- `scripts/gen-changelog.mjs --check` defers staleness checks on feature/PR branches when
+  `docs/CHANGELOG.md` is unmodified relative to `origin/main` (strict checks remain active on
+  `main` and in `bun run ship`), so parallel PRs never collide on `docs/CHANGELOG.md`.
 
 ## 3. Automated feature governance (`check:features`)
 

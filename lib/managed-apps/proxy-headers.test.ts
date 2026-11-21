@@ -9,6 +9,7 @@ import {
   rewriteLocation,
   rewriteSetCookie,
   upstreamCookieHeader,
+  upstreamSocketHeaders,
   cookiePrefix,
 } from "./proxy-headers";
 
@@ -55,6 +56,12 @@ describe("buildUpstreamHeaders", () => {
     expect(out.get("authorization")).toBeNull();
   });
 
+  it("forwards T3 Code's orchestration protocol header only to t3", () => {
+    const out = buildUpstreamHeaders(withHeaders({ "x-t3-orchestration-protocol": "2" }), base, "t3");
+    expect(out.get("x-t3-orchestration-protocol")).toBe("2");
+    expect(buildUpstreamHeaders(withHeaders({ "x-t3-orchestration-protocol": "2" }), base, "hermes").get("x-t3-orchestration-protocol")).toBeNull();
+  });
+
   it("keeps the cockpit session cookie on this side of the boundary", () => {
     const out = buildUpstreamHeaders(
       withHeaders({ cookie: "session=cockpit; __Host-mapp_hermes_hermes_session_at=upstream" }),
@@ -62,6 +69,28 @@ describe("buildUpstreamHeaders", () => {
       "hermes",
     );
     expect(out.get("cookie")).toBe("hermes_session_at=upstream");
+  });
+});
+
+describe("upstreamSocketHeaders", () => {
+  const base = new URL("http://127.0.0.1:3773");
+
+  it("unwraps only the target app's own __Host-mapp cookies while stripping cockpit and sibling cookies", () => {
+    const incoming = new Headers({
+      cookie: "session=cockpit; __Host-mso-managed-app=gate; __Host-mapp_hermes_tok=sibling; __Host-mapp_t3_t3_session_3773=real_t3",
+      authorization: "Bearer must-not-leak",
+    });
+    const out = upstreamSocketHeaders(incoming, "t3", base);
+    expect(out.get("cookie")).toBe("t3_session_3773=real_t3");
+    expect(out.get("authorization")).toBeNull();
+  });
+
+  it("drops the cookie header completely when no target app cookie is present", () => {
+    const incoming = new Headers({
+      cookie: "session=cockpit; __Host-mso-managed-app=gate; __Host-mapp_hermes_tok=sibling",
+    });
+    const out = upstreamSocketHeaders(incoming, "t3", base);
+    expect(out.get("cookie")).toBeNull();
   });
 });
 

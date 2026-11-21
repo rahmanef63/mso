@@ -45,7 +45,7 @@ if [[ "$mode" == local || "$mode" == full ]]; then
   # audit, the isolated build, and mandatory browser journeys. Never replace it
   # with a shortened "green" command.
   echo '>> Repository-owned pre-push verification'
-  bash scripts/gates.sh || fail 'repository gates failed (see first error above)'
+  MSO_GATE_FULL=1 bash scripts/gates.sh || fail 'repository gates failed (see first error above)'
   echo '>> Fail-closed CI dependency audit'
   bun run audit:strict || fail 'strict dependency audit failed'
 fi

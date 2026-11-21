@@ -12,8 +12,8 @@ const forced = process.env.CI === "true" || process.env.MSO_VERIFY_FULL === "1";
 if (!forced) {
   const changed = detectChangedFiles({ base: "origin/main", cwd: ROOT });
   const c = classifyChanges(changed);
-  if (changed.length > 0 && !c.svelte && !c.deps) {
-    console.log("svelte: skipped (no frontend/svelte or dependency changes; set MSO_VERIFY_FULL=1 to force).");
+  if (changed.length > 0 && !c.svelte) {
+    console.log("svelte: skipped (no frontend/svelte changes; set MSO_VERIFY_FULL=1 to force).");
     process.exit(0);
   }
 }

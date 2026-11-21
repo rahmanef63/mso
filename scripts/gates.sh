@@ -41,6 +41,13 @@ fi
 
 fail() { echo ""; echo "❌ $1 push blocked."; [ -n "${2-}" ] && echo "   $2"; exit 1; }
 
+CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
+if [ "${MSO_GATE_FULL:-0}" != "1" ] && [ "${CI:-}" != "true" ] && [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "master" ]; then
+  echo "▶ running fast change-aware gate on feature branch '${CURRENT_BRANCH}' (set MSO_GATE_FULL=1 for full release gate)"
+  node scripts/run-smart-gate.mjs --pr-fast || fail "smart gate failed." "reproduce: bun run gate:smart -- --pr-fast"
+  exit 0
+fi
+
 # ── Guard 1 — typecheck + lint + test + architecture/docs/features/contrast checks.
 # MSO is self-contained: a fresh clone must never depend on a sibling/private repo
 # to decide whether it is safe to push. `bun run verify` is the canonical in-repo gate.
