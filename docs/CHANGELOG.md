@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll
+- `modular` add change-aware gates, modular feature packages, and feature contract ratchets
+- `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll (#339)
 
 ## 2026-11-20
 

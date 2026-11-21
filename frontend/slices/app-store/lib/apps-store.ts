@@ -85,6 +85,6 @@ export function createApp(p: {
   entry: string;
 }) {
   const cur = snap();
-  if (cur.some((a) => a.appId === p.appId)) throw new Error("App slug sudah dipakai");
+  if (cur.some((a) => a.appId === p.appId)) throw new Error("App slug is already in use");
   commit([...cur, { ...p, source: "custom", installed: true }]);
 }

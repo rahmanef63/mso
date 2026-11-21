@@ -76,6 +76,8 @@ case "$cmd" in
     sub="${1:-list}"; shift || true
     case "$sub" in
       catalog) jget "/api/v1/app-catalog" ;;
+      features) jget "/api/v1/features" ;;
+      feature-asset) reqraw "$B/api/v1/features/$(enc "${1:?id}")/asset/${2:?path}"; exit 0 ;;
       shell-list) jget "/api/v1/shell-apps" ;;
       shell-save) shell_input="${1:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/shell-apps" "$shell_input" ;;
       shell-domain) jget "/api/v1/shell-apps/$(enc "${1:?id}")/domain" ;;

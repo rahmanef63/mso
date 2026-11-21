@@ -51,6 +51,7 @@ export {
   ResponsiveDialog,
   ResponsiveDialog as FormDrawer,
 } from "./primitives/responsive-dialog";
+export { ConfirmDialog, type ConfirmDialogProps } from "./primitives/confirm-dialog";
 export {
   toast, dismissToast, useToasts,
   useNotifications, dismissNotification, clearNotifications, markNotificationsRead,
