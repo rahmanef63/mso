@@ -91,7 +91,11 @@ async function commandInstall(rest) {
     return
   }
   const dryRun = rest.includes('--dry-run')
-  const result = await installManagedOrca({ advertisedEndpoint: advertised, dryRun })
+  const result = await installManagedOrca({
+    advertisedEndpoint: advertised,
+    dryRun,
+    onProgress: dryRun ? () => {} : (message) => printLine(`==> ${message}`)
+  })
   const root = resolveManagedRoot()
   if (dryRun) {
     printLine(`==> dry run: would install Orca ${ORCA_VERSION} into ${root}`)

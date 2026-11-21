@@ -73,6 +73,7 @@ export async function installManagedOrca({
   timeoutMs = 90_000,
   pollMs = 2_000,
   now = () => new Date().toISOString(),
+  onProgress = () => {},
   signal
 } = {}) {
   const root = managedRoot
@@ -113,6 +114,7 @@ export async function installManagedOrca({
       installRoot: root,
       ...(verifiedDebCache ? { verifiedDebCache } : {}),
       allowDownload,
+      onProgress,
       signal
     }),
     root
@@ -133,8 +135,11 @@ export async function installManagedOrca({
     await writeUnitAtomic(unitPath, unit)
     created.unit = true
 
+    onProgress(`enabling and starting ${SERVICE_NAME}`)
     await systemctl({ args: ['daemon-reload'], env, bus })
     await systemctl({ args: ['enable', '--now', SERVICE_NAME], env, bus })
+
+    onProgress(`waiting for Orca runtime readiness on 127.0.0.1:${fixedPort}`)
 
     const ready = await waitForReady({
       root,

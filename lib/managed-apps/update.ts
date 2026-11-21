@@ -24,7 +24,7 @@ const CHECK_CACHE_MS = 60_000;
 const cache = new Map<ManagedAppId, ManagedAppUpdateStatus>();
 
 function safeCapabilities(id: ManagedAppId, capabilities = updateAdapter(id).capabilities) {
-  if (id === "9router") return capabilities;
+  if (id === "9router" || id === "t3") return capabilities;
   // Hermes/OpenClaw upstream update commands fetch mutable branch/channel/tag
   // content and execute it before MSO can verify repository-owned bytes. Until
   // a reviewed release artifact + digest is committed, discovery stays enabled
@@ -33,7 +33,7 @@ function safeCapabilities(id: ManagedAppId, capabilities = updateAdapter(id).cap
 }
 
 function assertVerifiedUpdatePath(id: ManagedAppId): void {
-  if (id !== "9router") {
+  if (id !== "9router" && id !== "t3") {
     throw new Error(`${id} automated update is disabled until a reviewed immutable artifact target and digest are committed`);
   }
 }

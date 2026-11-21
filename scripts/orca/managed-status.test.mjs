@@ -2,6 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm, symlink } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { probeOrcaWebClient, readManagedOrcaStatus } from './managed-status.mjs'
@@ -29,7 +30,7 @@ const waitGone = (pid) => new Promise((resolve) => {
 })
 
 async function fixture() {
-  const root = await mkdtemp('/home/antinrml/.hermes/cache/scratch/opencode/orca-status-')
+  const root = await mkdtemp(join(tmpdir(), 'orca-status-'))
   const nodeLink = join(root, 'node')
   await symlink(process.execPath, nodeLink)
   const serverEntry = join(root, 'releases', 'r1', 'slot', 'orcad-server.js')

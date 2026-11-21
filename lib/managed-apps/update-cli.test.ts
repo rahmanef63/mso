@@ -191,3 +191,20 @@ describe("the Orca unverified adapter scaffolding", () => {
     await expect(adapter.probe("orca-ide")).rejects.toThrow("update probing is not supported for orca");
   });
 });
+
+describe("the T3 Code wrapper argv", () => {
+  const T3 = "/home/operator/projects/mso/scripts/managed-app-t3";
+
+  it("builds update and uninstall in the wrapper's own grammar", () => {
+    expect(updateAdapter("t3").updateArgv(T3, {})).toEqual([T3, "update", "--yes"]);
+    expect(updateAdapter("t3").uninstallArgv(T3, false)).toEqual([T3, "uninstall", "--yes"]);
+    expect(updateAdapter("t3").uninstallArgv(T3, true)).toEqual([T3, "uninstall", "--yes", UNINSTALL_PREVIEW_FLAG]);
+  });
+
+  it("refuses unsupported options for the pinned tarball adapter", () => {
+    for (const options of [{ dryRun: true }, { channel: "beta" }, { tag: "latest" }, { branch: "main" }, { noRestart: true }]) {
+      expect(() => updateAdapter("t3").updateArgv(T3, options)).toThrow("not supported for t3");
+    }
+    expect(updateAdapter("t3").pin).toBeNull();
+  });
+});

@@ -33,6 +33,14 @@ export function managedAppInstallSupport(
       reason: "Orca requires a Linux x64 glibc host; the pinned release has no other build.",
     };
   }
+  // T3 Code's pinned standalone Linux tarballs cover x64 and arm64.
+  if (definition.id === "t3" && host.arch !== "x64" && host.arch !== "arm64") {
+    return {
+      supported: false,
+      backend: null,
+      reason: "T3 Code requires a Linux x64 or arm64 host; the pinned release has no other Linux build.",
+    };
+  }
   for (const backend of definition.installBackends) {
     if (backend === "user-systemd" && host.userSystemd) return { supported: true, backend, reason: null };
     if (backend === "docker" && host.docker) return { supported: true, backend, reason: null };

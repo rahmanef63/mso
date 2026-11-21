@@ -5,10 +5,10 @@ import { getManagedAppDefinition, isManagedAppId, listManagedAppDefinitions } fr
 import { MANAGED_APP_ACTIONS } from "./types";
 
 describe("managed app catalog", () => {
-  it("uses one shared catalog for Hermes, OpenClaw, 9Router and Orca", () => {
+  it("uses one shared catalog for Hermes, OpenClaw, 9Router, Orca and T3 Code", () => {
     const definitions = listManagedAppDefinitions();
-    expect(definitions.map((item) => item.id)).toEqual(["hermes", "openclaw", "9router", "orca"]);
-    expect(new Set(definitions.map((item) => item.id)).size).toBe(4);
+    expect(definitions.map((item) => item.id)).toEqual(["hermes", "openclaw", "9router", "orca", "t3"]);
+    expect(new Set(definitions.map((item) => item.id)).size).toBe(5);
   });
 
   it("rejects arbitrary application ids and commands", () => {
@@ -16,6 +16,7 @@ describe("managed app catalog", () => {
     expect(isManagedAppId("openclaw")).toBe(true);
     expect(isManagedAppId("9router")).toBe(true);
     expect(isManagedAppId("orca")).toBe(true);
+    expect(isManagedAppId("t3")).toBe(true);
     expect(isManagedAppId("hermes;rm -rf /")).toBe(false);
     expect(MANAGED_APP_ACTIONS).toEqual(["start", "stop", "restart", "backup"]);
   });
@@ -50,6 +51,17 @@ describe("managed app catalog", () => {
     expect(orca.serviceNames).toEqual(["mso-orca.service"]);
     // The managed root is MSO-owned state, never the operator's personal ~/.orca.
     expect(orca.homeDir).toMatch(/mso[/\\]orca$/);
+  });
+
+  it("wires T3 Code to the repo-owned adapter and the systemd user backend", () => {
+    const t3 = getManagedAppDefinition("t3");
+    expect(t3.installBackends).toEqual(["user-systemd"]);
+    expect(t3.command).toBe(path.join(process.cwd(), "scripts", "managed-app-t3"));
+    expect(t3.commandProvesInstall).toBe(false);
+    expect(t3.serviceNames).toEqual(["t3-code.service"]);
+    expect(t3.dashboardUrl).toBe("http://127.0.0.1:3773");
+    expect(t3.healthPath).toBe("/api/auth/session");
+    expect(t3.stateDirName).toBe(".t3");
   });
 
 });

@@ -135,6 +135,7 @@ export const APP_MARKS: Record<string, AppIconComponent> = {
   dokploy: officialMarkOnBackground("/brand/official/dokploy.webp", "#111827", "78%"),
   cloudflare: officialMarkOnBackground("/brand/official/cloudflare.webp", "#111827", "74%"),
   orca: officialMark("/brand/official/orca.webp"),
+  t3: officialMark("/brand/official/t3.webp"),
 };
 
 export const HermesMark = APP_MARKS.hermes;
@@ -143,4 +144,5 @@ export const NineRouterMark = APP_MARKS["9router"];
 export const DokployMark = APP_MARKS.dokploy;
 export const CloudflareMark = APP_MARKS.cloudflare;
 export const OrcaMark = APP_MARKS.orca;
+export const T3Mark = APP_MARKS.t3;
 export const CamoufoxMark = APP_MARKS["camoufox-browser"];
