@@ -1,4 +1,4 @@
-// Development/preview only. Mirrors Rust Stage R3B route allowlist + CSRF depth-2.
+// Development/preview only. Mirrors Rust Stage R3C route allowlist + CSRF depth-2.
 // No public server or production trust policy is changed.
 
 const ROUTES = {
@@ -7,14 +7,22 @@ const ROUTES = {
   "/api/auth/logout": ["POST"],
   "/api/auth/devices": ["GET", "POST"],
   "/api/assistant": ["POST"],
+  "/api/changelog": ["GET"],
+  "/api/memory": ["GET", "POST"],
   "/api/models": ["GET"],
   "/api/prefs": ["GET", "POST"],
+  "/api/skills": ["GET"],
   "/api/threads": ["GET", "POST", "PATCH", "DELETE"],
+  "/api/v1/channels": ["GET", "POST"],
+  "/api/v1/integrations": ["GET", "POST"],
+  "/api/v1/managed-apps": ["GET"],
+  "/api/v1/memory-graph": ["GET"],
+  "/api/v1/organization": ["GET", "POST"],
+  "/api/v1/workflows": ["GET", "POST"],
   "/api/v1/sys/stats": ["GET"],
   "/api/v1/sys/processes": ["GET"],
   "/api/v1/sys/services": ["GET", "POST"],
   "/api/v1/sys/packages": ["GET"],
-  "/api/v1/managed-apps": ["GET"],
   "/api/v1/fs/list": ["GET"],
   "/api/v1/fs/read": ["GET"],
   "/api/v1/fs/write": ["POST"],

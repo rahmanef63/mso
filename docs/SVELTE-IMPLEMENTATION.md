@@ -2,7 +2,7 @@
 
 Status: implementation restarted on 2026-11-09 at the owner's request, expanded on 2026-11-21 to
 the **hybrid Svelte 5 static UI + Rust shell track** (see [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md)),
-and updated on **2026-11-22** after completing **Increment 4A + Rust Stage R3B**.
+and updated on **2026-11-22** after completing **Increment 4B + Rust Stage R3C + Lazy Slice Loading**.
 Deliver tested, reviewed increments to main; do not wait for the full rewrite to integrate
 completed work. This supersedes the paused product decision in MSO-MIGRATION.md, not its
 measurements.
@@ -11,10 +11,10 @@ measurements.
 
 Formula-based milestone progress (see [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md) for full weights):
 
-- **Svelte Static Frontend Track:** **~56.2%** (Inc. 1 = 100%, Inc. 2 = 90%, Inc. 3 = 100%, **Inc. 4 = 22%**, Inc. 5 = 0%).
-- **Slice Parity Count:** **8 / 33 slices** (`auth` core, `files-manager`, `os-terminal`, `system-monitor` 4/4 complete incl. read-only packages, `assistant` Alfa POST SSE, `os-settings` core, `quicklinks`, `managed-apps`), plus **1 expanded shell foundation** (`appshell` window manager + `<svelte:boundary>` + URL sync), **24 slices** not started, **0 / 5 OS chromes**, **0 / 10 AppShell features**.
-- **Rust Shell Track:** **46.0%** (Stage R0 = 100%, Stage R2 = 100%, **Stage R3 = 30%** [GET+POST SSE + 23 routes], Stages R1/R4 = 0%).
-- **Combined Hybrid Program (60% Svelte + 40% Rust Shell):** **~52.1% (~52%)** (progression: 12.0% -> 22.4% -> 39.8% -> 47.6% -> **52.1%**).
+- **Svelte Static Frontend Track:** **~61.8%** (Inc. 1 = 100%, Inc. 2 = 90%, Inc. 3 = 100%, **Inc. 4 = 38%**, Inc. 5 = 0%).
+- **Slice Parity Count:** **13 / 33 slices** (`auth`, `files-manager`, `os-terminal`, `system-monitor` 4/4, `assistant`, `os-settings` core, `quicklinks`, `managed-apps`, `code-editor`, `docs`, `workflows`, `integrations`, `channels`), plus **1 expanded shell foundation** (`appshell` lazy window manager + 3/10 shell features + 5 chrome profile contract), **19 slices** not started, **7 / 10 AppShell features** pending.
+- **Rust Shell Track:** **48.0%** (Stage R0 = 100%, Stage R2 = 100%, **Stage R3 = 40%** [31 routes + GET/POST SSE], Stages R1/R4 = 0%).
+- **Combined Hybrid Program (60% Svelte + 40% Rust Shell):** **~56.3% (~56%)** (progression: 12.0% -> 22.4% -> 39.8% -> 47.6% -> 52.1% -> **56.3%**).
 
 ## Goal and limits
 
@@ -35,7 +35,7 @@ public cockpit origin, and does not change systemd, installers, state, tunnels o
 | 1 | 10% | Independently built static Svelte entry; existing session and one-shot metrics; cancellation, malformed/auth/error/retry tests; light/dark narrow/desktop browser proof | Merged on `main` (PR #285, 2026-11-09); audited 2026-11-21 with `perf:probe` fix, `shell-bridge.ts`, and Stage R0 Rust host proof | **100%** |
 | 2 | 15% | **2A:** Real login, pending-device guidance, logout, 128-bit device ID, Owner device approvals/role/inline-revoke, and CSRF depth-2 parity. **2B:** Managed-host split-origin routing, unclaimed namespace `404`, and OAuth/MCP/A2A passthrough (paired with Rust Stage R2B). First-login onboarding sub-flow pending. | **2A & 2B edge verified locally; onboarding sub-flow pending** | **90%** |
 | 3 | 25% | **3A:** Window lifecycle store, `<WindowFrame>` with `<svelte:boundary>` per-window crash isolation, History API URL sync, layout serialization, `files-manager` read/browse, `system-monitor` processes. **3B:** `os-terminal` (PTY + live base64 SSE streaming), `files-manager` write/mkdir/delete mutations, and `system-monitor` Service Center (`GET/POST /api/v1/sys/services`). | **Complete & verified locally** | **100%** |
-| 4 | 35% | Full feature parity matrix below, five shells, settings, media/editors and sensitive workflows; contract tests plus browser journeys | **4A landed:** `assistant` (Alfa POST SSE), `os-settings` + `quicklinks`, `managed-apps`, read-only `packages` (`system-monitor` 4/4); 24 slices, 5 OS chromes & 10 shell features pending | **22%** |
+| 4 | 35% | Full feature parity matrix below, five shells, settings, media/editors and sensitive workflows; contract tests plus browser journeys | **4B landed:** 13/33 slices + `LazyWindowBody` code-splitting (-32% initial JS) + `search`/`notifications`/`shortcut-help` + chrome profile contract; 19 slices & 7 shell features pending | **38%** |
 | 5 | 15% | One runtime selected at launch; full API/proxy/streaming parity without Next (paired with Rust Stage R3); exact-host RSS/CPU/latency comparison, supported installer/update path and rollback | Not implemented | **0%** |
 
 Each increment uses a task branch and normal PR checks before main integration. Never force
@@ -43,12 +43,12 @@ push, bypass branch protection or call a draft shipped. A source push is not a d
 Deployment remains the supported owner release path after verified integration. Keep the
 last known-good release and state format intact; rollback must not need data conversion.
 
-## Increments 1-4A: static entry, auth, windowing, files, terminal, monitor, Alfa, settings & apps
+## Increments 1-4B: lazy slices, shell features & 31-route Rust streaming host
 
 `frontend/svelte` has its own package and frozen Bun lockfile. Node runs the tools;
-SvelteKit 3 with adapter-static emits `frontend/svelte/build`. There is no production SSR
-process for this entry. `vite preview` is local test tooling, not the deployment server.
-Root Next TypeScript/ESLint do not interpret the independently checked Svelte package.
+SvelteKit 3 with adapter-static emits `frontend/svelte/build`. Window slices load on demand via
+`LazyWindowBody.svelte`, cutting initial cold JS from 187.6 KiB raw down to **127.2 KiB raw**
+(**59.5 KiB transfer**). There is no production SSR process for this entry.
 
 From the repository root after installing root dependencies:
 
@@ -64,11 +64,8 @@ Both the Vite dev/preview proxy and the Rust host (`rust-shell/crates/mso-shell-
 only explicit loopback HTTP(S) origins, preserve the incoming `Host` and cookies, enforce
 **CSRF depth-2** on mutating browser APIs, enforce bounded request bodies (`413`), forward
 multiple `Set-Cookie` headers, stream GET `/api/v1/term/stream` and POST `/api/assistant`
-incrementally over SSE, and restrict routes to the reviewed 23-route allowlist (keeping
-`/api/config` and `/api/v1/exec/run` blocked at `404`).
-
-Do not mount the generated HTML in production yet: remaining slices, lazy window chunk loading,
-and all five OS chromes remain gated on Increments 4B+ and 5.
+incrementally over SSE, and restrict routes to the reviewed 31-route allowlist (keeping
+`/api/config`, `/api/v1/exec/run`, and `/api/v1/editor/exec` blocked at `404`).
 
 ## Feature parity ledger
 
@@ -80,40 +77,42 @@ come from the current slice directory/catalog. "Not ported" is not a regression 
 | agent-vault | Not ported |
 | agent-group | Not ported |
 | app-store | Not ported |
-| appshell | **Increment 3 foundation:** window lifecycle store, `<WindowFrame>` with `<svelte:boundary>` crash isolation, History API URL sync, layout persistence; five OS chromes & 10 shell features not ported |
+| appshell | **Increment 3 + 4B:** window store, `<WindowFrame>` + `<svelte:boundary>`, `LazyWindowBody` code-splitting, History URL sync, layout persistence, `search` (`CommandPalette`), `notifications` (`NotificationToast`), `shortcut-help`, and 5-chrome profile contract (`chrome-profile.ts`); full 5-OS visual chromes & 7 shell features pending |
 | assistant | **Core Alfa chat ported (Increment 4A):** `GET /api/models` selector, `POST /api/assistant` incremental SSE (`delta`, `text`, `reasoning`, `done`, `error`), IME-safe composer, Stop/Abort, Retry, New chat; thread persistence & tool cards pending |
 | auth | **Core ported (Increment 2A):** session probe, password login, pending-device state, logout, 128-bit device ID, owner device approval/role/inline-revoke; first-login onboarding sub-flow pending |
 | bot-desktops | Not ported |
 | camoufox-browser | Not ported |
-| channels | Not ported |
-| code-editor | Not ported |
+| channels | **Core ported (Increment 4B):** Owner-only `GET /api/v1/channels` inventory + non-destructive `POST` connectivity Test with live feedback; create/update/delete/send mutations pending |
+| code-editor | **Core ported (Increment 4B):** `fs/read` + `fs/write`, language & line/char/byte badges, scroll-synced line gutter, `Ctrl/Cmd+S`, Revert, and AppShell dirty-buffer close guard |
 | create-app | Not ported |
-| docs | Not ported |
+| docs | **Core ported (Increment 4B):** safe structured `GET /api/changelog` ("What's New") parser without `{@html}` + filter + MSO Quick Reference tab |
 | extensions | Not ported |
-| files-manager | **Core + mutations ported (Increment 3A/3B):** `fs/list`, parent traversal, `fs/read` preview, `fs/write` inline edit/save, `fs/mkdir` inline folder creation, `fs/delete` inline two-step confirmation; upload/move/copy/zip pending |
+| files-manager | **Core + mutations ported (Increment 3A/3B):** `fs/list`, parent traversal, `fs/read` preview, `fs/write` inline edit/save, `fs/mkdir`, `fs/delete` inline two-step confirm; upload/move/copy/zip pending |
 | image-editor | Not ported |
 | icon-picker | Not ported |
 | image-picker | Not ported |
 | infrastructure | Not ported |
-| integrations | Not ported |
-| managed-apps | **Core list & status ported (Increment 4A + Rust R2B):** `GET /api/v1/managed-apps`, filter, install/health/version badges, safe `http(s)` dashboard links, plus split-origin host routing in Rust; install/update/backup/logs mutations pending |
+| integrations | **Core ported (Increment 4B):** Owner-only `GET /api/v1/integrations` provider/connection summary, single `convex` provider canonicalization, zero secret rendering; OAuth/credential setup mutations pending |
+| managed-apps | **Core list & status ported (Increment 4A + Rust R2B):** `GET /api/v1/managed-apps`, filter, install/health/version badges, safe `http(s)` dashboard links, plus split-origin host routing in Rust |
 | n8n | Not ported |
 | media-studio | Not ported |
 | media-viewer | Not ported |
 | memory-graph | Not ported |
-| os-settings | **Core preferences ported (Increment 4A):** `GET/POST /api/prefs` appearance theme (`system`/`light`/`dark`) and reduced-motion toggles with Owner-only edit guard; provider keys/update/account tabs pending |
+| os-settings | **Core preferences ported (Increment 4A):** `GET/POST /api/prefs` appearance theme & reduced-motion with Owner-only edit guard; provider keys/update/account tabs pending |
 | os-shell | Not ported |
 | os-terminal | **Core PTY/SSE ported (Increment 3B):** `term/open`, live base64 UTF-8 SSE `term/stream`, ANSI sanitization, 64 KiB cap, `term/input`, `term/resize`, `term/close` on dispose |
 | organization | Not ported |
-| quicklinks | **Core ported (Increment 4A):** `/api/prefs` quicklinks list, safe `http://`/`https://` URL validation, Owner-only add and inline two-step remove |
+| quicklinks | **Core ported (Increment 4A):** `/api/prefs` quicklinks list, safe `http(s)` validation, Owner-only add and inline two-step remove |
 | reel-editor | Not ported |
 | shell-settings | Not ported |
-| system-monitor | **Complete core (4/4, Inc. 1, 3A, 3B, 4A):** CPU/RAM/Disk/Uptime, filterable/sortable `/api/v1/sys/processes`, allowlisted `GET/POST /api/v1/sys/services`, and strictly read-only `/api/v1/sys/packages` cache visibility |
-| workflows | Not ported |
+| system-monitor | **Complete core (4/4, Inc. 1, 3A, 3B, 4A):** CPU/RAM/Disk/Uptime, `/api/v1/sys/processes`, allowlisted `GET/POST /api/v1/sys/services`, and strictly read-only `/api/v1/sys/packages` cache visibility |
+| workflows | **Core ported (Increment 4B):** `GET /api/v1/workflows` filterable graph list + `?runs=1` Recent Runs tab; visual graph canvas editor & execution mutations pending |
 
-Shell features clipboard, control-center, desktop-icons, force-quit, inspector, lock-screen,
-notifications, search, shortcut-help and widgets are all not ported. macOS, Windows, iOS,
-Android and Dashboard chrome remain not ported. The entry preview is not a sixth shell.
+Shell features `search` (`CommandPalette`), `notifications` (`NotificationToast`), and
+`shortcut-help` (`ShortcutHelp`) are ported; `clipboard`, `control-center`, `desktop-icons`,
+`force-quit`, `inspector`, `lock-screen`, and `widgets` remain pending. Five OS chrome profiles
+(`macos`, `windows`, `dashboard`, `ios`, `android`) have contract + `data-chrome` switching; full
+per-OS chrome layouts remain pending.
 
 ## Measurement and final cutover gate
 

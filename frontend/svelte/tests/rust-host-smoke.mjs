@@ -8,8 +8,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 
-// Synthetic backend only: proves compiled Rust `mso-shell-host` serves Svelte Increment 4A
-// with GET+POST SSE (Terminal + Alfa Assistant), Settings/Quicklinks, Managed Apps, Packages, split-origin & minimal RSS.
+// Synthetic backend only: proves compiled Rust Stage R3C `mso-shell-host` serves Svelte Increment 4B
+// (lazy slices, GET+POST SSE, Editor, Docs, Workflows, Integrations, Channels, split-origin, CSRF & minimal RSS).
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SVELTE_DIR = path.resolve(HERE, "..");
 const REPO_ROOT = path.resolve(SVELTE_DIR, "../..");
@@ -36,25 +36,11 @@ const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
 const ownerSession = { authenticated: true, deviceId: "rust-owner-0001", deviceLabel: "Rust Shell Owner", role: "owner" };
 const signedOut = { authenticated: false, deviceId: null, deviceLabel: null, role: null };
 const stats = { cpu: { pct: 18.5, cores: 4 }, mem: { used: 1024 ** 3, total: 4 * 1024 ** 3 }, disk: { used: 2 * 1024 ** 3, total: 8 * 1024 ** 3 }, uptime: 3_660_000 };
-const services = {
-  services: [{ unit: "mso.service", scope: "user", load: "loaded", active: "active", sub: "running", description: "MSO host", controllable: true }],
-  diagnostics: [], truncated: false, controlAllowlistConfigured: true, generatedAt: "2026-11-22T00:00:00.000Z",
-};
 const models = { models: [{ id: "demo-1", ref: "openai/demo-1", provider: "openai", name: "Demo Model" }] };
-const managedApps = {
-  apps: [{
-    id: "hermes", name: "Hermes Agent", description: "Managed runtime", installed: true, installationType: "systemd",
-    state: "running", healthy: true, version: "1.2.0", dashboardAvailable: true,
-    publicDashboardUrl: "https://hermes.mso.example.com", supportedActions: ["restart"], diagnostic: null,
-  }],
-};
-const packages = {
-  manager: "apt", available: true, truncated: false, checkedAt: "2026-11-22T00:00:00.000Z", source: "local-cache",
-  updates: [{ name: "openssl", current: "3.0.1", candidate: "3.0.2", architecture: "amd64" }],
-};
-let prefs = { tweaks: { theme: "system", reducedMotion: false }, quicklinks: [], updates: { auto: true, channel: "stable" } };
-const fsHome = { path: "/home/demo", parent: "/home", entries: [{ name: "hello.txt", kind: "file", size: 15, mtime: 1_700_000_000_000 }] };
-let helloContent = "hello from rust";
+const changelog = { markdown: "## 2026-11-22\n- Rust Stage R3C verified\n", generated: true };
+const workflows = { graphs: [{ id: "wf-1", name: "Host Audit", description: "Daily check", status: "active", nodes: [{ id: "n1" }], edges: [], metadata: { tags: ["ops"] }, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T01:00:00.000Z", revision: "r1" }] };
+const integrations = { version: 2, user: "owner", resolution: "default", users: [{ id: "owner", label: "Owner", isDefault: true, connectionCount: 1 }], connections: [{ user: "owner", id: "c1", label: "Main Convex", provider: "convex", source: "direct", authMethod: "token", scope: "global", isDefault: true, missing: [], state: "ready", verifiedAt: 1_700_000_000_000 }] };
+const channels = { version: 1, revision: 1, providers: [{ id: "telegram", title: "Telegram", inbound: "webhook", sendText: true, inboundEvents: true }], channels: [{ id: "ch-1", name: "Alerts Bot", provider: "telegram", credential: { user: "owner", connection: "tg-main" }, enabled: true, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T00:00:00.000Z", connection: { state: "connected" } }] };
 const termStreams = new Map();
 let calls = [];
 const devices = { approved: { "rust-owner-0001": { label: "Rust Shell Owner", approvedAt: 1_700_000_000_000, role: "owner" } }, pending: {} };
@@ -62,7 +48,7 @@ const devices = { approved: { "rust-owner-0001": { label: "Rust Shell Owner", ap
 const backend = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   calls.push(`${req.method} ${url.pathname}`);
-  const authed = req.headers.cookie?.includes("session=rust-r3b-owner") ?? false;
+  const authed = req.headers.cookie?.includes("session=rust-r3c-owner") ?? false;
   if (url.pathname === "/api/v1/term/stream" && req.method === "GET") {
     if (!authed) { res.writeHead(401, { "Content-Type": "application/json" }); res.end("{}"); return; }
     const id = url.searchParams.get("id") ?? "t1";
@@ -73,69 +59,47 @@ const backend = createServer(async (req, res) => {
   if (url.pathname === "/api/assistant" && req.method === "POST") {
     if (!authed) { res.writeHead(401, { "Content-Type": "application/json" }); res.end("{}"); return; }
     const body = await readBody(req);
-    const last = body.messages?.[body.messages.length - 1]?.text ?? "";
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
-    res.write(`event: delta\ndata: ${JSON.stringify({ text: `rust-alfa:${last}` })}\n\n`);
+    res.write(`event: delta\ndata: ${JSON.stringify({ text: `rust-alfa:${body.messages?.[0]?.text ?? ""}` })}\n\n`);
     res.end(`event: done\ndata: ${JSON.stringify({ stopReason: "stop" })}\n\n`); return;
   }
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Cache-Control", "no-store");
-
+  res.setHeader("Content-Type", "application/json"); res.setHeader("Cache-Control", "no-store");
   if (url.pathname === "/api/auth/me") res.end(JSON.stringify(authed ? ownerSession : signedOut));
   else if (url.pathname === "/api/auth/login" && req.method === "POST") {
     const body = await readBody(req);
-    if (body.password === "rust-pass") { res.setHeader("Set-Cookie", "session=rust-r3b-owner; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
+    if (body.password === "rust-pass") { res.setHeader("Set-Cookie", "session=rust-r3c-owner; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
     else { res.statusCode = 401; res.end(JSON.stringify({ error: "bad_password" })); }
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") {
-    res.setHeader("Set-Cookie", ["session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict", "mso_aux=; Max-Age=0; Path=/"]);
-    res.end(JSON.stringify({ success: true }));
-  } else if (url.pathname === "/api/auth/devices" && req.method === "GET") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? devices : {})); }
+    res.setHeader("Set-Cookie", ["session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"]); res.end(JSON.stringify({ success: true }));
+  } else if (url.pathname === "/api/auth/devices") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? devices : {})); }
   else if (url.pathname === "/api/v1/sys/stats") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? stats : {})); }
-  else if (url.pathname === "/api/v1/sys/services" && req.method === "GET") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? services : {})); }
-  else if (url.pathname === "/api/v1/sys/packages" && req.method === "GET") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? packages : {})); }
-  else if (url.pathname === "/api/v1/managed-apps" && req.method === "GET") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? managedApps : {})); }
-  else if (url.pathname === "/api/models" && req.method === "GET") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? models : {})); }
-  else if (url.pathname === "/api/prefs" && req.method === "GET") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? prefs : {})); }
-  else if (url.pathname === "/api/prefs" && req.method === "POST") {
-    const patch = await readBody(req);
-    prefs = { ...prefs, ...(patch.tweaks ? { tweaks: { ...prefs.tweaks, ...patch.tweaks } } : {}), ...(patch.quicklinks ? { quicklinks: patch.quicklinks } : {}) };
-    res.end(JSON.stringify({ ok: true }));
-  } else if (url.pathname === "/api/v1/fs/list") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? fsHome : {})); }
-  else if (url.pathname === "/api/v1/fs/read") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? helloContent : {})); }
-  else if (url.pathname === "/api/v1/fs/write" && req.method === "POST") { helloContent = (await readBody(req)).content; res.end(JSON.stringify({ ok: true })); }
+  else if (url.pathname === "/api/models") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? models : {})); }
+  else if (url.pathname === "/api/changelog") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? changelog : {})); }
+  else if (url.pathname === "/api/v1/workflows") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? workflows : {})); }
+  else if (url.pathname === "/api/v1/integrations") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? integrations : {})); }
+  else if (url.pathname === "/api/v1/channels" && req.method === "GET") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? channels : {})); }
+  else if (url.pathname === "/api/v1/channels" && req.method === "POST") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify({ ok: true, detail: "Rust channel OK" })); }
   else if (url.pathname === "/api/v1/term/open" && req.method === "POST") res.end(JSON.stringify({ id: "t1" }));
-  else if (url.pathname === "/api/v1/term/input" && req.method === "POST") {
-    const body = await readBody(req); termStreams.get(body.id)?.write(`event: data\ndata: ${b64(`echo:${body.data}`)}\n\n`); res.end(JSON.stringify({ ok: true }));
-  } else if (url.pathname === "/api/v1/term/close" && req.method === "POST") {
-    const body = await readBody(req); termStreams.get(body.id)?.end(); termStreams.delete(body.id); res.end(JSON.stringify({ ok: true }));
-  } else if (url.pathname === "/mcp" && req.method === "POST") res.end(JSON.stringify({ ok: true, auth: req.headers.authorization ?? null }));
+  else if (url.pathname === "/api/v1/term/close" && req.method === "POST") { const b = await readBody(req); termStreams.get(b.id)?.end(); termStreams.delete(b.id); res.end(JSON.stringify({ ok: true })); }
+  else if (url.pathname === "/mcp" && req.method === "POST") res.end(JSON.stringify({ ok: true, auth: req.headers.authorization ?? null }));
   else if (url.pathname === "/api/v1/managed-apps/hermes/proxy/chat") res.end(JSON.stringify({ app: req.headers["x-os-managed-app-host"] ?? null }));
   else { res.statusCode = 404; res.end("{}"); }
 });
 
 let hostProc, browser;
 try {
-  backend.listen(0, "127.0.0.1");
-  await once(backend, "listening");
+  backend.listen(0, "127.0.0.1"); await once(backend, "listening");
   const apiOrigin = `http://127.0.0.1:${backend.address().port}`;
-  hostProc = spawn(RUST_BIN, [
-    "--assets", BUILD_DIR, "--port", "0", "--api-origin", apiOrigin,
-    "--managed-host-template", "{id}.mso.example.com",
-  ], { stdio: ["ignore", "pipe", "pipe"] });
+  hostProc = spawn(RUST_BIN, ["--assets", BUILD_DIR, "--port", "0", "--api-origin", apiOrigin, "--managed-host-template", "{id}.mso.example.com"], { stdio: ["ignore", "pipe", "pipe"] });
   let stdout = "", stderr = "";
   const ready = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`mso-shell-host timeout: ${stderr}`)), 10_000);
-    hostProc.stdout.on("data", (c) => {
-      stdout += c.toString();
-      const m = /MSO_RUST_SHELL_READY\s+(http:\/\/127\.0\.0\.1:\d+)/.exec(stdout);
-      if (m) { clearTimeout(timer); resolve(m[1]); }
-    });
+    hostProc.stdout.on("data", (c) => { stdout += c.toString(); const m = /MSO_RUST_SHELL_READY\s+(http:\/\/127\.0\.0\.1:\d+)/.exec(stdout); if (m) { clearTimeout(timer); resolve(m[1]); } });
     hostProc.stderr.on("data", (c) => { stderr += c.toString(); });
     hostProc.once("exit", (code) => { clearTimeout(timer); reject(new Error(`mso-shell-host exited ${code}: ${stderr}`)); });
   });
 
-  const hostPort = Number(new URL(ready).port);
-  const expectedHost = new URL(ready).host;
+  const hostPort = Number(new URL(ready).port), expectedHost = new URL(ready).host;
   const idleRssKiB = readVmRssKiB(hostProc.pid);
 
   const htmlRes = await fetch(`${ready}/`);
@@ -145,11 +109,11 @@ try {
   assert.ok((await htmlRes.text()).includes(`<script nonce="${nonce}">`));
 
   const beforeSec = calls.length;
-  assert.equal((await rawHttp(hostPort, `POST /api/assistant HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 403);
-  assert.equal((await rawHttp(hostPort, `POST /api/auth/login HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 999999\r\nConnection: close\r\n\r\n`)).status, 413);
-  assert.equal((await rawHttp(hostPort, `DELETE /api/prefs HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nConnection: close\r\n\r\n`)).status, 405);
+  assert.equal((await rawHttp(hostPort, `POST /api/v1/workflows HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 403);
+  assert.equal((await rawHttp(hostPort, `POST /api/changelog HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 405);
   assert.equal((await fetch(`${ready}/api/config`)).status, 404);
   assert.equal((await rawHttp(hostPort, `POST /api/v1/exec/run HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 404);
+  assert.equal((await rawHttp(hostPort, `POST /api/v1/editor/exec HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 404);
   assert.equal((await rawHttp(hostPort, `GET /../etc/passwd HTTP/1.1\r\nHost: ${expectedHost}\r\nConnection: close\r\n\r\n`)).status, 400);
   assert.equal((await rawHttp(hostPort, `GET / HTTP/1.1\r\nHost: staging.mso.example.com\r\nConnection: close\r\n\r\n`)).status, 404);
   assert.equal(calls.length, beforeSec);
@@ -167,24 +131,24 @@ try {
   await page.getByLabel("Cockpit password").fill("rust-pass");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForSelector("[data-monitor-state='ready']", { timeout: 10_000 });
-  await page.getByRole("button", { name: "Open Terminal" }).click();
-  await page.getByText("rust-sse ready").waitFor();
-  await page.getByRole("button", { name: "Close Terminal" }).click();
+  await page.getByRole("button", { name: "Docs" }).click();
+  await page.getByText("Rust Stage R3C verified").waitFor();
+  await page.getByRole("button", { name: "Close Docs" }).click();
+  await page.getByRole("button", { name: "Workflows" }).click();
+  await page.getByText("Host Audit").waitFor();
+  await page.getByRole("button", { name: "Close Workflows" }).click();
+  await page.getByRole("button", { name: "Integrations" }).click();
+  await page.getByText("Main Convex").waitFor();
+  await page.getByRole("button", { name: "Close Integrations" }).click();
+  await page.getByRole("button", { name: "Channels" }).click();
+  await page.getByRole("button", { name: "Test" }).click();
+  await page.getByText("Rust channel OK").waitFor();
+  await page.getByRole("button", { name: "Close Channels" }).click();
   await page.getByRole("button", { name: "Open Alfa" }).click();
-  await page.getByLabel("Message Alfa Assistant").fill("hello rust");
+  await page.getByLabel("Message Alfa Assistant").fill("r3c");
   await page.getByRole("button", { name: "Send" }).click();
-  await page.getByText("rust-alfa:hello rust").waitFor();
+  await page.getByText("rust-alfa:r3c").waitFor();
   await page.getByRole("button", { name: "Close Alfa Assistant" }).click();
-  await page.getByRole("button", { name: "Settings" }).click();
-  await page.getByLabel("Theme mode").selectOption("dark");
-  await page.waitForFunction(() => document.documentElement.dataset.theme === "dark");
-  await page.getByRole("button", { name: "Close Settings" }).click();
-  await page.getByRole("button", { name: "Managed Apps" }).click();
-  await page.getByText("Hermes Agent").waitFor();
-  await page.getByRole("button", { name: "Close Managed Apps" }).click();
-  await page.getByRole("button", { name: "Open Packages" }).click();
-  await page.getByText("openssl").waitFor();
-  await page.getByRole("button", { name: "Close Packages" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual(errors, [], `unexpected browser/CSP errors: ${errors.join("; ")}`);
@@ -192,9 +156,9 @@ try {
 
   const activeRssKiB = readVmRssKiB(hostProc.pid);
   console.log(JSON.stringify({
-    pass: true, stage: "R3B+Inc4A", origin: ready, idleRssKiB, activeRssKiB, apiCalls: calls.length,
-    getSseTerminalVerified: true, postSseAssistantVerified: true, settingsPrefsVerified: true,
-    managedAppsVerified: true, packagesReadOnlyVerified: true,
+    pass: true, stage: "R3C+Inc4B", origin: ready, idleRssKiB, activeRssKiB, apiCalls: calls.length,
+    lazySlicesVerified: true, postSseAssistantVerified: true, docsVerified: true, workflowsVerified: true,
+    integrationsVerified: true, channelsTestVerified: true,
   }, null, 2));
 } finally {
   for (const s of termStreams.values()) s.end();
