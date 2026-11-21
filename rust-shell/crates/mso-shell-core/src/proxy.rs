@@ -5,7 +5,35 @@ use std::time::Duration;
 
 const MAX_UPSTREAM_BYTES: usize = 1_048_576;
 const UPSTREAM_TIMEOUT: Duration = Duration::from_secs(10);
-const ALLOWED_READ_PATHS: &[&str] = &["/api/auth/me", "/api/v1/sys/stats"];
+
+#[derive(Debug, Clone, Copy)]
+pub struct RoutePolicy {
+    pub path: &'static str,
+    pub methods: &'static [&'static str],
+    pub max_body_bytes: usize,
+}
+
+const ROUTE_POLICIES: &[RoutePolicy] = &[
+    RoutePolicy { path: "/api/auth/me", methods: &["GET"], max_body_bytes: 0 },
+    RoutePolicy { path: "/api/auth/login", methods: &["POST"], max_body_bytes: 16 * 1024 },
+    RoutePolicy { path: "/api/auth/logout", methods: &["POST"], max_body_bytes: 4 * 1024 },
+    RoutePolicy { path: "/api/auth/devices", methods: &["GET", "POST"], max_body_bytes: 16 * 1024 },
+    RoutePolicy { path: "/api/v1/sys/stats", methods: &["GET"], max_body_bytes: 0 },
+];
+
+pub const GLOBAL_MAX_BODY_BYTES: usize = 16 * 1024;
+
+#[derive(Debug, Clone)]
+pub struct ForwardRequest<'a> {
+    pub method: &'a str,
+    pub target: &'a str,
+    pub host: Option<&'a str>,
+    pub cookie: Option<&'a str>,
+    pub content_type: Option<&'a str>,
+    pub origin: Option<&'a str>,
+    pub sec_fetch_site: Option<&'a str>,
+    pub body: &'a [u8],
+}
 
 #[derive(Debug, Clone)]
 pub struct ProxyResponse {
@@ -15,31 +43,28 @@ pub struct ProxyResponse {
     pub body: Vec<u8>,
 }
 
-pub fn is_allowlisted_read_path(target: &str) -> bool {
+pub fn match_route_policy(target: &str) -> Option<RoutePolicy> {
     let path = target.split_once('?').map_or(target, |(p, _)| p);
-    ALLOWED_READ_PATHS.contains(&path)
+    ROUTE_POLICIES.iter().copied().find(|p| p.path == path)
 }
 
-pub fn forward_read_request(
-    upstream: &HostOrigin,
-    method: &str,
-    target: &str,
-    incoming_host: Option<&str>,
-    incoming_cookie: Option<&str>,
-) -> ProxyResponse {
-    if !is_allowlisted_read_path(target) {
+pub fn forward_api_request(upstream: &HostOrigin, req: &ForwardRequest<'_>) -> ProxyResponse {
+    let Some(policy) = match_route_policy(req.target) else {
         return json_error(404, "not_found");
-    }
-    if method != "GET" {
+    };
+    if !policy.methods.contains(&req.method) {
         return ProxyResponse {
             status: 405,
             content_type: "application/json; charset=utf-8".into(),
-            extra_headers: vec![("Allow".into(), "GET".into())],
+            extra_headers: vec![("Allow".into(), policy.methods.join(", "))],
             body: br#"{"error":"method_not_allowed"}"#.to_vec(),
         };
     }
+    if req.body.len() > policy.max_body_bytes {
+        return json_error(413, "request_too_large");
+    }
     if upstream.scheme != "http" {
-        return json_error(501, "https_loopback_upstream_not_enabled_in_stage_r0");
+        return json_error(501, "https_loopback_upstream_not_enabled");
     }
 
     let mut stream = match TcpStream::connect(upstream.socket_addr()) {
@@ -49,20 +74,26 @@ pub fn forward_read_request(
     let _ = stream.set_read_timeout(Some(UPSTREAM_TIMEOUT));
     let _ = stream.set_write_timeout(Some(UPSTREAM_TIMEOUT));
 
-    let host_header = incoming_host.unwrap_or(&upstream.host);
-    let mut req = format!(
-        "GET {target} HTTP/1.1\r\nHost: {host_header}\r\nAccept: application/json\r\nConnection: close\r\n"
+    let host_header = req.host.unwrap_or(&upstream.host);
+    let mut wire = format!(
+        "{} {} HTTP/1.1\r\nHost: {host_header}\r\nAccept: application/json\r\nConnection: close\r\n",
+        req.method, req.target
     );
-    if let Some(cookie) = incoming_cookie {
-        if !cookie.contains('\r') && !cookie.contains('\n') {
-            req.push_str("Cookie: ");
-            req.push_str(cookie);
-            req.push_str("\r\n");
-        }
+    push_header_if_safe(&mut wire, "Cookie", req.cookie);
+    push_header_if_safe(&mut wire, "Origin", req.origin);
+    push_header_if_safe(&mut wire, "Sec-Fetch-Site", req.sec_fetch_site);
+    if !req.body.is_empty() {
+        let ct = req.content_type.unwrap_or("application/json");
+        push_header_if_safe(&mut wire, "Content-Type", Some(ct));
+        wire.push_str(&format!("Content-Length: {}\r\n", req.body.len()));
+    } else if req.method == "POST" {
+        wire.push_str("Content-Length: 0\r\n");
     }
-    req.push_str("\r\n");
+    wire.push_str("\r\n");
 
-    if stream.write_all(req.as_bytes()).is_err() {
+    if stream.write_all(wire.as_bytes()).is_err()
+        || (!req.body.is_empty() && stream.write_all(req.body).is_err())
+    {
         return json_error(502, "upstream_write_failed");
     }
 
@@ -83,6 +114,17 @@ pub fn forward_read_request(
     parse_http_response(&raw).unwrap_or_else(|| json_error(502, "upstream_malformed_response"))
 }
 
+fn push_header_if_safe(wire: &mut String, name: &str, value: Option<&str>) {
+    if let Some(v) = value {
+        if !v.is_empty() && !v.contains('\r') && !v.contains('\n') {
+            wire.push_str(name);
+            wire.push_str(": ");
+            wire.push_str(v);
+            wire.push_str("\r\n");
+        }
+    }
+}
+
 fn json_error(status: u16, code: &str) -> ProxyResponse {
     ProxyResponse {
         status,
@@ -100,26 +142,29 @@ fn parse_http_response(raw: &[u8]) -> Option<ProxyResponse> {
     let mut lines = head.split("\r\n");
     let status_line = lines.next()?;
     let mut parts = status_line.split_whitespace();
-    let version = parts.next()?;
-    if !version.starts_with("HTTP/1.") {
+    if !parts.next()?.starts_with("HTTP/1.") {
         return None;
     }
     let status: u16 = parts.next()?.parse().ok()?;
     let mut content_type = "application/octet-stream".to_string();
+    let mut extra_headers = Vec::new();
     let mut chunked = false;
+
     for line in lines {
         if let Some((name, val)) = line.split_once(':') {
             let key = name.trim().to_ascii_lowercase();
             let v = val.trim();
             if key == "content-type" {
                 content_type = v.to_string();
+            } else if key == "set-cookie" {
+                extra_headers.push(("Set-Cookie".into(), v.to_string()));
             } else if key == "transfer-encoding" && v.to_ascii_lowercase().contains("chunked") {
                 chunked = true;
             }
         }
     }
     let body = if chunked { decode_chunked(body_raw)? } else { body_raw.to_vec() };
-    Some(ProxyResponse { status, content_type, extra_headers: Vec::new(), body })
+    Some(ProxyResponse { status, content_type, extra_headers, body })
 }
 
 fn decode_chunked(mut input: &[u8]) -> Option<Vec<u8>> {
@@ -148,38 +193,47 @@ mod tests {
     use std::thread;
 
     #[test]
-    fn enforces_read_only_allowlist_and_forwards_host_and_cookie() {
+    fn forwards_post_login_body_and_preserves_multiple_set_cookie_headers() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         let handle = thread::spawn(move || {
             let (mut conn, _) = listener.accept().unwrap();
-            let mut buf = [0u8; 2048];
+            let mut buf = [0u8; 4096];
             let n = conn.read(&mut buf).unwrap();
             let req = String::from_utf8_lossy(&buf[..n]);
+            assert!(req.starts_with("POST /api/auth/logout HTTP/1.1"));
             assert!(req.contains("Host: 127.0.0.1:4174"));
-            assert!(req.contains("Cookie: mso_session=synthetic"));
-            let body = r#"{"authenticated":true}"#;
-            let resp = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n{}\r\n0\r\n\r\n",
-                body.len(),
-                body
+            assert!(req.contains("Cookie: session=abc"));
+            let resp = concat!(
+                "HTTP/1.1 200 OK\r\n",
+                "Content-Type: application/json\r\n",
+                "Set-Cookie: session=; Max-Age=0; Path=/\r\n",
+                "Set-Cookie: session=; Max-Age=0; Path=/; Domain=mso.example.com\r\n",
+                "\r\n",
+                r#"{"success":true}"#
             );
             conn.write_all(resp.as_bytes()).unwrap();
         });
 
         let origin = parse_loopback_origin(&format!("http://127.0.0.1:{port}")).unwrap();
-        assert_eq!(forward_read_request(&origin, "POST", "/api/auth/me", None, None).status, 405);
-        assert_eq!(forward_read_request(&origin, "GET", "/api/config", None, None).status, 404);
+        let bad = forward_api_request(&origin, &ForwardRequest {
+            method: "DELETE", target: "/api/auth/devices", host: None, cookie: None,
+            content_type: None, origin: None, sec_fetch_site: None, body: &[],
+        });
+        assert_eq!(bad.status, 405);
+        assert_eq!(forward_api_request(&origin, &ForwardRequest {
+            method: "GET", target: "/api/config", host: None, cookie: None,
+            content_type: None, origin: None, sec_fetch_site: None, body: &[],
+        }).status, 404);
 
-        let ok = forward_read_request(
-            &origin,
-            "GET",
-            "/api/auth/me",
-            Some("127.0.0.1:4174"),
-            Some("mso_session=synthetic"),
-        );
+        let ok = forward_api_request(&origin, &ForwardRequest {
+            method: "POST", target: "/api/auth/logout", host: Some("127.0.0.1:4174"),
+            cookie: Some("session=abc"), content_type: Some("application/json"),
+            origin: Some("http://127.0.0.1:4174"), sec_fetch_site: Some("same-origin"), body: &[],
+        });
         assert_eq!(ok.status, 200);
-        assert_eq!(String::from_utf8_lossy(&ok.body), r#"{"authenticated":true}"#);
+        let cookies: Vec<&str> = ok.extra_headers.iter().filter(|(k, _)| k == "Set-Cookie").map(|(_, v)| v.as_str()).collect();
+        assert_eq!(cookies.len(), 2);
         handle.join().unwrap();
     }
 }

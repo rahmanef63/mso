@@ -2,11 +2,23 @@
   import { onMount } from "svelte";
   import { createMonitor, type MonitorState } from "./monitor-controller";
   import { bytes, uptime } from "./format";
+  import type { Session } from "./host-api";
+  import LoginForm from "./LoginForm.svelte";
+
+  let { onSessionChange }: { onSessionChange?: (session: Session | null) => void } = $props();
 
   let state = $state<MonitorState>({ kind: "loading" });
   let monitor: ReturnType<typeof createMonitor> | undefined;
+
+  export function refresh() {
+    void monitor?.refresh();
+  }
+
   onMount(() => {
-    monitor = createMonitor((next) => { state = next; });
+    monitor = createMonitor((next) => {
+      state = next;
+      onSessionChange?.(next.kind === "ready" ? next.session : null);
+    });
     void monitor.refresh();
     return () => monitor?.dispose();
   });
@@ -16,15 +28,14 @@
   <header class="feature-header">
     <h2 id="monitor-title">System Monitor</h2>
     <button disabled={state.kind === "loading"} onclick={() => void monitor?.refresh()}>
-      {state.kind === "loading" ? "Loading…" : "Refresh"}
+      {state.kind === "loading" ? "Loading..." : "Refresh"}
     </button>
   </header>
   <div role="status" aria-live="polite">
     {#if state.kind === "loading"}
-      <p>Checking the device session and reading host metrics…</p>
+      <p>Checking the device session and reading host metrics...</p>
     {:else if state.kind === "signed-out"}
-      <h3>Sign in to the existing cockpit</h3>
-      <p>Use the existing MSO login on this hostname, then refresh. This entry does not create a second login.</p>
+      <LoginForm onSignedIn={() => void monitor?.refresh()} />
     {:else if state.kind === "error"}
       <h3>System metrics unavailable</h3>
       <p>{state.message}</p>

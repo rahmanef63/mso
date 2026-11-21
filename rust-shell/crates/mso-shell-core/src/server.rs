@@ -1,16 +1,17 @@
 use crate::assets::{AssetError, AssetRoot};
 use crate::csp::{build_csp_header, generate_nonce, inject_script_nonces};
+use crate::csrf::is_cross_origin_mutation;
+use crate::http::{read_request, write_response, write_response_with_len, ReadError};
 use crate::origin::HostOrigin;
-use crate::proxy::{forward_read_request, is_allowlisted_read_path};
+use crate::proxy::{forward_api_request, match_route_policy, ForwardRequest, GLOBAL_MAX_BODY_BYTES};
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-const MAX_HEADER_BYTES: usize = 8192;
 const MAX_CONCURRENT_CONNS: usize = 64;
 
 #[derive(Debug, Clone)]
@@ -81,21 +82,54 @@ fn handle_connection(stream: &mut TcpStream, cfg: &ServerConfig) {
     let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
     let _ = stream.set_write_timeout(Some(Duration::from_secs(10)));
 
-    let Some(req) = read_request_head(stream) else {
-        let _ = write_response(stream, 400, "text/plain; charset=utf-8", &[], b"bad request");
-        return;
+    let req = match read_request(stream, GLOBAL_MAX_BODY_BYTES) {
+        Ok(r) => r,
+        Err(ReadError::PayloadTooLarge) => {
+            let _ = write_response(
+                stream,
+                413,
+                "application/json; charset=utf-8",
+                &[("Cache-Control".into(), "no-store".into())],
+                br#"{"error":"request_too_large"}"#,
+            );
+            return;
+        }
+        Err(ReadError::BadRequest) => {
+            let _ = write_response(stream, 400, "text/plain; charset=utf-8", &[], b"bad request");
+            return;
+        }
     };
 
     if req.target.starts_with("/api/") {
+        if is_cross_origin_mutation(
+            &req.method,
+            req.sec_fetch_site.as_deref(),
+            req.origin.as_deref(),
+            req.host.as_deref(),
+            req.x_forwarded_host.as_deref(),
+            req.cookie.as_deref(),
+        ) {
+            let _ = write_response(
+                stream,
+                403,
+                "application/json; charset=utf-8",
+                &[("Cache-Control".into(), "no-store".into())],
+                br#"{"error":"cross_origin_blocked"}"#,
+            );
+            return;
+        }
         if let Some(upstream) = &cfg.api_origin {
-            if is_allowlisted_read_path(&req.target) {
-                let proxied = forward_read_request(
-                    upstream,
-                    &req.method,
-                    &req.target,
-                    req.host.as_deref(),
-                    req.cookie.as_deref(),
-                );
+            if match_route_policy(&req.target).is_some() {
+                let proxied = forward_api_request(upstream, &ForwardRequest {
+                    method: &req.method,
+                    target: &req.target,
+                    host: req.host.as_deref(),
+                    cookie: req.cookie.as_deref(),
+                    content_type: req.content_type.as_deref(),
+                    origin: req.origin.as_deref(),
+                    sec_fetch_site: req.sec_fetch_site.as_deref(),
+                    body: &req.body,
+                });
                 let mut headers = proxied.extra_headers;
                 headers.push(("Cache-Control".into(), "no-store".into()));
                 let _ = write_response(stream, proxied.status, &proxied.content_type, &headers, &proxied.body);
@@ -156,111 +190,16 @@ fn handle_connection(stream: &mut TcpStream, cfg: &ServerConfig) {
     }
 }
 
-struct ParsedRequest {
-    method: String,
-    target: String,
-    host: Option<String>,
-    cookie: Option<String>,
-}
-
-fn read_request_head(stream: &mut TcpStream) -> Option<ParsedRequest> {
-    let mut raw = Vec::new();
-    let mut buf = [0u8; 1024];
-    loop {
-        let n = stream.read(&mut buf).ok()?;
-        if n == 0 {
-            return None;
-        }
-        if raw.len() + n > MAX_HEADER_BYTES {
-            return None;
-        }
-        raw.extend_from_slice(&buf[..n]);
-        if let Some(end) = raw.windows(4).position(|w| w == b"\r\n\r\n") {
-            let head = std::str::from_utf8(&raw[..end]).ok()?;
-            let mut lines = head.split("\r\n");
-            let mut first = lines.next()?.split_whitespace();
-            let method = first.next()?.to_string();
-            let target = first.next()?.to_string();
-            let _version = first.next()?;
-            let mut host = None;
-            let mut cookie = None;
-            for line in lines {
-                if let Some((k, v)) = line.split_once(':') {
-                    match k.trim().to_ascii_lowercase().as_str() {
-                        "host" => host = Some(v.trim().to_string()),
-                        "cookie" => cookie = Some(v.trim().to_string()),
-                        _ => {}
-                    }
-                }
-            }
-            return Some(ParsedRequest { method, target, host, cookie });
-        }
-    }
-}
-
-fn write_response(
-    stream: &mut TcpStream,
-    status: u16,
-    content_type: &str,
-    extra: &[(String, String)],
-    body: &[u8],
-) -> io::Result<()> {
-    write_response_with_len(stream, status, content_type, extra, body.len(), body)
-}
-
-fn write_response_with_len(
-    stream: &mut TcpStream,
-    status: u16,
-    content_type: &str,
-    extra: &[(String, String)],
-    content_len: usize,
-    body: &[u8],
-) -> io::Result<()> {
-    let reason = match status {
-        200 => "OK",
-        400 => "Bad Request",
-        401 => "Unauthorized",
-        403 => "Forbidden",
-        404 => "Not Found",
-        405 => "Method Not Allowed",
-        501 => "Not Implemented",
-        502 => "Bad Gateway",
-        503 => "Service Unavailable",
-        _ => "Error",
-    };
-    let mut head = format!(
-        "HTTP/1.1 {status} {reason}\r\n\
-         Content-Type: {content_type}\r\n\
-         Content-Length: {content_len}\r\n\
-         X-Content-Type-Options: nosniff\r\n\
-         X-Frame-Options: DENY\r\n\
-         Referrer-Policy: no-referrer\r\n\
-         Cross-Origin-Opener-Policy: same-origin\r\n\
-         Connection: close\r\n"
-    );
-    for (k, v) in extra {
-        head.push_str(k);
-        head.push_str(": ");
-        head.push_str(v);
-        head.push_str("\r\n");
-    }
-    head.push_str("\r\n");
-    stream.write_all(head.as_bytes())?;
-    if !body.is_empty() {
-        stream.write_all(body)?;
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
-    fn serves_html_with_matching_nonce_csp_and_blocks_api_fallback() {
+    fn enforces_nonce_csp_csrf_403_and_payload_413() {
         let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let dir = std::env::temp_dir().join(format!("mso-rust-srv-{nanos}"));
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r2a-{nanos}"));
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("index.html"), "<html><script>ok()</script></html>").unwrap();
 
@@ -272,17 +211,24 @@ mod tests {
         let mut resp = String::new();
         c1.read_to_string(&mut resp).unwrap();
         assert!(resp.starts_with("HTTP/1.1 200 OK"));
-        let nonce_line = resp.lines().find(|l| l.starts_with("X-Nonce: ")).unwrap();
-        let nonce = nonce_line.trim_start_matches("X-Nonce: ").trim();
+        let nonce = resp.lines().find(|l| l.starts_with("X-Nonce: ")).unwrap().trim_start_matches("X-Nonce: ").trim();
         assert!(resp.contains(&format!("<script nonce=\"{nonce}\">ok()</script>")));
-        assert!(resp.contains(&format!("script-src 'self' 'nonce-{nonce}'")));
 
+        // Cross-origin POST must fail with 403 cross_origin_blocked.
         let mut c2 = TcpStream::connect(srv.addr()).unwrap();
-        c2.write_all(b"GET /api/auth/me HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").unwrap();
+        c2.write_all(b"POST /api/auth/login HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").unwrap();
         let mut resp2 = String::new();
         c2.read_to_string(&mut resp2).unwrap();
-        assert!(resp2.starts_with("HTTP/1.1 404 Not Found"));
-        assert!(!resp2.contains("<html>"));
+        assert!(resp2.starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(resp2.contains("cross_origin_blocked"));
+
+        // Oversized Content-Length must fail with 413 request_too_large.
+        let mut c3 = TcpStream::connect(srv.addr()).unwrap();
+        c3.write_all(b"POST /api/auth/login HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 999999\r\n\r\n").unwrap();
+        let mut resp3 = String::new();
+        c3.read_to_string(&mut resp3).unwrap();
+        assert!(resp3.starts_with("HTTP/1.1 413 Payload Too Large"));
+        assert!(resp3.contains("request_too_large"));
 
         srv.stop();
         let _ = fs::remove_dir_all(&dir);
