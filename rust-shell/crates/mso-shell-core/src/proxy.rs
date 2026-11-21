@@ -1,27 +1,48 @@
+use crate::managed::{is_blocked_managed_path, managed_app_proxy_target, MANAGED_APP_HOST_HEADER};
 use crate::origin::HostOrigin;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 
-const MAX_UPSTREAM_BYTES: usize = 1_048_576;
+const MAX_UPSTREAM_BYTES: usize = 4 * 1024 * 1024;
 const UPSTREAM_TIMEOUT: Duration = Duration::from_secs(10);
+
+pub const GLOBAL_MAX_BODY_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, Copy)]
 pub struct RoutePolicy {
     pub path: &'static str,
+    pub prefix: bool,
     pub methods: &'static [&'static str],
     pub max_body_bytes: usize,
+    pub forward_authorization: bool,
 }
 
 const ROUTE_POLICIES: &[RoutePolicy] = &[
-    RoutePolicy { path: "/api/auth/me", methods: &["GET"], max_body_bytes: 0 },
-    RoutePolicy { path: "/api/auth/login", methods: &["POST"], max_body_bytes: 16 * 1024 },
-    RoutePolicy { path: "/api/auth/logout", methods: &["POST"], max_body_bytes: 4 * 1024 },
-    RoutePolicy { path: "/api/auth/devices", methods: &["GET", "POST"], max_body_bytes: 16 * 1024 },
-    RoutePolicy { path: "/api/v1/sys/stats", methods: &["GET"], max_body_bytes: 0 },
+    // Auth & core cockpit APIs
+    RoutePolicy { path: "/api/auth/me", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/auth/login", prefix: false, methods: &["POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/auth/logout", prefix: false, methods: &["POST"], max_body_bytes: 4 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/auth/devices", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/sys/stats", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    // Increment 3A host routes
+    RoutePolicy { path: "/api/v1/sys/processes", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/fs/list", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/fs/read", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/fs/write", prefix: false, methods: &["POST"], max_body_bytes: 512 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/fs/mkdir", prefix: false, methods: &["POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/term/open", prefix: false, methods: &["POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/term/input", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/term/resize", prefix: false, methods: &["POST"], max_body_bytes: 4 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/term/close", prefix: false, methods: &["POST"], max_body_bytes: 4 * 1024, forward_authorization: false },
+    // Stage R2B machine protocol routes (CSRF-exempt, bearer-authenticated)
+    RoutePolicy { path: "/mcp", prefix: false, methods: &["GET", "POST", "DELETE"], max_body_bytes: 1024 * 1024, forward_authorization: true },
+    RoutePolicy { path: "/oauth/token", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: true },
+    RoutePolicy { path: "/oauth/register", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: true },
+    RoutePolicy { path: "/a2a/v1", prefix: false, methods: &["GET", "POST"], max_body_bytes: 1024 * 1024, forward_authorization: true },
+    RoutePolicy { path: "/.well-known/agent-card.json", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: true },
+    RoutePolicy { path: "/.well-known/oauth-", prefix: true, methods: &["GET"], max_body_bytes: 0, forward_authorization: true },
 ];
-
-pub const GLOBAL_MAX_BODY_BYTES: usize = 16 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct ForwardRequest<'a> {
@@ -29,7 +50,9 @@ pub struct ForwardRequest<'a> {
     pub target: &'a str,
     pub host: Option<&'a str>,
     pub cookie: Option<&'a str>,
+    pub authorization: Option<&'a str>,
     pub content_type: Option<&'a str>,
+    pub accept: Option<&'a str>,
     pub origin: Option<&'a str>,
     pub sec_fetch_site: Option<&'a str>,
     pub body: &'a [u8],
@@ -43,9 +66,24 @@ pub struct ProxyResponse {
     pub body: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum UpstreamMode<'a> {
+    Api { forward_authorization: bool },
+    ManagedApp(&'a str),
+}
+
 pub fn match_route_policy(target: &str) -> Option<RoutePolicy> {
     let path = target.split_once('?').map_or(target, |(p, _)| p);
-    ROUTE_POLICIES.iter().copied().find(|p| p.path == path)
+    if path.contains("..") || path.contains('\\') {
+        return None;
+    }
+    ROUTE_POLICIES.iter().copied().find(|p| {
+        if p.prefix {
+            path.starts_with(p.path)
+        } else {
+            p.path == path
+        }
+    })
 }
 
 pub fn forward_api_request(upstream: &HostOrigin, req: &ForwardRequest<'_>) -> ProxyResponse {
@@ -63,8 +101,52 @@ pub fn forward_api_request(upstream: &HostOrigin, req: &ForwardRequest<'_>) -> P
     if req.body.len() > policy.max_body_bytes {
         return json_error(413, "request_too_large");
     }
+    forward_upstream(
+        upstream,
+        req.method,
+        req.target,
+        req,
+        UpstreamMode::Api {
+            forward_authorization: policy.forward_authorization,
+        },
+    )
+}
+
+pub fn forward_managed_app_request(
+    upstream: &HostOrigin,
+    app_id: &str,
+    req: &ForwardRequest<'_>,
+) -> ProxyResponse {
+    if is_blocked_managed_path(req.target) {
+        return ProxyResponse {
+            status: 404,
+            content_type: "text/plain; charset=utf-8".into(),
+            extra_headers: Vec::new(),
+            body: b"Not Found".to_vec(),
+        };
+    }
+    if !matches!(req.method, "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS") {
+        return json_error(405, "method_not_allowed");
+    }
+    if req.body.len() > GLOBAL_MAX_BODY_BYTES {
+        return json_error(413, "request_too_large");
+    }
+    let rewritten = managed_app_proxy_target(app_id, req.target);
+    forward_upstream(upstream, req.method, &rewritten, req, UpstreamMode::ManagedApp(app_id))
+}
+
+fn forward_upstream(
+    upstream: &HostOrigin,
+    method: &str,
+    target: &str,
+    req: &ForwardRequest<'_>,
+    mode: UpstreamMode<'_>,
+) -> ProxyResponse {
     if upstream.scheme != "http" {
         return json_error(501, "https_loopback_upstream_not_enabled");
+    }
+    if !target.starts_with('/') || target.contains('\r') || target.contains('\n') {
+        return json_error(400, "bad_request");
     }
 
     let mut stream = match TcpStream::connect(upstream.socket_addr()) {
@@ -74,26 +156,42 @@ pub fn forward_api_request(upstream: &HostOrigin, req: &ForwardRequest<'_>) -> P
     let _ = stream.set_read_timeout(Some(UPSTREAM_TIMEOUT));
     let _ = stream.set_write_timeout(Some(UPSTREAM_TIMEOUT));
 
-    let host_header = req.host.unwrap_or(&upstream.host);
-    let mut wire = format!(
-        "{} {} HTTP/1.1\r\nHost: {host_header}\r\nAccept: application/json\r\nConnection: close\r\n",
-        req.method, req.target
-    );
+    let host_header = req
+        .host
+        .filter(|h| !h.contains('\r') && !h.contains('\n'))
+        .unwrap_or(&upstream.host);
+    let default_accept = match mode {
+        UpstreamMode::Api { .. } => "application/json",
+        UpstreamMode::ManagedApp(_) => "*/*",
+    };
+    let accept = req.accept.filter(|v| !v.is_empty()).unwrap_or(default_accept);
+
+    let mut wire = format!("{method} {target} HTTP/1.1\r\nHost: {host_header}\r\nConnection: close\r\n");
+    push_header_if_safe(&mut wire, "Accept", Some(accept));
     push_header_if_safe(&mut wire, "Cookie", req.cookie);
     push_header_if_safe(&mut wire, "Origin", req.origin);
     push_header_if_safe(&mut wire, "Sec-Fetch-Site", req.sec_fetch_site);
+    match mode {
+        UpstreamMode::Api { forward_authorization: true } => {
+            push_header_if_safe(&mut wire, "Authorization", req.authorization);
+        }
+        UpstreamMode::Api { forward_authorization: false } => {}
+        UpstreamMode::ManagedApp(app_id) => {
+            push_header_if_safe(&mut wire, MANAGED_APP_HOST_HEADER, Some(app_id));
+        }
+    }
     if !req.body.is_empty() {
         let ct = req.content_type.unwrap_or("application/json");
         push_header_if_safe(&mut wire, "Content-Type", Some(ct));
         wire.push_str(&format!("Content-Length: {}\r\n", req.body.len()));
-    } else if req.method == "POST" {
+    } else if matches!(method, "POST" | "PUT" | "PATCH") {
         wire.push_str("Content-Length: 0\r\n");
     }
     wire.push_str("\r\n");
 
-    if stream.write_all(wire.as_bytes()).is_err()
-        || (!req.body.is_empty() && stream.write_all(req.body).is_err())
-    {
+    let mut out = wire.into_bytes();
+    out.extend_from_slice(req.body);
+    if stream.write_all(&out).is_err() {
         return json_error(502, "upstream_write_failed");
     }
 
@@ -111,7 +209,7 @@ pub fn forward_api_request(upstream: &HostOrigin, req: &ForwardRequest<'_>) -> P
             Err(_) => return json_error(502, "upstream_read_failed"),
         }
     }
-    parse_http_response(&raw).unwrap_or_else(|| json_error(502, "upstream_malformed_response"))
+    parse_http_response(&raw, mode).unwrap_or_else(|| json_error(502, "upstream_malformed_response"))
 }
 
 fn push_header_if_safe(wire: &mut String, name: &str, value: Option<&str>) {
@@ -134,7 +232,7 @@ fn json_error(status: u16, code: &str) -> ProxyResponse {
     }
 }
 
-fn parse_http_response(raw: &[u8]) -> Option<ProxyResponse> {
+fn parse_http_response(raw: &[u8], mode: UpstreamMode<'_>) -> Option<ProxyResponse> {
     let sep = raw.windows(4).position(|w| w == b"\r\n\r\n")?;
     let head = std::str::from_utf8(&raw[..sep]).ok()?;
     let body_raw = &raw[sep + 4..];
@@ -154,12 +252,22 @@ fn parse_http_response(raw: &[u8]) -> Option<ProxyResponse> {
         if let Some((name, val)) = line.split_once(':') {
             let key = name.trim().to_ascii_lowercase();
             let v = val.trim();
-            if key == "content-type" {
-                content_type = v.to_string();
-            } else if key == "set-cookie" {
-                extra_headers.push(("Set-Cookie".into(), v.to_string()));
-            } else if key == "transfer-encoding" && v.to_ascii_lowercase().contains("chunked") {
-                chunked = true;
+            match key.as_str() {
+                "content-type" => content_type = v.to_string(),
+                "set-cookie" => extra_headers.push(("Set-Cookie".into(), v.to_string())),
+                "transfer-encoding" if v.to_ascii_lowercase().contains("chunked") => chunked = true,
+                "mcp-session-id" | "www-authenticate"
+                    if matches!(mode, UpstreamMode::Api { forward_authorization: true }) =>
+                {
+                    extra_headers.push((name.trim().to_string(), v.to_string()));
+                }
+                "location" | "cache-control" | "content-security-policy" | "etag"
+                | "last-modified" | "vary"
+                    if matches!(mode, UpstreamMode::ManagedApp(_)) =>
+                {
+                    extra_headers.push((name.trim().to_string(), v.to_string()));
+                }
+                _ => {}
             }
         }
     }
@@ -204,6 +312,7 @@ mod tests {
             assert!(req.starts_with("POST /api/auth/logout HTTP/1.1"));
             assert!(req.contains("Host: 127.0.0.1:4174"));
             assert!(req.contains("Cookie: session=abc"));
+            assert!(!req.contains("Authorization:"));
             let resp = concat!(
                 "HTTP/1.1 200 OK\r\n",
                 "Content-Type: application/json\r\n",
@@ -218,22 +327,84 @@ mod tests {
         let origin = parse_loopback_origin(&format!("http://127.0.0.1:{port}")).unwrap();
         let bad = forward_api_request(&origin, &ForwardRequest {
             method: "DELETE", target: "/api/auth/devices", host: None, cookie: None,
-            content_type: None, origin: None, sec_fetch_site: None, body: &[],
+            authorization: None, content_type: None, accept: None, origin: None, sec_fetch_site: None, body: &[],
         });
         assert_eq!(bad.status, 405);
         assert_eq!(forward_api_request(&origin, &ForwardRequest {
             method: "GET", target: "/api/config", host: None, cookie: None,
-            content_type: None, origin: None, sec_fetch_site: None, body: &[],
+            authorization: None, content_type: None, accept: None, origin: None, sec_fetch_site: None, body: &[],
         }).status, 404);
 
         let ok = forward_api_request(&origin, &ForwardRequest {
             method: "POST", target: "/api/auth/logout", host: Some("127.0.0.1:4174"),
-            cookie: Some("session=abc"), content_type: Some("application/json"),
+            cookie: Some("session=abc"), authorization: Some("Bearer should-not-forward"),
+            content_type: Some("application/json"), accept: None,
             origin: Some("http://127.0.0.1:4174"), sec_fetch_site: Some("same-origin"), body: &[],
         });
         assert_eq!(ok.status, 200);
         let cookies: Vec<&str> = ok.extra_headers.iter().filter(|(k, _)| k == "Set-Cookie").map(|(_, v)| v.as_str()).collect();
         assert_eq!(cookies.len(), 2);
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn matches_increment_3a_and_machine_protocol_routes_with_exact_limits() {
+        assert_eq!(match_route_policy("/api/v1/sys/processes").unwrap().max_body_bytes, 0);
+        assert_eq!(match_route_policy("/api/v1/fs/write").unwrap().max_body_bytes, 512 * 1024);
+        assert_eq!(match_route_policy("/api/v1/term/input").unwrap().max_body_bytes, 64 * 1024);
+        assert_eq!(match_route_policy("/api/v1/term/close").unwrap().max_body_bytes, 4 * 1024);
+        assert!(match_route_policy("/mcp").unwrap().forward_authorization);
+        assert!(match_route_policy("/.well-known/oauth-authorization-server").unwrap().forward_authorization);
+        assert!(match_route_policy("/.well-known/agent-card.json").unwrap().forward_authorization);
+        assert!(match_route_policy("/oauth/authorize").is_none());
+    }
+
+    #[test]
+    fn forwards_machine_auth_and_managed_app_rewrite() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            let (mut c1, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 4096];
+            let n = c1.read(&mut buf).unwrap();
+            let req1 = String::from_utf8_lossy(&buf[..n]);
+            assert!(req1.starts_with("POST /mcp HTTP/1.1"));
+            assert!(req1.contains("Authorization: Bearer tok-123\r\n"));
+            assert!(!req1.contains("x-os-managed-app-host"));
+            c1.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"ok\":true}").unwrap();
+            drop(c1);
+
+            let (mut c2, _) = listener.accept().unwrap();
+            let n2 = c2.read(&mut buf).unwrap();
+            let req2 = String::from_utf8_lossy(&buf[..n2]);
+            assert!(req2.starts_with("GET /api/v1/managed-apps/hermes/proxy/chat?x=1 HTTP/1.1"));
+            assert!(req2.contains("x-os-managed-app-host: hermes\r\n"));
+            assert!(!req2.contains("Authorization:"));
+            c2.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>app</h1>").unwrap();
+        });
+
+        let origin = parse_loopback_origin(&format!("http://127.0.0.1:{port}")).unwrap();
+        let r1 = forward_api_request(&origin, &ForwardRequest {
+            method: "POST", target: "/mcp", host: Some("mso.example.com"), cookie: None,
+            authorization: Some("Bearer tok-123"), content_type: Some("application/json"),
+            accept: Some("application/json"), origin: None, sec_fetch_site: None, body: b"{}",
+        });
+        assert_eq!(r1.status, 200);
+
+        let blocked = forward_managed_app_request(&origin, "hermes", &ForwardRequest {
+            method: "GET", target: "/_next/static/app.js", host: Some("hermes.mso.example.com"),
+            cookie: None, authorization: None, content_type: None, accept: None, origin: None,
+            sec_fetch_site: None, body: &[],
+        });
+        assert_eq!(blocked.status, 404);
+
+        let r2 = forward_managed_app_request(&origin, "hermes", &ForwardRequest {
+            method: "GET", target: "/chat/?x=1", host: Some("hermes.mso.example.com"),
+            cookie: Some("session=abc"), authorization: Some("Bearer strip-me"), content_type: None,
+            accept: Some("text/html"), origin: None, sec_fetch_site: None, body: &[],
+        });
+        assert_eq!(r2.status, 200);
+        assert_eq!(r2.body, b"<h1>app</h1>");
         handle.join().unwrap();
     }
 }

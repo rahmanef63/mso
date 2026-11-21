@@ -1,4 +1,5 @@
 use mso_shell_core::assets::AssetRoot;
+use mso_shell_core::managed::ManagedHostConfig;
 use mso_shell_core::origin::parse_loopback_origin;
 use mso_shell_core::server::{start_loopback_server, ServerConfig};
 use std::env;
@@ -9,8 +10,8 @@ use std::time::Duration;
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: mso-shell-host [--assets <dir>] [--port <u16>] [--api-origin <loopback-url>]\n\
-         Defaults: --assets frontend/svelte/build --port 4174 (or MSO_SVELTE_API_ORIGIN env)"
+        "Usage: mso-shell-host [--assets <dir>] [--port <u16>] [--api-origin <loopback-url>] [--managed-host-template <tpl>]\n\
+         Defaults: --assets frontend/svelte/build --port 4174 (env: MSO_SVELTE_API_ORIGIN, NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE)"
     );
     process::exit(2);
 }
@@ -19,6 +20,9 @@ fn main() {
     let mut assets_dir = String::from("frontend/svelte/build");
     let mut port: u16 = 4174;
     let mut api_origin_raw = env::var("MSO_SVELTE_API_ORIGIN").ok().filter(|v| !v.is_empty());
+    let mut managed_host_template = env::var("NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE")
+        .ok()
+        .filter(|v| !v.is_empty());
 
     let mut args = env::args().skip(1);
     while let Some(flag) = args.next() {
@@ -32,6 +36,9 @@ fn main() {
                 });
             }
             "--api-origin" => api_origin_raw = Some(args.next().unwrap_or_else(|| usage())),
+            "--managed-host-template" => {
+                managed_host_template = Some(args.next().unwrap_or_else(|| usage()));
+            }
             "-h" | "--help" => usage(),
             other => {
                 eprintln!("mso-shell-host: unknown argument '{other}'");
@@ -50,8 +57,15 @@ fn main() {
             process::exit(2);
         })
     });
+    let managed_hosts = ManagedHostConfig::from_template(managed_host_template.as_deref());
 
-    let server = start_loopback_server(ServerConfig { port, assets, api_origin }).unwrap_or_else(|err| {
+    let server = start_loopback_server(ServerConfig {
+        port,
+        assets,
+        api_origin,
+        managed_hosts,
+    })
+    .unwrap_or_else(|err| {
         eprintln!("mso-shell-host: bind failed on 127.0.0.1:{port}: {err}");
         process::exit(1);
     });

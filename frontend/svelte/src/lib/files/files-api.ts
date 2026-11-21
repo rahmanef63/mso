@@ -1,0 +1,110 @@
+import type { FsEntry, FsList, FsRoot } from "../../../../../lib/contracts/os-api";
+import { ApiError } from "../host-api.ts";
+import { detectShellBridge, resolveApiUrl, type ShellBridge } from "../shell-bridge.ts";
+
+export { ApiError };
+export type { FsEntry, FsList, FsRoot, ShellBridge };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNonNegative(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function statusMessage(status: number): string {
+  if (status === 401 || status === 403) return "Your session is unavailable or this path is not accessible.";
+  if (status === 404) return "The requested path was not found.";
+  if (status === 408) return "Filesystem request timed out. Choose a narrower directory.";
+  if (status === 413) return "Directory or file is too large to display.";
+  if (status === 429) return "Too many filesystem requests. Wait a moment and retry.";
+  return `MSO files API request failed (${status}).`;
+}
+
+async function fetchFsJson(
+  path: string,
+  signal: AbortSignal,
+  fetcher: typeof fetch,
+  bridge: ShellBridge = detectShellBridge(),
+): Promise<unknown> {
+  const response = await fetcher(resolveApiUrl(path, bridge), {
+    method: "GET",
+    credentials: bridge.apiBaseOrigin ? "include" : "same-origin",
+    cache: "no-store",
+    signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
+    headers: { Accept: "application/json" },
+  });
+  const isJson = response.headers.get("content-type")?.includes("application/json") ?? false;
+  if (!isJson) {
+    if (!response.ok) throw new ApiError(statusMessage(response.status), response.status);
+    throw new ApiError("MSO API is unavailable. Configure the local backend before retrying.", 502);
+  }
+  if (!response.ok) throw new ApiError(statusMessage(response.status), response.status);
+  try {
+    return await response.json();
+  } catch {
+    throw new ApiError("The MSO files API returned invalid JSON.", 502);
+  }
+}
+
+function validateEntry(raw: unknown): FsEntry {
+  if (!isRecord(raw) || typeof raw.name !== "string" || !raw.name
+      || (raw.kind !== "dir" && raw.kind !== "file") || !isNonNegative(raw.size)
+      || (raw.ext !== undefined && typeof raw.ext !== "string")
+      || (raw.mime !== undefined && typeof raw.mime !== "string")) {
+    throw new ApiError("The MSO directory listing response is invalid.", 502);
+  }
+  return {
+    name: raw.name,
+    kind: raw.kind,
+    size: raw.size,
+    ...(raw.ext !== undefined ? { ext: raw.ext } : {}),
+    ...(raw.mime !== undefined ? { mime: raw.mime } : {}),
+  };
+}
+
+function validateRoots(raw: unknown): FsRoot[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw)) throw new ApiError("The MSO directory listing response is invalid.", 502);
+  return raw.map((item) => {
+    if (!isRecord(item) || typeof item.label !== "string" || typeof item.path !== "string") {
+      throw new ApiError("The MSO directory listing response is invalid.", 502);
+    }
+    return { label: item.label, path: item.path };
+  });
+}
+
+export async function listDirectory(
+  path: string,
+  signal: AbortSignal,
+  fetcher = fetch,
+  bridge = detectShellBridge(),
+): Promise<FsList> {
+  const query = new URLSearchParams({ path: path || "~" }).toString();
+  const value = await fetchFsJson(`/api/v1/fs/list?${query}`, signal, fetcher, bridge);
+  if (!isRecord(value) || typeof value.path !== "string" || !value.path || !Array.isArray(value.entries)
+      || (value.parent !== undefined && value.parent !== null && typeof value.parent !== "string")) {
+    throw new ApiError("The MSO directory listing response is invalid.", 502);
+  }
+  const roots = validateRoots(value.roots);
+  return {
+    path: value.path,
+    entries: value.entries.map(validateEntry),
+    ...(roots !== undefined ? { roots } : {}),
+    ...(value.parent !== undefined ? { parent: value.parent } : {}),
+  };
+}
+
+export async function readTextFile(
+  path: string,
+  signal: AbortSignal,
+  fetcher = fetch,
+  bridge = detectShellBridge(),
+): Promise<string> {
+  if (!path.trim()) throw new ApiError("File path is required.", 400);
+  const query = new URLSearchParams({ path }).toString();
+  const value = await fetchFsJson(`/api/v1/fs/read?${query}`, signal, fetcher, bridge);
+  if (typeof value !== "string") throw new ApiError("The MSO file read response is invalid.", 502);
+  return value;
+}

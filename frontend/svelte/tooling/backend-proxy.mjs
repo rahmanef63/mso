@@ -1,4 +1,4 @@
-// Development/preview only. Mirrors Rust Stage R2A route allowlist + CSRF depth-2.
+// Development/preview only. Mirrors Rust Stage R2B + Increment 3A route allowlist + CSRF depth-2.
 // No public server or production trust policy is changed.
 
 const ROUTES = {
@@ -7,6 +7,9 @@ const ROUTES = {
   "/api/auth/logout": ["POST"],
   "/api/auth/devices": ["GET", "POST"],
   "/api/v1/sys/stats": ["GET"],
+  "/api/v1/sys/processes": ["GET"],
+  "/api/v1/fs/list": ["GET"],
+  "/api/v1/fs/read": ["GET"],
 };
 
 function isCrossOriginMutation(request) {

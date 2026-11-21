@@ -72,6 +72,12 @@ p, footer, .workspace-header span, code { overflow-wrap: anywhere; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .skip-link { position: absolute; top: -10rem; left: 1rem; padding: .75rem; background: var(--panel); color: var(--text); }
 .skip-link:focus { top: 1rem; }
+.app-dock {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  padding: .625rem .75rem; background: var(--panel); border: 1px solid var(--border); border-radius: .625rem;
+}
+.minimized-chip { border-style: dashed; }
+.window-area { display: grid; gap: var(--feature-gap); }
 @container (max-width: 24rem) { dl > div { grid-template-columns: minmax(0, 1fr); gap: .25rem; } }
 @media (max-width: 30rem) { :root { --feature-padding: 1rem; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

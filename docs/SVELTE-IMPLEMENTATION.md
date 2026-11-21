@@ -2,7 +2,7 @@
 
 Status: implementation restarted on 2026-11-09 at the owner's request, expanded on 2026-11-21 to
 the **hybrid Svelte 5 static UI + Rust shell track** (see [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md)),
-and updated on **2026-11-22** after implementing **Increment 2A + Rust Shell Stage R2A**.
+and updated on **2026-11-22** after implementing **Increment 2B/3A + Rust Shell Stage R2B**.
 Deliver tested, reviewed increments to main; do not wait for the full rewrite to integrate
 completed work. This supersedes the paused product decision in MSO-MIGRATION.md, not its
 measurements.
@@ -11,10 +11,10 @@ measurements.
 
 Formula-based milestone progress (see [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md) for full weights):
 
-- **Svelte Static Frontend Track:** **~19%** (Increment 1 = 100%, Increment 2 = 60% [2A landed], Increments 3-5 = 0%).
-- **Slice Parity Count:** **1 / 33 slices** (`auth` core login/logout/session/owner-devices ported; first-login onboarding sub-flow pending), plus **2 partial foundations** (`appshell` entry layout, `system-monitor` one-shot snapshot), **30 slices** not started, **0 / 5 OS chromes**, **0 / 10 AppShell features**.
-- **Rust Shell Track:** **~27.5%** (Stage R0 = 100%, Stage R2 = 50% [R2A landed], Stages R1/R3/R4 = 0%).
-- **Combined Hybrid Program (60% Svelte + 40% Rust Shell):** **~22%** (up from 12% after Stage R0).
+- **Svelte Static Frontend Track:** **~39.6%** (Inc. 1 = 100%, Inc. 2 = 90%, Inc. 3 = 60% [3A landed], Inc. 4 = 3%, Inc. 5 = 0%).
+- **Slice Parity Count:** **2 / 33 core slices ported** (`auth` core login/logout/session/owner-devices; `files-manager` read/browse/preview), plus **2 expanded foundations** (`appshell` window manager + `<svelte:boundary>` crash isolation + History URL sync; `system-monitor` stats + process inventory), **29 slices** not started, **0 / 5 OS chromes**, **0 / 10 AppShell features**.
+- **Rust Shell Track:** **40.0%** (Stage R0 = 100%, Stage R2 = 100% [R2A + R2B complete], Stages R1/R3/R4 = 0%).
+- **Combined Hybrid Program (60% Svelte + 40% Rust Shell):** **~39.8% (~40%)** (up from 22.4% after Inc. 2A/R2A and 12.0% after Stage R0).
 
 ## Goal and limits
 
@@ -33,9 +33,9 @@ public cockpit origin, and does not change systemd, installers, state, tunnels o
 | Increment | Weight | Deliverable and acceptance | State | Progress |
 |---|---|---|---|---|
 | 1 | 10% | Independently built static Svelte entry; existing session and one-shot metrics; cancellation, malformed/auth/error/retry tests; light/dark narrow/desktop browser proof | Merged on `main` (PR #285, 2026-11-09); audited 2026-11-21 with `perf:probe` readiness fix, `shell-bridge.ts`, and Stage R0 Rust host proof | **100%** |
-| 2 | 15% | **2A (Implemented on branch):** Real login (`/api/auth/login`), pending-device guidance, logout (`/api/auth/logout`), stable 128-bit device ID (`mso.device.id` + `mso-device`), Owner device approvals/role updates/inline two-step revoke (`/api/auth/devices`), and CSRF depth-2 parity (paired with Rust Shell Stage R2A). **2B (Remaining):** Managed-host split-origin routing, public OAuth/MCP proxy parity, and first-login onboarding sub-flow. | **2A implemented & verified locally; 2B not implemented** | **60%** |
-| 3 | 25% | Window lifecycle, registry, URL/deep links and persistence; Files and Terminal against existing host contracts; single-window failure isolation | Not implemented | **0%** |
-| 4 | 35% | Full feature parity matrix below, five shells, settings, media/editors and sensitive workflows; contract tests plus browser journeys | Not implemented | **0%** |
+| 2 | 15% | **2A:** Real login, pending-device guidance, logout, 128-bit device ID, Owner device approvals/role/inline-revoke, and CSRF depth-2 parity. **2B:** Managed-host split-origin routing, unclaimed namespace `404`, and OAuth/MCP/A2A machine-protocol passthrough (paired with Rust Shell Stage R2B). First-login onboarding sub-flow pending. | **2A & 2B edge implemented & verified locally; onboarding sub-flow pending** | **90%** |
+| 3 | 25% | **3A (Implemented on branch):** Window lifecycle store, `<WindowFrame>` with `<svelte:boundary>` per-window crash isolation, History API URL sync, layout serialization, `files-manager` (`fs/list` + `fs/read` preview), and `system-monitor` process inventory (`sys/processes`). **3B (Remaining):** `os-terminal` (xterm + PTY streaming over WebSocket/SSE) and file write/mkdir mutations. | **3A implemented & verified locally; 3B not implemented** | **60%** |
+| 4 | 35% | Full feature parity matrix below, five shells, settings, media/editors and sensitive workflows; contract tests plus browser journeys | `system-monitor` process inventory landed; remaining slices/chromes pending | **3%** |
 | 5 | 15% | One runtime selected at launch; full API/proxy/streaming parity without Next (paired with Rust Shell Stage R3); exact-host RSS/CPU/latency comparison, supported installer/update path and rollback | Not implemented | **0%** |
 
 Each increment uses a task branch and normal PR checks before main integration. Never force
@@ -43,7 +43,7 @@ push, bypass branch protection or call a draft shipped. A source push is not a d
 Deployment remains the supported owner release path after verified integration. Keep the
 last known-good release and state format intact; rollback must not need data conversion.
 
-## Increment 1 & 2A: static entry, auth, and owner device management
+## Increments 1, 2A/2B, and 3A: static entry, auth, windowing, files & processes
 
 `frontend/svelte` has its own package and frozen Bun lockfile. Node runs the tools;
 SvelteKit 3 with adapter-static emits `frontend/svelte/build`. There is no production SSR
@@ -71,18 +71,15 @@ MSO_SVELTE_API_ORIGIN=http://127.0.0.1:4005 bun run preview
 ```
 
 The port above is an example, not discovery of an installed service. Both the Vite dev/preview
-proxy and the Rust Stage R2A host (`rust-shell/crates/mso-shell-host`) accept only explicit
+proxy and the Rust Stage R2B host (`rust-shell/crates/mso-shell-host`) accept only explicit
 loopback HTTP(S) origins, preserve the incoming `Host` and cookies, enforce **CSRF depth-2**
-(`Sec-Fetch-Site` / `Origin` / `session` cookie) on mutating API calls, enforce bounded request
-bodies (413), forward multiple `Set-Cookie` headers, and allow only the exact Increment 2A
-route table (`/api/auth/me`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/devices`,
-`/api/v1/sys/stats`). All other `/api/*` paths fail closed to 404 JSON. Dev binds loopback port
-5173, preview binds 4173, and `mso-shell-host` defaults to 4174.
+on mutating browser APIs, enforce bounded request bodies (`413`), forward multiple `Set-Cookie`
+headers, and restrict routes to the reviewed allowlist. Rust Stage R2B additionally implements
+managed-app split-origin host classification, CSRF-exempt OAuth/MCP/A2A machine-protocol
+passthrough with `Authorization`, and bounded WebSocket upgrade tunneling (`ws.rs`).
 
-Do not mount the generated HTML in production yet: managed-host split-origin routing, OAuth/MCP
-passthrough, windowing, and remaining cockpit slices remain gated on Increments 2B through 5.
-Both media-query themes here use reviewed neutral tokens; appearance preference syncing,
-all five OS chromes and design-kit parity are not established by this preview.
+Do not mount the generated HTML in production yet: `os-terminal`, remaining slices, appearance
+preference syncing, and all five OS chromes remain gated on Increments 3B through 5.
 
 ## Feature parity ledger
 
@@ -94,9 +91,9 @@ come from the current slice directory/catalog. "Not ported" is not a regression 
 | agent-vault | Not ported |
 | agent-group | Not ported |
 | app-store | Not ported |
-| appshell | Entry foundation only; window manager and five shells not ported |
+| appshell | **Increment 3A foundation:** window lifecycle store, `<WindowFrame>` with `<svelte:boundary>` crash isolation, History API URL sync, layout persistence; five OS chromes & 10 shell features not ported |
 | assistant | Not ported |
-| auth | **Core ported (Increment 2A):** session probe, password login, pending-device state, logout, 128-bit device ID, owner device approval/role/inline-revoke; first-login onboarding sub-flow pending (2B) |
+| auth | **Core ported (Increment 2A):** session probe, password login, pending-device state, logout, 128-bit device ID, owner device approval/role/inline-revoke; first-login onboarding sub-flow pending |
 | bot-desktops | Not ported |
 | camoufox-browser | Not ported |
 | channels | Not ported |
@@ -104,25 +101,25 @@ come from the current slice directory/catalog. "Not ported" is not a regression 
 | create-app | Not ported |
 | docs | Not ported |
 | extensions | Not ported |
-| files-manager | Not ported |
+| files-manager | **Read/browse core ported (Increment 3A):** `fs/list` navigation, parent traversal, dirs-first sort, `fs/read` text preview; write/mkdir/upload/delete mutations pending (3B) |
 | image-editor | Not ported |
 | icon-picker | Not ported |
 | image-picker | Not ported |
 | infrastructure | Not ported |
 | integrations | Not ported |
-| managed-apps | Not ported |
+| managed-apps | Not ported (split-origin host routing ported in Rust Stage R2B) |
 | n8n | Not ported |
 | media-studio | Not ported |
 | media-viewer | Not ported |
 | memory-graph | Not ported |
 | os-settings | Not ported |
 | os-shell | Not ported |
-| os-terminal | Not ported |
+| os-terminal | Not ported (Increment 3B target; Rust WS/term proxy routes ready in Stage R2B) |
 | organization | Not ported |
 | quicklinks | Not ported |
 | reel-editor | Not ported |
 | shell-settings | Not ported |
-| system-monitor | Session-gated snapshot only; processes/services/logs/packages not ported |
+| system-monitor | **Stats + Process Inventory ported (Increment 1 + 3A):** one-shot CPU/RAM/Disk/Uptime + filterable/sortable `/api/v1/sys/processes`; services/logs/packages not ported |
 | workflows | Not ported |
 
 Shell features clipboard, control-center, desktop-icons, force-quit, inspector, lock-screen,

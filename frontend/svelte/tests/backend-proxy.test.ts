@@ -8,7 +8,7 @@ test("no backend configured means no proxy", () => {
 
 test("only explicit loopback origins are accepted", () => {
   for (const origin of ["http://127.0.0.1:4005", "https://localhost:4005", "http://[::1]:4005"]) {
-    assert.equal(Object.keys(localReadProxy(origin)!).length, 5);
+    assert.equal(Object.keys(localReadProxy(origin)!).length, 8);
   }
   for (const origin of ["https://mso.example.com", "http://localhost.evil.test", "http://user:pass@localhost:4005",
     "http://localhost/path", "http://localhost/?x=1", "file:///etc/passwd", "http://localhost/#fragment"]) {
@@ -16,11 +16,15 @@ test("only explicit loopback origins are accepted", () => {
   }
 });
 
-test("proxy allowlist matches exact Increment 2A auth/read paths, not siblings or host operations", () => {
+test("proxy allowlist matches exact Increment 2A/3A auth and read paths, not siblings or exec", () => {
   const proxy = localReadProxy("http://localhost:4005");
   assert.ok(proxy);
   const patterns = Object.keys(proxy).map((p) => new RegExp(p));
-  for (const path of ["/api/auth/me", "/api/auth/login", "/api/auth/logout", "/api/auth/devices", "/api/v1/sys/stats", "/api/v1/sys/stats?fresh=1"]) {
+  for (const path of [
+    "/api/auth/me", "/api/auth/login", "/api/auth/logout", "/api/auth/devices",
+    "/api/v1/sys/stats", "/api/v1/sys/stats?fresh=1", "/api/v1/sys/processes",
+    "/api/v1/fs/list?path=~", "/api/v1/fs/read?path=~/README.md",
+  ]) {
     assert.equal(patterns.some((p) => p.test(path)), true, path);
   }
   for (const path of ["/api/auth/me/secret", "/api/auth/me-other", "/api/v1/sys/stats-extra", "/api/config", "/api/v1/exec/run"]) {
@@ -35,7 +39,6 @@ test("route methods and CSRF depth-2 are enforced before proxying", () => {
     return { rec, res: { writeHead: (s: number) => { rec.status = s; }, end: () => { rec.ended = true; } } };
   };
 
-  // Read-only route refuses POST with 405.
   const statsRoute = proxy["^/api/v1/sys/stats(?:\\?|$)"];
   assert.equal(statsRoute.changeOrigin, false);
   const r1 = makeRes();
@@ -43,7 +46,6 @@ test("route methods and CSRF depth-2 are enforced before proxying", () => {
   assert.equal(r1.rec.status, 405);
   assert.equal(statsRoute.bypass({ method: "GET", headers: {} }, r1.res), undefined);
 
-  // Login route refuses GET (405) and cross-site POST (403), allows same-origin POST.
   const loginRoute = proxy["^/api/auth/login(?:\\?|$)"];
   const r2 = makeRes();
   assert.equal(loginRoute.bypass({ method: "GET", headers: {} }, r2.res), false);
