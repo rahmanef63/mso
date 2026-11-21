@@ -99,6 +99,8 @@ const NOT_A_KNOB: Record<string, string> = {
   MSO_RUNTIME_PROC_ROOT: "test-only fake /proc root for live-runtime ownership tests",
   OS_MEDIA_BASE: "scripts/gen-readme-media.mjs only",
   OS_MEDIA_DEVICE: "scripts/gen-readme-media.mjs only",
+  MSO_RUST_SHELL_BIN: "frontend/svelte/tests/rust-host-smoke.mjs smoke harness override; not production config",
+  MSO_SVELTE_BUILD_DIR: "frontend/svelte/tests/rust-host-smoke.mjs smoke harness override; not production config",
 };
 
 function usedEnvNames(): string[] {
