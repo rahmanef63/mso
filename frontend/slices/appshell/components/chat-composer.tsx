@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { ArrowUp, Send, Sparkles, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,6 +41,14 @@ export function ChatComposer({
   const canSend = value.trim().length > 0 && !streaming;
   const ios = useActiveShell().id === "ios";
   const run = useAlfaRunState();
+
+  // Auto-grow composer height like standard AI chats up to 160px, resetting cleanly on send.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [value]);
   // Re-render when a source's data lands asynchronously: the consumer module is
   // imported on this component's first render, and its skills fetch starts on the
   // first `/`. `items` below is computed during render, so without this the new
@@ -120,7 +128,7 @@ export function ChatComposer({
         return;
       }
     }
-    if (e.key === "Enter" && !e.shiftKey && !streaming) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !streaming) {
       e.preventDefault();
       submit();
     }
@@ -184,7 +192,7 @@ export function ChatComposer({
           rows={1}
           placeholder={streaming ? (run?.status === "waiting" ? "Waiting for your approval…" : run?.status === "stopped" ? "Stopping the run…" : "Alfa is working…") : (placeholder ?? "Message Alfa…  @agent  /skill")}
           className={cn(
-            "max-h-32 min-h-9 flex-1 resize-none scrollbar-thin",
+            "max-h-40 min-h-9 flex-1 resize-none overflow-y-auto scrollbar-thin",
             ios && "min-h-8 border-0 bg-transparent px-0 py-1.5 shadow-none focus-visible:ring-0",
           )}
         />

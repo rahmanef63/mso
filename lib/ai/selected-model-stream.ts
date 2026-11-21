@@ -19,7 +19,7 @@ import { anthropicDonePayload } from "@/lib/ai/usage";
 import { anthropicClientHeaders } from "@/lib/ai/custom-provider-headers";
 import { boundedProviderFetch, PROVIDER_TIMEOUT_MS } from "./provider-response";
 
-export type SelectedModelEvent = "delta" | "tool_use" | "done";
+export type SelectedModelEvent = "delta" | "reasoning" | "tool_use" | "done";
 export type SelectedModelEmit = (
   event: SelectedModelEvent,
   data: unknown,
@@ -184,11 +184,11 @@ export async function streamPreparedSelectedModel(opts: {
   );
   for await (const event of ai) {
     if (signal.aborted) break;
-    if (
-      event.type === "content_block_delta" &&
-      event.delta.type === "text_delta"
-    )
-      emit("delta", event.delta.text);
+    if (event.type === "content_block_delta") {
+      if (event.delta.type === "text_delta") emit("delta", event.delta.text);
+      else if (event.delta.type === "thinking_delta" && typeof event.delta.thinking === "string")
+        emit("reasoning", event.delta.thinking);
+    }
   }
   if (signal.aborted) {
     ai.abort();

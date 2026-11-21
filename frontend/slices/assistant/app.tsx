@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { History } from "lucide-react";
+import { History, SquarePen } from "lucide-react";
 import { AppFrame, type AppProps } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "./components/tabs";
@@ -50,6 +50,7 @@ export default function Assistant({ payload }: AppProps) {
   const setTab = useCallback((next: Tab) => setSelection({ key: route.key, tab: next }), [route.key]);
   const [form, setForm] = useState<FormState>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const chatRef = useRef<ChatHandle>(null);
 
   const runAutomation = useCallback(
@@ -116,10 +117,14 @@ export default function Assistant({ payload }: AppProps) {
           agent={store.activeAgent}
           cockpit={<AlfaCockpitBar onActivity={() => setTab("mcp")} />}
           prompts={[...new Set(store.skills.flatMap((playbook) => playbook.starters ?? []))].slice(0, 6)}
+          onActiveThreadChange={setActiveThreadId}
           switcher={
             <>
-              <Button size="sm" variant="ghost" aria-label="Chat history" className="shrink-0 [@media(pointer:coarse)]:min-h-[44px]" onClick={() => setHistoryOpen(true)}>
+              <Button size="sm" variant="ghost" aria-label="Chat history" title="Chat history" className="shrink-0 [@media(pointer:coarse)]:min-h-[44px]" onClick={() => setHistoryOpen(true)}>
                 <History className="size-4" />
+              </Button>
+              <Button size="sm" variant="ghost" aria-label="New chat" title="New chat" className="shrink-0 [@media(pointer:coarse)]:min-h-[44px]" onClick={() => chatRef.current?.newThread()}>
+                <SquarePen className="size-4" />
               </Button>
               <AgentSwitcher store={store} onNew={() => setForm({ kind: "agent" })} />
               {/* Spacer instead of ml-auto: collapses when the row overflows so the
@@ -136,8 +141,10 @@ export default function Assistant({ payload }: AppProps) {
       <ThreadList
         open={historyOpen}
         onOpenChange={setHistoryOpen}
+        activeThreadId={activeThreadId}
         onResume={(t) => chatRef.current?.loadThread(t)}
         onNew={() => chatRef.current?.newThread()}
+        onDeleted={(id) => { if (id === activeThreadId) chatRef.current?.newThread(); }}
       />
 
       {tab === "agents" ? (

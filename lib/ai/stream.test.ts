@@ -81,4 +81,20 @@ describe("streamAgentTurn", () => {
 
     await expect(streamAgentTurn([], [], () => {})).rejects.toThrow("unauthorized");
   });
+
+  it("streams reasoning deltas separately from text deltas", async () => {
+    const sse = [
+      "event: reasoning\ndata: \"Check disk first. \"\n\n",
+      "event: delta\ndata: \"Disk is 42% full.\"\n\n",
+      "event: done\ndata: {\"stopReason\":\"end_turn\"}\n\n",
+    ].join("");
+    globalThis.fetch = vi.fn().mockResolvedValue(sseResponse(sse));
+    const deltas: string[] = [];
+    const thoughts: string[] = [];
+    const turn = await streamAgentTurn([], [], (c) => deltas.push(c), undefined, undefined, (r) => thoughts.push(r));
+    expect(thoughts).toEqual(["Check disk first. "]);
+    expect(deltas).toEqual(["Disk is 42% full."]);
+    expect(turn.reasoning).toBe("Check disk first. ");
+    expect(turn.text).toBe("Disk is 42% full.");
+  });
 });

@@ -66,5 +66,19 @@ describe("human-readable tool identity (OpenDots parity)", () => {
     expect(html).toContain("Deleting file");
     expect(html).toContain("Denied");
   });
+
+  it("collapses completed ok tool steps into a compact toggle row by default", () => {
+    const done: ChatMessage = {
+      id: "ok-1",
+      role: "tool",
+      text: "",
+      tool: { name: "fs.list", input: { path: "/srv/app" }, effect: "read", status: "ok", result: "file1.ts" },
+    };
+    const html = renderToStaticMarkup(<ApprovalCard message={done} onResolve={vi.fn()} />);
+    expect(html).toContain("Listing files");
+    expect(html).toContain("Finished");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("file1.ts");
+  });
 });
 

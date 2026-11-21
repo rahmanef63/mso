@@ -31,6 +31,10 @@ export type AlfaMessage = {
   createdAt?: number;
   role: AlfaRole;
   text?: string;
+  /** Optional streamed reasoning/thinking text. */
+  reasoning?: string;
+  /** Marks a failed assistant turn so the UI can show retry controls. */
+  error?: boolean;
   /** Which app this turn happened in — the cross-feature trail. */
   appId?: string;
   /** Opaque to this store; the assistant slice owns its shape (tool cards). */
