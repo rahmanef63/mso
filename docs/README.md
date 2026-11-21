@@ -160,8 +160,11 @@ the current-reference doc.
 
 [SELF-HOSTED-CI.md](./SELF-HOSTED-CI.md) is the current manual-runner reference and Actions migration gap matrix. It does not claim completed security parity or deployment automation.
 
-## Active Svelte implementation
+## Active Svelte and hybrid Rust shell implementation
 
-[SVELTE-IMPLEMENTATION.md](./SVELTE-IMPLEMENTATION.md) records the incremental execution
-plan, static preview boundary, feature parity ledger and measured cutover requirements.
+- [SVELTE-IMPLEMENTATION.md](./SVELTE-IMPLEMENTATION.md) records the incremental Svelte static UI
+  execution plan, preview boundary, 33-slice parity ledger and measured cutover requirements.
+- [RUST-SHELL-PLAN.md](./RUST-SHELL-PLAN.md) records the hybrid Svelte + Rust shell roadmap
+  (Stages R0-R4, Tauri v2 desktop client plan, Stage R0 static host evidence and OS boundaries).
+
 Production remains Next/React until the cutover gate is met.

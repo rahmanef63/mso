@@ -12,7 +12,7 @@
   });
 </script>
 
-<section aria-labelledby="monitor-title" aria-busy={state.kind === "loading"}>
+<section aria-labelledby="monitor-title" aria-busy={state.kind === "loading"} data-monitor-state={state.kind}>
   <header class="feature-header">
     <h2 id="monitor-title">System Monitor</h2>
     <button disabled={state.kind === "loading"} onclick={() => void monitor?.refresh()}>

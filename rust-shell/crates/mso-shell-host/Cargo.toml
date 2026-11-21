@@ -1,0 +1,9 @@
+[package]
+name = "mso-shell-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Loopback static Svelte host and bounded read-only API proxy binary for MSO Stage R0."
+
+[dependencies]
+mso-shell-core = { path = "../mso-shell-core" }
