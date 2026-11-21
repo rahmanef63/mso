@@ -38,6 +38,12 @@ const ROUTE_POLICIES: &[RoutePolicy] = &[
     // Increment 3B host routes
     RoutePolicy { path: "/api/v1/fs/delete", prefix: false, methods: &["DELETE"], max_body_bytes: 16 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/v1/sys/services", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    // Wave 3 / Stage R3B cockpit routes
+    RoutePolicy { path: "/api/prefs", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/models", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/threads", prefix: false, methods: &["GET", "POST", "PATCH", "DELETE"], max_body_bytes: 256 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/managed-apps", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/sys/packages", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
     // Stage R2B machine protocol routes (CSRF-exempt, bearer-authenticated)
     RoutePolicy { path: "/mcp", prefix: false, methods: &["GET", "POST", "DELETE"], max_body_bytes: 1024 * 1024, forward_authorization: true },
     RoutePolicy { path: "/oauth/token", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: true },
@@ -371,6 +377,34 @@ mod tests {
         assert!(!sys_svc.forward_authorization);
         assert!(match_route_policy("/api/v1/exec/run").is_none());
         assert!(match_route_policy("/api/v1/term/stream").is_none());
+        assert!(match_route_policy("/api/assistant").is_none());
+        assert!(match_route_policy("/api/config").is_none());
+
+        // Wave 3 / Stage R3B route policies
+        let prefs = match_route_policy("/api/prefs").unwrap();
+        assert_eq!(prefs.methods, &["GET", "POST"]);
+        assert_eq!(prefs.max_body_bytes, 64 * 1024);
+        assert!(!prefs.forward_authorization);
+
+        let models = match_route_policy("/api/models").unwrap();
+        assert_eq!(models.methods, &["GET"]);
+        assert_eq!(models.max_body_bytes, 0);
+        assert!(!models.forward_authorization);
+
+        let threads = match_route_policy("/api/threads?id=t1").unwrap();
+        assert_eq!(threads.methods, &["GET", "POST", "PATCH", "DELETE"]);
+        assert_eq!(threads.max_body_bytes, 256 * 1024);
+        assert!(!threads.forward_authorization);
+
+        let managed_apps = match_route_policy("/api/v1/managed-apps").unwrap();
+        assert_eq!(managed_apps.methods, &["GET"]);
+        assert_eq!(managed_apps.max_body_bytes, 0);
+        assert!(!managed_apps.forward_authorization);
+
+        let packages = match_route_policy("/api/v1/sys/packages").unwrap();
+        assert_eq!(packages.methods, &["GET"]);
+        assert_eq!(packages.max_body_bytes, 0);
+        assert!(!packages.forward_authorization);
     }
 
     #[test]

@@ -7,6 +7,7 @@ use std::time::Duration;
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_ERROR_BODY_BYTES: usize = 64 * 1024;
+pub const ASSISTANT_MAX_BODY_BYTES: usize = 256 * 1024;
 const SSE_HEAD: &[u8] = concat!(
     "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=utf-8\r\n",
     "Cache-Control: no-cache, no-store\r\nX-Content-Type-Options: nosniff\r\n",
@@ -21,6 +22,10 @@ pub struct SseRequest<'a> {
     pub host: Option<&'a str>,
     pub cookie: Option<&'a str>,
     pub last_event_id: Option<&'a str>,
+    pub content_type: Option<&'a str>,
+    pub origin: Option<&'a str>,
+    pub sec_fetch_site: Option<&'a str>,
+    pub body: &'a [u8],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,24 +35,42 @@ pub fn is_term_stream_path(target: &str) -> bool {
     target.split_once('?').map_or(target, |(p, _)| p) == "/api/v1/term/stream"
 }
 
+pub fn is_assistant_stream_path(target: &str) -> bool {
+    target.split_once('?').map_or(target, |(p, _)| p) == "/api/assistant"
+}
+
 pub fn stream_sse_request(client: &mut TcpStream, upstream: &HostOrigin, req: &SseRequest<'_>) -> SseOutcome {
-    if req.method != "GET" {
-        let extra = [("Allow".into(), "GET".into()), ("Cache-Control".into(), "no-store".into())];
+    let (allow_method, max_body) = if is_assistant_stream_path(req.target) {
+        ("POST", ASSISTANT_MAX_BODY_BYTES)
+    } else if is_term_stream_path(req.target) {
+        ("GET", 0)
+    } else {
+        return reject(client, 404, "not_found");
+    };
+    if req.method != allow_method {
+        let extra = [("Allow".into(), allow_method.into()), ("Cache-Control".into(), "no-store".into())];
         let _ = write_response(client, 405, "application/json; charset=utf-8", &extra, br#"{"error":"method_not_allowed"}"#);
         return SseOutcome::Rejected(405);
     }
+    if req.body.len() > max_body { return reject(client, 413, "request_too_large"); }
     if upstream.scheme != "http" || !upstream.is_loopback() { return reject(client, 502, "upstream_unavailable"); }
     if req.target.len() > MAX_HEADER_BYTES || !req.target.starts_with('/') || !is_safe(req.target) { return reject(client, 400, "bad_request"); }
     let Ok(mut up) = TcpStream::connect(upstream.socket_addr()) else { return reject(client, 502, "upstream_unavailable"); };
     let _ = up.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let _ = up.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
     let host = req.host.filter(|h| is_safe(h)).unwrap_or(&upstream.host);
-    let mut wire = format!("GET {} HTTP/1.1\r\nHost: {host}\r\nAccept: text/event-stream\r\nConnection: close\r\n", req.target);
-    for (k, v) in [("Cookie", req.cookie), ("Last-Event-ID", req.last_event_id)] {
+    let mut wire = format!("{} {} HTTP/1.1\r\nHost: {host}\r\nAccept: text/event-stream\r\nConnection: close\r\n", req.method, req.target);
+    for (k, v) in [("Cookie", req.cookie), ("Last-Event-ID", req.last_event_id), ("Origin", req.origin), ("Sec-Fetch-Site", req.sec_fetch_site)] {
         if let Some(val) = v.filter(|s| is_safe(s)) { wire.push_str(&format!("{k}: {val}\r\n")); }
     }
+    if req.method == "POST" {
+        let ct = req.content_type.filter(|s| is_safe(s)).unwrap_or("application/json");
+        wire.push_str(&format!("Content-Type: {ct}\r\nContent-Length: {}\r\n", req.body.len()));
+    }
     wire.push_str("\r\n");
-    if up.write_all(wire.as_bytes()).is_err() { return reject(client, 502, "upstream_write_failed"); }
+    if up.write_all(wire.as_bytes()).is_err() || (!req.body.is_empty() && up.write_all(req.body).is_err()) {
+        return reject(client, 502, "upstream_write_failed");
+    }
     let (mut raw, mut buf) = (Vec::new(), [0u8; 2048]);
     let sep = loop {
         match read_retry(&mut up, &mut buf) {

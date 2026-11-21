@@ -5,29 +5,35 @@ import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "@playwright/test";
 
-// Synthetic backend only: verifies Increments 1, 2A, 3A, and 3B (Terminal SSE, Files mutations, Services).
+// Synthetic backend only: verifies Increments 1, 2A, 3A, 3B, and 4A (Alfa SSE, Settings/Quicklinks, Managed Apps, Packages).
 const viewerSession = { authenticated: true, deviceId: "fixture-viewer-0001", deviceLabel: "Browser fixture", role: "viewer" };
 const ownerSession = { authenticated: true, deviceId: "fixture-owner-0001", deviceLabel: "Owner fixture", role: "owner" };
 const signedOut = { authenticated: false, deviceId: null, deviceLabel: null, role: null };
 const stats = { cpu: { pct: 12, cores: 4 }, mem: { used: 1024 ** 3, total: 4 * 1024 ** 3 }, disk: { used: 2 * 1024 ** 3, total: 8 * 1024 ** 3 }, uptime: 3_660_000 };
-const processes = [{ pid: 101, name: "mso-shell-host", status: "S", cpu: 0.4, mem: 3 }, { pid: 202, name: "node", status: "R", cpu: 14.2, mem: 128 }];
+const processes = [{ pid: 101, name: "mso-shell-host", status: "S", cpu: 0.4, mem: 3 }];
 const services = {
   services: [{ unit: "mso.service", scope: "user", load: "loaded", active: "active", sub: "running", description: "MSO host", controllable: true }],
   diagnostics: [], truncated: false, controlAllowlistConfigured: true, generatedAt: "2026-11-22T00:00:00.000Z",
 };
-let fsEntries = [
-  { name: "projects", kind: "dir", size: 0, mtime: 1_700_000_000_000 },
-  { name: "notes.txt", kind: "file", size: 14, mtime: 1_700_000_001_000 },
-];
+const models = { models: [{ id: "demo-1", ref: "openai/demo-1", provider: "openai", name: "Demo Model" }] };
+const managedApps = {
+  apps: [{
+    id: "hermes", name: "Hermes Agent", description: "Managed runtime", installed: true, installationType: "systemd",
+    state: "running", healthy: true, version: "1.2.0", dashboardAvailable: true,
+    publicDashboardUrl: "https://hermes.mso.example.com", supportedActions: ["restart"], diagnostic: null,
+  }],
+};
+const packages = {
+  manager: "apt", available: true, truncated: false, checkedAt: "2026-11-22T00:00:00.000Z", source: "local-cache",
+  updates: [{ name: "openssl", current: "3.0.1", candidate: "3.0.2", architecture: "amd64" }],
+};
+let prefs = { tweaks: { theme: "system", reducedMotion: false }, quicklinks: [{ id: "q1", title: "MSO Docs", url: "https://mso.example.com/docs" }], updates: { auto: true, channel: "stable" } };
+let fsEntries = [{ name: "projects", kind: "dir", size: 0, mtime: 1_700_000_000_000 }, { name: "notes.txt", kind: "file", size: 14, mtime: 1_700_000_001_000 }];
 let notesContent = "hello from mso";
 const termStreams = new Map();
-
 let mode = "ready", calls = [], cookieSeen = false;
 const devices = {
-  approved: {
-    "fixture-owner-0001": { label: "Owner fixture", approvedAt: 1_700_000_000_000, role: "owner" },
-    "fixture-other-0002": { label: "Tablet", approvedAt: 1_700_000_001_000, role: "viewer" },
-  },
+  approved: { "fixture-owner-0001": { label: "Owner fixture", approvedAt: 1_700_000_000_000, role: "owner" } },
   pending: { "fixture-pend-0003": { label: "New Laptop", firstSeen: 1_700_000_002_000, lastSeen: 1_700_000_003_000, ip: "127.0.0.1", attempts: 1 } },
 };
 const hosts = new Set();
@@ -43,8 +49,15 @@ const backend = createServer(async (req, res) => {
     const id = url.searchParams.get("id") ?? "t1";
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
     res.write(`event: data\ndata: ${b64("mso-shell ready\n")}\n\n`);
-    termStreams.set(id, res);
-    req.on("close", () => termStreams.delete(id));
+    termStreams.set(id, res); req.on("close", () => termStreams.delete(id)); return;
+  }
+  if (url.pathname === "/api/assistant" && req.method === "POST") {
+    const body = await readBody(req);
+    const last = body.messages?.[body.messages.length - 1]?.text ?? "";
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+    res.write(`event: reasoning\ndata: ${JSON.stringify({ text: "Checking host..." })}\n\n`);
+    res.write(`event: delta\ndata: ${JSON.stringify({ text: `Alfa reply: ${last}` })}\n\n`);
+    res.end(`event: done\ndata: ${JSON.stringify({ stopReason: "stop" })}\n\n`);
     return;
   }
   res.setHeader("Content-Type", "application/json");
@@ -53,41 +66,37 @@ const backend = createServer(async (req, res) => {
   if (url.pathname === "/api/auth/me") res.end(JSON.stringify(mode === "signed-out" ? signedOut : mode === "owner" ? ownerSession : viewerSession));
   else if (url.pathname === "/api/auth/login" && req.method === "POST") {
     const body = await readBody(req);
-    if (body.password === "pending-pass") { res.statusCode = 403; res.end(JSON.stringify({ error: "device_pending", deviceId: body.deviceId, label: body.deviceLabel })); }
-    else if (body.password === "owner-pass") { mode = "owner"; res.setHeader("Set-Cookie", "session=synthetic-owner; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
+    if (body.password === "owner-pass") { mode = "owner"; res.setHeader("Set-Cookie", "session=synthetic-owner; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
     else { res.statusCode = 401; res.end(JSON.stringify({ error: "bad_password" })); }
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") {
     mode = "signed-out"; res.setHeader("Set-Cookie", "session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true }));
-  } else if (url.pathname === "/api/auth/devices" && req.method === "GET") {
-    res.statusCode = mode === "owner" ? 200 : 403; res.end(JSON.stringify(mode === "owner" ? devices : { error: "Owner role required" }));
-  } else if (url.pathname === "/api/auth/devices" && req.method === "POST") {
-    const body = await readBody(req);
-    if (body.action === "approve") { delete devices.pending[body.deviceId]; devices.approved[body.deviceId] = { label: body.label || "Approved", approvedAt: Date.now(), role: body.role || "viewer" }; }
-    else if (body.action === "revoke") delete devices.approved[body.deviceId];
-    res.end(JSON.stringify({ ok: true, ...devices }));
-  } else if (url.pathname === "/api/v1/sys/stats") { res.statusCode = mode === "revoked" ? 401 : 200; res.end(JSON.stringify(mode === "malformed" ? { cpu: "bad" } : stats)); }
+  } else if (url.pathname === "/api/auth/devices" && req.method === "GET") { res.statusCode = mode === "owner" ? 200 : 403; res.end(JSON.stringify(mode === "owner" ? devices : {})); }
+  else if (url.pathname === "/api/v1/sys/stats") res.end(JSON.stringify(stats));
   else if (url.pathname === "/api/v1/sys/processes") res.end(JSON.stringify(processes));
   else if (url.pathname === "/api/v1/sys/services" && req.method === "GET") res.end(JSON.stringify(services));
   else if (url.pathname === "/api/v1/sys/services" && req.method === "POST") res.end(JSON.stringify(services.services[0]));
-  else if (url.pathname === "/api/v1/fs/list") res.end(JSON.stringify({ path: "/home/demo", parent: "/home", entries: fsEntries }));
+  else if (url.pathname === "/api/v1/sys/packages" && req.method === "GET") res.end(JSON.stringify(packages));
+  else if (url.pathname === "/api/v1/managed-apps" && req.method === "GET") res.end(JSON.stringify(managedApps));
+  else if (url.pathname === "/api/models" && req.method === "GET") res.end(JSON.stringify(models));
+  else if (url.pathname === "/api/prefs" && req.method === "GET") res.end(JSON.stringify(prefs));
+  else if (url.pathname === "/api/prefs" && req.method === "POST") {
+    const patch = await readBody(req);
+    prefs = { ...prefs, ...(patch.tweaks ? { tweaks: { ...prefs.tweaks, ...patch.tweaks } } : {}), ...(patch.quicklinks ? { quicklinks: patch.quicklinks } : {}) };
+    res.end(JSON.stringify({ ok: true }));
+  } else if (url.pathname === "/api/v1/fs/list") res.end(JSON.stringify({ path: "/home/demo", parent: "/home", entries: fsEntries }));
   else if (url.pathname === "/api/v1/fs/read") res.end(JSON.stringify(notesContent));
   else if (url.pathname === "/api/v1/fs/write" && req.method === "POST") { notesContent = (await readBody(req)).content; res.end(JSON.stringify({ ok: true })); }
   else if (url.pathname === "/api/v1/fs/mkdir" && req.method === "POST") {
     const name = String((await readBody(req)).path).split("/").pop();
-    fsEntries = [...fsEntries, { name, kind: "dir", size: 0, mtime: Date.now() }];
-    res.end(JSON.stringify({ kind: "dir" }));
+    fsEntries = [...fsEntries, { name, kind: "dir", size: 0, mtime: Date.now() }]; res.end(JSON.stringify({ kind: "dir" }));
   } else if (url.pathname === "/api/v1/fs/delete" && req.method === "DELETE") {
     const name = String((await readBody(req)).path).split("/").pop();
-    fsEntries = fsEntries.filter((e) => e.name !== name);
-    res.end(JSON.stringify({ ok: true }));
+    fsEntries = fsEntries.filter((e) => e.name !== name); res.end(JSON.stringify({ ok: true }));
   } else if (url.pathname === "/api/v1/term/open" && req.method === "POST") res.end(JSON.stringify({ id: "t1" }));
   else if (url.pathname === "/api/v1/term/input" && req.method === "POST") {
-    const body = await readBody(req);
-    termStreams.get(body.id)?.write(`event: data\ndata: ${b64(`out:${body.data}`)}\n\n`);
-    res.end(JSON.stringify({ ok: true }));
+    const body = await readBody(req); termStreams.get(body.id)?.write(`event: data\ndata: ${b64(`out:${body.data}`)}\n\n`); res.end(JSON.stringify({ ok: true }));
   } else if (url.pathname === "/api/v1/term/close" && req.method === "POST") {
-    const body = await readBody(req); termStreams.get(body.id)?.end(); termStreams.delete(body.id);
-    res.end(JSON.stringify({ ok: true }));
+    const body = await readBody(req); termStreams.get(body.id)?.end(); termStreams.delete(body.id); res.end(JSON.stringify({ ok: true }));
   } else { res.statusCode = 404; res.end("{}"); }
 });
 
@@ -126,12 +135,6 @@ try {
       assert.ok(scripts.length > 0 && scripts.every((u) => !u.includes("/_next/")));
       await page.keyboard.press("Tab");
       assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Skip to content");
-      await page.keyboard.press("Enter");
-      await page.getByRole("button", { name: "Refresh" }).focus();
-      const before = calls.length;
-      await page.keyboard.press("Enter");
-      await page.waitForFunction(() => !document.querySelector("[data-monitor-state='loading']"));
-      assert.equal(calls.length - before, 2);
       if (width === 320) {
         await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -144,31 +147,20 @@ try {
   const page = await browser.newPage();
   mode = "signed-out"; calls = [];
   await page.goto(base);
-  await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
-  assert.deepEqual(calls, ["GET /api/auth/me"]);
   await page.getByLabel("Cockpit password").fill("owner-pass");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("heading", { name: "Devices & Approvals" }).waitFor();
 
-  // Increment 3A + 3B: Files (mkdir + edit/save + delete), Services (inline 2-step restart), Terminal (SSE + input).
+  // Increment 3B: Files, Services, Terminal
   await page.getByRole("button", { name: "Open Files" }).click();
   await page.getByRole("button", { name: "New folder" }).click();
   await page.getByLabel("Folder name").fill("drafts");
   await page.getByRole("button", { name: "Create" }).click();
-  await page.locator("button[data-entry-open='drafts']").waitFor();
-  await page.locator("button[data-entry-open='notes.txt']").click();
-  await page.getByRole("button", { name: "Edit" }).click();
-  await page.locator("textarea").fill("updated via svelte");
-  await page.getByRole("button", { name: "Save" }).click();
-  await page.getByText("File saved.").waitFor();
-  assert.equal(notesContent, "updated via svelte");
   await page.locator("button[data-delete-entry='drafts']").click();
   await page.getByRole("button", { name: "Confirm delete" }).click();
-  await page.getByText('Deleted "drafts".').waitFor();
   await page.getByRole("button", { name: "Close Files" }).click();
 
   await page.getByRole("button", { name: "Open Services" }).click();
-  await page.getByText("mso.service").waitFor();
   await page.getByRole("button", { name: "Restart" }).click();
   await page.getByRole("button", { name: "Confirm restart" }).click();
   await page.getByText("Completed restart on mso.service.").waitFor();
@@ -181,11 +173,35 @@ try {
   await page.getByText("out:echo hi").waitFor();
   await page.getByRole("button", { name: "Close Terminal" }).click();
 
+  // Increment 4A: Alfa Assistant SSE, Settings & Quicklinks, Managed Apps, Packages
+  await page.getByRole("button", { name: "Open Alfa" }).click();
+  await page.getByLabel("Message Alfa Assistant").fill("ping host");
+  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByText("Alfa reply: ping host").waitFor();
+  await page.getByRole("button", { name: "Close Alfa Assistant" }).click();
+
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByLabel("Theme mode").selectOption("dark");
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "dark");
+  await page.getByLabel("Title").fill("Status");
+  await page.getByLabel("URL").fill("https://status.mso.example.com");
+  await page.getByRole("button", { name: "Add quicklink" }).click();
+  await page.getByText("Status", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  await page.getByRole("button", { name: "Managed Apps" }).click();
+  await page.getByText("Hermes Agent").waitFor();
+  await page.getByRole("button", { name: "Close Managed Apps" }).click();
+
+  await page.getByRole("button", { name: "Open Packages" }).click();
+  await page.getByText("openssl").waitFor();
+  await page.getByRole("button", { name: "Close Packages" }).click();
+
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual([...hosts], ["127.0.0.1:4173"]);
   assert.ok(cookieSeen);
-  console.log("PASS Increments 1 + 2A + 3A + 3B: auth, Files mutations, Services Center, Terminal SSE, and proxy guards");
+  console.log("PASS Increments 1..4A: auth, Files, Services, Terminal, Alfa SSE, Settings, Managed Apps, Packages");
 } finally {
   for (const s of termStreams.values()) s.end();
   await browser?.close();

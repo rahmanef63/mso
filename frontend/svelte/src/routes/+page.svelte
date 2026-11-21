@@ -6,6 +6,10 @@
   import ServicesList from "../lib/monitor/ServicesList.svelte";
   import FilesManager from "../lib/files/FilesManager.svelte";
   import TerminalApp from "../lib/terminal/TerminalApp.svelte";
+  import AssistantApp from "../lib/assistant/AssistantApp.svelte";
+  import SettingsApp from "../lib/settings/SettingsApp.svelte";
+  import ManagedAppsView from "../lib/managed-apps/ManagedAppsView.svelte";
+  import PackagesView from "../lib/managed-apps/PackagesView.svelte";
   import WindowFrame from "../lib/shell/WindowFrame.svelte";
   import {
     createWindowStore,
@@ -18,9 +22,13 @@
   import "../styles.css";
 
   const APP_SLUGS: AppSlugMap = {
+    assistant: "assistant",
     files: "files",
     processes: "processes",
     services: "services",
+    packages: "packages",
+    apps: "apps",
+    settings: "settings",
     terminal: "terminal",
     devices: "devices",
   };
@@ -33,12 +41,16 @@
   let ownerDevicesOpened = $state(false);
   let monitorRef: { refresh: () => void } | undefined;
 
+  function applyTheme(theme: string) {
+    if (typeof document === "undefined") return;
+    if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+    else delete document.documentElement.dataset.theme;
+  }
+
   function syncUrl(next: ShellLayoutState) {
     if (typeof window === "undefined") return;
     const target = stateToUrl(next, APP_SLUGS);
-    if (window.location.pathname !== target) {
-      window.history.replaceState(null, "", target);
-    }
+    if (window.location.pathname !== target) window.history.replaceState(null, "", target);
   }
 
   onMount(() => {
@@ -48,8 +60,12 @@
     });
     const deep = urlToApp(window.location.pathname, APP_SLUGS);
     if (deep?.app === "files") winStore.openWindow("files", "Files", undefined, deep.path ?? "~", { multi: true });
+    else if (deep?.app === "assistant") winStore.openWindow("assistant", "Alfa Assistant");
     else if (deep?.app === "processes") winStore.openWindow("processes", "Processes");
     else if (deep?.app === "services") winStore.openWindow("services", "Services");
+    else if (deep?.app === "packages") winStore.openWindow("packages", "Packages");
+    else if (deep?.app === "apps") winStore.openWindow("apps", "Managed Apps");
+    else if (deep?.app === "settings") winStore.openWindow("settings", "Settings");
     else if (deep?.app === "terminal") winStore.openWindow("terminal", "Terminal");
     else if (deep?.app === "devices") winStore.openWindow("devices", "Devices");
     return unsub;
@@ -108,22 +124,16 @@
 
     {#if activeSession?.authenticated}
       <nav class="app-dock" aria-label="Workspace apps">
-        <button type="button" onclick={() => winStore.openWindow("files", "Files", undefined, "~", { multi: true })}>
-          Open Files
-        </button>
-        <button type="button" onclick={() => winStore.openWindow("processes", "Processes")}>
-          Open Processes
-        </button>
-        <button type="button" onclick={() => winStore.openWindow("services", "Services")}>
-          Open Services
-        </button>
+        <button type="button" onclick={() => winStore.openWindow("assistant", "Alfa Assistant")}>Open Alfa</button>
+        <button type="button" onclick={() => winStore.openWindow("files", "Files", undefined, "~", { multi: true })}>Open Files</button>
+        <button type="button" onclick={() => winStore.openWindow("processes", "Processes")}>Open Processes</button>
+        <button type="button" onclick={() => winStore.openWindow("services", "Services")}>Open Services</button>
+        <button type="button" onclick={() => winStore.openWindow("packages", "Packages")}>Open Packages</button>
+        <button type="button" onclick={() => winStore.openWindow("apps", "Managed Apps")}>Managed Apps</button>
+        <button type="button" onclick={() => winStore.openWindow("settings", "Settings")}>Settings</button>
         {#if activeSession.role === "owner"}
-          <button type="button" onclick={() => winStore.openWindow("terminal", "Terminal")}>
-            Open Terminal
-          </button>
-          <button type="button" onclick={() => winStore.openWindow("devices", "Devices")}>
-            Devices
-          </button>
+          <button type="button" onclick={() => winStore.openWindow("terminal", "Terminal")}>Open Terminal</button>
+          <button type="button" onclick={() => winStore.openWindow("devices", "Devices")}>Devices</button>
         {/if}
         {#each layout.order as id (id)}
           {@const win = layout.windows[id]}
@@ -148,7 +158,9 @@
                 onMaximize={(wid) => winStore.toggleMaximize(wid)}
                 onClose={(wid) => winStore.closeWindow(wid)}
               >
-                {#if win.app === "files"}
+                {#if win.app === "assistant"}
+                  <AssistantApp />
+                {:else if win.app === "files"}
                   <FilesManager
                     initialPath={typeof win.payload === "string" ? win.payload : "~"}
                     onPathChange={(p) => { winStore.focusApp("files", p); }}
@@ -157,6 +169,12 @@
                   <ProcessesList />
                 {:else if win.app === "services"}
                   <ServicesList />
+                {:else if win.app === "packages"}
+                  <PackagesView />
+                {:else if win.app === "apps"}
+                  <ManagedAppsView />
+                {:else if win.app === "settings"}
+                  <SettingsApp role={activeSession.role} onThemeChange={applyTheme} />
                 {:else if win.app === "terminal"}
                   <TerminalApp />
                 {:else if win.app === "devices" && activeSession.role === "owner"}

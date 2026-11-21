@@ -13,7 +13,10 @@ use crate::proxy::{
     forward_api_request, forward_managed_app_request, match_route_policy, ForwardRequest,
     GLOBAL_MAX_BODY_BYTES,
 };
-use crate::sse::{is_term_stream_path, stream_sse_request, SseRequest};
+use crate::sse::{
+    is_assistant_stream_path, is_term_stream_path, stream_sse_request, SseRequest,
+    ASSISTANT_MAX_BODY_BYTES,
+};
 use crate::ws::{is_websocket_upgrade, tunnel_websocket, WsUpgradeRequest};
 use std::fs;
 use std::io;
@@ -95,11 +98,20 @@ fn route_body_limit(cfg: &ServerConfig, method: &str, target: &str, host: Option
     match cfg.managed_hosts.classify_host(host) {
         HostClass::ManagedApp(_) => GLOBAL_MAX_BODY_BYTES,
         HostClass::UnclaimedAppNamespace => DEFAULT_UNKNOWN_ROUTE_BODY_LIMIT,
-        HostClass::Cockpit => match match_route_policy(target) {
-            Some(policy) if policy.methods.contains(&method) => policy.max_body_bytes,
-            Some(policy) => policy.max_body_bytes.max(DEFAULT_UNKNOWN_ROUTE_BODY_LIMIT),
-            None => DEFAULT_UNKNOWN_ROUTE_BODY_LIMIT,
-        },
+        HostClass::Cockpit => {
+            if is_assistant_stream_path(target) {
+                return if method == "POST" {
+                    ASSISTANT_MAX_BODY_BYTES
+                } else {
+                    DEFAULT_UNKNOWN_ROUTE_BODY_LIMIT
+                };
+            }
+            match match_route_policy(target) {
+                Some(policy) if policy.methods.contains(&method) => policy.max_body_bytes,
+                Some(policy) => policy.max_body_bytes.max(DEFAULT_UNKNOWN_ROUTE_BODY_LIMIT),
+                None => DEFAULT_UNKNOWN_ROUTE_BODY_LIMIT,
+            }
+        }
     }
 }
 
@@ -142,6 +154,10 @@ fn to_sse_req(req: &ParsedRequest) -> SseRequest<'_> {
         host: req.host.as_deref(),
         cookie: req.cookie.as_deref(),
         last_event_id: req.last_event_id.as_deref(),
+        content_type: req.content_type.as_deref(),
+        origin: req.origin.as_deref(),
+        sec_fetch_site: req.sec_fetch_site.as_deref(),
+        body: &req.body,
     }
 }
 
@@ -294,7 +310,7 @@ fn handle_connection(stream: &mut TcpStream, cfg: &ServerConfig) {
             );
             return;
         }
-        if is_term_stream_path(&req.target) {
+        if is_term_stream_path(&req.target) || is_assistant_stream_path(&req.target) {
             if let Some(upstream) = &cfg.api_origin {
                 let _ = stream_sse_request(stream, upstream, &to_sse_req(&req));
                 return;
@@ -788,6 +804,11 @@ mod tests {
         assert!(!is_term_stream_path("/api/v1/term/stream/extra"));
         assert!(!is_term_stream_path("/api/v1/term/open"));
 
+        assert!(is_assistant_stream_path("/api/assistant"));
+        assert!(is_assistant_stream_path("/api/assistant?mode=fast"));
+        assert!(!is_assistant_stream_path("/api/assistant/extra"));
+        assert!(!is_assistant_stream_path("/api/assistant2"));
+
         let bad_origins = [
             HostOrigin { scheme: "https".into(), host: "127.0.0.1".into(), port: 8443 },
             HostOrigin { scheme: "http".into(), host: "10.0.0.5".into(), port: 4005 },
@@ -803,6 +824,10 @@ mod tests {
                     host: Some("127.0.0.1"),
                     cookie: None,
                     last_event_id: None,
+                    content_type: None,
+                    origin: None,
+                    sec_fetch_site: None,
+                    body: &[],
                 })
             });
             let mut c = TcpStream::connect(addr).unwrap();
@@ -811,5 +836,302 @@ mod tests {
             assert!(resp.starts_with("HTTP/1.1 502 Bad Gateway"));
             assert_eq!(h.join().unwrap(), SseOutcome::Rejected(502));
         }
+
+        // Direct sse.rs body-limit defense in depth (>256 KiB => 413) and unlisted path => 404
+        let ok_origin = HostOrigin { scheme: "http".into(), host: "127.0.0.1".into(), port: 4005 };
+        {
+            let l = TcpListener::bind("127.0.0.1:0").unwrap();
+            let addr = l.local_addr().unwrap();
+            let orig = ok_origin.clone();
+            let h = thread::spawn(move || {
+                let (mut s, _) = l.accept().unwrap();
+                let big = vec![b'a'; ASSISTANT_MAX_BODY_BYTES + 1];
+                stream_sse_request(&mut s, &orig, &SseRequest {
+                    method: "POST",
+                    target: "/api/assistant",
+                    host: Some("127.0.0.1"),
+                    cookie: None,
+                    last_event_id: None,
+                    content_type: Some("application/json"),
+                    origin: None,
+                    sec_fetch_site: Some("same-origin"),
+                    body: &big,
+                })
+            });
+            let mut c = TcpStream::connect(addr).unwrap();
+            let mut resp = String::new();
+            c.read_to_string(&mut resp).unwrap();
+            assert!(resp.starts_with("HTTP/1.1 413 Payload Too Large"));
+            assert_eq!(h.join().unwrap(), SseOutcome::Rejected(413));
+        }
+        {
+            let l = TcpListener::bind("127.0.0.1:0").unwrap();
+            let addr = l.local_addr().unwrap();
+            let h = thread::spawn(move || {
+                let (mut s, _) = l.accept().unwrap();
+                stream_sse_request(&mut s, &ok_origin, &SseRequest {
+                    method: "GET",
+                    target: "/api/config",
+                    host: Some("127.0.0.1"),
+                    cookie: None,
+                    last_event_id: None,
+                    content_type: None,
+                    origin: None,
+                    sec_fetch_site: None,
+                    body: &[],
+                })
+            });
+            let mut c = TcpStream::connect(addr).unwrap();
+            let mut resp = String::new();
+            c.read_to_string(&mut resp).unwrap();
+            assert!(resp.starts_with("HTTP/1.1 404 Not Found"));
+            assert_eq!(h.join().unwrap(), SseOutcome::Rejected(404));
+        }
+    }
+
+    #[test]
+    fn streams_assistant_post_sse_incrementally_and_enforces_csrf_and_limits() {
+        use std::sync::mpsc;
+
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-assistant-sse-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+        let (tx_ev1, rx_ev1) = mpsc::channel::<()>();
+        let (tx_ev2, rx_ev2) = mpsc::channel::<()>();
+
+        let req_body = r#"{"messages":[{"role":"user","text":"hello alfa"}]}"#;
+        let expected_body = req_body.to_string();
+
+        let up_thread = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            // 1. Streaming POST /api/assistant (chunked SSE with incremental barrier)
+            let (mut s1, _) = up_listener.accept().unwrap();
+            let mut got = Vec::new();
+            loop {
+                let n = s1.read(&mut buf).unwrap();
+                assert!(n > 0);
+                got.extend_from_slice(&buf[..n]);
+                if let Some(sep) = got.windows(4).position(|w| w == b"\r\n\r\n") {
+                    if got.len() >= sep + 4 + expected_body.len() {
+                        break;
+                    }
+                }
+            }
+            let raw_req = String::from_utf8_lossy(&got);
+            assert!(raw_req.starts_with("POST /api/assistant HTTP/1.1\r\n"), "got: {raw_req}");
+            assert!(raw_req.contains("Host: 127.0.0.1\r\n"));
+            assert!(raw_req.contains("Cookie: session=tok-alfa\r\n"));
+            assert!(raw_req.contains("Content-Type: application/json\r\n"));
+            assert!(raw_req.contains(&format!("Content-Length: {}\r\n", expected_body.len())));
+            assert!(raw_req.contains("Origin: http://127.0.0.1\r\n"));
+            assert!(raw_req.contains("Sec-Fetch-Site: same-origin\r\n"));
+            assert!(raw_req.contains("Accept: text/event-stream\r\n"));
+            assert!(raw_req.ends_with(&expected_body), "body mismatch: {raw_req}");
+
+            let ev1 = b"event: delta\ndata: \"hello \"\n\n";
+            let ev2 = b"event: done\ndata: {\"stopReason\":\"stop\"}\n\n";
+            s1.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream; charset=utf-8\r\nTransfer-Encoding: chunked\r\n\r\n").unwrap();
+            s1.write_all(format!("{:x}\r\n", ev1.len()).as_bytes()).unwrap();
+            s1.write_all(ev1).unwrap();
+            s1.write_all(b"\r\n").unwrap();
+            s1.flush().unwrap();
+            rx_ev1.recv_timeout(Duration::from_secs(5)).expect("client must receive assistant event 1 before upstream closes");
+            s1.write_all(format!("{:x}\r\n", ev2.len()).as_bytes()).unwrap();
+            s1.write_all(ev2).unwrap();
+            s1.write_all(b"\r\n").unwrap();
+            s1.flush().unwrap();
+            rx_ev2.recv_timeout(Duration::from_secs(5)).expect("client must receive assistant event 2 before EOF");
+            s1.write_all(b"0\r\n\r\n").unwrap();
+            s1.flush().unwrap();
+            drop(s1);
+
+            // 2. Upstream 401 JSON error on POST /api/assistant
+            let (mut s2, _) = up_listener.accept().unwrap();
+            let _ = s2.read(&mut buf).unwrap();
+            s2.write_all(b"HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\n\r\n{\"error\":\"unauthorized\"}").unwrap();
+            drop(s2);
+
+            // 3. Upstream 400 JSON error on POST /api/assistant
+            let (mut s3, _) = up_listener.accept().unwrap();
+            let _ = s3.read(&mut buf).unwrap();
+            s3.write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\n\r\n{\"error\":\"empty\"}").unwrap();
+            drop(s3);
+        });
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+        })
+        .unwrap();
+
+        let read_until = |sock: &mut TcpStream, acc: &mut String, needle: &str| {
+            let mut b = [0u8; 512];
+            while !acc.contains(needle) {
+                let n = sock.read(&mut b).expect("expected incremental assistant SSE bytes");
+                assert!(n > 0, "unexpected EOF waiting for {needle:?}, got: {acc:?}");
+                acc.push_str(&String::from_utf8_lossy(&b[..n]));
+            }
+        };
+
+        // 1. Streaming POST /api/assistant delivers event 1 before upstream sends event 2 or closes
+        let mut c1 = TcpStream::connect(srv.addr()).unwrap();
+        c1.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let req1 = format!(
+            "POST /api/assistant HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=tok-alfa\r\nOrigin: http://127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+            req_body.len(),
+            req_body
+        );
+        c1.write_all(req1.as_bytes()).unwrap();
+        let mut out1 = String::new();
+        read_until(&mut c1, &mut out1, "event: delta\ndata: \"hello \"\n\n");
+        assert!(out1.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert!(out1.contains("Content-Type: text/event-stream; charset=utf-8\r\n"));
+        assert!(out1.contains("X-Accel-Buffering: no\r\n"));
+        tx_ev1.send(()).unwrap();
+        read_until(&mut c1, &mut out1, "event: done\ndata: {\"stopReason\":\"stop\"}\n\n");
+        tx_ev2.send(()).unwrap();
+        let mut tail = String::new();
+        c1.read_to_string(&mut tail).unwrap();
+        assert!(tail.is_empty());
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // 2. Non-200 JSON responses relay cleanly (401 and 400)
+        let r401 = send("POST /api/assistant HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r401.starts_with("HTTP/1.1 401 Unauthorized") && r401.contains(r#"{"error":"unauthorized"}"#));
+        let r400 = send("POST /api/assistant HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r400.starts_with("HTTP/1.1 400 Bad Request") && r400.contains(r#"{"error":"empty"}"#));
+
+        // 3. Method enforcement: GET /api/assistant => 405 + Allow: POST
+        let r405 = send("GET /api/assistant HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(r405.starts_with("HTTP/1.1 405 Method Not Allowed") && r405.contains("Allow: POST\r\n"));
+
+        // 4. CSRF depth-2 enforcement: cross-site POST => 403
+        let r403 = send("POST /api/assistant HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r403.starts_with("HTTP/1.1 403 Forbidden") && r403.contains("cross_origin_blocked"));
+
+        // 5. Payload limit enforcement: >256 KiB => 413
+        let r413 = send(&format!(
+            "POST /api/assistant HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+            ASSISTANT_MAX_BODY_BYTES + 1
+        ));
+        assert!(r413.starts_with("HTTP/1.1 413 Payload Too Large") && r413.contains("request_too_large"));
+
+        up_thread.join().unwrap();
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn enforces_stage_r3b_routes_methods_csrf_and_unlisted_guards() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r3b-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+        let up_thread = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            let cases: &[(&str, &str)] = &[
+                ("GET /api/prefs HTTP/1.1", r#"{"theme":"dark"}"#),
+                ("POST /api/prefs HTTP/1.1", r#"{"saved":true}"#),
+                ("GET /api/models HTTP/1.1", r#"{"models":[]}"#),
+                ("GET /api/threads HTTP/1.1", r#"{"threads":[]}"#),
+                ("POST /api/threads HTTP/1.1", r#"{"id":"t1"}"#),
+                ("PATCH /api/threads HTTP/1.1", r#"{"id":"t1","title":"renamed"}"#),
+                ("DELETE /api/threads?id=t1 HTTP/1.1", r#"{"deleted":true}"#),
+                ("GET /api/v1/managed-apps HTTP/1.1", r#"{"apps":[]}"#),
+                ("GET /api/v1/sys/packages HTTP/1.1", r#"{"packages":[]}"#),
+            ];
+            for (expected_line, resp_body) in cases {
+                let (mut s, _) = up_listener.accept().unwrap();
+                let n = s.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+                assert!(req.starts_with(expected_line), "expected {expected_line}, got: {req}");
+                let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{resp_body}");
+                s.write_all(resp.as_bytes()).unwrap();
+            }
+        });
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // /api/prefs: GET + POST (CSRF-protected, <=64 KiB)
+        assert!(send("GET /api/prefs HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").starts_with("HTTP/1.1 200 OK"));
+        assert!(send("POST /api/prefs HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let prefs_del = send("DELETE /api/prefs HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(prefs_del.starts_with("HTTP/1.1 405 Method Not Allowed") && prefs_del.contains("Allow: GET, POST\r\n"));
+        assert!(send("POST /api/prefs HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        assert!(send("POST /api/prefs HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 16\r\n\r\n{\"theme\":\"dark\"}").starts_with("HTTP/1.1 200 OK"));
+
+        // /api/models: GET only
+        assert!(send("GET /api/models HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").starts_with("HTTP/1.1 200 OK"));
+        let models_post = send("POST /api/models HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(models_post.starts_with("HTTP/1.1 405 Method Not Allowed") && models_post.contains("Allow: GET\r\n"));
+        assert!(send("POST /api/models HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+
+        // /api/threads: GET, POST, PATCH, DELETE (CSRF-protected on mutating)
+        assert!(send("GET /api/threads HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").starts_with("HTTP/1.1 200 OK"));
+        assert!(send("POST /api/threads HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("PATCH /api/threads HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("DELETE /api/threads?id=t1 HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\n\r\n").starts_with("HTTP/1.1 403 Forbidden"));
+        let threads_put = send("PUT /api/threads HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(threads_put.starts_with("HTTP/1.1 405 Method Not Allowed") && threads_put.contains("Allow: GET, POST, PATCH, DELETE\r\n"));
+        assert!(send("POST /api/threads HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 200 OK"));
+        assert!(send("PATCH /api/threads HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 200 OK"));
+        assert!(send("DELETE /api/threads?id=t1 HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\n\r\n").starts_with("HTTP/1.1 200 OK"));
+
+        // /api/v1/managed-apps: GET only
+        assert!(send("GET /api/v1/managed-apps HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").starts_with("HTTP/1.1 200 OK"));
+        let apps_post = send("POST /api/v1/managed-apps HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(apps_post.starts_with("HTTP/1.1 405 Method Not Allowed") && apps_post.contains("Allow: GET\r\n"));
+        assert!(send("POST /api/v1/managed-apps HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+
+        // /api/v1/sys/packages: GET only
+        assert!(send("GET /api/v1/sys/packages HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").starts_with("HTTP/1.1 200 OK"));
+        let pkg_post = send("POST /api/v1/sys/packages HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(pkg_post.starts_with("HTTP/1.1 405 Method Not Allowed") && pkg_post.contains("Allow: GET\r\n"));
+        assert!(send("POST /api/v1/sys/packages HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+
+        // /api/config and /api/v1/exec/run MUST remain strictly unlisted (404)
+        assert!(send("GET /api/config HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").starts_with("HTTP/1.1 404 Not Found"));
+        assert!(send("POST /api/config HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 404 Not Found"));
+        assert!(send("GET /api/v1/exec/run HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").starts_with("HTTP/1.1 404 Not Found"));
+        assert!(send("POST /api/v1/exec/run HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 404 Not Found"));
+
+        up_thread.join().unwrap();
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
     }
 }
