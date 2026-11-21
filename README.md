@@ -98,12 +98,14 @@ when shell access is unnecessary. Never paste passwords or tokens into a prompt.
 
 ```bash
 bun install --frozen-lockfile
-bun run verify
+bun run gate:smart       # fast change-aware verification for local/PR iteration
+bun run check:features   # automated feature contract & ratchet check
+bun run verify           # full repository verification gate
 bun run test:features
 bun run audit:strict
 ```
 
-Use Bun >=1.2.15 with native audit support. [Contributing](./CONTRIBUTING.md) · [Development](./docs/DEVELOPMENT.md) · [Changelog](./docs/CHANGELOG.md)
+Use Bun >=1.2.15 with native audit support. [Contributing](./CONTRIBUTING.md) · [Development](./docs/DEVELOPMENT.md) · [Modular features](./docs/MODULAR-FEATURES.md) · [Changelog](./docs/CHANGELOG.md)
 
 ## Powerful by design. Not a sandbox.
 

@@ -13,10 +13,13 @@ node scripts/approve-device.js <deviceId> "my laptop" --role owner   # deviceId 
 
 ## Layout
 
-Every feature is a self-contained **vertical slice** under `frontend/slices/<slug>/`
-(its own components, hooks, and a `lib/host.ts` seam for host I/O). One manifest,
-`frontend/slices/os-shell/shell.manifest.ts`, wires slices into the shell — so
-**adding an app = one slice + one manifest entry**. Host access is bounded in
+Every built-in feature is a self-contained **vertical slice** under `frontend/slices/<slug>/`
+(its own components, hooks, barrel, colocated unit tests, and declarative entry in
+`frontend/slices/feature-contracts.ts`). One manifest,
+`frontend/slices/os-shell/shell.manifest.ts`, wires built-in slices into the shell.
+Features that should update independently without rebuilding Next.js core can instead be packaged
+as **modular feature packages** under `~/.mso/features/<id>/` using `bun run feature:pack`
+(see [MODULAR-FEATURES.md](./MODULAR-FEATURES.md)). Host access is bounded in
 `lib/host` (Node `fs`/`child_process`, filesystem-jailed) behind signed-cookie plus live device-role auth
 (`lib/auth`). See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
@@ -25,7 +28,10 @@ Every feature is a self-contained **vertical slice** under `frontend/slices/<slu
 TypeScript enforces `noUnusedLocals` and `noUnusedParameters`. Remove genuinely unused imports/declarations; keep required side effects and use an explicit `_` prefix only for positional interface/callback arguments.
 
 ```bash
-bun run verify              # full repository quality gate
+bun run gate:plan           # inspect change-aware verification plan for current diff
+bun run gate:smart          # fast change-aware gate for local/PR iteration (--with-build / --full optional)
+bun run check:features      # automated feature contract & ratchet validator (feature.boundaries.json)
+bun run verify              # full repository quality gate (Svelte steps run only when frontend/svelte changes locally)
 bun run test:features        # one process per area; exit 2 means skipped/incomplete evidence
 bun run audit:strict         # fail closed on missing/malformed dependency evidence
 bun run security:ultimate   # release assurance: independent scanners + component security review + DAST
@@ -39,12 +45,17 @@ The **committed source of truth** for pre-push policy is `scripts/gates.sh`. The
 actual `.git/hooks/pre-push` file is an intentionally tiny untracked shim; reinstall it
 idempotently with `bash scripts/gates.sh --install`.
 
-The gate runs the repository-owned `bun run verify`, cycle checks, generated-changelog freshness, documentation/skill checks,
-comparison evidence/freshness, the strict high/critical dependency audit, and an out-of-tree production
-build plus mandatory synthetic browser journeys.
+On non-`main` feature branches, `scripts/gates.sh` automatically runs `scripts/run-smart-gate.mjs --pr-fast`
+(typecheck, changed-file lint, all static checks including `check-features.mjs`, and affected Vitest
+targets — typically 20–45 s). On `main` (`bun run ship`), in CI, or with `MSO_GATE_FULL=1`
+(`bun run pr:local`), it runs the complete release gate: `bun run verify`, generated-changelog
+freshness (`gen-changelog.mjs --check`, which defers automatically on PR branches when
+`docs/CHANGELOG.md` matches `origin/main`), the strict high/critical dependency audit, and an
+out-of-tree production build plus mandatory synthetic browser journeys (`scripts/verify-build.sh`
+with `--reflink=auto` and optional `MSO_E2E_JOBS=2`).
 `check-contrast.mjs` blocks palette regressions. None of the build verification touches the live
-checkout's `.next`. A healthy push ends with `audit: clean at high/critical.` and
-`build: HEAD compiles (out-of-tree).`
+checkout's `.next`. For conflict-free PR documentation, write per-PR progress notes under
+`docs/progress/YYYY-MM-DD-<slug>.md` instead of prepending to `docs/PROGRESS.md`.
 
 The local dependency audit may explicitly skip an unavailable registry; that is not a security pass.
 `bun run audit:strict`, the pre-push gate, and the assurance runner reject incomplete evidence. `test:features` distinguishes

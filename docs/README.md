@@ -115,7 +115,8 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`CLI.md`](./CLI.md) | `node scripts/gen-cli-docs.mjs` / `bin/mso --help` |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Git subjects via `scripts/gen-changelog.mjs`; never hand-edit |
 | [`COMPARISON.md`](./COMPARISON.md) | `docs/comparison-data.json` via `scripts/gen-comparison.mjs`; never hand-edit |
-| [`PROGRESS.md`](./PROGRESS.md) | Hand-written shipping rationale; newest first; canonical historical WHY |
+| [`PROGRESS.md`](./PROGRESS.md) | Historical shipping rationale archive; newest first |
+| [`progress/README.md`](./progress/README.md) | Conflict-free per-PR progress notes (`docs/progress/YYYY-MM-DD-<slug>.md`) |
 | [`TESTING-HANDOFF.md`](./TESTING-HANDOFF.md) | Factual manual/automated test handoff; observed issues and resolved/remaining verification, never architecture authority |
 
 ## Historical point-in-time documents

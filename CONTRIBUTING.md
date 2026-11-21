@@ -16,41 +16,34 @@ work proceed without VPS credentials or host access.
 
 ## Before a PR
 
-Run:
+For fast daily iteration on a feature branch:
 
 ```bash
-bash scripts/gates-12.sh full
-bun run verify
-node scripts/check-docs.mjs
-bash scripts/verify-build.sh
+bun run gate:plan       # inspect what changed and which checks apply
+bun run gate:smart      # change-aware typecheck, lint, static checks + affected tests (~20–45 s)
 ```
 
-**Start with `bash scripts/gates-12.sh full`.** It is the local mirror of the GitHub
-Actions `verify` job: the same checks in the same order, so a red build shows up on your
-machine instead of in your Actions minutes. `full` adds coverage, the production build and
-every browser journey; the default `fast` mode is about two minutes and skips the slow
-three.
+Before marking a PR ready (full local release-gate parity):
 
-A clean run ends with either of these, and both are green:
-
-```text
-mode=full  passed=17  failed=0  skipped=0
-mode=full  passed=16  failed=0  skipped=1
+```bash
+bun run pr:local        # sets MSO_GATE_FULL=1 on scripts/gates.sh (coverage + out-of-tree build + E2E)
+bun run pr:security     # pinned Semgrep + ShellCheck (requires Docker)
 ```
 
-The difference is the bundle budget, which `verify-build.sh` enforces inside the same run
-rather than twice, so it reports as `SKIP` rather than `PASS`.
+**Conflict-free PR docs:** write per-PR progress notes as a standalone file under
+`docs/progress/YYYY-MM-DD-<slug>.md` instead of prepending to line 1 of `docs/PROGRESS.md`,
+and do **not** edit `docs/CHANGELOG.md` on feature branches (`scripts/gen-changelog.mjs --check`
+defers automatically on PR branches when `docs/CHANGELOG.md` matches `origin/main`; `bun run ship`
+regenerates it on `main`).
 
-**Run only one `gates-12.sh` at a time per worktree.** Two concurrent `full` runs corrupt
-each other in ways that look like real defects: vitest refuses to start because both
-write the same `coverage/` directory, and `verify-build.sh` copies the tree into `/tmp`
-per run, so two copies can exhaust the tmpfs. `fast` mode alongside `full` is also unsafe:
-they share `/tmp/gate-out.txt`, so one run's failure text can appear under the other's
-name.
+`bash scripts/gates-12.sh full` remains available as an explicit step-by-step mirror of the GitHub
+Actions `verify` job (`fast` mode ~2 min, `full` mode ~15–20 min; run only one `gates-12.sh` at
+a time per worktree because concurrent runs share `coverage/` and `/tmp/gate-out.txt`).
 
-`bun run verify` covers typecheck, lint, the Vitest suite, repository checks and the
-high/critical dependency audit. `verify-build.sh` compiles a throwaway copy of `HEAD` so it
-is safe even when the checkout is also the production WorkingDirectory.
+`bun run verify` covers typecheck, lint, coverage, repository/feature checks (`check:features`),
+dependency audit, and path-gated Svelte verification (`scripts/run-svelte-if-changed.mjs`).
+`verify-build.sh` compiles a throwaway copy of `HEAD` (`--reflink=auto`, optional `MSO_E2E_JOBS=2`)
+so it is safe even when the checkout is also the production WorkingDirectory.
 
 Do **not** run a bare production build inside a live production checkout merely to prove
 that code compiles; replacing `.next` underneath `next start` can create a chunk mismatch
@@ -121,8 +114,10 @@ The committed source of truth for pre-push policy is `scripts/gates.sh`. The act
 bash scripts/gates.sh --install
 ```
 
-A healthy push runs the shared typecheck/lint/test path (or in-repo fallback), cycle/docs/
-changelog checks, dependency audit and the out-of-tree build. It should end with both:
+On feature branches, `scripts/gates.sh` runs change-aware `scripts/run-smart-gate.mjs --pr-fast`
+so iterative pushes stay fast (~20–45 s). On `main` (`bun run ship`) or with `MSO_GATE_FULL=1`
+(`bun run pr:local`), it runs the full typecheck/lint/coverage/feature/docs/changelog checks,
+strict dependency audit, and out-of-tree build + browser E2E, ending with both:
 
 ```text
 audit: clean at high/critical.

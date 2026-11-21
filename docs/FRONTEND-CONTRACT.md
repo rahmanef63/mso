@@ -15,6 +15,13 @@
 5. Read the feature's own contract and find a working sibling implementation.
    [`SLICE-CATALOG.md`](./SLICE-CATALOG.md) is the feature inventory SSOT.
 6. Follow [`ARCHITECTURE.md`](./ARCHITECTURE.md); run its ratchet before adding a seam.
+7. Declare every slice under `frontend/slices/` in `frontend/slices/feature-contracts.ts` and
+   pass `bun run check:features` (`feature.boundaries.json` ratchets: barrel, colocated unit
+   tests, `AppFrame` for `frame` slices, no new `window.confirm/alert/prompt`, no new direct
+   `localStorage` slices, and no new >400-char single-line minified files). Use `<ConfirmDialog>`
+   (from `@/features/appshell`) for confirmations and `featureFetch()` (from `@/lib/os-api`) for
+   normalized 401/403/JSON error handling. For independently deployed features, see
+   [`MODULAR-FEATURES.md`](./MODULAR-FEATURES.md).
 
 For a whole-product request, inventory every registered feature before narrowing changes.
 Mark each item as fixed, verified unchanged, configuration-blocked, or not yet verified.

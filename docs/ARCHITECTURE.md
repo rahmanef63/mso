@@ -99,6 +99,7 @@ MSO uses several extension concepts because they own different authority. They a
 | **MCP** | Protocol/transport boundary for structured tools. This includes MSO's own `/mcp` and project-declared MCP servers. | Tool schemas are discovered from the selected server; OAuth/project policy and call-time guards remain authoritative. | Package identity or credential storage. |
 | **Integration** | Credential identity and provider routing: credential user → provider → named connection → source/backend → auth method. | Native Integrations is the credential authority; secrets stay outside ordinary model/tool arguments. | MCP itself, Project Plugin, App. |
 | **App** | AppShell user-interface application or feature surfaced inside the MSO workspace. | UI install/toggle state belongs to the shell/app registry. | Managed service runtime or MCP capability. |
+| **Modular Feature Package** | Independently versioned static feature bundle under `~/.mso/features/<id>/`, served via `/api/v1/features/*` and packed/deployed with `bun run feature:pack`. | Owner-private disk package with `O_NOFOLLOW` fd reads, live `minRole` authorization, SHA-256 entry integrity, and sandboxed same-origin iframe framing; updates atomically without rebuilding Next.js or restarting `mso.service`. See [`MODULAR-FEATURES.md`](./MODULAR-FEATURES.md). | Built-in `frontend/slices/` monolith code, Managed App runtime, or Integration credential. |
 | **Managed App** | External runtime/service that MSO installs or operates, such as Hermes, OpenClaw or 9Router. | Host/service lifecycle, health, version, backup/update/uninstall state. | App Store entry, Integration, Project Plugin. |
 | **Skill Market** | Curated source of reviewed skill bundles. | Install state is local skill state (`installed / modified / conflict / not-installed`); removal refuses unmanaged content. | General app/plugin marketplace. |
 | **App Store** | Apps plus shared MCP/Skills management tabs. | UI app state remains in the workspace; MCP bindings and managed skill files live on the VPS and are shared with Settings. | OpenAI plugin directory, Project Plugin catalog, Managed App registry. |
@@ -306,8 +307,11 @@ bun run ship "docs: describe the verified change"
 ```
 
 The release path regenerates derived changelog data, runs push gates (including an
-out-of-tree production build), pushes the exact commit, then hands the in-place
-build/restart/final verification to the owner user manager when launched through MSO/MCP.
+out-of-tree production build with `--reflink=auto` and bounded parallel `MSO_E2E_JOBS` E2E),
+pushes the exact commit, then hands build/restart/final verification to the owner user manager
+when launched through MSO/MCP. During `mso update` (`scripts/self-update.sh`), the verified
+out-of-tree `.next` artifact is staged and promoted atomically via `scripts/lib/promote-next-build.sh`
+rather than running a duplicate in-place `next build`.
 Before push, the out-of-tree build runs required browser journeys against synthetic device/credential stores and a local provider fixture.
 A successful finalizer ends `~/.mso/self-update.log` with `UPDATE OK`.
 
@@ -358,8 +362,10 @@ is replaced (below).
 **User extension points — an update must never clobber these silently:**
 
 - **Per-user private state under `~/.mso`** — preferences, credential/integration
-  connections, workflow persistence, update state and logs. It lives outside the
-  checkout, so `git pull` cannot reach it and no update step may move it into the repo.
+  connections, workflow persistence, modular feature packages (`~/.mso/features/`), update state
+  and logs. It lives outside the checkout, so `git pull` cannot reach it and no update step may
+  move it into the repo. Modular features can be deployed/upgraded independently with
+  `bun run feature:pack deploy <dir>` without rebuilding MSO core.
 - **Their own worktree branches** — `agent/*` worktrees under `~/.cache/mso-worktrees`
   and any branch the user created. An update moves `main`; it does not rewrite, prune,
   merge or delete another branch.

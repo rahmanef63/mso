@@ -8,13 +8,18 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `modular` add change-aware gates, modular feature packages, and … (#342)
 - `managed-apps` fix Orca audit findings and add T3 Code managed app (#340)
 - `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll (#339)
 
 **Fixed**
 
-- `t3` forward T3 app cookies on WebSocket upgrades, protocol header, and auto-pairing
+- `t3` forward T3 app cookies on WebSocket upgrades, protocol header, and auto-pairing (#343)
 - `n8n` dedicated single-bar iframe workspace, N8N_PUBLIC_URL support, and portability guard (#341)
+
+**Docs**
+
+- `modular` sync agent rules, guides, and changelog for modular gates and feature contracts
 
 ## 2026-11-20
 

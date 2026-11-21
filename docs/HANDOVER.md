@@ -66,15 +66,18 @@ for Phase 5, and it only applies to a **full swap**, never to a hybrid.
 
 ## The gate, and how to run it
 
-```
-bash scripts/gates-12.sh          # fast, ~2 min, deterministic checks
-bash scripts/gates-12.sh full     # ~20 min, what CI runs: coverage + build + perf
+```bash
+bun run gate:plan                 # inspect change-aware verification plan for current diff
+bun run gate:smart                # fast change-aware gate for feature branches (~20–45 s)
+bun run pr:local                  # full local release gate (MSO_GATE_FULL=1 bash scripts/gates.sh)
+bash scripts/gates-12.sh full     # optional step-by-step mirror of the Actions verify job
 ```
 
-`fast` prints why each skipped step was skipped; `full` reports 17 passed / 0 failed / 0 skipped.
-CI runs the same set on GitHub. A Turbopack build warning **fails** the release gate — if you add
-an `fs.*` call whose path is a variable or env var, it needs `/* turbopackIgnore: true */` or the
-whole project gets traced.
+On non-`main` feature branches, `git push` (`scripts/gates.sh`) automatically runs `--pr-fast`
+so iterative pushes finish in seconds instead of ~12 minutes, while `main` (`bun run ship`) and
+`bun run pr:local` keep the full coverage + out-of-tree build + E2E gate. A Turbopack build
+warning **fails** the release gate — if you add an `fs.*` call whose path is a variable or env
+var, it needs `/* turbopackIgnore: true */` or the whole project gets traced.
 
 The perf gate compares TBT only on the **same core count** and at **low load**. It has been wrong
 once: it compared a 16-core workstation baseline against a 4-core GitHub runner and blocked a PR
@@ -84,8 +87,10 @@ for a property of the runner.
 
 1. `scripts/verify-build.sh` archives **HEAD**, not the working tree. A fix must be committed
    before the gate can see it. Two build cycles were lost to this.
-2. `docs/CHANGELOG.md` is generated and always conflicts. `.gitattributes` now marks it
-   `merge=ours`, but that is inert until `git config merge.ours.driver true`.
+2. `docs/CHANGELOG.md` no longer needs to be edited on feature branches (`scripts/gen-changelog.mjs --check`
+   defers automatically on PR branches when untouched vs `origin/main`; `bun run ship` regenerates
+   it on `main`). Write per-PR progress notes under `docs/progress/YYYY-MM-DD-<slug>.md` instead
+   of prepending to `docs/PROGRESS.md` so parallel PRs never collide.
 3. `main` moves often (TUI work is active on another track). Three rebases were needed on one PR.
 4. `gh` CLI is **not authenticated** on this box and SSH `id_ed25519_rahmanef63` is rejected by
    GitHub. Pushing works over HTTPS with the PAT stored in
@@ -120,5 +125,5 @@ Cheaper work that still has real value, in order:
    §4.0 is the corrected Phase 4 reasoning. It is authoritative over `BENCH-AFTER.md`.
 2. `docs/BENCH-BEFORE.md` / `docs/BENCH-AFTER.md` — the measured comparison, including the deltas
    that are zero and the ones inside the noise band.
-3. `docs/PROGRESS.md` — dated entries, newest first, with the evidence for each.
-4. `docs/DEVELOPMENT.md` — the gate commands and what each one enforces.
+3. `docs/progress/` & `docs/PROGRESS.md` — per-PR conflict-free progress notes (`docs/progress/YYYY-MM-DD-<slug>.md`) plus the historical `docs/PROGRESS.md` archive.
+4. `docs/DEVELOPMENT.md` & `docs/MODULAR-FEATURES.md` — dynamic gates, feature contracts, and independent modular feature packages.

@@ -1,7 +1,7 @@
 # External feature contract v1
 
 > **Design contract, 2026-09-27.** Normative requirements for new modular feature work.
-> The general v1 loader/schema below is not implemented. The narrower [connected-app manifest profile](./CONNECTED-APPS.md#portable-manifest-import) supports reviewed connections only.
+> The general v1 loader/schema below is not implemented. The narrower [connected-app manifest profile](./CONNECTED-APPS.md#portable-manifest-import) supports reviewed connections, and [modular feature packages](./MODULAR-FEATURES.md) implement owner-private static feature bundles under `~/.mso/features/` (`schemaVersion: 1`, `O_NOFOLLOW` fd reads, SHA-256 entry integrity, and live `minRole` authorization).
 > Current implementation and gaps: [registry audit](./EXTERNAL-FEATURE-AUDIT-2026-09-27.md).
 > Existing authority: [architecture](./ARCHITECTURE.md), [Managed Apps](./MANAGED-APPS.md),
 > [Integrations](./INTEGRATIONS.md), [platforms](./PLATFORMS.md).

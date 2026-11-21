@@ -65,4 +65,8 @@ Not every directory is a user-visible slot contribution: `desktop-icons` and `fo
 are shell infrastructure used directly by the desktop runtime. `shell-settings` is a normal
 top-level slice, not an AppShell feature directory.
 
-See `docs/ARCHITECTURE.md` for the shell/manifest relationship.
+See [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) for the shell/manifest relationship,
+[`docs/FRONTEND-CONTRACT.md`](./FRONTEND-CONTRACT.md) and `frontend/slices/feature-contracts.ts`
+(enforced by `bun run check:features` against `feature.boundaries.json`) for automated slice
+contracts, and [`docs/MODULAR-FEATURES.md`](./MODULAR-FEATURES.md) for independently deployed
+modular feature packages under `~/.mso/features/`.

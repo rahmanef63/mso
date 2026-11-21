@@ -39,6 +39,12 @@ Before any UI, UX, state or responsive change, read
 shell/feature contracts. This applies to every feature and native DOM UI in `lib/`, not only
 Integrations. Whole-product work must record per-feature evidence and unverified/configuration
 limits; a shared foundation change alone is not proof of every consumer journey.
+Every slice under `frontend/slices/` must declare an entry in `frontend/slices/feature-contracts.ts`
+and pass `bun run check:features` (`feature.boundaries.json` ratchets: barrel, colocated unit tests,
+no new `window.confirm/alert/prompt`, no new raw `localStorage` slices, no new >400-char minified lines).
+Use `<ConfirmDialog>` (from `@/features/appshell`) and `featureFetch()` (from `@/lib/os-api`).
+For standalone features that should update independently without rebuilding MSO core, package them
+under `~/.mso/features/` via `bun run feature:pack` (see [`docs/MODULAR-FEATURES.md`](./docs/MODULAR-FEATURES.md)).
 
 ## Architecture ownership
 
@@ -156,9 +162,11 @@ and official skill `mso-agent-bootstrap`, not by jumping to `exec_run`.
 **A code change is not PR-ready because it compiles or has been committed.**
 After targeted tests and a local commit on an isolated worktree:
 
-1. Run `bun run pr:local` and capture the exact HEAD SHA + first failure.
-   This reuses the full committed `scripts/gates.sh`: typecheck, lint, coverage,
-   architecture/docs/audit, isolated build, and mandatory browser journeys.
+1. During iterative work on a feature branch, `bun run gate:smart` (and `git push` via
+   `scripts/gates.sh` `--pr-fast`) runs fast change-aware verification (~20-45s). Before
+   marking a PR ready, run `bun run pr:local` (which sets `MSO_GATE_FULL=1` on `scripts/gates.sh`)
+   and capture the exact HEAD SHA + first failure: full typecheck, lint, coverage,
+   architecture/feature/docs/audit, isolated build, and mandatory browser journeys.
 2. Run `bun run pr:security` when Docker is available (pinned Semgrep + ShellCheck,
    same arguments/images as CI). **No Docker, failed scan, or incomplete evidence is
    BLOCKED, not PASSED.** Never interpret Semgrep's "0 findings" as success when
@@ -185,9 +193,12 @@ Draft PR; a local-only pass never implies CodeQL approval.
 
 Run validation with `umask 077`: security fixtures must create private files/directories, not inherit group-writable shell defaults. On a busy shared host, bound Vitest concurrency with `VITEST_MAX_WORKERS=2` before changing timeout or coverage limits.
 
-Follow `CLAUDE.md`: update `docs/PROGRESS.md`, run the relevant gates, and ship through
-`bun run ship "<conventional commit>"`. Do not replace the repository's release path with a
-bare push.
+Follow `CLAUDE.md`: for feature PRs write a standalone conflict-free progress note under
+`docs/progress/YYYY-MM-DD-<slug>.md` (do **not** prepend to `docs/PROGRESS.md` or edit
+`docs/CHANGELOG.md` on PR branches; `gen-changelog.mjs --check` defers on PRs and
+`bun run ship` regenerates `docs/CHANGELOG.md` on `main`), run the relevant gates, and ship
+releases through `bun run ship "<conventional commit>"`. Do not replace the repository's
+release path with a bare push.
 
 <!-- antislop:start -->
 ## antislop
