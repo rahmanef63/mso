@@ -1080,7 +1080,7 @@ mod tests {
 
         // Cockpit /api/v1/term/s1 WebSocket upgrade echoes payload
         let mut ws = TcpStream::connect(srv.addr()).unwrap();
-        ws.write_all(b"GET /api/v1/term/s1 HTTP/1.1\r\nHost: mso.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nx-os-managed-app-host: hermes\r\n\r\necho-me").unwrap();
+        ws.write_all(b"GET /api/v1/term/s1 HTTP/1.1\r\nHost: mso.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAA==\r\nSec-WebSocket-Version: 13\r\nx-os-managed-app-host: hermes\r\n\r\necho-me").unwrap();
         ws.shutdown(Shutdown::Write).unwrap();
         let mut ws_resp = Vec::new();
         ws.read_to_end(&mut ws_resp).unwrap();
@@ -1091,7 +1091,7 @@ mod tests {
 
         // Managed app WebSocket upgrade echoes payload with stamped x-os-managed-app-host
         let mut mws = TcpStream::connect(srv.addr()).unwrap();
-        mws.write_all(b"GET /ws?ticket=abc HTTP/1.1\r\nHost: hermes.mso.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\napp-ws").unwrap();
+        mws.write_all(b"GET /ws?ticket=abc HTTP/1.1\r\nHost: hermes.mso.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAA==\r\nSec-WebSocket-Version: 13\r\n\r\napp-ws").unwrap();
         mws.shutdown(Shutdown::Write).unwrap();
         let mut mws_resp = Vec::new();
         mws.read_to_end(&mut mws_resp).unwrap();
