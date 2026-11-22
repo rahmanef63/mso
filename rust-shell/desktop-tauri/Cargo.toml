@@ -1,0 +1,25 @@
+[package]
+name = "mso-desktop-tauri"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
+description = "MSO Stage R1 Tauri v2 native desktop client shell backed by mso-shell-core."
+default-run = "mso-desktop-tauri"
+
+# Standalone package outside rust-shell/Cargo.toml workspace members so
+# `cd rust-shell && cargo test --workspace` stays zero-dependency and offline-compilable
+# on hosts without WebKitGTK/GTK3 or crates.io access.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+mso-shell-core = { path = "../crates/mso-shell-core" }
+tauri = { version = "2", features = [] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

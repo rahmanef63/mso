@@ -48,7 +48,7 @@ fn extract_origin_host_port(origin: &str) -> Option<&str> {
     Some(authority)
 }
 
-fn has_session_cookie(cookie_header: Option<&str>) -> bool {
+pub fn has_session_cookie(cookie_header: Option<&str>) -> bool {
     let Some(raw) = cookie_header else { return false };
     raw.split(';').any(|pair| {
         pair.trim()

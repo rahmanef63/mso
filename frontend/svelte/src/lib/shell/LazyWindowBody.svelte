@@ -83,7 +83,7 @@
       };
     }
     if (win.app === "media" || win.app === "image-editor") return { initialPath: typeof win.payload === "string" ? win.payload : undefined };
-    if (win.app === "settings") return { role: session.role, onThemeChange };
+    if (win.app === "settings") return { role: session.role, deviceLabel: session.deviceLabel, onThemeChange };
     if (win.app === "shell-settings") return { role: session.role, chromeChoice, onChromeChange, onThemeChange };
     if (win.app === "devices") return { currentDeviceId: session.deviceId };
     if (win.app === "memory") return { role: session.role, onOpenFile: onOpenInEditor };

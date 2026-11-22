@@ -1,4 +1,4 @@
-// Development/preview only. Mirrors Rust Stage R3F 52-route allowlist + CSRF depth-2.
+// Development/preview only. Mirrors Rust Stage R4 54-route cockpit allowlist + CSRF depth-2.
 // No public server or production trust policy is changed.
 
 const ROUTES = {
@@ -6,6 +6,8 @@ const ROUTES = {
   "/api/auth/login": ["POST"],
   "/api/auth/logout": ["POST"],
   "/api/auth/devices": ["GET", "POST"],
+  "/api/auth/account": ["GET", "POST"],
+  "/api/auth/password": ["POST"],
   "/api/assistant": ["POST"],
   "/api/changelog": ["GET"],
   "/api/memory": ["GET", "POST"],

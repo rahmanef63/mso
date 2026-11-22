@@ -1,6 +1,7 @@
 use crate::assets::{AssetError, AssetRoot};
 use crate::csp::{build_csp_header, generate_nonce, inject_script_nonces};
-use crate::csrf::is_cross_origin_mutation;
+use crate::csrf::{has_session_cookie, is_cross_origin_mutation};
+use crate::fs_jail;
 use crate::http::{
     read_request_with_limit, write_managed_response, write_response, write_response_with_len,
     ParsedRequest, ReadError,
@@ -17,10 +18,12 @@ use crate::sse::{
     is_assistant_stream_path, is_term_stream_path, stream_sse_request, SseRequest,
     ASSISTANT_MAX_BODY_BYTES,
 };
+use crate::sys_metrics;
 use crate::ws::{is_websocket_upgrade, tunnel_websocket, WsUpgradeRequest};
 use std::fs;
 use std::io;
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -28,6 +31,7 @@ use std::time::Duration;
 
 const MAX_CONCURRENT_CONNS: usize = 64;
 const DEFAULT_UNKNOWN_ROUTE_BODY_LIMIT: usize = 16 * 1024;
+const NATIVE_FS_SEARCH_MAX_RESULTS: usize = 50;
 
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -35,6 +39,8 @@ pub struct ServerConfig {
     pub assets: AssetRoot,
     pub api_origin: Option<HostOrigin>,
     pub managed_hosts: ManagedHostConfig,
+    pub native_metrics: bool,
+    pub native_fs_root: Option<PathBuf>,
 }
 
 pub struct RunningServer {
@@ -164,6 +170,221 @@ fn to_sse_req(req: &ParsedRequest) -> SseRequest<'_> {
 fn is_term_ws_path(target: &str) -> bool {
     let path = target.split_once('?').map_or(target, |(p, _)| p);
     path.starts_with("/api/v1/term/") && !path.contains("..") && !path.contains('\\')
+}
+
+fn hex_val(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn percent_decode_query(raw: &str) -> String {
+    let bytes = raw.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'+' => {
+                out.push(b' ');
+                i += 1;
+            }
+            b'%' if i + 2 < bytes.len() => {
+                if let (Some(hi), Some(lo)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                    out.push((hi << 4) | lo);
+                    i += 3;
+                } else {
+                    out.push(b'%');
+                    i += 1;
+                }
+            }
+            b => {
+                out.push(b);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn extract_query_param(query_str: &str, key: &str) -> Option<String> {
+    if query_str.is_empty() {
+        return None;
+    }
+    for pair in query_str.split('&') {
+        let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+        if k == key {
+            return Some(percent_decode_query(v));
+        }
+    }
+    None
+}
+
+fn escape_json_str(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for ch in input.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\x08' => out.push_str("\\b"),
+            '\x0c' => out.push_str("\\f"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 || c == '\x7f' => {
+                use std::fmt::Write as _;
+                let _ = write!(&mut out, "\\u{:04x}", c as u32);
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+fn encode_fs_matches_json(matches: &[String]) -> String {
+    let mut out = String::from(r#"{"matches":["#);
+    for (idx, item) in matches.iter().enumerate() {
+        if idx > 0 {
+            out.push(',');
+        }
+        out.push('"');
+        out.push_str(&escape_json_str(item));
+        out.push('"');
+    }
+    out.push_str("]}");
+    out
+}
+
+fn try_handle_native_api(stream: &mut TcpStream, cfg: &ServerConfig, req: &ParsedRequest) -> bool {
+    let (path, query_str) = req.target.split_once('?').map_or((req.target.as_str(), ""), |(p, q)| (p, q));
+
+    if cfg.native_metrics && path == "/api/v1/sys/stats" {
+        if req.method != "GET" {
+            let _ = write_response(
+                stream,
+                405,
+                "application/json; charset=utf-8",
+                &[
+                    ("Allow".into(), "GET".into()),
+                    ("Cache-Control".into(), "no-store".into()),
+                ],
+                br#"{"error":"method_not_allowed"}"#,
+            );
+            return true;
+        }
+        if !has_session_cookie(req.cookie.as_deref()) {
+            let _ = write_response(
+                stream,
+                401,
+                "application/json; charset=utf-8",
+                &[("Cache-Control".into(), "no-store".into())],
+                br#"{"error":"unauthorized"}"#,
+            );
+            return true;
+        }
+        match sys_metrics::read_linux_snapshot() {
+            Ok(snap) => {
+                let body = snap.to_json();
+                let _ = write_response(
+                    stream,
+                    200,
+                    "application/json; charset=utf-8",
+                    &[
+                        ("X-MSO-Native-Handler".into(), "sys_metrics".into()),
+                        ("Cache-Control".into(), "no-store".into()),
+                    ],
+                    body.as_bytes(),
+                );
+            }
+            Err(_) => {
+                let _ = write_response(
+                    stream,
+                    503,
+                    "application/json; charset=utf-8",
+                    &[
+                        ("X-MSO-Native-Handler".into(), "sys_metrics".into()),
+                        ("Cache-Control".into(), "no-store".into()),
+                    ],
+                    br#"{"error":"native_metrics_unavailable"}"#,
+                );
+            }
+        }
+        return true;
+    }
+
+    if let Some(root) = &cfg.native_fs_root {
+        if path == "/api/v1/fs/search" {
+            if req.method != "GET" {
+                let _ = write_response(
+                    stream,
+                    405,
+                    "application/json; charset=utf-8",
+                    &[
+                        ("Allow".into(), "GET".into()),
+                        ("Cache-Control".into(), "no-store".into()),
+                    ],
+                    br#"{"error":"method_not_allowed"}"#,
+                );
+                return true;
+            }
+            if !has_session_cookie(req.cookie.as_deref()) {
+                let _ = write_response(
+                    stream,
+                    401,
+                    "application/json; charset=utf-8",
+                    &[("Cache-Control".into(), "no-store".into())],
+                    br#"{"error":"unauthorized"}"#,
+                );
+                return true;
+            }
+            let query = extract_query_param(query_str, "q").unwrap_or_default();
+            if query.bytes().any(|b| b == 0) {
+                let _ = write_response(
+                    stream,
+                    400,
+                    "application/json; charset=utf-8",
+                    &[
+                        ("X-MSO-Native-Handler".into(), "fs_jail".into()),
+                        ("Cache-Control".into(), "no-store".into()),
+                    ],
+                    br#"{"error":"invalid_query"}"#,
+                );
+                return true;
+            }
+            match fs_jail::search_jailed_files(root, &query, NATIVE_FS_SEARCH_MAX_RESULTS) {
+                Ok(matches) => {
+                    let body = encode_fs_matches_json(&matches);
+                    let _ = write_response(
+                        stream,
+                        200,
+                        "application/json; charset=utf-8",
+                        &[
+                            ("X-MSO-Native-Handler".into(), "fs_jail".into()),
+                            ("Cache-Control".into(), "no-store".into()),
+                        ],
+                        body.as_bytes(),
+                    );
+                }
+                Err(_) => {
+                    let _ = write_response(
+                        stream,
+                        500,
+                        "application/json; charset=utf-8",
+                        &[
+                            ("X-MSO-Native-Handler".into(), "fs_jail".into()),
+                            ("Cache-Control".into(), "no-store".into()),
+                        ],
+                        br#"{"error":"native_fs_search_failed"}"#,
+                    );
+                }
+            }
+            return true;
+        }
+    }
+
+    false
 }
 
 fn handle_managed_app(stream: &mut TcpStream, cfg: &ServerConfig, req: &ParsedRequest, app_id: &str) {
@@ -324,6 +545,9 @@ fn handle_connection(stream: &mut TcpStream, cfg: &ServerConfig) {
             );
             return;
         }
+        if try_handle_native_api(stream, cfg, &req) {
+            return;
+        }
         if let Some(upstream) = &cfg.api_origin {
             if match_route_policy(&req.target).is_some() {
                 let proxied = forward_api_request(upstream, &to_forward_req(&req));
@@ -408,6 +632,8 @@ mod tests {
             assets,
             api_origin: None,
             managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -508,6 +734,8 @@ mod tests {
             assets,
             api_origin,
             managed_hosts: ManagedHostConfig::from_template(Some("{id}.mso.example.com")),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -641,6 +869,8 @@ mod tests {
             assets,
             api_origin,
             managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -757,6 +987,8 @@ mod tests {
             assets,
             api_origin,
             managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -969,6 +1201,8 @@ mod tests {
             assets,
             api_origin,
             managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -1076,6 +1310,8 @@ mod tests {
             assets,
             api_origin,
             managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -1181,6 +1417,8 @@ mod tests {
             assets,
             api_origin,
             managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -1329,6 +1567,8 @@ mod tests {
             assets,
             api_origin,
             managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -1483,6 +1723,8 @@ mod tests {
             assets,
             api_origin,
             managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -1626,6 +1868,8 @@ mod tests {
             assets,
             api_origin,
             managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
         })
         .unwrap();
 
@@ -1672,6 +1916,246 @@ mod tests {
             let r_ok = send(&format!("POST {target} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3f-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{{}}"));
             assert!(r_ok.starts_with("HTTP/1.1 200 OK") && r_ok.contains(body_fragment), "POST {target}: {r_ok}");
         }
+
+        up_thread.join().unwrap();
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn serves_native_sys_metrics_with_cookie_gate_and_never_contacts_upstream() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r4-metrics-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        // Bind a non-blocking upstream listener to prove native metrics never contacts Node upstream.
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        up_listener.set_nonblocking(true).unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+            native_metrics: true,
+            native_fs_root: None,
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // Missing or empty session= cookie fails closed with 401.
+        let r_no_cookie = send("GET /api/v1/sys/stats HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(r_no_cookie.starts_with("HTTP/1.1 401 Unauthorized"), "got: {r_no_cookie}");
+        assert!(r_no_cookie.contains("Cache-Control: no-store\r\n"));
+        assert!(r_no_cookie.contains(r#"{"error":"unauthorized"}"#));
+
+        let r_empty_session = send("GET /api/v1/sys/stats HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=\r\n\r\n");
+        assert!(r_empty_session.starts_with("HTTP/1.1 401 Unauthorized"), "got: {r_empty_session}");
+
+        // Method and CSRF guards still apply without contacting upstream.
+        let r_cross = send("POST /api/v1/sys/stats HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r_cross.starts_with("HTTP/1.1 403 Forbidden"));
+        let r_405 = send("POST /api/v1/sys/stats HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nCookie: session=ok\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r_405.starts_with("HTTP/1.1 405 Method Not Allowed") && r_405.contains("Allow: GET\r\n"));
+
+        // Valid session= cookie serves native Linux metrics directly.
+        let r_ok = send("GET /api/v1/sys/stats HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: theme=dark; session=r4-tok\r\n\r\n");
+        if cfg!(target_os = "linux") {
+            assert!(r_ok.starts_with("HTTP/1.1 200 OK"), "got: {r_ok}");
+            assert!(r_ok.contains("X-MSO-Native-Handler: sys_metrics\r\n"));
+            assert!(r_ok.contains("Cache-Control: no-store\r\n"));
+            let body = r_ok.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+            assert!(body.starts_with('{') && body.ends_with('}'), "invalid JSON body: {body}");
+            assert!(body.contains(r#""cpu":{"pct":"#), "missing cpu block: {body}");
+            assert!(body.contains(r#""mem":{"used":"#), "missing mem block: {body}");
+        } else {
+            assert!(r_ok.starts_with("HTTP/1.1 503 Service Unavailable"), "got: {r_ok}");
+        }
+
+        // Upstream must never have received any connection.
+        assert!(
+            matches!(up_listener.accept(), Err(ref e) if e.kind() == io::ErrorKind::WouldBlock),
+            "native_metrics must never contact upstream"
+        );
+
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn serves_native_fs_search_with_cookie_gate_and_jail_exclusions() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r4-fs-assets-{nanos}"));
+        let jail = std::env::temp_dir().join(format!("mso-rust-srv-r4-fs-jail-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        fs::create_dir_all(jail.join("notes")).unwrap();
+        fs::create_dir_all(jail.join("src")).unwrap();
+        fs::create_dir_all(jail.join(".ssh")).unwrap();
+        fs::create_dir_all(jail.join(".mso")).unwrap();
+        fs::create_dir_all(jail.join(".git")).unwrap();
+        fs::create_dir_all(jail.join("node_modules/pkg")).unwrap();
+
+        fs::write(jail.join("notes/hello.txt"), "safe").unwrap();
+        fs::write(jail.join("src/hello-world.rs"), "fn main() {}").unwrap();
+        fs::write(jail.join("other.txt"), "no match").unwrap();
+        fs::write(jail.join(".env"), "SECRET=hello").unwrap();
+        fs::write(jail.join(".env.hello"), "SECRET=2").unwrap();
+        fs::write(jail.join(".ssh/hello_key"), "private").unwrap();
+        fs::write(jail.join(".mso/hello.json"), "{}").unwrap();
+        fs::write(jail.join(".git/hello.txt"), "git").unwrap();
+        fs::write(jail.join("node_modules/pkg/hello.js"), "nm").unwrap();
+
+        // Bind a non-blocking upstream listener to prove native fs_jail never contacts Node upstream.
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        up_listener.set_nonblocking(true).unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: Some(jail.clone()),
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // Missing or empty session= cookie fails closed with 401.
+        let r_no_cookie = send("GET /api/v1/fs/search?q=hello HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(r_no_cookie.starts_with("HTTP/1.1 401 Unauthorized"), "got: {r_no_cookie}");
+        assert!(r_no_cookie.contains("Cache-Control: no-store\r\n"));
+
+        let r_bad_cookie = send("GET /api/v1/fs/search?q=hello HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: other=1\r\n\r\n");
+        assert!(r_bad_cookie.starts_with("HTTP/1.1 401 Unauthorized"), "got: {r_bad_cookie}");
+
+        // Method and CSRF guards still apply without contacting upstream.
+        assert!(send("POST /api/v1/fs/search?q=hello HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let r_405 = send("POST /api/v1/fs/search?q=hello HTTP/1.1\r\nHost: 127.0.0.1\r\nSec-Fetch-Site: same-origin\r\nCookie: session=ok\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r_405.starts_with("HTTP/1.1 405 Method Not Allowed") && r_405.contains("Allow: GET\r\n"));
+
+        // Valid session= cookie returns jailed matches only, excluding .env, .ssh, .mso, .git, node_modules.
+        let r_ok = send("GET /api/v1/fs/search?q=hello HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n");
+        assert!(r_ok.starts_with("HTTP/1.1 200 OK"), "got: {r_ok}");
+        assert!(r_ok.contains("X-MSO-Native-Handler: fs_jail\r\n"));
+        assert!(r_ok.contains("Cache-Control: no-store\r\n"));
+        let body = r_ok.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+        assert_eq!(body, r#"{"matches":["notes/hello.txt","src/hello-world.rs"]}"#);
+        assert!(!body.contains(".env") && !body.contains(".ssh") && !body.contains(".mso"));
+
+        // Percent-encoded query decodes cleanly.
+        let r_enc = send("GET /api/v1/fs/search?foo=1&q=hello%2Dworld HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n");
+        assert!(r_enc.starts_with("HTTP/1.1 200 OK"), "got: {r_enc}");
+        let body_enc = r_enc.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+        assert_eq!(body_enc, r#"{"matches":["src/hello-world.rs"]}"#);
+
+        // Upstream must never have received any connection.
+        assert!(
+            matches!(up_listener.accept(), Err(ref e) if e.kind() == io::ErrorKind::WouldBlock),
+            "native_fs_root must never contact upstream"
+        );
+
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&jail);
+    }
+
+    #[test]
+    fn enforces_auth_password_and_account_routes_methods_csrf_and_limits() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r4-auth-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+        let up_thread = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            let cases: &[(&str, &str)] = &[
+                ("POST /api/auth/password HTTP/1.1", r#"{"ok":true}"#),
+                ("GET /api/auth/account HTTP/1.1", r#"{"username":"owner"}"#),
+                ("POST /api/auth/account HTTP/1.1", r#"{"saved":true}"#),
+            ];
+            for (expected_line, resp_body) in cases {
+                let (mut s, _) = up_listener.accept().unwrap();
+                let n = s.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+                assert!(req.starts_with(expected_line), "expected {expected_line}, got: {req}");
+                assert!(req.contains("Host: mso.example.com\r\n"), "Host not preserved: {req}");
+                assert!(req.contains("Cookie: session=r4-auth\r\n"), "Cookie not preserved: {req}");
+                assert!(!req.contains("Authorization:"), "Authorization must not be forwarded: {req}");
+                let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{resp_body}");
+                s.write_all(resp.as_bytes()).unwrap();
+            }
+        });
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // /api/auth/password: POST only (<=16 KiB, CSRF depth-2)
+        let pw_get = send("GET /api/auth/password HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r4-auth\r\n\r\n");
+        assert!(pw_get.starts_with("HTTP/1.1 405 Method Not Allowed") && pw_get.contains("Allow: POST\r\n"));
+        let pw_del = send("DELETE /api/auth/password HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nCookie: session=r4-auth\r\n\r\n");
+        assert!(pw_del.starts_with("HTTP/1.1 405 Method Not Allowed") && pw_del.contains("Allow: POST\r\n"));
+        assert!(send("POST /api/auth/password HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("POST /api/auth/password HTTP/1.1\r\nHost: mso.example.com\r\nOrigin: https://evil.example\r\nCookie: session=r4-auth\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("POST /api/auth/password HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 16385\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let pw_ok = send("POST /api/auth/password HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r4-auth\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(pw_ok.starts_with("HTTP/1.1 200 OK") && pw_ok.contains(r#"{"ok":true}"#));
+
+        // /api/auth/account: GET + POST (<=16 KiB, CSRF depth-2)
+        let acct_del = send("DELETE /api/auth/account HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nCookie: session=r4-auth\r\n\r\n");
+        assert!(acct_del.starts_with("HTTP/1.1 405 Method Not Allowed") && acct_del.contains("Allow: GET, POST\r\n"));
+        assert!(send("POST /api/auth/account HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("POST /api/auth/account HTTP/1.1\r\nHost: mso.example.com\r\nOrigin: https://evil.example\r\nCookie: session=r4-auth\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("POST /api/auth/account HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 16385\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let acct_get = send("GET /api/auth/account HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r4-auth\r\nAuthorization: Bearer strip\r\n\r\n");
+        assert!(acct_get.starts_with("HTTP/1.1 200 OK") && acct_get.contains(r#"{"username":"owner"}"#));
+        let acct_post = send("POST /api/auth/account HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r4-auth\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(acct_post.starts_with("HTTP/1.1 200 OK") && acct_post.contains(r#"{"saved":true}"#));
+
+        // Subpaths remain unlisted (404)
+        assert!(send("POST /api/auth/password/extra HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 404 Not Found"));
+        assert!(send("GET /api/auth/account/extra HTTP/1.1\r\nHost: mso.example.com\r\n\r\n").starts_with("HTTP/1.1 404 Not Found"));
 
         up_thread.join().unwrap();
         srv.stop();

@@ -24,6 +24,8 @@ const ROUTE_POLICIES: &[RoutePolicy] = &[
     RoutePolicy { path: "/api/auth/login", prefix: false, methods: &["POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/auth/logout", prefix: false, methods: &["POST"], max_body_bytes: 4 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/auth/devices", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/auth/password", prefix: false, methods: &["POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/auth/account", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/v1/sys/stats", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
     // Increment 3A host routes
     RoutePolicy { path: "/api/v1/sys/processes", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
@@ -1025,5 +1027,22 @@ mod tests {
         assert_eq!(r_mv.body, br#"{"moved":true}"#);
 
         handle.join().unwrap();
+    }
+
+    #[test]
+    fn matches_auth_password_and_account_routes_with_exact_limits() {
+        let pw = match_route_policy("/api/auth/password").expect("/api/auth/password");
+        assert!(!pw.prefix);
+        assert_eq!(pw.methods, &["POST"]);
+        assert_eq!(pw.max_body_bytes, 16 * 1024);
+        assert!(!pw.forward_authorization);
+        assert!(match_route_policy("/api/auth/password/extra").is_none());
+
+        let acct = match_route_policy("/api/auth/account").expect("/api/auth/account");
+        assert!(!acct.prefix);
+        assert_eq!(acct.methods, &["GET", "POST"]);
+        assert_eq!(acct.max_body_bytes, 16 * 1024);
+        assert!(!acct.forward_authorization);
+        assert!(match_route_policy("/api/auth/account/extra").is_none());
     }
 }

@@ -5,15 +5,17 @@ import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "@playwright/test";
 
-// Synthetic backend only: verifies Increment 4E (33/33 slices: Camoufox, Bot Desktops, n8n, Image Editor, Media Studio, Reel Editor + LazyModals).
+// Synthetic backend only: verifies Increment 4F + Inc. 2B Onboarding (Settings Account/Updates/Audit + 33/33 slices).
 const viewerSession = { authenticated: true, deviceId: "fixture-viewer-0001", deviceLabel: "Browser fixture", role: "viewer" };
 const ownerSession = { authenticated: true, deviceId: "fixture-owner-0001", deviceLabel: "Owner fixture", role: "owner" };
 const signedOut = { authenticated: false, deviceId: null, deviceLabel: null, role: null };
 const stats = { cpu: { pct: 12, cores: 4 }, mem: { used: 1024 ** 3, total: 4 * 1024 ** 3 }, disk: { used: 2 * 1024 ** 3, total: 8 * 1024 ** 3 }, uptime: 3_660_000 };
+let account = { name: "Owner", icon: { type: "preset", id: "user" } };
+const prefs = { tweaks: { theme: "system", reducedMotion: false }, quicklinks: [], updates: { auto: true, channel: "stable" } };
+const updateStatus = { supported: true, reason: null, current: "6bcb8d65", currentSubject: "feat(hybrid): 33/33 slices", latest: "6bcb8d65", buildSha: "6bcb8d65", pendingBuild: false, ahead: 0, behind: 0, commits: [], dirty: false, running: false, remoteChecked: true, log: "", channel: "stable", target: "origin/main" };
+const auditEntries = { entries: [{ ts: "2026-11-22T09:00:00.000Z", action: "auth.login", actor: "fixture-owner-0001", target: "cockpit", ok: true, detail: "Browser sign-in" }] };
 const camStatus = { running: true, enabled: true, installed: true, viewerReady: true, activeState: "active", unit: "camoufox-vnc.service" };
 const camSession = { password: "secret-should-not-appear", viewerOrigin: "https://viewer.mso.example.com", viewerTicket: "secret-ticket", viewerPathPrefix: "/vnc" };
-const containers = { containers: [{ id: "bot-01", name: "alpha-desktop", state: "running", status: "Up 2h", labels: { user: "ops", bot: "alpha" }, created: "2026-11-22T00:00:00.000Z", ports: "5901" }] };
-const managedApps = { apps: [{ id: "n8n", name: "n8n", description: "Workflow automation", installed: true, installationType: "docker", state: "running", healthy: true, version: "1.80.0", dashboardAvailable: true, publicDashboardUrl: "https://n8n.mso.example.com", supportedActions: ["restart"], diagnostic: null }] };
 let mode = "ready", cookieSeen = false;
 const devices = { approved: { "fixture-owner-0001": { label: "Owner fixture", approvedAt: 1_700_000_000_000, role: "owner" } }, pending: {} };
 const hosts = new Set();
@@ -31,12 +33,15 @@ const backend = createServer(async (req, res) => {
     else { res.statusCode = 401; res.end(JSON.stringify({ error: "bad_password" })); }
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") { mode = "signed-out"; res.setHeader("Set-Cookie", "session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
   else if (url.pathname === "/api/auth/devices") res.end(JSON.stringify(devices));
+  else if (url.pathname === "/api/auth/account" && req.method === "GET") res.end(JSON.stringify(account));
+  else if (url.pathname === "/api/auth/account" && req.method === "POST") { const b = await readBody(req); account = { ...account, ...(b.name ? { name: b.name } : {}) }; res.end(JSON.stringify(account)); }
+  else if (url.pathname === "/api/auth/password" && req.method === "POST") res.end(JSON.stringify({ ok: true }));
+  else if (url.pathname === "/api/prefs") res.end(JSON.stringify(prefs));
   else if (url.pathname === "/api/v1/sys/stats") res.end(JSON.stringify(stats));
+  else if (url.pathname === "/api/v1/sys/update") res.end(JSON.stringify(updateStatus));
+  else if (url.pathname === "/api/v1/sys/audit") res.end(JSON.stringify(auditEntries));
   else if (url.pathname === "/api/v1/camoufox/service") res.end(JSON.stringify(camStatus));
   else if (url.pathname === "/api/v1/camoufox/session") res.end(JSON.stringify(camSession));
-  else if (url.pathname === "/api/v1/desktop/containers") res.end(JSON.stringify(containers));
-  else if (url.pathname === "/api/v1/desktop/lifecycle") res.end(JSON.stringify({ action: "logs", container: "bot-01", state: containers.containers[0], logs: ["desktop ready"] }));
-  else if (url.pathname === "/api/v1/managed-apps") res.end(JSON.stringify(managedApps));
   else { res.statusCode = 404; res.end("{}"); }
 });
 
@@ -88,42 +93,28 @@ try {
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("heading", { name: "Devices & Approvals" }).waitFor();
 
-  // Verify LazyModals loads Command Palette on demand
-  await page.getByRole("button", { name: "Commands" }).click();
-  await page.getByRole("combobox", { name: "Search commands" }).waitFor();
-  await page.keyboard.press("Escape");
+  // Verify Settings -> Account (Onboarding), Updates (single in-Settings signal), and Audit Log
+  await page.locator(".app-dock").getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Account" }).click();
+  await page.getByLabel("Display name").fill("Admin Host");
+  await page.getByRole("button", { name: "Update display name" }).click();
+  await page.waitForFunction(() => document.body.innerText.includes("Admin Host"));
+  await page.getByRole("tab", { name: "Updates" }).click();
+  await page.getByText("6bcb8d65").waitFor();
+  await page.getByRole("tab", { name: "Audit Log" }).click();
+  await page.getByText("auth.login").waitFor();
+  await page.getByRole("button", { name: "Close Settings" }).click();
 
-  // Wave 7 Final 6 Slices -> 33/33!
   await page.locator(".app-dock").getByRole("button", { name: "Camoufox" }).click();
   await page.getByText("https://viewer.mso.example.com").waitFor();
   assert.equal(await page.evaluate(() => document.body.innerText.includes("secret-should-not-appear")), false);
   await page.getByRole("button", { name: "Close Camoufox Browser" }).click();
 
-  await page.locator(".app-dock").getByRole("button", { name: "Bot Desktops" }).click();
-  await page.getByText("alpha-desktop").waitFor();
-  await page.getByRole("button", { name: "Close Bot Desktops" }).click();
-
-  await page.locator(".app-dock").getByRole("button", { name: "n8n" }).click();
-  await page.getByText("Workflow automation").waitFor();
-  await page.getByRole("button", { name: "Close n8n" }).click();
-
-  await page.locator(".app-dock").getByRole("button", { name: "Image Editor" }).click();
-  await page.getByRole("button", { name: "Rotate 90" }).waitFor();
-  await page.getByRole("button", { name: "Close Image Editor" }).click();
-
-  await page.locator(".app-dock").getByRole("button", { name: "Media Studio" }).click();
-  await page.getByRole("button", { name: "Add asset" }).waitFor();
-  await page.getByRole("button", { name: "Close Media Studio" }).click();
-
-  await page.locator(".app-dock").getByRole("button", { name: "Reel Editor" }).click();
-  await page.getByRole("button", { name: "Add clip" }).waitFor();
-  await page.getByRole("button", { name: "Close Reel Editor" }).click();
-
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual([...hosts], ["127.0.0.1:4173"]);
   assert.ok(cookieSeen);
-  console.log("PASS Increments 1..4E: 33/33 slices, 10/10 AppShell features, 5 OS chromes, LazyModals");
+  console.log("PASS Increments 1..4F: Onboarding/Account, single in-Settings Updates, Audit Log, 33/33 slices");
 } finally {
   await browser?.close();
   if (preview && preview.exitCode === null) { preview.kill("SIGTERM"); await once(preview, "exit"); }
