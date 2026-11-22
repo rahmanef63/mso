@@ -52,10 +52,16 @@
     media: () => import("../media/MediaViewerApp.svelte"),
     pickers: () => import("../media/PickersApp.svelte"),
     "create-app": () => import("../create-app/CreateAppView.svelte"),
+    camoufox: () => import("../runtime-apps/CamoufoxApp.svelte"),
+    "bot-desktops": () => import("../runtime-apps/BotDesktopsApp.svelte"),
+    n8n: () => import("../runtime-apps/N8nApp.svelte"),
+    "image-editor": () => import("../creative/ImageEditorApp.svelte"),
+    "media-studio": () => import("../creative/MediaStudioApp.svelte"),
+    "reel-editor": () => import("../creative/ReelEditorApp.svelte"),
   };
 
   const cache = new Map<string, Promise<AnySliceComponent>>();
-  const ROLE_PROPS = new Set(["integrations", "channels", "store", "extensions", "infra", "agent-vault", "agent-group", "create-app"]);
+  const ROLE_PROPS = new Set(["integrations", "channels", "store", "extensions", "infra", "agent-vault", "agent-group", "create-app", "camoufox", "bot-desktops"]);
 
   function getSlice(app: string): Promise<AnySliceComponent> | null {
     const loader = LOADERS[app];
@@ -76,7 +82,7 @@
         onDirtyChange: (dirty: boolean) => onEditorDirtyChange(win.id, dirty),
       };
     }
-    if (win.app === "media") return { initialPath: typeof win.payload === "string" ? win.payload : undefined };
+    if (win.app === "media" || win.app === "image-editor") return { initialPath: typeof win.payload === "string" ? win.payload : undefined };
     if (win.app === "settings") return { role: session.role, onThemeChange };
     if (win.app === "shell-settings") return { role: session.role, chromeChoice, onChromeChange, onThemeChange };
     if (win.app === "devices") return { currentDeviceId: session.deviceId };

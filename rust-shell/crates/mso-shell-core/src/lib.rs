@@ -2,6 +2,7 @@ pub mod assets;
 pub mod csp;
 pub mod csrf;
 pub mod desktop;
+pub mod fs_jail;
 pub mod http;
 pub mod managed;
 pub mod origin;

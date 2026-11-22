@@ -1589,4 +1589,92 @@ mod tests {
         srv.stop();
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn enforces_stage_r3f_routes_methods_csrf_limits_and_unlisted_guards() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r3f-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+        let up_thread = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            let cases: &[(&str, &str)] = &[
+                ("GET /api/v1/desktop/screenshot?id=dc-1 HTTP/1.1", r#"{"image":"base64"}"#),
+                ("POST /api/v1/fs/copy HTTP/1.1", r#"{"copied":true}"#),
+                ("POST /api/v1/fs/move HTTP/1.1", r#"{"moved":true}"#),
+            ];
+            for (expected_line, resp_body) in cases {
+                let (mut s, _) = up_listener.accept().unwrap();
+                let n = s.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+                assert!(req.starts_with(expected_line), "expected {expected_line}, got: {req}");
+                assert!(req.contains("Host: mso.example.com\r\n"), "Host not preserved: {req}");
+                assert!(req.contains("Cookie: session=r3f-tok\r\n"), "Cookie not preserved: {req}");
+                assert!(!req.contains("Authorization:"), "Authorization must not be forwarded: {req}");
+                let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{resp_body}");
+                s.write_all(resp.as_bytes()).unwrap();
+            }
+        });
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // Unlisted routes and subpaths MUST return 404 without contacting upstream
+        for unlisted in [
+            "/api/config",
+            "/api/v1/exec/run",
+            "/api/v1/editor/exec",
+            "/api/v1/desktop/screenshot/extra",
+            "/api/v1/fs/copy/extra",
+            "/api/v1/fs/move/extra",
+        ] {
+            let r_get = send(&format!("GET {unlisted} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3f-tok\r\n\r\n"));
+            assert!(r_get.starts_with("HTTP/1.1 404 Not Found") && r_get.contains("not_found"), "GET {unlisted}: {r_get}");
+            let r_post = send(&format!("POST {unlisted} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3f-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{{}}"));
+            assert!(r_post.starts_with("HTTP/1.1 404 Not Found") && r_post.contains("not_found"), "POST {unlisted}: {r_post}");
+        }
+
+        // /api/v1/desktop/screenshot: GET only (0 bytes, 405 on POST, CSRF depth-2 on cross-site POST)
+        let r_ss = send("GET /api/v1/desktop/screenshot?id=dc-1 HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3f-tok\r\nAuthorization: Bearer strip\r\n\r\n");
+        assert!(r_ss.starts_with("HTTP/1.1 200 OK") && r_ss.contains(r#"{"image":"base64"}"#));
+        assert!(send("POST /api/v1/desktop/screenshot HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let ss_post = send("POST /api/v1/desktop/screenshot HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(ss_post.starts_with("HTTP/1.1 405 Method Not Allowed") && ss_post.contains("Allow: GET\r\n"));
+
+        // /api/v1/fs/copy & /api/v1/fs/move: POST only (<=65,536 bytes, 405 on GET, CSRF depth-2)
+        for (target, body_fragment) in [
+            ("/api/v1/fs/copy", r#"{"copied":true}"#),
+            ("/api/v1/fs/move", r#"{"moved":true}"#),
+        ] {
+            let r_get = send(&format!("GET {target} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3f-tok\r\n\r\n"));
+            assert!(r_get.starts_with("HTTP/1.1 405 Method Not Allowed") && r_get.contains("Allow: POST\r\n"), "GET {target}: {r_get}");
+            assert!(send(&format!("POST {target} HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{{}}")).starts_with("HTTP/1.1 403 Forbidden"));
+            assert!(send(&format!("POST {target} HTTP/1.1\r\nHost: mso.example.com\r\nOrigin: https://evil.example\r\nCookie: session=r3f-tok\r\nContent-Length: 2\r\n\r\n{{}}")).starts_with("HTTP/1.1 403 Forbidden"));
+            assert!(send(&format!("POST {target} HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n")).starts_with("HTTP/1.1 413 Payload Too Large"));
+            let r_ok = send(&format!("POST {target} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3f-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{{}}"));
+            assert!(r_ok.starts_with("HTTP/1.1 200 OK") && r_ok.contains(body_fragment), "POST {target}: {r_ok}");
+        }
+
+        up_thread.join().unwrap();
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

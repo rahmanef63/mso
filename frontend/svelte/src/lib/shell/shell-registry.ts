@@ -17,7 +17,8 @@ export const APP_SLUGS: AppSlugMap = {
   packages: "packages", apps: "apps", settings: "settings", "shell-settings": "shell-settings",
   terminal: "terminal", devices: "devices", clipboard: "clipboard", inspector: "inspector",
   "agent-vault": "agent-vault", "agent-group": "agent-group", media: "media", pickers: "pickers",
-  "create-app": "create-app",
+  "create-app": "create-app", camoufox: "camoufox", "bot-desktops": "bot-desktops", n8n: "n8n",
+  "image-editor": "image-editor", "media-studio": "media-studio", "reel-editor": "reel-editor",
 };
 
 export const SHORTCUTS: ReadonlyArray<{ keys: string; description: string }> = [
@@ -33,10 +34,16 @@ export const DOCK_APPS: readonly DockAppDef[] = [
   { app: "editor", label: "Open Editor", title: "Code Editor", multi: true },
   { app: "docs", label: "Docs", title: "Docs" },
   { app: "workflows", label: "Workflows", title: "Workflows" },
+  { app: "n8n", label: "n8n", title: "n8n" },
   { app: "organization", label: "Organization", title: "Organization" },
   { app: "extensions", label: "Extensions", title: "Extensions" },
   { app: "media", label: "Media Viewer", title: "Media Viewer" },
   { app: "pickers", label: "Pickers", title: "Pickers" },
+  { app: "image-editor", label: "Image Editor", title: "Image Editor" },
+  { app: "media-studio", label: "Media Studio", title: "Media Studio" },
+  { app: "reel-editor", label: "Reel Editor", title: "Reel Editor" },
+  { app: "camoufox", label: "Camoufox", title: "Camoufox Browser" },
+  { app: "bot-desktops", label: "Bot Desktops", title: "Bot Desktops" },
   { app: "processes", label: "Open Processes", title: "Processes" },
   { app: "services", label: "Open Services", title: "Services" },
   { app: "packages", label: "Open Packages", title: "Packages" },

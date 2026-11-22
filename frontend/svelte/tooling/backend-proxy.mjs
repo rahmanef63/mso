@@ -1,4 +1,4 @@
-// Development/preview only. Mirrors Rust Stage R3E 49-route allowlist + CSRF depth-2.
+// Development/preview only. Mirrors Rust Stage R3F 52-route allowlist + CSRF depth-2.
 // No public server or production trust policy is changed.
 
 const ROUTES = {
@@ -23,6 +23,7 @@ const ROUTES = {
   "/api/v1/channels": ["GET", "POST"],
   "/api/v1/desktop/containers": ["GET", "POST"],
   "/api/v1/desktop/lifecycle": ["POST"],
+  "/api/v1/desktop/screenshot": ["GET"],
   "/api/v1/features": ["GET"],
   "/api/v1/infra/providers": ["GET", "POST", "DELETE"],
   "/api/v1/integrations": ["GET", "POST"],
@@ -38,7 +39,9 @@ const ROUTES = {
   "/api/v1/sys/services": ["GET", "POST"],
   "/api/v1/sys/packages": ["GET"],
   "/api/v1/sys/update": ["GET"],
+  "/api/v1/fs/copy": ["POST"],
   "/api/v1/fs/list": ["GET"],
+  "/api/v1/fs/move": ["POST"],
   "/api/v1/fs/raw": ["GET"],
   "/api/v1/fs/read": ["GET"],
   "/api/v1/fs/search": ["GET"],

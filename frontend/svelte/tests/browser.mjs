@@ -5,16 +5,15 @@ import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "@playwright/test";
 
-// Synthetic backend only: verifies Increments 1..4D (10/10 AppShell features, 5 OS chromes, Agent Vault/Group, Media, Pickers, Create App, Shell Settings).
+// Synthetic backend only: verifies Increment 4E (33/33 slices: Camoufox, Bot Desktops, n8n, Image Editor, Media Studio, Reel Editor + LazyModals).
 const viewerSession = { authenticated: true, deviceId: "fixture-viewer-0001", deviceLabel: "Browser fixture", role: "viewer" };
 const ownerSession = { authenticated: true, deviceId: "fixture-owner-0001", deviceLabel: "Owner fixture", role: "owner" };
 const signedOut = { authenticated: false, deviceId: null, deviceLabel: null, role: null };
 const stats = { cpu: { pct: 12, cores: 4 }, mem: { used: 1024 ** 3, total: 4 * 1024 ** 3 }, disk: { used: 2 * 1024 ** 3, total: 8 * 1024 ** 3 }, uptime: 3_660_000 };
-const vaultView = { state: { schemaVersion: 1, project: { id: "mso", name: "MSO", path: "/home/demo/mso" }, root: "/home/demo/.vault", current: "snap1", refreshedAt: "2026-11-22T00:00:00.000Z", snapshots: [{ id: "snap1", capturedAt: "2026-11-22T00:00:00.000Z", truncated: false, warnings: [], notes: [{ path: "overview.md", title: "Repo Overview", kind: "overview", source: "README.md" }] }] }, note: { path: "overview.md", content: "Vault overview text" } };
-const groupSnap = { revision: 1, groups: [{ id: "g1", name: "Release Council", members: [{ id: "m1", name: "Alfa", profile: "ops" }], maxRounds: 2, enabled: true, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T00:00:00.000Z", runs: [] }] };
-const stockResults = { results: [{ id: "img-1", title: "Sunset", url: "https://images.example.com/sunset.jpg", thumb: "https://images.example.com/sunset-sm.jpg", creator: "Demo", license: "CC0" }] };
-let shellApps = { schemaVersion: 1, revision: "rev-1", configurable: true, apps: [{ id: "grafana", title: "Grafana", description: "Metrics UI", origin: "https://grafana.example.com", url: "https://grafana.example.com/", renderer: "iframe", sandbox: "allow-scripts", definition: { id: "grafana", title: "Grafana", description: "Metrics UI", url: "https://grafana.example.com/", mode: "embed" } }] };
-let prefs = { tweaks: { theme: "system", preset: "macos", fontScale: 1, reducedMotion: false }, quicklinks: [], updates: { auto: true, channel: "stable" } };
+const camStatus = { running: true, enabled: true, installed: true, viewerReady: true, activeState: "active", unit: "camoufox-vnc.service" };
+const camSession = { password: "secret-should-not-appear", viewerOrigin: "https://viewer.mso.example.com", viewerTicket: "secret-ticket", viewerPathPrefix: "/vnc" };
+const containers = { containers: [{ id: "bot-01", name: "alpha-desktop", state: "running", status: "Up 2h", labels: { user: "ops", bot: "alpha" }, created: "2026-11-22T00:00:00.000Z", ports: "5901" }] };
+const managedApps = { apps: [{ id: "n8n", name: "n8n", description: "Workflow automation", installed: true, installationType: "docker", state: "running", healthy: true, version: "1.80.0", dashboardAvailable: true, publicDashboardUrl: "https://n8n.mso.example.com", supportedActions: ["restart"], diagnostic: null }] };
 let mode = "ready", cookieSeen = false;
 const devices = { approved: { "fixture-owner-0001": { label: "Owner fixture", approvedAt: 1_700_000_000_000, role: "owner" } }, pending: {} };
 const hosts = new Set();
@@ -33,13 +32,11 @@ const backend = createServer(async (req, res) => {
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") { mode = "signed-out"; res.setHeader("Set-Cookie", "session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
   else if (url.pathname === "/api/auth/devices") res.end(JSON.stringify(devices));
   else if (url.pathname === "/api/v1/sys/stats") res.end(JSON.stringify(stats));
-  else if (url.pathname === "/api/prefs" && req.method === "GET") res.end(JSON.stringify(prefs));
-  else if (url.pathname === "/api/prefs" && req.method === "POST") { const p = await readBody(req); prefs = { ...prefs, ...(p.tweaks ? { tweaks: { ...prefs.tweaks, ...p.tweaks } } : {}) }; res.end(JSON.stringify({ ok: true })); }
-  else if (url.pathname === "/api/v1/agent-vault") res.end(JSON.stringify(req.method === "POST" ? { ...vaultView, changed: true } : vaultView));
-  else if (url.pathname === "/api/v1/agent-groups") res.end(JSON.stringify(groupSnap));
-  else if (url.pathname === "/api/v1/stock/search") res.end(JSON.stringify(stockResults));
-  else if (url.pathname === "/api/v1/shell-apps" && req.method === "GET") res.end(JSON.stringify(shellApps));
-  else if (url.pathname === "/api/v1/shell-apps" && req.method === "POST") { res.end(JSON.stringify({ id: "demo-app", revision: "rev-2" })); }
+  else if (url.pathname === "/api/v1/camoufox/service") res.end(JSON.stringify(camStatus));
+  else if (url.pathname === "/api/v1/camoufox/session") res.end(JSON.stringify(camSession));
+  else if (url.pathname === "/api/v1/desktop/containers") res.end(JSON.stringify(containers));
+  else if (url.pathname === "/api/v1/desktop/lifecycle") res.end(JSON.stringify({ action: "logs", container: "bot-01", state: containers.containers[0], logs: ["desktop ready"] }));
+  else if (url.pathname === "/api/v1/managed-apps") res.end(JSON.stringify(managedApps));
   else { res.statusCode = 404; res.end("{}"); }
 });
 
@@ -80,7 +77,7 @@ try {
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       }
       await context.close();
-      console.log(`PASS monitor + 10/10 shell features no overflow: ${width}px ${colorScheme}`);
+      console.log(`PASS 33/33 shell no overflow: ${width}px ${colorScheme}`);
     }
   }
 
@@ -91,39 +88,42 @@ try {
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("heading", { name: "Devices & Approvals" }).waitFor();
 
-  // Verify WidgetsBar + DesktopIcons (#9 & #10 AppShell features)
-  await page.getByRole("region", { name: "Desktop shortcuts" }).waitFor();
+  // Verify LazyModals loads Command Palette on demand
+  await page.getByRole("button", { name: "Commands" }).click();
+  await page.getByRole("combobox", { name: "Search commands" }).waitFor();
+  await page.keyboard.press("Escape");
 
-  // Wave 6 Slices: Agent Vault, Agent Groups, Media Viewer, Pickers, Create App, Shell Settings
-  await page.locator(".app-dock").getByRole("button", { name: "Agent Vault" }).click();
-  await page.getByText("Repo Overview").waitFor();
-  await page.getByRole("button", { name: "Close Agent Vault" }).click();
+  // Wave 7 Final 6 Slices -> 33/33!
+  await page.locator(".app-dock").getByRole("button", { name: "Camoufox" }).click();
+  await page.getByText("https://viewer.mso.example.com").waitFor();
+  assert.equal(await page.evaluate(() => document.body.innerText.includes("secret-should-not-appear")), false);
+  await page.getByRole("button", { name: "Close Camoufox Browser" }).click();
 
-  await page.locator(".app-dock").getByRole("button", { name: "Agent Groups" }).click();
-  await page.getByRole("heading", { name: "Release Council" }).waitFor();
-  await page.getByRole("button", { name: "Close Agent Groups" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Bot Desktops" }).click();
+  await page.getByText("alpha-desktop").waitFor();
+  await page.getByRole("button", { name: "Close Bot Desktops" }).click();
 
-  await page.locator(".app-dock").getByRole("button", { name: "Create App" }).click();
-  await page.getByText("Grafana", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Close Create App" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "n8n" }).click();
+  await page.getByText("Workflow automation").waitFor();
+  await page.getByRole("button", { name: "Close n8n" }).click();
 
-  await page.locator(".app-dock").getByRole("button", { name: "Pickers" }).click();
-  await page.getByRole("tab", { name: "Image Picker" }).click();
-  await page.getByRole("button", { name: "Close Pickers" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Image Editor" }).click();
+  await page.getByRole("button", { name: "Rotate 90" }).waitFor();
+  await page.getByRole("button", { name: "Close Image Editor" }).click();
 
-  await page.locator(".app-dock").getByRole("button", { name: "Media Viewer" }).click();
-  await page.getByRole("heading", { name: "Media Viewer" }).waitFor();
-  await page.getByRole("button", { name: "Close Media Viewer" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Media Studio" }).click();
+  await page.getByRole("button", { name: "Add asset" }).waitFor();
+  await page.getByRole("button", { name: "Close Media Studio" }).click();
 
-  await page.locator(".app-dock").getByRole("button", { name: "Shell Settings" }).click();
-  await page.locator("#shell-settings-title").waitFor();
-  await page.getByRole("button", { name: "Close Shell Settings" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Reel Editor" }).click();
+  await page.getByRole("button", { name: "Add clip" }).waitFor();
+  await page.getByRole("button", { name: "Close Reel Editor" }).click();
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual([...hosts], ["127.0.0.1:4173"]);
   assert.ok(cookieSeen);
-  console.log("PASS Increments 1..4D: 10/10 AppShell features, 5 OS chromes, Vault, Group, Media, Pickers, Create App, Shell Settings");
+  console.log("PASS Increments 1..4E: 33/33 slices, 10/10 AppShell features, 5 OS chromes, LazyModals");
 } finally {
   await browser?.close();
   if (preview && preview.exitCode === null) { preview.kill("SIGTERM"); await once(preview, "exit"); }

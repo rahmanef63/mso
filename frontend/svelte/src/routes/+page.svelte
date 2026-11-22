@@ -3,12 +3,8 @@
   import Monitor from "../lib/Monitor.svelte";
   import WindowFrame from "../lib/shell/WindowFrame.svelte";
   import LazyWindowBody from "../lib/shell/LazyWindowBody.svelte";
-  import CommandPalette from "../lib/shell/CommandPalette.svelte";
+  import LazyModals from "../lib/shell/LazyModals.svelte";
   import NotificationToast from "../lib/shell/NotificationToast.svelte";
-  import ShortcutHelp from "../lib/shell/ShortcutHelp.svelte";
-  import ControlCenter from "../lib/shell/ControlCenter.svelte";
-  import ForceQuitModal from "../lib/shell/ForceQuitModal.svelte";
-  import LockScreen from "../lib/shell/LockScreen.svelte";
   import DesktopIcons from "../lib/shell/DesktopIcons.svelte";
   import WidgetsBar from "../lib/shell/WidgetsBar.svelte";
   import { createNotificationStore, type NotificationItem } from "../lib/shell/notifications-store";
@@ -166,9 +162,15 @@
   </main>
   <footer>Existing host API, CSRF depth-2, and device permissions. Production cockpit unchanged.</footer>
 </div>
-<CommandPalette open={paletteOpen} items={commands} onClose={() => { paletteOpen = false; }} />
-<ControlCenter open={controlOpen} theme={themeMode} {chromeChoice} {resolvedChrome} role={activeSession?.role ?? null} openWindowCount={openWindows.length} onThemeChange={applyTheme} onChromeChange={(c) => { chromeChoice = c; }} onLock={() => { controlOpen = false; locked = true; }} onOpenForceQuit={() => { controlOpen = false; forceQuitOpen = true; }} onClose={() => { controlOpen = false; }} />
-<ForceQuitModal open={forceQuitOpen} windows={openWindows} onForceClose={forceCloseWindow} onCloseAll={forceCloseAll} onClose={() => { forceQuitOpen = false; }} />
-<ShortcutHelp open={shortcutsOpen} shortcuts={SHORTCUTS} onClose={() => { shortcutsOpen = false; }} />
-<LockScreen {locked} deviceLabel={activeSession?.deviceLabel ?? null} role={activeSession?.role ?? null} onUnlock={() => { locked = false; }} onSignOut={() => void handleSignOut()} />
+<LazyModals
+  {paletteOpen} {controlOpen} {forceQuitOpen} {shortcutsOpen} {locked}
+  {commands} shortcuts={SHORTCUTS} theme={themeMode} {chromeChoice} {resolvedChrome}
+  role={activeSession?.role ?? null} deviceLabel={activeSession?.deviceLabel ?? null} {openWindows}
+  onClosePalette={() => { paletteOpen = false; }} onCloseControl={() => { controlOpen = false; }}
+  onCloseForceQuit={() => { forceQuitOpen = false; }} onCloseShortcuts={() => { shortcutsOpen = false; }}
+  onThemeChange={applyTheme} onChromeChange={(c) => { chromeChoice = c; }}
+  onLock={() => { controlOpen = false; locked = true; }} onUnlock={() => { locked = false; }}
+  onOpenForceQuit={() => { controlOpen = false; forceQuitOpen = true; }}
+  onForceClose={forceCloseWindow} onCloseAll={forceCloseAll} onSignOut={() => void handleSignOut()}
+/>
 <NotificationToast items={toasts} onDismiss={(id) => notifStore.dismiss(id)} />

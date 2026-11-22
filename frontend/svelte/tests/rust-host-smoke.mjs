@@ -8,8 +8,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 
-// Synthetic backend only: proves compiled Rust Stage R3E `mso-shell-host` serves Svelte Increment 4D
-// (49 routes, 10/10 AppShell features, 5 OS chromes, Agent Vault/Group, Create App, Pickers, split-origin, CSRF & minimal RSS).
+// Synthetic backend only: proves compiled Rust Stage R3F+R4 `mso-shell-host` serves Svelte Increment 4E
+// (33/33 slices, 56 route policies, Camoufox, Bot Desktops, n8n, Creative Editors, LazyModals, CSRF & minimal RSS).
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SVELTE_DIR = path.resolve(HERE, "..");
 const REPO_ROOT = path.resolve(SVELTE_DIR, "../..");
@@ -35,29 +35,31 @@ const readBody = (req) => new Promise((r) => { let s = ""; req.on("data", (c) =>
 const ownerSession = { authenticated: true, deviceId: "rust-owner-0001", deviceLabel: "Rust Shell Owner", role: "owner" };
 const signedOut = { authenticated: false, deviceId: null, deviceLabel: null, role: null };
 const stats = { cpu: { pct: 18.5, cores: 4 }, mem: { used: 1024 ** 3, total: 4 * 1024 ** 3 }, disk: { used: 2 * 1024 ** 3, total: 8 * 1024 ** 3 }, uptime: 3_660_000 };
-const vaultView = { state: { schemaVersion: 1, project: { id: "mso", name: "MSO", path: "/home/demo/mso" }, root: "/home/demo/.vault", current: "s1", refreshedAt: "2026-11-22T00:00:00.000Z", snapshots: [{ id: "s1", capturedAt: "2026-11-22T00:00:00.000Z", truncated: false, warnings: [], notes: [{ path: "o.md", title: "Rust Vault Note", kind: "overview", source: "README.md" }] }] } };
-const groupSnap = { revision: 1, groups: [{ id: "g1", name: "Rust Council", members: [{ id: "m1", name: "Alfa", profile: "ops" }], maxRounds: 2, enabled: true, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T00:00:00.000Z", runs: [] }] };
-const shellApps = { schemaVersion: 1, revision: "rev-1", configurable: true, apps: [{ id: "grafana", title: "Grafana", description: "Metrics", origin: "https://grafana.example.com", url: "https://grafana.example.com/", renderer: "iframe", sandbox: "allow-scripts", definition: { id: "grafana", title: "Grafana", description: "Metrics", url: "https://grafana.example.com/", mode: "embed" } }] };
+const camStatus = { running: true, enabled: true, installed: true, viewerReady: true, activeState: "active", unit: "camoufox-vnc.service" };
+const camSession = { password: "masked-password", viewerOrigin: "https://viewer.mso.example.com", viewerTicket: "masked-ticket", viewerPathPrefix: "/vnc" };
+const containers = { containers: [{ id: "bot-01", name: "rust-desktop", state: "running", status: "Up 1h", labels: { user: "ops", bot: "rust" }, created: "2026-11-22T00:00:00.000Z", ports: "5901" }] };
+const managedApps = { apps: [{ id: "n8n", name: "n8n", description: "Rust n8n bridge", installed: true, installationType: "docker", state: "running", healthy: true, version: "1.80.0", dashboardAvailable: true, publicDashboardUrl: "https://n8n.mso.example.com", supportedActions: ["restart"], diagnostic: null }] };
 let calls = [];
 const devices = { approved: { "rust-owner-0001": { label: "Rust Shell Owner", approvedAt: 1_700_000_000_000, role: "owner" } }, pending: {} };
 
 const backend = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   calls.push(`${req.method} ${url.pathname}`);
-  const authed = req.headers.cookie?.includes("session=rust-r3e-owner") ?? false;
+  const authed = req.headers.cookie?.includes("session=rust-r3f-owner") ?? false;
   res.setHeader("Content-Type", "application/json"); res.setHeader("Cache-Control", "no-store");
   if (url.pathname === "/api/auth/me") res.end(JSON.stringify(authed ? ownerSession : signedOut));
   else if (url.pathname === "/api/auth/login" && req.method === "POST") {
     const body = await readBody(req);
-    if (body.password === "rust-pass") { res.setHeader("Set-Cookie", "session=rust-r3e-owner; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
+    if (body.password === "rust-pass") { res.setHeader("Set-Cookie", "session=rust-r3f-owner; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
     else { res.statusCode = 401; res.end(JSON.stringify({ error: "bad_password" })); }
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") {
     res.setHeader("Set-Cookie", ["session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"]); res.end(JSON.stringify({ success: true }));
   } else if (url.pathname === "/api/auth/devices") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? devices : {})); }
   else if (url.pathname === "/api/v1/sys/stats") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? stats : {})); }
-  else if (url.pathname === "/api/v1/agent-vault") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? vaultView : {})); }
-  else if (url.pathname === "/api/v1/agent-groups") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? groupSnap : {})); }
-  else if (url.pathname === "/api/v1/shell-apps") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? shellApps : {})); }
+  else if (url.pathname === "/api/v1/camoufox/service") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? camStatus : {})); }
+  else if (url.pathname === "/api/v1/camoufox/session") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? camSession : {})); }
+  else if (url.pathname === "/api/v1/desktop/containers") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? containers : {})); }
+  else if (url.pathname === "/api/v1/managed-apps") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? managedApps : {})); }
   else if (url.pathname === "/mcp" && req.method === "POST") res.end(JSON.stringify({ ok: true, auth: req.headers.authorization ?? null }));
   else if (url.pathname === "/api/v1/managed-apps/hermes/proxy/chat") res.end(JSON.stringify({ app: req.headers["x-os-managed-app-host"] ?? null }));
   else { res.statusCode = 404; res.end("{}"); }
@@ -86,8 +88,8 @@ try {
   assert.ok((await htmlRes.text()).includes(`<script nonce="${nonce}">`));
 
   const beforeSec = calls.length;
-  assert.equal((await rawHttp(hostPort, `DELETE /api/v1/camoufox/session HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: cross-site\r\nConnection: close\r\n\r\n`)).status, 403);
-  assert.equal((await rawHttp(hostPort, `GET /api/v1/desktop/lifecycle HTTP/1.1\r\nHost: ${expectedHost}\r\nConnection: close\r\n\r\n`)).status, 405);
+  assert.equal((await rawHttp(hostPort, `POST /api/v1/fs/move HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 403);
+  assert.equal((await rawHttp(hostPort, `POST /api/v1/desktop/screenshot HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 405);
   assert.equal((await fetch(`${ready}/api/config`)).status, 404);
   assert.equal((await rawHttp(hostPort, `POST /api/v1/exec/run HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 404);
   assert.equal((await rawHttp(hostPort, `POST /api/v1/editor/exec HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 404);
@@ -107,15 +109,15 @@ try {
   await page.getByLabel("Cockpit password").fill("rust-pass");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForSelector("[data-monitor-state='ready']", { timeout: 10_000 });
-  await page.locator(".app-dock").getByRole("button", { name: "Agent Vault" }).click();
-  await page.getByText("Rust Vault Note").waitFor();
-  await page.getByRole("button", { name: "Close Agent Vault" }).click();
-  await page.locator(".app-dock").getByRole("button", { name: "Agent Groups" }).click();
-  await page.getByRole("heading", { name: "Rust Council" }).waitFor();
-  await page.getByRole("button", { name: "Close Agent Groups" }).click();
-  await page.locator(".app-dock").getByRole("button", { name: "Create App" }).click();
-  await page.getByText("Grafana", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Close Create App" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Camoufox" }).click();
+  await page.getByText("https://viewer.mso.example.com").waitFor();
+  await page.getByRole("button", { name: "Close Camoufox Browser" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Bot Desktops" }).click();
+  await page.getByText("rust-desktop").waitFor();
+  await page.getByRole("button", { name: "Close Bot Desktops" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "n8n" }).click();
+  await page.getByText("Rust n8n bridge").waitFor();
+  await page.getByRole("button", { name: "Close n8n" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual(errors, [], `unexpected browser/CSP errors: ${errors.join("; ")}`);
@@ -123,8 +125,8 @@ try {
 
   const activeRssKiB = readVmRssKiB(hostProc.pid);
   console.log(JSON.stringify({
-    pass: true, stage: "R3E+Inc4D", origin: ready, idleRssKiB, activeRssKiB, apiCalls: calls.length,
-    routesCount: 49, agentVaultVerified: true, agentGroupsVerified: true, createAppVerified: true,
+    pass: true, stage: "R3F+R4+Inc4E", origin: ready, idleRssKiB, activeRssKiB, apiCalls: calls.length,
+    routePolicies: 56, slicesPorted: "33/33", camoufoxVerified: true, botDesktopsVerified: true, n8nVerified: true,
   }, null, 2));
 } finally {
   await browser?.close();
