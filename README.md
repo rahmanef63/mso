@@ -5,18 +5,17 @@
 <p align="center"><a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="Tests and build" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a> <a href="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml"><img alt="Actual open security findings" src="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml/badge.svg" /></a> <a href="./LICENSE"><img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-blue" /></a></p>
 
 ## See it work
-
 **Live public demos (mock data only, no host access):** [Interactive preview (`Desktop` / `Tablet` / `Phone`)](https://manef.dev/mso/demo) · [Full standalone workspace (`mso.manef.dev`)](https://mso.manef.dev/)
+[![MSO recorded walkthrough: open Spotlight and inspect the server](./docs/media/demo.gif)](./docs/media/demo.gif)
 
-| Recorded Spotlight & server walkthrough | Hybrid Svelte 5 + Bun + Rust Shell (`mso-shell-host`) live walkthrough |
+| Your server, visually | Your tools, in the terminal |
 |---|---|
-| [![MSO recorded walkthrough: open Spotlight and inspect the server](./docs/media/demo.gif)](./docs/media/demo.gif) | [![Svelte 5 + Bun + Rust Shell live walkthrough and benchmark](./docs/media/svelte-rust-perf.gif)](./docs/media/svelte-rust-perf.gif) |
+| ![MSO desktop and mobile workspace](./docs/media/mso-hero.webp) | ![Interactive `mso` Agent terminal](./docs/media/mso-cli.webp) |
 
-| Your server, visually | Your tools, in the terminal | Measured Svelte 5 + Bun + Rust Shell benchmark |
-|---|---|---|
-| ![MSO desktop and mobile workspace](./docs/media/mso-hero.webp) | ![Interactive `mso` Agent terminal](./docs/media/mso-cli.webp) | ![Svelte 5 + Bun + Rust Shell benchmark evidence](./docs/media/hybrid-svelte-rust-bench.webp) |
-
-**Hybrid Svelte 5 + Bun 1.4.2 + Rust Shell (`rustc 1.99.1`) same-host benchmark ([full plan & runbook](./docs/RUST-SHELL-PLAN.md)):** **557 KiB** zero-crate Rust binary (`2.58 ms` cold ready), **2.52 / 2.81 MiB** idle/active `VmRSS` (**-99.1% RAM** vs ~284 MiB Next.js), **0.301 ms** p50 HTML+CSP Nonce TTFB (**~35x faster**), **140.0 KiB** cold first-load JS across 33 lazy slices (**-84.7%** vs ~910 KiB), **1,712 / 1,700 ms** cold Slow 4G + 4x CPU Desktop/Mobile LCP (`7 / 3 ms` TBT), and **0.365 ms** p50 native Rust `fs_jail` search (`0` Node calls).
+### Before vs After: Next.js Baseline vs Hybrid Svelte 5 + Rust Shell
+![Svelte 5 + Bun + Rust Shell before vs after benchmark comparison chart](./docs/media/hybrid-svelte-rust-bench.webp)
+[![Svelte 5 + Bun + Rust Shell live walkthrough and benchmark](./docs/media/svelte-rust-perf.gif)](./docs/media/svelte-rust-perf.gif)
+**Hybrid Svelte 5 + Bun 1.4.2 + Rust Shell (`rustc 1.99.1`) same-host benchmark ([full plan, language breakdown & runbook](./docs/RUST-SHELL-PLAN.md)):** **598 KiB** zero-crate Rust binary (`3.30 ms` cold ready), **2.56 / 2.80 MiB** idle/active `VmRSS` (**-99.1% RAM** vs ~284 MiB Next.js), **0.25 ms** p50 HTML+CSP Nonce TTFB (**~47x faster**), **140.0 KiB** cold first-load JS across 33 lazy slices (**-84.7%** vs ~910 KiB), **1,712 / 1,700 ms** cold Slow 4G + 4x CPU Desktop/Mobile LCP (`7 / 3 ms` TBT), real Linux `/proc` + disk metrics, and **0.29 ms** p50 native Rust `fs_jail` search (`0` Node calls). Production default remains Next.js until opt-in cutover ([cutover runbook](./docs/CUTOVER-RUNBOOK.md)).
 
 ## More than an AI chat window
 

@@ -22,11 +22,14 @@
       data-toast-id={item.id}
       data-tone={item.tone}
     >
-      <div class="toast-copy">
-        <strong class="toast-title">{item.title}</strong>
-        {#if item.detail}
-          <p class="toast-detail">{item.detail}</p>
-        {/if}
+      <div class="toast-main">
+        <span class="toast-dot" aria-hidden="true"></span>
+        <div class="toast-copy">
+          <strong class="toast-title">{item.title}</strong>
+          {#if item.detail}
+            <p class="toast-detail">{item.detail}</p>
+          {/if}
+        </div>
       </div>
       <button
         type="button"
@@ -54,16 +57,18 @@
     border: 1px solid var(--border);
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
   }
-  .toast-card.tone-info { border-left: 4px solid var(--accent); }
-  .toast-card.tone-ok {
-    background: var(--ok-bg); color: var(--ok); border-color: var(--ok); border-left-width: 4px;
+  .toast-main { display: flex; align-items: flex-start; gap: .625rem; min-width: 0; }
+  .toast-dot {
+    width: .5rem; height: .5rem; margin-top: .375rem; border-radius: 999px;
+    flex-shrink: 0; background: var(--accent);
   }
-  .toast-card.tone-warn {
-    background: var(--warn-bg); color: var(--warn); border-color: var(--warn); border-left-width: 4px;
-  }
-  .toast-card.tone-error {
-    background: var(--danger-bg); color: var(--danger); border-color: var(--danger); border-left-width: 4px;
-  }
+  .toast-card.tone-info { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+  .toast-card.tone-ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+  .toast-card.tone-ok .toast-dot { background: var(--ok); }
+  .toast-card.tone-warn { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+  .toast-card.tone-warn .toast-dot { background: var(--warn); }
+  .toast-card.tone-error { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+  .toast-card.tone-error .toast-dot { background: var(--danger); }
   .toast-copy { display: grid; gap: .25rem; min-width: 0; }
   .toast-title { font-size: .9375rem; color: inherit; overflow-wrap: anywhere; }
   .toast-detail { margin: 0; font-size: .875rem; color: inherit; overflow-wrap: anywhere; }

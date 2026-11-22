@@ -43,6 +43,18 @@ Progress is computed strictly from weighted milestone gates (never guessed from 
   - **Stage R1 Tauri v2 real binary builds & cross-OS smoke (+5.0% combined):** requires `pkg-config`, `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev` + crates.io on Linux, plus macOS/Windows runners (`rust-shell/desktop-tauri/build-desktop.workflow.yml.example`).
   - **Increment 5 + Stage R3 live production cutover (+4.8% combined):** switching live `mso.service` from `next` to `hybrid` per [`CUTOVER-RUNBOOK.md`](./CUTOVER-RUNBOOK.md), live-host RSS/CPU/latency proof, and real-device iOS PWA standalone verification.
 
+### D. Codebase language & scope breakdown (why GitHub shows Rust ~2.5% and Svelte ~2.3%)
+
+GitHub Linguist counts git-tracked bytes across the whole repository, so the hybrid architecture intentionally looks TypeScript-heavy until the legacy Next.js frontend is retired:
+
+| Codebase area | Tracked size | Role |
+|---|---:|---|
+| `lib/` + `app/api/` (Domain, 127 MCP tools, Agent, Auth, Workflows, AppDeck) | ~6.9 MiB | **Intentionally TypeScript/Bun** (hybrid plan keeps business logic in TS, not rewritten in Rust) |
+| `frontend/slices/` + `components/` + `app/` (Legacy Next.js/React UI) | ~3.8 MiB | **Active default (`MSO_RUNTIME=next`)** until live cutover + retirement |
+| `scripts/` + `bin/` (CLI, E2E, CI, Ops, Managed App adapters) | ~3.3 MiB | Shell, Node/Bun tooling, and test harnesses |
+| `frontend/svelte/` (Svelte 5 static UI) | ~882 KiB | ~477 KiB `.ts` stores/clients (counted as TypeScript) + ~346 KiB `.svelte` (~2.3% of repo) |
+| `rust-shell/` (`mso-shell-core` + `mso-shell-host` + Tauri scaffold) | ~383 KiB | 19 zero-crate `.rs` files (~2.3-2.5% of repo) compiled into a ~560 KiB static binary |
+
 ## 2. Why hybrid instead of a full Rust rewrite
 
 Measured MSO baselines in [`MSO-MIGRATION.md`](./MSO-MIGRATION.md) and
@@ -94,16 +106,16 @@ via `node scripts/bench-hybrid-same-host.mjs`, `node scripts/cutover-drill.mjs`,
 |---|---|
 | ![Svelte 5 + Bun + Rust Shell live walkthrough](./media/svelte-rust-perf.gif) | ![Svelte 5 + Bun + Rust Shell benchmark scorecard](./media/hybrid-svelte-rust-bench.webp) |
 
-| Measurement | Next.js baseline | Hybrid Svelte + Rust Shell (Wave 10, 2026-11-22) |
+| Measurement | Next.js baseline | Hybrid Svelte + Rust Shell (2026-11-22) |
 |---|---|---|
-| Server binary / runtime footprint | ~1.5 GiB `node_modules` | **536 KiB** stripped Rust binary (`0` external crates) |
-| Idle / active host `VmRSS` | ~284 MiB idle | **2.5-2.6 MiB idle / 2.8-3.1 MiB active** (**-99% RSS**) |
-| Cold startup ready time | ~2,000-4,000 ms | **2.75 ms** |
-| HTML + CSP Nonce TTFB (p50 / p95) | 10-14 ms | **0.455 ms / 0.943 ms** (**~22x faster**) |
-| Native Rust `fs_jail` search (p50 / p95) | Node fs walk | **0.480 ms / 0.753 ms** (`0` Node calls, `.env` blocked) |
-| Native Rust `sys_metrics` + `sys_procs` | Node `/proc` | **51.18 ms p50** (50 ms `/proc/stat` CPU delta + ~1.2 ms overhead, `0` Node calls) |
-| First-load JS (cold `perf:probe`) | ~910 KiB raw | **139.6 KiB raw** (**-84.7%**) across 33 lazy slice chunks + `LazyModals` |
-| Automated test suite | n/a | **69 / 69 Rust** (`+ 4/4 profiles.rs`) + **178 / 178 Svelte** + Chromium E2E + live Rust native FS/metrics/procs smoke + automated cutover/rollback drill **PASS** |
+| Server binary / runtime footprint | ~1.5 GiB `node_modules` | **598 KiB** stripped Rust binary (`0` external crates) |
+| Idle / active host `VmRSS` | ~284 MiB idle | **2.56 MiB idle / 2.80 MiB active** (**-99.1% RSS**) |
+| Cold startup ready time | ~2,000-4,000 ms | **3.30 ms** |
+| HTML + CSP Nonce TTFB (p50 / p95) | 10-14 ms | **0.253 ms / 0.735 ms** (**~47x faster**) |
+| Native Rust `fs_jail` search (p50 / p95) | Node fs walk | **0.289 ms / 0.498 ms** (`0` Node calls, `.env` blocked) |
+| Native Rust `sys_metrics` + `sys_procs` | Node `/proc` | **51.54 ms p50** (real CPU, RAM, root Disk & `/proc/net/dev`, `0` Node calls) |
+| First-load JS (cold `perf:probe`) | ~910 KiB raw | **140.0 KiB raw** (**-84.7%**) across 33 lazy slice chunks + `LazyModals` |
+| Automated test suite | n/a | **70 / 70 Rust** (`+ 4/4 profiles.rs`) + **178 / 178 Svelte** + Chromium E2E + live Rust native FS/metrics/procs smoke + automated cutover/rollback drill **PASS** |
 
 ## 6. Explicit boundaries and non-goals
 
