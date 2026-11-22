@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-23
+
+**Chores**
+
+- `gitignore` ignore root test-results/ so a local Playwright run cannot block preflight
+
 ## 2026-11-22
 
 **Added**
@@ -1323,26 +1329,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Changed**
 
 - `integrations` source compact width from responsive SSOT
-
-## 2026-09-12
-
-**Added**
-
-- `mcp` unify responsive previews and recover session storage
-- `mcp` add project automation flows and dynamic MCP sessions
-
-**Fixed**
-
-- `update` report latest builds without systemd
-- `ui` theme native scrollbars across the MSO shell
-- `ui` fill MCP Page height and apply MSO branding
-- `flows` enforce canonical paths and bounded waits
-
-**Tests**
-
-- `ui` constrain simulated host message origins
-
-**Docs**
-
-- `mcp` add README quickstart and practical how-to
-- `progress` record native scrollbar verification
