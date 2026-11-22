@@ -48,7 +48,7 @@ export function ClipTabClip({
       <Field label="Name">
         <Input value={clip.name} onChange={(e) => onChange({ name: e.target.value })} />
       </Field>
-      <Field label={`Start — ${fmtFrame(clip.start, comp.fps)}`}>
+      <Field label={`Start: ${fmtFrame(clip.start, comp.fps)}`}>
         <Slider
           min={0}
           max={comp.duration - 1}
@@ -70,7 +70,7 @@ export function ClipTabClip({
           >
             Trim
           </Header>
-          <Field label={`In — ${inSec.toFixed(2)}s`}>
+          <Field label={`In: ${inSec.toFixed(2)}s`}>
             <Slider
               min={0}
               max={trimDur}
@@ -81,7 +81,7 @@ export function ClipTabClip({
               }
             />
           </Field>
-          <Field label={`Out — ${outSec.toFixed(2)}s`}>
+          <Field label={`Out: ${outSec.toFixed(2)}s`}>
             <Slider
               min={0}
               max={trimDur}
@@ -94,7 +94,7 @@ export function ClipTabClip({
           </Field>
         </>
       ) : (
-        <Field label={`Duration — ${(clip.len / comp.fps).toFixed(2)}s`}>
+        <Field label={`Duration: ${(clip.len / comp.fps).toFixed(2)}s`}>
           <Slider min={6} max={comp.duration} value={clip.len} onChange={(e) => onChange({ len: Number(e.target.value) })} />
         </Field>
       )}

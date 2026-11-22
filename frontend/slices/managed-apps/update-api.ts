@@ -73,9 +73,9 @@ const rec = (value: unknown): Record<string, unknown> => (value && typeof value 
 // start/stop/restart/backup — so it means "wait", not "broken".
 const STATUS_HINT: Record<number, string> = {
   409: "another operation is already running",
-  429: "rate limited — wait a minute and retry",
+  429: "rate limited; wait a minute and retry",
   403: "not available in demo mode",
-  401: "session expired — sign in again",
+  401: "session expired; sign in again",
 };
 
 const messageFor = (status: number, fromBody: string | null): string => fromBody ?? STATUS_HINT[status] ?? `request failed (${status})`;

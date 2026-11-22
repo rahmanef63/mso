@@ -52,6 +52,28 @@ export function shouldOpenOnboarding(storage: StorageReader | undefined): boolea
   catch { return true; }
 }
 
+// The guide's open state lives in storage, not in React state. A `useState`
+// initializer that read it opened the dialog on the client only, because the
+// server never sees localStorage — a hydration mismatch React then reported
+// against whatever boundary it rebuilt. `useSyncExternalStore` keeps both passes
+// closed (server snapshot = false) and re-reads after a real change.
+const onboardingListeners = new Set<() => void>();
+
+export function notifyOnboarding(): void {
+  for (const listener of onboardingListeners) listener();
+}
+
+export function subscribeOnboarding(listener: () => void): () => void {
+  onboardingListeners.add(listener);
+  // The shell's "reopen from Settings" signal is a plain event, so the snapshot
+  // has to be re-read when it fires.
+  globalThis.addEventListener?.(ONBOARDING_OPEN, listener);
+  return () => {
+    onboardingListeners.delete(listener);
+    globalThis.removeEventListener?.(ONBOARDING_OPEN, listener);
+  };
+}
+
 export function firstCheckGraph(project: OnboardingProject, graphId: string) {
   return {
     id: graphId, name: `First project check: ${project.name}`.slice(0, 160),

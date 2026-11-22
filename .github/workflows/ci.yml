@@ -25,6 +25,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: `bun run check` includes `gen-changelog --check`, which rebuilds the
+          # changelog from `git log`. The default fetch-depth of 1 hides all but the newest
+          # commit, so that gate sees a one-line history and fails every run — a false red
+          # that reads exactly like a stale file.
+          fetch-depth: 0
 
       - name: Setup bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -38,6 +44,12 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Install isolated Svelte dependencies
+        run: bun run svelte:install
+
+      - name: Check and build isolated Svelte entry
+        run: bun run svelte:check && bun run svelte:build && bun run svelte:audit:strict
 
       - name: Validate native dependency
         run: node -e "require('node-pty')"
@@ -60,14 +72,12 @@ jobs:
       - name: Repository checks
         run: bun run check
 
+      # Single audit entry point: scripts/audit.mjs owns the one waiver map.
       - name: Audit dependencies
         run: bun run audit:strict
 
-      - name: Audit dependencies with native Bun
-        run: bun audit --audit-level=high
-
       - name: Audit locked native build tool
-        run: npm audit --prefix scripts/install/node-gyp --omit=dev --audit-level=high
+        run: node scripts/audit-native-tool.mjs
 
       - name: Production build
         run: bun run build
@@ -81,6 +91,9 @@ jobs:
       - name: Install browser
         run: node_modules/.bin/playwright install --with-deps chromium
 
+      - name: Svelte migration browser journeys
+        run: bun run svelte:e2e
+
       - name: Required browser journeys
         run: bun run e2e:release
 
@@ -92,6 +105,15 @@ jobs:
 
       - name: Deferred shell performance journeys
         run: node scripts/e2e/bundle-performance.mjs
+
+      - name: Perceived performance gate
+        # Enforces a 2x TBT blowup against scripts/perf-baseline.json, and skips that
+        # comparison when the runner's 1-minute load average exceeds the budget ceiling —
+        # the baseline was measured on an idle host and TBT is wall-clock, so a busy
+        # runner says nothing about the commit (the reason is printed, never silent).
+        # Byte limits are a separate, deterministic check: scripts/check-bundle.mjs.
+        # Without --base, perf-probe starts its own synthetic releaseFixture().
+        run: node scripts/check-perf.mjs
 
   native-host:
     name: Native host (${{ matrix.os }})
@@ -137,4 +159,4 @@ jobs:
           node-version: 22
       - run: bun install --frozen-lockfile
       - run: bun run audit:strict
-      - run: npm audit --prefix scripts/install/node-gyp --omit=dev --audit-level=high
+      - run: node scripts/audit-native-tool.mjs

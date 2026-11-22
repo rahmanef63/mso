@@ -133,7 +133,7 @@ export function FilesSidebar({
           />
         </div>
         <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
-          {usage ? `${fmtGiB(usage.used)} of ${fmtGiB(usage.total)}` : "—"}
+          {usage ? `${fmtGiB(usage.used)} of ${fmtGiB(usage.total)}` : "-"}
         </p>
       </div>
     </div>

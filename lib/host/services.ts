@@ -9,6 +9,7 @@ import type {
   SystemService,
 } from "@/lib/os-api/types";
 import { userBusEnv } from "@/lib/managed-apps/user-bus";
+import { errorMessage } from "./error-message";
 import { childEnv } from "./child-env";
 import { HostError } from "./host-error";
 
@@ -191,7 +192,7 @@ export async function serviceLogs(scope: ServiceScope, unit: string, limit = 120
       scope,
       entries: [],
       available: false,
-      diagnostic: error instanceof Error ? error.message : String(error),
+      diagnostic: errorMessage(error),
     };
   }
 }

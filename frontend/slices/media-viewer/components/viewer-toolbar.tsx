@@ -75,15 +75,15 @@ export function ViewerToolbar({
       )}
 
       <Separator orientation="vertical" className="mx-1 h-5 @max-[480px]:hidden" />
-      <IconBtn label="Download" onClick={onDownload}>
+      {file.src && <IconBtn label="Download" onClick={onDownload}>
         <Download className="size-4" />
-      </IconBtn>
-      {editor && (
+      </IconBtn>}
+      {editor && file.src && (
         <IconBtn
           label={`Open in ${editor.label}`}
           onClick={() =>
             openWindow(editor.app, file.name, undefined, {
-              path: file.name,
+              src: file.src,
               name: file.name,
               kind: file.kind,
             })

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Folder, FileVideo, FileAudio, FileImage, CornerLeftUp, Loader2 } from "lucide-react";
 import { FormDrawer } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
@@ -44,17 +44,22 @@ export function FileBrowser({
   const [data, setData] = useState<FsList | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const request = useRef(0);
+  const target = useRef("~");
 
   const load = useCallback(
     async (p: string) => {
+      const id = ++request.current;
+      target.current = p;
       setLoading(true);
       setError(null);
       try {
-        setData(await api.fs.list(p));
+        const result = await api.fs.list(p);
+        if (id === request.current) setData(result);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Cannot read folder");
+        if (id === request.current) setError(e instanceof Error ? e.message : "Cannot read folder");
       } finally {
-        setLoading(false);
+        if (id === request.current) setLoading(false);
       }
     },
     [api],
@@ -65,20 +70,11 @@ export function FileBrowser({
   // effect body (it stays as-is for event handlers).
   useEffect(() => {
     if (!open) return;
+    const currentRequest = request;
     let alive = true;
-    api.fs
-      .list("~")
-      .then((d) => {
-        if (!alive) return;
-        setData(d);
-        setError(null);
-      })
-      .catch((e) => alive && setError(e instanceof Error ? e.message : "Cannot read folder"))
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, [open, api]);
+    void Promise.resolve().then(() => { if (alive) void load("~"); });
+    return () => { alive = false; currentRequest.current++; };
+  }, [open, load]);
 
   const path = data?.path ?? "~";
   const entries = (data?.entries ?? [])
@@ -130,7 +126,7 @@ export function FileBrowser({
               <Loader2 className="size-5 animate-spin" />
             </div>
           ) : error ? (
-            <div className="grid h-full place-items-center px-6 text-center text-xs text-destructive">{error}</div>
+            <div role="alert" className="grid h-full place-items-center px-6 text-center text-xs text-destructive"><span>{error}</span><Button onClick={() => void load(target.current)}>Retry</Button></div>
           ) : entries.length === 0 ? (
             <div className="grid h-full place-items-center text-xs text-muted-foreground">No media in this folder</div>
           ) : (

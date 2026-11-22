@@ -1,6 +1,6 @@
 import "server-only";
 import type { ManagedAppId } from "./types";
-import { probe9Router, probeHermes, probeOpenclaw, type ProbeResult } from "./update-probe";
+import { probe9Router, probeHermes, probeN8n, probeOpenclaw, probeT3, type ProbeResult } from "./update-probe";
 import { MANAGED_APP_UPDATE_CHANNELS } from "./update-types";
 import type { ManagedAppUpdateCapabilities, ManagedAppUpdateOptions } from "./update-types";
 
@@ -61,6 +61,27 @@ export interface UpdateAdapter {
 
 function reject(option: string, app: string): never {
   throw new Error(`${option} is not supported for ${app}`);
+}
+
+function pinnedAdapter(
+  app: ManagedAppId,
+  installCommand: string,
+  probe: (program: string) => Promise<ProbeResult>,
+): UpdateAdapter {
+  return {
+    capabilities: { check: true, apply: true, dryRun: false, channel: false, rollback: true, uninstall: true, installCommand, uninstallCommand: null },
+    pin: null,
+    updateArgv: (program, options) => {
+      if (options.dryRun) reject("dry run", app);
+      if (options.channel) reject("channel switching", app);
+      if (options.tag) reject("tag pinning", app);
+      if (options.branch) reject("branch switching", app);
+      if (options.noRestart) reject("--no-restart", app);
+      return [program, "update", "--yes"];
+    },
+    uninstallArgv: (program, dryRun) => [program, "uninstall", "--yes", ...(dryRun ? [UNINSTALL_PREVIEW_FLAG] : [])],
+    probe,
+  };
 }
 
 const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
@@ -166,33 +187,10 @@ const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
     uninstallArgv: (program, dryRun) => [program, "uninstall", "--non-interactive", "--yes", "--service", "--state", ...(dryRun ? [UNINSTALL_PREVIEW_FLAG] : [])],
     probe: probeOpenclaw,
   },
-  "9router": {
-    capabilities: {
-      check: true,
-      apply: true,
-      // The wrapper's update is pull + recreate; a rehearsal of a docker pull
-      // predicts nothing useful, so there is no dry run.
-      dryRun: false,
-      channel: false,
-      rollback: true,
-      uninstall: true,
-      installCommand: "bash scripts/managed-app-9router install",
-      uninstallCommand: null,
-    },
-    // The image is already pinned by reviewed digest. Rollback restores the
-    // ~/.9router data snapshot and keeps that digest in place.
-    pin: null,
-    updateArgv: (program, options) => {
-      if (options.dryRun) reject("dry run", "9router");
-      if (options.channel) reject("channel switching", "9router");
-      if (options.tag) reject("tag pinning", "9router");
-      if (options.branch) reject("branch switching", "9router");
-      if (options.noRestart) reject("--no-restart", "9router");
-      return [program, "update", "--yes"];
-    },
-    uninstallArgv: (program, dryRun) => [program, "uninstall", "--yes", ...(dryRun ? [UNINSTALL_PREVIEW_FLAG] : [])],
-    probe: probe9Router,
-  },
+  // Both 9Router and T3 Code are pinned by reviewed SHA-256 digests in
+  // security/managed-app-artifacts.env; update reconciles to that pin while
+  // rollback restores data snapshots without switching mutable tags.
+  "9router": pinnedAdapter("9router", "bash scripts/managed-app-9router install", probe9Router),
   orca: {
     capabilities: {
       check: false,
@@ -209,6 +207,8 @@ const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
     uninstallArgv: () => reject("uninstall", "orca"),
     probe: async () => reject("update probing", "orca"),
   },
+  t3: pinnedAdapter("t3", "bash scripts/managed-app-t3 install", probeT3),
+  n8n: pinnedAdapter("n8n", "bash scripts/managed-app-n8n install", probeN8n),
 };
 
 export function updateAdapter(id: ManagedAppId): UpdateAdapter {

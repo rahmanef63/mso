@@ -4,6 +4,8 @@
 before changing MSO. This file gives non-Claude agents the minimum routing needed to avoid
 re-discovering the same failure patterns.
 
+Volatile host, ownership, and freshness facts live in [`.mso/KNOWLEDGE.md`](./.mso/KNOWLEDGE.md).
+
 ## Systematic implementation default
 
 For debugging, integrations, refactors, deployments, and MCP work, use this loop:
@@ -30,9 +32,32 @@ For debugging, integrations, refactors, deployments, and MCP work, use this loop
    `CLAUDE.md`, or a trusted `SKILL.md`; implementation contracts belong in current docs;
    volatile host facts stay in project/runbook notes.
 
+## Frontend ownership
+
+Before any UI, UX, state or responsive change, read
+[`docs/FRONTEND-CONTRACT.md`](./docs/FRONTEND-CONTRACT.md), `DESIGN.md` and the affected
+shell/feature contracts. This applies to every feature and native DOM UI in `lib/`, not only
+Integrations. Whole-product work must record per-feature evidence and unverified/configuration
+limits; a shared foundation change alone is not proof of every consumer journey.
+Every slice under `frontend/slices/` must declare an entry in `frontend/slices/feature-contracts.ts`
+and pass `bun run check:features` (`feature.boundaries.json` ratchets: barrel, colocated unit tests,
+no new `window.confirm/alert/prompt`, no new raw `localStorage` slices, no new >400-char minified lines).
+Use `<ConfirmDialog>` (from `@/features/appshell`) and `featureFetch()` (from `@/lib/os-api`).
+For standalone features that should update independently without rebuilding MSO core, package them
+under `~/.mso/features/` via `bun run feature:pack` (see [`docs/MODULAR-FEATURES.md`](./docs/MODULAR-FEATURES.md)).
+
 ## Architecture ownership
 
 Before adding another adapter/facade/barrel, read [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and run `node scripts/check-architecture.mjs`. The architecture policy is ratcheted: transports share `lib/capabilities`, cross-layer DTOs live in `lib/contracts`, host calls use narrow `lib/host/*-api.ts`, generic apps use AppShell directly, and workflow persistence belongs to `lib/workflow`. Do not raise a ratchet just to make a change pass. Exact MCP catalog facts are generated with `node scripts/gen-mcp-catalog.mjs`; never hand-copy the current tool list into reference docs.
+
+
+## Hosts / dual-instance
+
+MSO has **two separate hosts**. Do not conflate them:
+
+- **Grok box cache** and the **laptop/WSL live cockpit** are different deployments, each with its own operator host (portable docs use `mso-grok.example.com` and `mso.example.com`), passwords, approved devices, builds, and tunnels.
+- Never retarget the laptop cockpit tunnel or change that live instance from box work unless Rahman asks.
+- Current tunnel IDs, store paths, and ports are volatile: read `.mso/KNOWLEDGE.md`. Do not hard-code guessed host facts into new docs.
 
 ## Repository and worktree policy
 
@@ -50,6 +75,16 @@ Before adding another adapter/facade/barrel, read [`docs/ARCHITECTURE.md`](./doc
   `main` (or intentionally retained as non-release work).
 - Demo/review runtimes may have hidden internal checkouts, but they do not become a second source
   of truth and must not be presented as another MSO project.
+
+
+## Agent-work coding path (Rahman laptop / fleet)
+
+When coding on Rahman's laptop for fleet work:
+
+- Work **only** under `~/agent-work/mso/` (separate clone). Never edit `~/projects/**` or the live WSL MSO checkout.
+- Prefer `opencode2 --auto` inside that clone. Do **not** use Cursor cloud agents (Rahman 2026-10-22).
+- Local commits are OK. Push, PR, and merge need Rahman GO in his own words (agent-relayed OK does not count).
+- This install's parallel coding/review worktrees under `~/.cache/mso-worktrees/` remain valid; they are not a substitute for the fleet `~/agent-work/mso/` path on the laptop.
 
 ## Install and update requests
 
@@ -74,6 +109,28 @@ Do not declare an MCP change complete until that full contract is verified.
 Agents *using* MSO over MCP start from [`docs/AGENT-BOOTSTRAP.md`](./docs/AGENT-BOOTSTRAP.md)
 and official skill `mso-agent-bootstrap`, not by jumping to `exec_run`.
 
+
+
+## Integrations / Convex
+
+- There is **one** Convex provider with a **project dimension** (#160 / closes #152).
+- Do **not** reintroduce dual `convex` / `convex-cloud` cards, dual registry rows, or operations that 404 on self-hosted Convex.
+- Provider UI and infra code must treat cloud vs self-hosted as a dimension of one provider, not two providers.
+
+## Composio Connect
+
+- Composio Connect API keys (`ck_…`) route to `connect.composio.dev/mcp` (#146 / #148).
+- Validate Connect keys at the Connect MCP endpoint; do not assume the older platform MCP host for `ck_` keys.
+
+## Agent UI
+
+- One live agent activity row per turn; turn budgets are env-tunable (#154).
+- Settings update cue is a **single in-Settings signal** (Updates nav badge + Software update section). Do not bring back a new-version toast or dock-adjacent floating badge (#161).
+- User-visible copy must **not** use em dashes (U+2014). Antislop R-02 is a hard gate (#162).
+
+## License
+
+- The repository is under **PolyForm Noncommercial** (#155). Read `LICENSE` before reintroducing or asserting any other license claim in docs, UI, or packaging.
 
 ## Cognitive-runtime work
 
@@ -105,9 +162,11 @@ and official skill `mso-agent-bootstrap`, not by jumping to `exec_run`.
 **A code change is not PR-ready because it compiles or has been committed.**
 After targeted tests and a local commit on an isolated worktree:
 
-1. Run `bun run pr:local` and capture the exact HEAD SHA + first failure.
-   This reuses the full committed `scripts/gates.sh`: typecheck, lint, coverage,
-   architecture/docs/audit, isolated build, and mandatory browser journeys.
+1. During iterative work on a feature branch, `bun run gate:smart` (and `git push` via
+   `scripts/gates.sh` `--pr-fast`) runs fast change-aware verification (~20-45s). Before
+   marking a PR ready, run `bun run pr:local` (which sets `MSO_GATE_FULL=1` on `scripts/gates.sh`)
+   and capture the exact HEAD SHA + first failure: full typecheck, lint, coverage,
+   architecture/feature/docs/audit, isolated build, and mandatory browser journeys.
 2. Run `bun run pr:security` when Docker is available (pinned Semgrep + ShellCheck,
    same arguments/images as CI). **No Docker, failed scan, or incomplete evidence is
    BLOCKED, not PASSED.** Never interpret Semgrep's "0 findings" as success when
@@ -134,6 +193,44 @@ Draft PR; a local-only pass never implies CodeQL approval.
 
 Run validation with `umask 077`: security fixtures must create private files/directories, not inherit group-writable shell defaults. On a busy shared host, bound Vitest concurrency with `VITEST_MAX_WORKERS=2` before changing timeout or coverage limits.
 
-Follow `CLAUDE.md`: update `docs/PROGRESS.md`, run the relevant gates, and ship through
-`bun run ship "<conventional commit>"`. Do not replace the repository's release path with a
-bare push.
+Follow `CLAUDE.md`: for feature PRs write a standalone conflict-free progress note under
+`docs/progress/YYYY-MM-DD-<slug>.md` (do **not** prepend to `docs/PROGRESS.md` or edit
+`docs/CHANGELOG.md` on PR branches; `gen-changelog.mjs --check` defers on PRs and
+`bun run ship` regenerates `docs/CHANGELOG.md` on `main`), run the relevant gates, and ship
+releases through `bun run ship "<conventional commit>"`. Do not replace the repository's
+release path with a bare push.
+
+<!-- antislop:start -->
+## antislop
+
+UI, copy, people, mobile layout, and code-comment work is filtered by antislop before it ships.
+
+- Core filter, read first: `antislop` skill
+- UI and visual: `antislop-ui`
+- Copy and text: `antislop-copywriting`
+- People, contrast, keyboard: `antislop-human`
+- Mobile and responsive: `antislop-layoutmobile`
+- Code comments: `antislop-code`
+
+Hard gates that already apply to this repo, so a review will reject a change that breaks them:
+
+- No em dash in user-visible strings. Comments and docs are out of scope.
+- No fabricated numbers, testimonials, or security claims.
+- Every interactive element has real behaviour; no dead controls.
+- Text meets WCAG AA contrast; the repo gate is `node scripts/check-contrast.mjs`.
+- Both shipped themes must work.
+
+Design direction lives in `DESIGN.md`. Read it before any UI work. If it is absent, say so and treat the result as a draft without direction.
+
+If a rule and a task conflict, name the rule and ask. Do not silently override either one.
+<!-- antislop:end -->
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

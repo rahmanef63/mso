@@ -1,0 +1,174 @@
+import { mcpAuthorizationGrant } from "@/lib/mcp/durable-grant";
+import { registerMcpTokenWait } from "@/lib/mcp/token-waits";
+import { TENANT_MEMORY_TOOLS } from "@/lib/tenancy/memory-tools";
+import { tenantPreviewEnabled } from "@/lib/tenancy/mode";
+import { resolveMcpTenant, tenantRuntimeConfigurationPresent } from "@/lib/tenancy/runtime";
+import { dispatchTenantRpc } from "@/lib/mcp/tenant-dispatch";
+import { dispatch, isNotification, rpcError, UNAUTHORIZED, RATE_LIMITED, type RpcRequest } from "@/lib/mcp/dispatch";
+import { getClient, validateToken, touchToken } from "@/lib/mcp/store";
+import { clampScope, mcpEnabled } from "@/lib/mcp/scope";
+import { publicOrigin, clientIp, mcpCorsHeaders, mcpRequestOriginAllowed } from "@/lib/mcp/origin";
+import { rateLimited, rateLimitedUntrusted } from "@/lib/host/limits-api";
+import { TOOLS } from "@/lib/mcp/tools";
+import { toolsetInfo } from "@/lib/mcp/toolset";
+import { detectMcpToolProfile } from "@/lib/mcp/client-profile";
+import { validateMcpRequest, modernMcpResult } from "@/lib/mcp/modern-http";
+import { MCP_SERVER_VERSION } from "@/lib/mcp/toolset";
+import { visibleToolsForProfile } from "@/lib/mcp/tool-contract";
+import { mcpSessionHeaders, resolveMcpSession } from "@/lib/mcp/session-context";
+import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
+import { ensureLocalAgentStandbyRuntime } from "@/lib/agent/local-agent-standby";
+
+const CALLS_PER_MIN = 120;
+const CALLS_PER_DAY = 50_000;
+const PREAUTH_PER_MIN = 240;
+export const MAX_MCP_BODY_BYTES = 2 * 1024 * 1024;
+class BodyTooLarge extends Error {}
+
+const responseHeaders = (req: Request, headers: Record<string, string> = {}) => ({ ...mcpCorsHeaders(req), ...headers });
+
+async function parseBoundedJson(req: Request): Promise<unknown> {
+  const rawLength = req.headers.get("content-length");
+  if (rawLength) {
+    const length = Number(rawLength);
+    if (Number.isFinite(length) && length > MAX_MCP_BODY_BYTES) throw new BodyTooLarge();
+  }
+  if (!req.body) return JSON.parse("");
+  const reader = req.body.getReader(), decoder = new TextDecoder();
+  let total = 0, text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      total += value.byteLength;
+      if (total > MAX_MCP_BODY_BYTES) {
+        await reader.cancel("MCP request body too large").catch(() => {}); throw new BodyTooLarge();
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode(); return JSON.parse(text);
+  } finally { reader.releaseLock(); }
+}
+
+export async function handlePostMcp(req: Request): Promise<Response> {
+  const origin = publicOrigin(req);
+  const challenge = `Bearer realm="mso", resource_metadata="${origin}/.well-known/oauth-protected-resource"`;
+  const unauthorized = (msg: string) => Response.json(rpcError(null, UNAUTHORIZED, msg), { status: 401, headers: responseHeaders(req, { "WWW-Authenticate": challenge }) });
+  if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
+  if (!mcpRequestOriginAllowed(req)) return Response.json({ error: "forbidden_origin" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  if (rateLimitedUntrusted(`mcp:ip:${clientIp(req)}`, PREAUTH_PER_MIN, 60_000)) {
+    return Response.json(rpcError(null, RATE_LIMITED, "rate limited"), { status: 429, headers: responseHeaders(req, { "Retry-After": "60" }) });
+  }
+
+  const bearer = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!bearer) return unauthorized("missing bearer token");
+  const token = await validateToken(bearer);
+  if (!token) return unauthorized("invalid, revoked or expired MCP token");
+  const effectiveScope = clampScope(token.scope);
+  if (rateLimited(`mcp:tok:${token.hash}`, CALLS_PER_MIN, 60_000)) {
+    return Response.json(rpcError(null, RATE_LIMITED, "rate limited — retry in 60s"), { status: 429, headers: responseHeaders(req, { "Retry-After": "60" }) });
+  }
+  if (rateLimited(`mcp:day:${token.hash}`, CALLS_PER_DAY, 86_400_000)) {
+    return Response.json(rpcError(null, RATE_LIMITED, "daily call limit reached for this token"), { status: 429, headers: responseHeaders(req, { "Retry-After": "3600" }) });
+  }
+
+  let body: unknown;
+  try { body = await parseBoundedJson(req); }
+  catch (error) {
+    if (error instanceof BodyTooLarge) return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "request body too large" } }, { status: 413, headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
+    return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }, { status: 400, headers: responseHeaders(req) });
+  }
+
+  const rpc = body as RpcRequest;
+  const wire = validateMcpRequest(req, body);
+  if (wire.error) return Response.json(wire.error, { status: 400, headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
+  const principal = token.clientId ? `mcp-client:${token.clientId}` : `mcp-token:${token.hash}`;
+  const expectedResource = `${origin}/mcp`;
+  if (token.resource && token.resource !== expectedResource) return unauthorized("token was minted for a different MCP resource");
+  let tenantContext;
+  try { tenantContext = await resolveMcpTenant(token); }
+  catch { return unauthorized("tenant access is unavailable"); }
+  if (tenantContext) {
+    const result = await dispatchTenantRpc(rpc, effectiveScope, `mcp:${token.hash.slice(0, 16)}`, {
+      tenantContext, toolProfile: token.profile ?? "full",
+      allowedTools: token.allowedTools, toolArgumentConstraints: token.toolArgumentConstraints,
+    });
+    if (isNotification(body)) return new Response(null, { status: 202, headers: responseHeaders(req) });
+    return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION, rpc.method) : result,
+      { status: wire.modern && (result.error as { code?: number } | undefined)?.code === -32601 ? 404 : 200,
+        headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
+  }
+  const client = token.clientId ? await getClient(token.clientId).catch(() => null) : null;
+  const toolProfile = token.profile ?? client?.profile ?? detectMcpToolProfile({ clientId: token.clientId, name: client?.name, redirectUris: client?.redirectUris });
+  const resolved = await resolveMcpSession(req, rpc, principal, token.label);
+  if ("response" in resolved) return resolved.response;
+  const headers = responseHeaders(req, mcpSessionHeaders(wire.modern ? undefined : resolved.responseSessionId));
+  if (isNotification(body)) return new Response(null, { status: 202, headers });
+
+  void touchToken(token.hash).catch(() => {});
+  const actor = `mcp:${token.hash.slice(0, 16)}`;
+  const grant=mcpAuthorizationGrant(token,expectedResource);
+  const liveAuthorization=async () => {
+    req.signal.throwIfAborted();
+    const current=await validateToken(bearer);
+    if (!current || mcpAuthorizationGrant(current,expectedResource).fingerprint !== grant.fingerprint) throw new Error("MCP authorization revoked, expired or changed");
+  };
+  const agentContext = {
+    authorizationGrant: grant,
+    liveAuthorization,
+    signal:req.signal,
+    principal,
+    ...(resolved.agentSessionId ? { sessionId: resolved.agentSessionId } : {}),
+    toolProfile,
+    ...(token.allowedTools ? { allowedTools: token.allowedTools } : {}),
+    ...(token.toolArgumentConstraints ? { toolArgumentConstraints: token.toolArgumentConstraints } : {}),
+    capabilities: msoCapabilityRuntime,
+  };
+  // Rehydrate durable standby listeners after process restart. This only reads
+  // persisted control-plane state and schedules eligible work; it never keeps
+  // the current MCP request open for model execution.
+  await ensureLocalAgentStandbyRuntime(msoCapabilityRuntime).catch(() => undefined);
+  const isWait=rpc.method==="tools/call" && ["local_agent_inbox","local_agent_request_wait"].includes(rpc.params?.name ?? "");
+  const wait=isWait ? registerMcpTokenWait(token.hash,req.signal) : undefined;
+  try {
+    if (isWait && !await liveAuthorization().then(()=>true,()=>false)) return unauthorized("invalid, revoked or expired MCP token");
+    const result = await dispatch(rpc, effectiveScope, actor, {...agentContext,signal:wait?.signal ?? req.signal});
+    if (isWait && !await liveAuthorization().then(()=>true,()=>false)) return unauthorized("invalid, revoked or expired MCP token");
+    const code = (result.error as { code?: number } | undefined)?.code;
+    return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION, rpc.method) : result, { status: code === RATE_LIMITED ? 429 : wire.modern && code === -32601 ? 404 : 200, headers });
+  } finally {wait?.release();}
+}
+
+export async function handleGetMcp(req: Request): Promise<Response> {
+  if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
+  if (!mcpRequestOriginAllowed(req)) return Response.json({ error: "forbidden_origin" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  // Streamable HTTP: a client GET is an optional SSE listener. MSO does not need
+  // one for its bounded request/response model, so the standards-compliant answer
+  // is 405 rather than a JSON diagnostics document masquerading as SSE.
+  if ((req.headers.get("accept") ?? "").toLowerCase().includes("text/event-stream")) {
+    return new Response(null, { status: 405, headers: responseHeaders(req, { Allow: "POST", "Cache-Control": "no-store" }) });
+  }
+  if (req.headers.get("MCP-Protocol-Version") === "2026-07-28") return new Response(null, { status: 405, headers: responseHeaders(req, { Allow: "POST", "Cache-Control": "no-store" }) });
+  try {
+    if (tenantPreviewEnabled()) return Response.json({ name: "mso MCP tenant preview",
+      transport: "streamable-http", supportedTenantTools: [...TENANT_MEMORY_TOOLS],
+      storageRootConfigured: tenantRuntimeConfigurationPresent(), productionTenantIsolationReady: false },
+      { headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
+  } catch { return Response.json({ error: "invalid tenancy mode" }, { status: 503, headers: responseHeaders(req) }); }
+  const full = toolsetInfo(TOOLS, undefined, "full");
+  const chatgptTools = visibleToolsForProfile(TOOLS, "exec", "chatgpt");
+  return Response.json({
+    name: "mso MCP", transport: "streamable-http", auth: "OAuth 2.1 + PKCE + resource binding",
+    sessions: "ChatGPT conversations bind through hashed _meta[openai/session]; Mcp-Session-Id is legacy transport compatibility only",
+    authorization_servers: [publicOrigin(req)], toolset: full, chatgptToolset: toolsetInfo(chatgptTools, "exec", "chatgpt"),
+  }, { headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
+}
+
+export async function handleOptionsMcp(req: Request): Promise<Response> {
+  if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
+  if (!mcpRequestOriginAllowed(req)) return Response.json({ error: "forbidden_origin" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  return new Response(null, { status: 204, headers: responseHeaders(req, { Allow: "POST, GET, OPTIONS" }) });
+}
+
+export async function handleDeleteMcp(): Promise<Response> {
+  return new Response(null, { status: 405, headers: { Allow: "POST, GET", "Cache-Control": "no-store" } });
+}

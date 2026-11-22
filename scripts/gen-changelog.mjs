@@ -61,10 +61,15 @@ const byDay = new Map();
 // commit — and the staleness gate then blocked every push, forever. Fixed here
 // rather than in ship.sh so no caller can reintroduce the loop.
 const SELF = /^docs\(changelog\)/i;
+// Automated dependency bumps are not "what's new" for a user of the app, and this file is what
+// Settings -> About shows them. They also arrive as PRs that touch no docs, so listing them
+// turned every Dependabot PR red on a gate whose fix was "commit a changelog for a version bump".
+// Dependabot's own release notes are the record for these; the lockfile diff is the audit trail.
+const AUTOMATED = /^(?:build|chore)\(deps(?:-dev)?\):\s*(?:bump|update)\b/i;
 
 for (const line of RAW.split("\n").filter(Boolean)) {
   const [hash, date, subject] = line.split("\0");
-  if (SELF.test(subject ?? "")) continue;
+  if (SELF.test(subject ?? "") || AUTOMATED.test(subject ?? "")) continue;
   const publicSubject = (subject ?? "").replace(/record that [A-Za-z0-9._-]+ now consumes this MCP surface/gi, "record external MCP consumer compatibility");
   const m = /^(\w+)(?:\(([^)]*)\))?!?:\s*(.+)$/.exec(publicSubject);
   const type = m && LABEL.has(m[1]) ? m[1] : "other";
@@ -87,6 +92,46 @@ for (const [date, list] of byDay) {
       return true;
     }),
   );
+}
+
+// A squash merge appends " (#NNN)" to the subject it replaces. That makes the generated
+// file depend on WHEN it was regenerated rather than on what the code says: a branch
+// regenerated before its own squash lists a bare subject, and the same branch after the
+// squash lists the suffixed one. Observed as a CI-only failure — the local tree passed
+// while GitHub's PR merge ref, which includes the squash, reported the file stale.
+//
+// So the PR suffix is stripped for comparison purposes: two rows whose subjects differ only
+// by " (#NNN)" are the same change. The bare form is kept, because the number adds nothing a
+// reader cannot get from git log.
+//
+// A squash can append MORE than one meta group, in any order: a branch that was itself a
+// replay lands as "subject (replay of #328) (#332)". Stripping only the last group left the
+// comparison key as "subject (replay of #328)", so it no longer matched the bare subject it
+// had just replaced and main went stale after every such merge. Strip the whole trailing run
+// of meta groups, and require each one to be meta (a bare "#NNN" or a "replay of #NNN"), so a
+// subject that genuinely ends in parentheses is not mangled.
+const META_SUFFIX = /\s*\((?:\s*replay of\s*)?#\d+\s*\)\s*$/i;
+const stripPrSuffix = (s) => {
+  let out = s;
+  for (;;) {
+    const next = out.replace(META_SUFFIX, "");
+    if (next === out) return out;
+    out = next;
+  }
+};
+for (const [date, list] of byDay) {
+  // Group by the suffix-free subject, then emit one row per change. The bare form wins when both
+  // exist, so the file does not flip depending on whether it was regenerated before or after the
+  // squash that added the number.
+  const groups = new Map();
+  for (const row of list) {
+    const key = stripPrSuffix(row.subject);
+    const kept = groups.get(key);
+    if (!kept) groups.set(key, row);
+    else if (stripPrSuffix(kept.subject) !== kept.subject && stripPrSuffix(row.subject) === row.subject)
+      groups.set(key, row);
+  }
+  byDay.set(date, [...groups.values()]);
 }
 
 const days = [...byDay.keys()].sort().reverse().slice(0, MAX_DAYS);
@@ -115,9 +160,25 @@ for (const day of days) {
 
 const text = out.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
 
+// The writer keeps a PR number when it is the subject's only occurrence, because it links the
+// line to its discussion. That makes the file depend on WHEN it was generated: a branch writes
+// the bare subject, then the squash that lands it appends " (#NNN)" and the same tree now
+// disagrees with itself. Making the writer drop every number would fix the gate by making the
+// file worse to read, so the comparison is what gets normalized instead: a difference that is
+// only a trailing meta group is not a stale changelog.
+const normalized = (markdown) =>
+  markdown
+    .split("\n")
+    .map((line) => (line.startsWith("- ") ? stripPrSuffix(line) : line))
+    .join("\n");
+
 if (process.argv.includes("--check")) {
+  if (shouldDeferOnPrBranch()) {
+    console.log("changelog: deferred on feature/PR branch (regenerated on main by ship; avoids cross-PR conflicts).");
+    process.exit(0);
+  }
   const current = safeRead(OUT);
-  if (current !== text) {
+  if (normalized(current) !== normalized(text)) {
     console.error("docs/CHANGELOG.md is stale — run: node scripts/gen-changelog.mjs");
     process.exit(1);
   }
@@ -125,6 +186,19 @@ if (process.argv.includes("--check")) {
 } else {
   writeFileSync(OUT, text);
   console.log(`wrote ${path.relative(ROOT, OUT)} (${days.length} days)`);
+}
+
+function shouldDeferOnPrBranch() {
+  if (process.env.MSO_CHANGELOG_STRICT === "1") return false;
+  try {
+    execSync(`git -C "${ROOT}" rev-parse --verify origin/main`, { stdio: "ignore" });
+    execSync(`git -C "${ROOT}" diff --quiet origin/main -- docs/CHANGELOG.md`, { stdio: "ignore" });
+    if (process.env.GITHUB_EVENT_NAME === "pull_request") return true;
+    const branch = execSync(`git -C "${ROOT}" branch --show-current`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return Boolean(branch && branch !== "main" && branch !== "master");
+  } catch {
+    return false;
+  }
 }
 
 function safeRead(p) {

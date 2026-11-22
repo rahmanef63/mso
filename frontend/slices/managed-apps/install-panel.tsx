@@ -51,10 +51,11 @@ export function InstallPanel({
     void centre.run("install", () => installApp(appId, key ? { provider, apiKey: key } : {}));
   };
 
-  const openTerminal = () => {
-    copyClip(install);
+  const openTerminal = async () => {
+    const copied = await (copyClip(install) as unknown as Promise<boolean | void>);
+    if (copied === false) return;
     openWindow("os-terminal", "Terminal");
-    toast("Command copied — paste it in the Terminal");
+    toast("Command copied. Paste it in the Terminal");
   };
 
   return (
@@ -85,7 +86,7 @@ export function InstallPanel({
           {open && (
             <div className="space-y-2 pt-1">
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                Skip this and it installs without one — the app comes up and tells you it needs a provider,
+                Skip this and it installs without one. The app comes up and tells you it needs a provider,
                 and you can add one from its own settings. Supplying it here just saves that round trip.
               </p>
               <div className="flex flex-wrap items-end gap-2">
@@ -124,7 +125,7 @@ export function InstallPanel({
                 </div>
               </div>
               <p id={`install-key-${appId}-hint`} className="text-[11px] leading-relaxed text-muted-foreground">
-                Sent once, in the request body, and handed to the installer through its environment — it is
+                Sent once, in the request body, and handed to the installer through its environment. It is
                 not stored by MSO and never appears in the install transcript or the audit log.
               </p>
             </div>
@@ -140,12 +141,12 @@ export function InstallPanel({
             <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-secondary-foreground">{install}</code>
             <CopyButton value={install} label="install command" />
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={openTerminal}>
+          <Button type="button" variant="outline" size="sm" onClick={() => void openTerminal()}>
             <SquareTerminal aria-hidden />
             Open in Terminal
           </Button>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Once it is installed and its service is up, this card picks it up on the next refresh — detection
+            Once it is installed and its service is up, this card picks it up on the next refresh. Detection
             reads systemd, then docker, then the CLI on PATH.
           </p>
         </div>

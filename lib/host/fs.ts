@@ -14,6 +14,7 @@ import {
   assertNoCredentialDescendants,
   assertNoSensitiveDescendants,
   assertNotRoot,
+  readRootList,
   resolveReadable,
   safeMkdirPath,
   safeWritePath,
@@ -111,6 +112,16 @@ export async function usage(requested: string): Promise<FsUsage> {
   const total = s.blocks * s.bsize;
   const free = s.bfree * s.bsize;
   return { used: total - free, total };
+}
+
+/** Default directory for the disk gauge. `~` is NOT guaranteed readable: read
+ *  roots default to [cwd, ~/projects], so a bare-home default made every caller
+ *  that omitted `path` fail closed with "Path outside readable roots" and the
+ *  gauge silently render `n/a`. Pick the first configured root instead, which is
+ *  by construction readable, and fall back to `~` only when none is usable. */
+export function usageDefaultPath(): string {
+  const roots = readRootList();
+  return roots.find((root) => root && root !== "/") ?? "~";
 }
 
 // --- raw byte serving (images / video / audio / pdf preview) ---

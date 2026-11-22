@@ -15,20 +15,12 @@ export const MUTATE_TOOLS: McpTool[] = [
     scope: "write",
     annotations: { idempotentHint: true },
     actionContract: { phase: "mutate", target: "filesystem-text", sourceOfTruth: "live", discover: ["fs_read"], validators: ["path-policy", "sha256-cas"], verify: ["fs_read"], confirmation: "contextual", concurrency: "hash", presentation: "structured" },
-    inputSchema: S({
-      ...PATH_P,
-      content: { type: "string" },
-      expected_sha256: { type: "string", description: "Optional SHA-256 returned by fs_read; refuse if the current file no longer matches." },
-    }, ["path", "content"]),
+    inputSchema: S({ ...PATH_P, content: { type: "string" }, expected_sha256: { type: "string", description: "Optional SHA-256 returned by fs_read; refuse if the current file no longer matches." } }, ["path", "content"]),
     run: async (a, context) => {
       const target = str(a, "path");
       await requireWorkflowMutationPath(context, target);
       await requireDelegatedPath(context, target);
-      return { ok: true, ...(await writeFileGuarded({
-        path: target,
-        content: typeof a.content === "string" ? a.content : "",
-        expectedSha256: opt(a, "expected_sha256"),
-      })) };
+      return { ok: true, ...(await writeFileGuarded({ path: target, content: typeof a.content === "string" ? a.content : "", expectedSha256: opt(a, "expected_sha256") })) };
     },
   },
   {
@@ -41,20 +33,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     actionContract: { phase: "mutate", target: "artifact-ingress", sourceOfTruth: "provider", validators: ["openai-file-provenance", "content-type", "content-size", "content-structure", "destination-policy"], verify: ["fs_read"], confirmation: "contextual", concurrency: "hash", presentation: "structured" },
     meta: { "openai/fileParams": ["file"] },
     inputSchema: S({
-      file: {
-        type: "object",
-        description: "ChatGPT-provided file reference. Select or attach exactly one PNG, WebP, JPEG, JSON or ZIP file.",
-        properties: {
-          download_url: { type: "string" },
-          file_id: { type: "string" },
-          mime_type: { type: "string" },
-          file_name: { type: "string" },
-          name: { type: "string" },
-          size: { type: "number" },
-        },
-        required: ["download_url", "file_id"],
-        additionalProperties: true,
-      },
+      file: { type: "object", description: "ChatGPT-provided file reference. Select or attach exactly one PNG, WebP, JPEG, JSON or ZIP file.", properties: { download_url: { type: "string" }, file_id: { type: "string" }, mime_type: { type: "string" }, file_name: { type: "string" }, name: { type: "string" }, size: { type: "number" } }, required: ["download_url", "file_id"], additionalProperties: true },
       dest: { type: "string", description: "Existing destination directory on the VPS, within OS_FS_WRITE_ROOTS." },
       filename: { type: "string", description: "Optional safe destination basename; extension must match the validated file type." },
       conflict: { type: "string", enum: ["error", "rename", "replace"], description: "Default error. rename chooses a deterministic content-hash suffix. replace requires expected_sha256." },
@@ -64,11 +43,7 @@ export const MUTATE_TOOLS: McpTool[] = [
       const dest = str(a, "dest");
       await requireWorkflowMutationPath(context, dest);
       await requireDelegatedPath(context, dest);
-      return importOpenAiProvidedFile({
-        file: a.file, dest, filename: opt(a, "filename"),
-        conflict: opt(a, "conflict") as "error" | "rename" | "replace" | undefined,
-        expectedSha256: opt(a, "expected_sha256"),
-      });
+      return importOpenAiProvidedFile({ file: a.file, dest, filename: opt(a, "filename"), conflict: opt(a, "conflict") as "error" | "rename" | "replace" | undefined, expectedSha256: opt(a, "expected_sha256") });
     },
   },
   {

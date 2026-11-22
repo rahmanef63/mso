@@ -245,12 +245,12 @@ body {
    ShellDescriptor.wallpaper; a per-shell override or custom image wins. graphite
    (Dashboard) stays a pure gradient — a photo backdrop fights data widgets. */
 .wp-aurora { background:
-  url("/wallpapers/aurora.webp?v=933abb0485f5") center/cover no-repeat,
+  url("/wallpapers/aurora.webp?v=ad083c6c2ccb") center/cover no-repeat,
   radial-gradient(110% 120% at 16% 16%, #f4d6a0 0%, rgba(244,214,160,0) 46%),
   radial-gradient(110% 110% at 82% 18%, #f2eee9 0%, rgba(242,238,233,0) 44%),
   linear-gradient(145deg, #d3c5bd 0%, #d9dce7 56%, #b7c8dc 100%); }
 [data-theme="dark"] .wp-aurora { background:
-  url("/wallpapers/aurora-dark.webp?v=8b6e434e3409") center/cover no-repeat,
+  url("/wallpapers/aurora-dark.webp?v=b24824de9799") center/cover no-repeat,
   radial-gradient(110% 120% at 18% 14%, #30386f 0%, rgba(48,56,111,0) 46%),
   radial-gradient(110% 110% at 84% 20%, #263d67 0%, rgba(38,61,103,0) 44%),
   linear-gradient(145deg, #161629 0%, #10152c 58%, #0b1223 100%); }
@@ -323,15 +323,17 @@ body {
 .shell-platform-mark {
   border-radius: inherit;
 }
-.shell-artwork-macos, .shell-artwork-windows { display: none; }
+/* Markup keeps all three variants (the shell family is hydration-only knowledge, so
+   SSR choosing would mismatch); the losers stay out of layout and paint. */
+.shell-artwork-macos, .shell-artwork-windows { display: none; content-visibility: hidden; }
 [data-shell="macos"] .shell-artwork-default,
 [data-shell="ios"] .shell-artwork-default,
 [data-shell="windows"] .shell-artwork-default,
 [data-shell="android"] .shell-artwork-default { display: none; }
 [data-shell="macos"] .shell-artwork-macos,
-[data-shell="ios"] .shell-artwork-macos { display: block; }
+[data-shell="ios"] .shell-artwork-macos { display: block; content-visibility: visible; }
 [data-shell="windows"] .shell-artwork-windows,
-[data-shell="android"] .shell-artwork-windows { display: block; }
+[data-shell="android"] .shell-artwork-windows { display: block; content-visibility: visible; }
 
 /* ── iOS component parity (scoped to the iOS surface ONLY) ─────────────────
    Shared primitives (Switch, Segmented) carry accent-tinted states that suit
@@ -459,6 +461,20 @@ body {
 [data-shell="ios"] [data-slot="ios-settings-detail"] [data-slot="settings-row"]:has([role="switch"]) > div:last-child {
   width: auto;
   flex-shrink: 0;
+}
+
+/* ── Native select popup theming ─────────────────────────────────────────────
+   `<select>` triggers use semantic tokens, but the OPTION list is painted by
+   the UA: Chromium gave it a light surface under our near-inverted
+   --foreground, so a dark shell read as light text on a light popup. Painting option
+   rows (and the trigger, when it uses the semantic secondary field) from the
+   same tokens makes both themes legible without a bespoke listbox component.
+   ponytail: one global rule for ~40 native selects; move to a themed popup only
+   if a UA stops honoring option colours. */
+select option,
+select optgroup {
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 /* ── Touch-target a11y (HIG 44px / Material 48dp) ──────────────────────────

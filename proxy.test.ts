@@ -151,6 +151,7 @@ describe("app host → that app's proxy, and nothing else", () => {
     );
   });
 
+
   it("ignores x-forwarded-host, which a client can set, in favour of Host", async () => {
     const proxy = await loadProxy(TEMPLATE);
     // Escaping the rewrite is the dangerous direction: this request is ON the app

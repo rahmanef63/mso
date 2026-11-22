@@ -1,0 +1,168 @@
+import process from "node:process";
+
+export const ENTER_SEQUENCE = "\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H";
+export const LEAVE_SEQUENCE = "\x1b[0m\x1b[?25h\x1b[?1049l";
+
+// Tracks active streams currently displaying alternate screen buffer.
+const activeOutputs = new Set();
+
+export function isScreenActive(output = process.stdout) {
+  return activeOutputs.has(output);
+}
+
+// Determines if alternate screen mode was explicitly requested and conditions permit it.
+// Guarded to prevent accidental activation in CI, non-TTY environments, or one-shot mode.
+/** @param {{ argv?: string[], env?: Record<string, string | undefined>, isTTY?: boolean }} [options] */
+export function altScreenRequested({
+  argv = process.argv.slice(2),
+  env = process.env,
+  isTTY = process.stdout?.isTTY,
+} = {}) {
+  const args = Array.isArray(argv) ? argv : [];
+  const environment = env || {};
+
+  // The panel is the default now. Inline mode is the opt OUT, because a user who wants their
+  // terminal's own scrollback has no other way to ask for it. `requested` still distinguishes "the
+  // default" from "asked and refused" so the entrypoint only warns when the user actually asked.
+  const declined = args.includes("--no-altscreen") || environment.MSO_ALT_SCREEN === "0" || environment.MSO_ALTSCREEN === "0";
+  const explicit = args.includes("--altscreen") || args.includes("--alt-screen")
+    || environment.MSO_ALT_SCREEN === "1" || environment.MSO_ALTSCREEN === "1";
+  const requested = explicit || !declined;
+  if (declined) {
+    return { ok: false, enabled: false, requested: false, reason: "declined" };
+  }
+
+  if (isTTY !== true) {
+    return { ok: false, enabled: false, requested, reason: "not_tty" };
+  }
+
+  const ci = environment.CI;
+  if (Boolean(ci && ci !== "0" && ci !== "false")) {
+    return { ok: false, enabled: false, requested, reason: "ci_environment" };
+  }
+
+  if (args.includes("--oneshot") || args.includes("-z")) {
+    return { ok: false, enabled: false, requested, reason: "oneshot_mode" };
+  }
+
+  return { ok: true, enabled: true, requested, reason: null };
+}
+
+// Enters alternate screen mode idempotently.
+// Writes enter sequence only on the first call for a given output stream.
+/** @param {any} [output] */
+export function enterScreen(output = process.stdout) {
+  if (!output || typeof output.write !== "function") return false;
+  if (activeOutputs.has(output)) return false;
+  try {
+    output.write(ENTER_SEQUENCE);
+    activeOutputs.add(output);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Releases alternate screen mode idempotently.
+// Deletes from tracking set before writing so teardown does not repeat on write errors.
+/** @param {any} [output] */
+export function leaveScreen(output) {
+  if (output) {
+    if (!activeOutputs.has(output)) return false;
+    activeOutputs.delete(output);
+    if (typeof output.write !== "function") return false;
+    try {
+      output.write(LEAVE_SEQUENCE);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  if (activeOutputs.size === 0) return false;
+  let released = false;
+  for (const stream of [...activeOutputs]) {
+    activeOutputs.delete(stream);
+    if (typeof stream?.write === "function") {
+      try {
+        stream.write(LEAVE_SEQUENCE);
+        released = true;
+      } catch {
+        // Suppress write errors during exit to allow remaining teardown to continue.
+      }
+    }
+  }
+  return released;
+}
+
+// One call for the entrypoint: register teardown first, then enter, so a signal that arrives
+// during the write is already covered. Dispose releases the screen before removing handlers,
+// because removing first would leave a handled exit with the alternate buffer still active.
+/** @param {{ requested?: any, output?: any, processRef?: any }} [options] */
+export function startAltScreen({ requested, output = process.stdout, processRef } = {}) {
+  if (!requested?.ok) return { entered: false, dispose() {} };
+  const teardown = installTeardown({ output, processRef });
+  const entered = enterScreen(output);
+  return {
+    entered,
+    dispose() {
+      leaveScreen(output);
+      teardown.dispose();
+    },
+  };
+}
+
+// Installs exit, SIGINT, SIGTERM, and SIGHUP listeners that release alternate screen.
+// Returns a dispose function to restore exact original listener count without replacing pre-existing handlers.
+/** @param {{ output?: any, processRef?: any, signalSource?: any }} [options] */
+export function installTeardown({
+  output = process.stdout,
+  processRef,
+  signalSource,
+} = {}) {
+  const proc = processRef || signalSource || process;
+  const sigs = signalSource || processRef || process;
+
+  // Signals that terminate the process by default. Attaching a listener REPLACES that default, so
+  // without re-raising, a SIGTERM would release the screen and then leave the agent running forever
+  // with no way out short of SIGKILL. Only re-raised when this is the real process, never for an
+  // injected emitter in a test.
+  const terminating = new Map([["SIGTERM", 143], ["SIGHUP", 129]]);
+  const onTeardown = (signal) => {
+    leaveScreen(output);
+    if (!terminating.has(signal) || proc !== process) return;
+    // Re-raising the signal would be caught again by any other listener still attached to it (the
+    // screen loop installs its own SIGTERM handler to turn mouse reporting off), which is the exact
+    // hang this fixes. Exit explicitly instead, on the next tick so every other listener for this
+    // signal still runs first. The code is the shell convention: 128 plus the signal number.
+    setImmediate(() => process.exit(terminating.get(signal)));
+  };
+
+  const cleanups = [];
+
+  const attach = (target, event, listener) => {
+    if (!target || typeof target.on !== "function") return;
+    target.on(event, listener);
+    cleanups.push(() => {
+      if (typeof target.off === "function") {
+        target.off(event, listener);
+      } else if (typeof target.removeListener === "function") {
+        target.removeListener(event, listener);
+      }
+    });
+  };
+
+  attach(proc, "exit", () => onTeardown(null));
+  attach(sigs, "SIGINT", () => onTeardown("SIGINT"));
+  attach(sigs, "SIGTERM", () => onTeardown("SIGTERM"));
+  attach(sigs, "SIGHUP", () => onTeardown("SIGHUP"));
+
+  return {
+    dispose() {
+      for (const cleanup of cleanups) {
+        cleanup();
+      }
+      cleanups.length = 0;
+    },
+  };
+}

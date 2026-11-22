@@ -5,115 +5,174 @@ import { AgentInterruptManager } from "./mso-agent-interrupt.mjs";
 import { slashCompletionItems } from "./mso-agent-slash.mjs";
 import { persistSession, restartSessionArg, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
 import { C, printBanner } from "./mso-agent-runtime.mjs";
-import { state } from "./mso-agent-api.mjs";
-import { handleSlash } from "./mso-agent-commands.mjs";
+import { listCliSessions, state } from "./mso-agent-api.mjs";
+import { fetchMcpServers } from "./mso-agent-mcp-servers.mjs";
+import { COMMAND_MANIFEST, handleSlash } from "./mso-agent-commands.mjs";
+import { takeCommandRequest } from "./mso-agent-command-dialog.mjs";
+import { createPromptCompletion } from "./mso-agent-prompt-completion.mjs"; import { pluginToolFilter, resolveMentions } from "./mso-agent-at.mjs";
 import { nextPermissionMode, permissionMode } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
+import { failRun, finishRun } from "./mso-agent-exit.mjs";
 import { oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
 import { LocalAgentBridge, handleLocalAgentMentionInput, runForegroundSubagent } from "./mso-agent-collaboration.mjs";
-import { composerFooter, composerPrompt, composerSeparator } from "./mso-agent-layout.mjs";
-import { agentRound, executeTool, renderInteractionFailure, runInteractiveRound } from "./mso-agent-turn.mjs";
+import { composerPrompt, composerSeparator } from "./mso-agent-layout.mjs"; import { footerRows } from "./mso-agent-footer.mjs";
+import { executeTool, renderInteractionFailure, runInteractiveRound } from "./mso-agent-turn.mjs";
+import { runOneShot } from "./mso-agent-oneshot-run.mjs";
+import { mountScreenLoop } from "./mso-agent-screen-loop.mjs";
 import { pathToFileURL } from "node:url";
-
-async function runOneShot(opts) {
-  const requested = resumeArg(process.argv.slice(2));
-  const [s, agentSession] = await Promise.all([state(), startupSession(requested)]);
-  if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
-  const session = {
-    state: s, agentSession, history: Array.isArray(agentSession.history) ? agentSession.history : [],
-    pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
-    titleOverride: requested ? (agentSession.title || null) : null,
-    usage: { apiCalls: 0 }, lastRouting: null, lastElapsedMs: 0, statusBar: false,
-    permission: "ask", pendingApproval: null,
-  };
-  session.history.push({ role: "user", text: opts.prompt });
-  const result = await agentRound(null, session, null, undefined, null, { quiet: true, approvalScope: opts.approvalScope });
-  await persistSession(session);
-  const payload = {
-    ok: true, sessionId: session.agentSession.id,
-    model: `${s.config?.provider || ""}/${s.config?.model || ""}`.replace(/^\//, ""),
-    approvalScope: opts.approvalScope, text: result?.text || "", rounds: result?.rounds || 0,
-    toolCalls: result?.calls || [], usage: result?.usage || session.usage, routing: session.lastRouting, elapsedMs: result?.elapsedMs || session.lastElapsedMs,
-    ...(result?.turnLimitReached ? { turnLimitReached: true } : {}),
-  };
-  if (opts.json) process.stdout.write(`${JSON.stringify(payload)}\n`);
-  else process.stdout.write(`${payload.text}${payload.text.endsWith("\n") || !payload.text ? "" : "\n"}`);
-}
-
+import { createQueue, dequeue } from "./mso-agent-queue.mjs";
+import { pendingImageBlock } from "./mso-agent-image.mjs";
+import { altScreenRequested, startAltScreen } from "./mso-agent-altscreen.mjs";
+import { captureBanner } from "./mso-agent-banner-lines.mjs";
+import { applySettings } from "./mso-agent-cmd-settings.mjs";
+import { visibleSessionRows } from "./mso-agent-sessions.mjs";
+import { chromeLines } from "./mso-agent-chrome.mjs";
+import { switchToSession } from "./mso-agent-cmd-session.mjs";
 
 async function main() {
   const argv = process.argv.slice(2);
   if (argv.includes("--help") || argv.includes("-h")) { process.stdout.write(`${oneShotHelp()}\n`); return; }
   const oneShot = parseOneShot(argv);
-  if (oneShot) return runOneShot(oneShot);
+  if (oneShot) {
+    // The exit code has to carry the outcome: a caller scripting `mso agent --oneshot` reads the status,
+    // not the prose. A failed run used to exit 0.
+    const ok = await runOneShot(oneShot);
+    if (ok === false) process.exitCode = 3;
+    return;
+  }
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.error("mso agent needs an interactive terminal. For autonomous one-shot use: mso agent --oneshot \"<prompt>\" [--json]");
     process.exit(2);
   }
-  const restartSessionId = restartSessionArg(argv);
-  const requested = restartSessionId ? null : resumeArg(argv);
-  const restartUi = consumeRestartUiState();
-  const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg))
-    ? "yolo"
-    : (permissionMode(restartUi.permission)?.id || "ask");
-  const [s, agentSession] = await Promise.all([state(), startupSession(requested, restartSessionId)]);
-  if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
-  printBanner(s, agentSession);
-  const session = {
-    state: s,
-    agentSession,
-    history: Array.isArray(agentSession.history) ? agentSession.history : [],
-    pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
-    titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
-    usage: { apiCalls: 0 }, lastRouting: null, lastElapsedMs: 0,
-    statusBar: restartUi.statusBar ?? true, permission: forcedPermission, pendingApproval: null,
-  };
-  const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C }); syncPromptHistory(rl, session);
-  let inboundRequestQueued = false;
-  const localBridge = new LocalAgentBridge({
-    session,
-    composer: rl,
-    onRequest: () => {
-      // A local request otherwise only becomes model context on the next manual
-      // turn. Cancel the idle editor and let the main loop run it immediately.
-      inboundRequestQueued = true;
-      rl.cancelCurrent({ echo: false });
-    },
-  });
-  await localBridge.start();
-  const interrupts = new AgentInterruptManager({ output: process.stdout, colors: C });
-  const onSigint = () => {
-    const action = interrupts.handleSigint();
-    // External child TUIs can restore the shared terminal to cooked mode. In that
-    // state Ctrl+C arrives as SIGINT instead of a raw keypress, so wake whichever
-    // composer prompt is currently waiting instead of leaving it hung.
-    if (action === "exit") rl.cancelCurrent({ echo: true });
-    else if (action === "interrupt") rl.cancelCurrent({ echo: false });
-  };
-  process.on("SIGINT", onSigint);
-  const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd(), session);
-  let restartRequested = false;
+  const altScreen = altScreenRequested({ argv, env: process.env, isTTY: process.stdout.isTTY });
+  if (altScreen.requested && !altScreen.ok) {
+    console.warn(`${C.dim}mso agent: alternate screen not enabled (${altScreen.reason})${C.reset}`);
+  }
+  // Declared out here, not inside the try: the finally block disposes them, and a `const` inside
+  // the try is not in scope there. A ReferenceError in finally replaced the real exit status.
+  let screenLoop = null; let screen = null; let session = null; let rl = null;
+  let localBridge = null; let onSigint = null; let restartRequested = false;
   try {
+    screen = startAltScreen({ requested: altScreen, output: process.stdout });
+    const restartSessionId = restartSessionArg(argv);
+    const requested = restartSessionId ? null : resumeArg(argv);
+    const restartUi = consumeRestartUiState();
+    const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg))
+      ? "yolo"
+      : (permissionMode(restartUi.permission)?.id || "ask");
+    const [s, agentSession, mcpServers] = await Promise.all([state(), startupSession(requested, restartSessionId), fetchMcpServers()]);
+    if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
+    const bannerLines = altScreen.ok ? captureBanner(printBanner, s, agentSession) : (printBanner(s, agentSession), null);
+    session = {
+      state: s,
+      agentSession,
+      mcpServers,
+      history: Array.isArray(agentSession.history) ? agentSession.history : [],
+      pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
+      titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
+      usage: { apiCalls: 0 }, lastRouting: null, lastElapsedMs: 0,
+      statusBar: restartUi.statusBar ?? true, permission: forcedPermission, pendingApproval: null,
+      // Ephemeral queue: held only in memory for this TUI process and not persisted to server state.
+      queue: createQueue(),
+    };
+    applySettings(session); // Saved preferences, applied before the first frame.
+    let recentSessions = session.agentSession ? [session.agentSession] : [];
+    // Refreshed after a switch, not per keystroke: a tab row must not cost a network call per render.
+    const refreshSessions = () => { listCliSessions(20).then((rows) => { recentSessions = visibleSessionRows(rows); }).catch(() => {}); };
+    refreshSessions();
+    screenLoop = mountScreenLoop({
+      session,
+      enabled: altScreen.ok,
+      output: process.stdout,
+      input: process.stdin,
+      colors: C,
+      getSessions: () => recentSessions,
+      preamble: () => bannerLines,
+      onTabClick: async (targetId) => {
+        if (!targetId || targetId === session?.agentSession?.id) return;
+        await switchToSession(rl, session, targetId);
+        if (localBridge) await localBridge.syncSession();
+        refreshSessions();
+        screenLoop.sync();
+      },
+    });
+    let commandRequested = false;
+    rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onRows: (rows) => screenLoop.setPromptRows(rows), onCommands: () => { commandRequested = true; }, onToggleStatusBar: () => { session.statusBar = !session.statusBar; screenLoop.paint(); } }); syncPromptHistory(rl, session);
+    let inboundRequestQueued = false;
+    localBridge = new LocalAgentBridge({
+      session,
+      composer: rl,
+      onRequest: () => {
+        // A local request otherwise only becomes model context on the next manual
+        // turn. Cancel the idle editor and let the main loop run it immediately.
+        inboundRequestQueued = true;
+        rl.cancelCurrent({ echo: false });
+      },
+    });
+    await localBridge.start();
+    const interrupts = new AgentInterruptManager({ output: process.stdout, colors: C });
+    let lastTurnInterrupted = false;
+    const originalBeginTurn = interrupts.beginTurn.bind(interrupts);
+    interrupts.beginTurn = () => {
+      const signal = originalBeginTurn();
+      lastTurnInterrupted = false;
+      signal.addEventListener("abort", () => {
+        lastTurnInterrupted = true;
+      }, { once: true });
+      return signal;
+    };
+    const originalInterruptCurrent = interrupts.interruptCurrent.bind(interrupts);
+    interrupts.interruptCurrent = () => {
+      lastTurnInterrupted = true;
+      return originalInterruptCurrent();
+    };
+    const drainQueue = async () => {
+      while (!interrupts.exitRequested && !lastTurnInterrupted) {
+        const nextPrompt = dequeue(session.queue);
+        if (!nextPrompt) break;
+        session.history.push({ role: "user", text: nextPrompt });
+        const skillContext = session.pendingSkill;
+        session.pendingSkill = null;
+        await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
+        screenLoop.sync();
+      }
+    };
+    onSigint = () => {
+      const action = interrupts.handleSigint();
+      // External child TUIs can restore the shared terminal to cooked mode. In that
+      // state Ctrl+C arrives as SIGINT instead of a raw keypress, so wake whichever
+      // composer prompt is currently waiting instead of leaving it hung.
+      if (action === "exit") rl.cancelCurrent({ echo: true });
+      else if (action === "interrupt") rl.cancelCurrent({ echo: false });
+    };
+    process.on("SIGINT", onSigint);
+    const completeSlash = createPromptCompletion({ session, recentSessions: () => recentSessions, slashCompletionItems });
     while (true) {
       if (interrupts.exitRequested) break;
       if (inboundRequestQueued) {
         inboundRequestQueued = false;
         await runInteractiveRound(rl, session, null, interrupts, localBridge);
+        screenLoop.sync();
         continue;
       }
       let line = "";
       try {
+        screenLoop.paint(); await completeSlash.refresh();
         const answer = await rl.question(() => composerPrompt(session, C), {
-          complete: completeSlash,
+          complete: completeSlash, panelLabel: completeSlash.label,
           onTab: () => { session.permission = nextPermissionMode(session.permission).id; },
-          separator: () => composerSeparator(session, C, process.stdout.columns),
-          footer: () => composerFooter(session, C, process.stdout.columns),
+          // In panel mode the panel draws the separator, and the footer is drawn here in both modes:
+          // it sits directly under the prompt, so the panel must not also draw one above it.
+          separator: () => (screenLoop.active ? "" : composerSeparator(session, C, process.stdout.columns)),
+          footer: () => footerRows({ session, colors: C, columns: process.stdout.columns }),
         });
-        if (answer === null) {
-          if (inboundRequestQueued) continue;
-          break;
-        }
-        line = answer.trim();
+        const asked = await takeCommandRequest({ requested: commandRequested, rl, session, commands: COMMAND_MANIFEST });
+        commandRequested = false;
+        if (asked?.again) continue;
+        if (asked?.chosen) line = asked.chosen;
+        else if (answer === null) { if (inboundRequestQueued) continue; else break; }
+        else line = answer.trim();
+        screenLoop.follow();
       } catch { break; }
       if (!line) continue;
       if (line.startsWith("/")) {
@@ -121,35 +180,46 @@ async function main() {
           const result = await handleSlash(rl, line, session, { runTurn: (skill) => runInteractiveRound(rl, session, skill, interrupts, localBridge), runSubagent: (input) => runForegroundSubagent({ rl, session, input, executeTool, colors: C }) });
           if (result === "exit") break;
           if (result === "restart") { restartRequested = true; break; }
-          if (result === "refresh") await localBridge.syncSession();
+          if (result === "refresh") { await localBridge.syncSession(); refreshSessions(); }
+          if (result === "drain") {
+            lastTurnInterrupted = false;
+            await drainQueue();
+          }
           if (result === "unknown") console.log("unknown command; /help lists commands.");
         } catch (error) {
           renderInteractionFailure(error, session, {}, C);
           await persistSession(session).catch(() => undefined);
         }
+        screenLoop.sync();
         if (interrupts.exitRequested) break;
         continue;
       }
-      if (await handleLocalAgentMentionInput(session, line, C)) continue;
-      session.history.push({ role: "user", text: line });
+      if (await handleLocalAgentMentionInput(session, line, C)) { screenLoop.sync(); continue; }
+      // Images belong to this prompt only: format once then clear, so a stale one never rides along.
+      const images = Array.isArray(session.pendingImages) ? session.pendingImages : [];
+      const imageBlock = images.length ? pendingImageBlock(images) : "";
+      session.history.push({ role: "user", text: imageBlock ? `${imageBlock}${line}` : line });
+      if (images.length) session.pendingImages = [];
       const skillContext = session.pendingSkill;
       session.pendingSkill = null;
-      await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
+      screenLoop.sync();
+      const tools = pluginToolFilter(resolveMentions(line, { mcpServers: session.mcpServers }).plugins, session.state.tools);
+      await runInteractiveRound(rl, session, skillContext, interrupts, localBridge, { toolFilter: tools });
+      screenLoop.sync();
       if (interrupts.exitRequested) break;
+      if (!lastTurnInterrupted) await drainQueue();
     }
   } finally {
-    process.off("SIGINT", onSigint);
-    await persistSession(session).catch(() => undefined);
-    const sessionTitle = String(session.agentSession.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim().slice(0, 80);
-    if (!restartRequested) console.log(`${C.dim}session ${sessionTitle} · resume: mso --continue · switch: /sessions${C.reset}`);
-    await localBridge.close({ ended: !restartRequested }).catch(() => undefined);
-    rl.close();
-  }
-  if (restartRequested) {
-    console.log(`${C.dim}↻ refreshing Agent runtime · keeping ${session.agentSession.title || "current session"}${C.reset}`);
-    relaunchCurrentAgentSession(session);
+    if (onSigint) process.off("SIGINT", onSigint);
+    if (session) await persistSession(session).catch(() => undefined);
+    const next = await finishRun({
+      session, restartRequested, localBridge, colors: C,
+      closeComposer: () => rl?.close(),
+      disposePanel: () => screenLoop?.dispose(),
+      disposeScreen: () => screen?.dispose(),
+    });
+    if (next === "restart") relaunchCurrentAgentSession(session);
   }
 }
 
-const direct = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (direct) main().catch((error) => { console.error(`${C.err}mso agent: ${error instanceof Error ? error.message : String(error)}${C.reset}`); process.exit(1); });
+if (Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch((error) => failRun(error, { colors: C }));

@@ -75,14 +75,14 @@ export function AppConsole({ m }: { m: AppManifest }) {
       </header>
 
       <div className="truncate border-b border-border bg-secondary/40 px-3 py-1 font-mono text-[11px] text-muted-foreground">
-        entry: {m.entry || "—"}
+        entry: {m.entry || "-"}
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
         <div ref={bodyRef} className="p-3 font-mono text-xs leading-relaxed">
           {api.mode === "mock" && (
             <p className="mb-2 text-[11px] text-muted-foreground">
-              mock mode — output is simulated; connect the host agent to run for real.
+              mock mode: output is simulated; connect the host agent to run for real.
             </p>
           )}
           {lines.length === 0 && !running && (

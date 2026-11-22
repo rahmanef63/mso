@@ -1,6 +1,7 @@
 import { C } from "./mso-agent-runtime.mjs";
 import { createCliSession, listCliSessions, loadCliSession, renameCliSession, renameCliSessionName, resumeCliSession, saveCliSession } from "./mso-agent-api.mjs";
 import { sessionCompletionItems, sessionPromptHistory, visibleSessionRows } from "./mso-agent-sessions.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 function autoTitle(history) {
   const first = history.find((row) => row?.role === "user" && typeof row.text === "string" && row.text.trim());
@@ -58,7 +59,7 @@ export async function startNewSession(rl, session, title = "") {
   if (!loaded || loaded.source !== "cli") throw new Error("could not create a new CLI MSO Agent session");
   applyNewSessionState(session, loaded, requestedTitle);
   syncPromptHistory(rl, session);
-  console.log(`${C.c}new session @${loaded.name} · ${loaded.title || "MSO Agent session"}${C.reset}`);
+  createPrinter({ session }).print(`${C.c}new session @${loaded.name} · ${loaded.title || "MSO Agent session"}${C.reset}`);
   return true;
 }
 
@@ -77,13 +78,13 @@ export async function resumeInto(rl, session, query) {
     pendingApproval: null,
   });
   syncPromptHistory(rl, session);
-  console.log(`${C.c}resumed @${loaded.name} · ${loaded.title || "MSO Agent session"}${C.reset} · ${session.history.length} history rows`);
+  createPrinter({ session }).print(`${C.c}resumed @${loaded.name} · ${loaded.title || "MSO Agent session"}${C.reset} · ${session.history.length} history rows`);
   return true;
 }
 
 export async function resumePicker(rl, session) {
   const rows = visibleSessionRows(await listCliSessions(100));
-  if (!rows.length) { console.log("No resumable MSO Agent sessions yet."); return false; }
+  if (!rows.length) { createPrinter({ session }).print("No resumable MSO Agent sessions yet."); return false; }
   const answer = await rl.question(`${C.blue}${C.bold}session ›${C.reset} `, {
     history: false,
     complete: (value) => sessionCompletionItems(rows, value, Date.now(), session.agentSession?.id),

@@ -1,6 +1,22 @@
 {
-  "framework": "nextjs",
-  "buildCommand": "next build",
-  "installCommand": "bun install",
-  "regions": ["sin1"]
+  "framework": null,
+  "installCommand": "bun install --frozen-lockfile",
+  "buildCommand": "node demo/build.mjs",
+  "outputDirectory": "demo/out",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "headers": {
+        "Content-Security-Policy": "connect-src 'self'; frame-src 'self' blob:; object-src 'none'; form-action 'none'; base-uri 'self'"
+      },
+      "continue": true
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/((?!api(?:/|$)|mcp(?:/|$)|oauth(?:/|$)|_next(?:/|$)|\\.well-known(?:/|$)).+)",
+      "dest": "/index.html"
+    }
+  ]
 }

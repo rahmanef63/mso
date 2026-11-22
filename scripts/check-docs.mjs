@@ -37,6 +37,15 @@ for (const [file, ref] of catalogRefs) {
     fail.push(`${file}: duplicated MCP catalog marker; keep volatile markers only in docs/generated/MCP-CATALOG.md`);
 }
 
+// --- Every supported agent entry point must route to the frontend contract.
+for (const [file, ref] of [
+  ["AGENTS.md", "./docs/FRONTEND-CONTRACT.md"],
+  ["CLAUDE.md", "./docs/FRONTEND-CONTRACT.md"],
+  ["frontend/AGENTS.md", "../docs/FRONTEND-CONTRACT.md"],
+  ["docs/UI-UX-FOUNDATION.md", "./FRONTEND-CONTRACT.md"],
+  ["frontend/slices/appshell/design/README.md", "../../../../docs/FRONTEND-CONTRACT.md"],
+]) if (!read(file).includes(ref)) fail.push(`${file}: must reference the frontend implementation contract (${ref})`);
+
 // --- Slice catalog counts.
 const dirs = (p) => readdirSync(join(ROOT, p), { withFileTypes: true }).filter((x) => x.isDirectory()).map((x) => x.name);
 const sliceCount = dirs("frontend/slices").length;
@@ -63,7 +72,7 @@ for (const name of readdirSync(join(ROOT, "docs")).filter((x) => x.endsWith(".md
 }
 
 // --- Relative Markdown links across project-authored docs/skills must resolve.
-const markdownRoots = ["README.md", "SECURITY.md", "CONTRIBUTING.md", "CLAUDE.md", "docs", "skills", "claude-skills"];
+const markdownRoots = ["AGENTS.md", "frontend/AGENTS.md", "README.md", "SECURITY.md", "CONTRIBUTING.md", "CLAUDE.md", "docs", "skills", "claude-skills"];
 const markdown = [];
 function walk(path) {
   const full = join(ROOT, path);

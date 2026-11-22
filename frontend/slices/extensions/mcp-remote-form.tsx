@@ -22,7 +22,7 @@ export function RemoteMcpForm({ busy, aliases, install }: { busy: boolean; alias
     <p className="text-xs text-muted-foreground">Writes the selected target’s MCP manifest on this VPS. HTTPS endpoints only; use Integrations for OAuth or secrets. Existing local stdio MCPs also appear above.</p>
     {legacy.length > 0 && <div className="space-y-2"><p className="text-xs text-muted-foreground">Previous browser-only declarations remain saved. Review an endpoint before installing:</p>{legacy.map(item => {
       const remote = item.mcp?.find(mcp => mcp.transport === "https");
-      return <Button key={item.id} size="sm" variant="secondary" disabled={!remote || busy} onClick={() => { if (remote?.transport === "https") { setServer(item.id); setUrl(remote.endpoint); } }}>{item.metadata.name}{!remote ? " — manual runtime review required" : " — review"}</Button>;
+      return <Button key={item.id} size="sm" variant="secondary" disabled={!remote || busy} onClick={() => { if (remote?.transport === "https") { setServer(item.id); setUrl(remote.endpoint); } }}>{item.metadata.name}{!remote ? ": manual runtime review required" : ": review"}</Button>;
     })}</div>}
     <div className="grid gap-2 sm:grid-cols-2">
       <Input aria-label="MCP alias" placeholder="MCP alias" value={server} disabled={busy} onChange={event => setServer(event.target.value)} />

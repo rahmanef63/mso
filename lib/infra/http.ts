@@ -5,7 +5,9 @@ export const HOST_RE = /^(?=.{1,253}$)[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-export type InfraResponse = { status: number; ok: boolean; body: unknown; text: string };
+// `headers` is optional so existing response-shape stubs stay valid; a caller that must
+// carry a Set-Cookie session forward (the Nakama password follower) reads it when present.
+export type InfraResponse = { status: number; ok: boolean; body: unknown; text: string; headers?: Headers };
 
 async function boundedText(res: Response): Promise<string> {
   const length = Number(res.headers.get("content-length"));
@@ -51,7 +53,7 @@ export async function request(
     const text = await boundedText(res);
     let body: unknown = null;
     try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-    return { status: res.status, ok: res.ok, body, text };
+    return { status: res.status, ok: res.ok, body, text, headers: res.headers };
   } catch (error) {
     if ((error as Error).name === "AbortError") throw new Error(`request timed out after ${timeoutMs}ms`);
     throw error;

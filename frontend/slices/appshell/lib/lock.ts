@@ -5,8 +5,9 @@ import { registerCommands } from "./commands";
 
 // Lock screen — overlay state + an optional consumer-injected unlock guard
 // (auth check). No guard → click/key unlocks (kiosk-style privacy curtain).
-// Idle auto-lock minutes persist to sv:autolock; the bundled lock-screen
-// feature owns the idle timer.
+// Idle auto-lock minutes persist to sv:autolock. The TIMER is not here: it is
+// useIdleAutoLock (./use-idle-auto-lock), mounted from the shell provider so it
+// stays eager even though the curtain's chunk is deferred.
 
 let locked = false;
 let guard: (() => boolean | Promise<boolean>) | null = null;

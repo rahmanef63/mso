@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Search, Sparkles, Store } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -26,14 +26,29 @@ import { useStoreInstall } from "../lib/use-store-install";
 // flips its localStorage row (useInstalledApps surfaces it in the dock/launchpad).
 // The "Apps"/"Features" sections instead toggle the built-in apps + shell features
 // on/off (enabled-store) — os-root filters the manifest by the disabled set.
+
+// Right-click items for the store surface. Card items nest ABOVE these (the
+// context-zone walk groups innermost first), so this list stays store-wide only.
+const STORE_MENU: MenuItem[] = [
+  { label: "Suggest an app…", icon: Sparkles, onClick: () => openWindow("assistant", "Alfa") },
+];
+
+// Both grids (curated apps and built-ins) share one responsive track list, so a
+// new column rule only has to change here.
+function StoreGrid({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-4">
+      {children}
+    </div>
+  );
+}
+
 export default function AppStore({ systemOnly = false }: { systemOnly?: boolean }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StoreFilter>(systemOnly ? "Apps" : "Featured");
   // Store-level zone: a right-click anywhere in the grid gets this, and a
   // right-click ON a card merges the card's items ABOVE it (nested).
-  const storeZone = useContextZone((): MenuItem[] => [
-    { label: "Suggest an app…", icon: Sparkles, onClick: () => openWindow("assistant", "Alfa") },
-  ]);
+  const storeZone = useContextZone((): MenuItem[] => STORE_MENU);
   // Pane-width bucket (JS, not CSS): the sidebar/chip swap must share ONE
   // measurement, and the chips live inside the AppFrame's own @container.
   const [paneRef, pane] = useContainer<HTMLDivElement>();
@@ -118,6 +133,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                aria-label={isSystem ? `Search ${noun}s` : "Search apps"}
                 placeholder={isSystem ? `Search ${noun}s` : "Search apps"}
                 className={ios ? "h-9 border-0 bg-[var(--fill)] pl-8" : "h-9 pl-8"}
               />
@@ -128,14 +144,16 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
       >
         <ScrollArea className="h-full">
           <div ref={storeZone} className="p-4 [padding-bottom:calc(1rem+var(--sai-bottom))]">
+            {install.error && <p role="alert" className="mb-3 text-sm text-destructive-text">{install.error}</p>}
             {isSystem ? (
               <>
                 <p className="mb-3 text-xs text-muted-foreground">
-                  Optional {filter === "Features" ? "system features" : "apps"} — install to add
+                  Optional {filter === "Features" ? "system features" : "apps"}: install to add
                   them, uninstall to remove. Uninstalled items vanish from the dock, Launchpad,
                   and Spotlight.
                 </p>
-                <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-4">
+                <StoreGrid>
+                  {!systemList.length && <p role="status" className="py-6 text-sm text-muted-foreground">No {noun}s match your search.</p>}
                   {systemList.map((e) => (
                     <SystemCard
                       key={e.id}
@@ -144,7 +162,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
                       onToggle={install.toggleSystem}
                     />
                   ))}
-                </div>
+                </StoreGrid>
               </>
             ) : (
               <>
@@ -160,7 +178,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
                     No apps match &ldquo;{query}&rdquo;.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-4">
+                  <StoreGrid>
                     {list.map((app) => (
                       <StoreAppCard
                         key={app.appId}
@@ -168,7 +186,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
                         onToggle={install.toggle}
                       />
                     ))}
-                  </div>
+                  </StoreGrid>
                 )}
               </>
             )}
@@ -180,12 +198,14 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
         open={install.pendingApp !== null}
         title={install.pendingApp?.title ?? null}
         onCancel={install.cancelApp}
+        error={install.error}
         onConfirm={install.confirmUninstallApp}
       />
       <UninstallConfirm
         open={install.pendingSystem !== null}
         title={install.pendingSystem?.title ?? null}
         onCancel={install.cancelSystem}
+        error={install.error}
         onConfirm={install.confirmUninstallSystem}
       />
     </div>

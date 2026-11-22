@@ -44,6 +44,11 @@ export function requiredRoleForRequest(req?: Request): DeviceRole {
   if (pathname === "/api/v1/sys/packages") return "viewer";
 
   if (pathname.startsWith("/api/v1/camoufox/")) return "operator";
+  // Bot desktops: a screenshot shows another app's live screen and a lifecycle verb
+  // stops its box, so this whole family sits at the operator boundary with no
+  // viewer read. Nothing here accepts a command; the verbs are fixed in
+  // lib/desktop/observer.ts.
+  if (pathname.startsWith("/api/v1/desktop/")) return "operator";
   if (pathname.startsWith("/api/v1/managed-apps/")) {
     if (pathname.includes("/install") || pathname.includes("/update")) return "owner";
     // A job may be an install/update/rollback/uninstall started by Owner. Reading

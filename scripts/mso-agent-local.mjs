@@ -22,6 +22,7 @@ function agentPrefix(label) {
   return clean.startsWith("agent-") ? `[${clean}]` : `[agent-${clean}]`;
 }
 
+/** @param {any} message @param {Record<string, string>} [colors] */
 export function formatLocalAgentEvent(message, colors = C) {
   const prefix = agentPrefix(message?.senderLabel);
   const kind = message?.kind === "task" ? " task" : "";
@@ -44,6 +45,7 @@ function correlatedRelayRequest(history, message) {
   ) || null;
 }
 
+/** @param {any} history @param {any} message @param {Record<string, string>} [colors] */
 export function localAgentPresentation(history, message, colors = C) {
   const request = correlatedRelayRequest(history, message);
   return request

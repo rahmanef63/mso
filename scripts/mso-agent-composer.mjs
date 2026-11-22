@@ -2,82 +2,84 @@ import readline from "node:readline";
 import { wordLeftIndex, wordRightIndex } from "./mso-agent-editing.mjs";
 import process from "node:process";
 import { resumeActiveActivity, suspendActiveActivity } from "./mso-agent-activity.mjs";
+import { applyCompletion } from "./mso-agent-at.mjs";
 
-import {
-  chars, clamp, CLEAR_LINE, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, CURSOR_UP, eraseComposerRows, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width,
-} from "./mso-agent-composer-ui.mjs";
-export { completionWindow, inputLayout, inputViewport, verticalCursor } from "./mso-agent-composer-ui.mjs";
+import { getKeybinds, resolveKeybind } from "./mso-agent-keybinds.mjs";
+import { cursorHome, eraseFrame, frameHeight, withCursorHidden, writeFrame, writeFrameAt } from "./mso-agent-screen.mjs";
+import { caretEscape, composeComposerLines, draftRowBudget, openCommandDialog, paintOverlayFrame } from "./mso-agent-overlay.mjs";
+import { chars, clamp, CLEAR_SCREEN, completionWindow, footerLines, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width } from "./mso-agent-composer-ui.mjs";
+export { completionWindow, inputLayout, inputViewport, verticalCursor };
 
 export class AgentComposer {
-  constructor({ input = process.stdin, output = process.stdout, colors }) {
-    this.input = input;
-    this.output = output;
-    this.C = colors;
-    this.history = [];
-    this.closed = false;
-    this._cancelCurrent = null;
-    this._notifyCurrent = null;
+  constructor({ input = process.stdin, output = process.stdout, colors, keybinds = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null), onCommands = null }) {
+    this.input = input; this.output = output; this.C = colors;
+    this.keybinds = keybinds; this.onToggleStatusBar = onToggleStatusBar; this._onRows = onRows; this.onCommands = onCommands;
+    this.history = []; this.closed = false; this._cancelCurrent = null; this._notifyCurrent = null; this._rowCount = 0;
     readline.emitKeypressEvents(this.input);
   }
 
-  async question(prompt, { complete = null, history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null } = {}) {
+  rowCount() { return this._rowCount; }
+  reservedRows() { return this._reservedRows || 0; }
+  onRows(cb) { if (typeof cb === "function") this._onRows = cb; return this; }
+
+  async question(prompt, { complete = /** @type {((value: string) => Array<any>) | null} */ (null), history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null, onToggleStatusBar = null, onRows = /** @type {((rows: number) => void)|null} */ (null), onCommands = null } = {}) {
     if (this.closed) return null;
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
-      let value = "", cursor = 0, selected = 0, reservedRows = 0;
+      let value = "", cursor = 0, selected = 0, reservedRows = 0, paintedLines = [], lastCursorRow = 0;
+      // Prompt-plus-draft height, remembered so closing a menu hands those rows back without recomputing.
+      let ownedRowCount = 1;
       let dismissed = false, historyIndex = null, draft = "", settled = false, verticalColumn = null;
+      const rowCallback = onRows || this._onRows;
+      const setRows = (n) => { if (this._rowCount !== n) { this._rowCount = n; if (typeof rowCallback === "function") rowCallback(n); } };
       const promptText = () => String(typeof prompt === "function" ? prompt() : prompt);
-      const footerText = () => String(typeof footer === "function" ? footer() : (footer || ""));
       const separatorText = () => String(typeof separator === "function" ? separator() : (separator || ""));
       const wasRaw = Boolean(input.isRaw);
 
       const matches = () => dismissed || !complete ? [] : complete(value) || [];
-      // Reserve physical rows only when the dropdown first grows. Selection changes then
-      // redraw with cursor movement only — no LF/CRLF — so ↑/↓ never create scrollback rows.
-      const reserve = (rows) => { reservedRows = reserveComposerRows(output, reservedRows, rows); };
-      const erase = () => eraseComposerRows(output, reservedRows);
+      // Panel mode owns every row: the height is reported to it, never grown with CRLF, which would
+      // scroll the panel itself off the top of the screen.
+      const reserve = (rows) => { reservedRows = this._reservedRows = rowCallback ? rows : reserveComposerRows(output, reservedRows, rows); };
+      // Return to the FIRST row of the frame before erasing. Homing to the caret's own row walked only
+      // part way up, so a tall frame was erased from its middle and left half of itself on screen.
+      const erase = () => { cursorHome(output, Math.max(0, paintedLines.length - 1)); eraseFrame(output, paintedLines); paintedLines = []; lastCursorRow = 0; reservedRows = 0; setRows(0); };
       const render = () => {
-        const currentPrompt = promptText();
-        const promptWidth = width(currentPrompt);
-        const items = matches();
+        if (!rowCallback) cursorHome(output, Math.max(0, paintedLines.length - 1));
+        const currentPrompt = promptText(), promptWidth = width(currentPrompt), items = matches();
         selected = items.length ? clamp(selected, 0, items.length - 1) : 0;
-        const menu = menuLines(items, selected, output.columns, C, panelLabel);
-        const footerRow = footerText();
-        const footerRows = footerRow ? 1 : 0;
-        const terminalRows = Math.max(8, Number(output.rows || 24));
-        const maxInputRows = Math.max(2, Math.min(12, terminalRows - menu.length - footerRows - 4, Math.floor(terminalRows * 0.32)));
-        const layout = inputLayout(value, cursor, { columns: output.columns, rows: terminalRows, promptWidth, maxRows: maxInputRows });
-        const inputExtraRows = Math.max(0, layout.lines.length - 1);
-        const below = inputExtraRows + menu.length + footerRows;
-        reserve(below);
-        erase();
-        const continuation = " ".repeat(promptWidth);
-        output.write(`${currentPrompt}${layout.lines[0] || ""}`);
-        for (const row of layout.lines.slice(1)) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${continuation}${row}`);
-        for (const row of menu) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${row}`);
-        if (footerRow) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${footerRow}`);
-        const backUp = menu.length + footerRows + (layout.lines.length - 1 - layout.cursorRow);
-        if (backUp) output.write(CURSOR_UP(backUp));
-        output.write(`\r${CURSOR_RIGHT(promptWidth + layout.cursorCol)}`);
+        const menu = menuLines(items, selected, output.columns, C, typeof panelLabel === "function" ? panelLabel(value) : panelLabel);
+        const foot = footerLines(footer), terminalRows = Math.max(8, Number(output.rows || 24));
+        const maxRows = draftRowBudget({ rows: terminalRows, menuRows: menu.length, footRows: foot.length });
+        const layout = inputLayout(value, cursor, { columns: output.columns, rows: terminalRows, promptWidth, maxRows });
+        const { lines, owned } = composeComposerLines({ prompt: currentPrompt, draft: layout.lines, menu, foot, promptWidth });
+        ownedRowCount = owned; if (rowCallback) setRows(owned); else reserve(Math.max(0, frameHeight(lines) - 1));
+        let frameTop = 0;
+        withCursorHidden(output, () => {
+          const painted = paintOverlayFrame({ output, lines, menu, foot, owned, previous: paintedLines, absolute: Boolean(rowCallback), writeFrame, writeFrameAt });
+          paintedLines = painted.painted;
+          frameTop = painted.top;
+        });
+        if (!rowCallback) setRows(paintedLines.length); // inline mode has no panel to tell
+        output.write(caretEscape({ top: frameTop, cursorRow: layout.cursorRow, promptWidth, cursorCol: layout.cursorCol }));
+        lastCursorRow = layout.cursorRow;
       };
       const cleanup = () => {
         input.off("keypress", onKey);
         if (this._cancelCurrent === cancel) this._cancelCurrent = null;
         if (this._notifyCurrent === notify) this._notifyCurrent = null;
         if (typeof output.off === "function") output.off("resize", onResize);
-        if (typeof input.setRawMode === "function") input.setRawMode(wasRaw);
-        input.pause();
+        if (typeof input.setRawMode === "function") input.setRawMode(wasRaw); input.pause();
       };
       const finish = (result, echo = true, displayValue = value) => {
         if (settled) return;
         settled = true;
         erase();
-        if (echo) output.write(`${promptText()}${displayValue}\r\n`);
+        // In panel mode the panel owns the screen: a raw CRLF writes a row OUTSIDE the retained frame,
+        // and the frame never clears it, so the prompt text stays on screen under the dialog. The caller
+        // repaints and records the line through the print sink instead.
+        if (echo && !rowCallback) output.write(`${promptText()}${displayValue}\r\n`);
         cleanup();
-        if (history && result?.trim()) {
-          this.history.unshift(result);
-          if (this.history.length > 100) this.history.length = 100;
-        }
+        if (history && result?.trim()) { this.history.unshift(result); if (this.history.length > 100) this.history.length = 100; }
         resolve(result);
       };
       const cancel = (echo = true) => {
@@ -85,7 +87,7 @@ export class AgentComposer {
         if (typeof onCancel === "function") onCancel();
         settled = true;
         erase();
-        if (echo) output.write("^C\r\n");
+        if (echo && !rowCallback) output.write("^C\r\n");
         cleanup();
         resolve(null);
         return true;
@@ -104,8 +106,7 @@ export class AgentComposer {
         resumeActiveActivity();
         return true;
       };
-      this._cancelCurrent = cancel;
-      this._notifyCurrent = notify;
+      this._cancelCurrent = cancel; this._notifyCurrent = notify;
       const edit = (next, nextCursor) => {
         value = next; cursor = clamp(nextCursor, 0, chars(value).length);
         selected = 0; dismissed = false; historyIndex = null; verticalColumn = null;
@@ -113,7 +114,8 @@ export class AgentComposer {
       };
       const apply = (item) => {
         if (!item?.text) return;
-        value = item.text; cursor = chars(value).length; dismissed = true; selected = 0;
+        ({ value, cursor } = applyCompletion(value, cursor, item));
+        dismissed = true; selected = 0;
         render();
       };
       const historyMove = (dir) => {
@@ -127,41 +129,34 @@ export class AgentComposer {
       const onResize = () => { if (!settled) render(); };
       const onKey = (str, key = {}) => {
         const items = matches();
-        if (key.ctrl && key.name === "c") {
-          if (value) return edit("", 0);
-          return cancel(true);
-        }
-        if (key.ctrl && key.name === "l") {
-          output.write(CLEAR_SCREEN); reservedRows = 0; return render();
-        }
-        if (key.name === "escape") {
+        const action = resolveKeybind(key, this.keybinds || getKeybinds());
+        if (action === "interrupt") return value ? edit("", 0) : cancel(true);
+        if (action === "clear_screen") { output.write(CLEAR_SCREEN); reservedRows = 0; paintedLines = []; return render(); }
+        if (action === "dismiss") {
           if (escapeCancels) return cancel(false);
-          dismissed = true; selected = 0; return render();
+          // The panel painted before the overlay existed, so it must repaint or the covered rows keep
+          // showing the closed menu.
+          dismissed = true; selected = 0; render();
+          if (rowCallback) rowCallback(ownedRowCount);
+          return;
+        }
+        if (action === "toggle_status_bar") {
+          const toggle = onToggleStatusBar || this.onToggleStatusBar;
+          if (typeof toggle === "function") toggle();
+          return render();
         }
         if (items.length && (key.name === "up" || key.name === "down")) {
           selected = (selected + (key.name === "up" ? -1 : 1) + items.length) % items.length;
           return render();
         }
-        if (key.name === "tab" && items.length) {
-          if (selectOnEnter) {
-            const item = items[selected];
-            return finish(item.value ?? item.text, true, item.label || item.text);
-          }
-          return apply(items[selected]);
+        // Tab is claimed only when there is something to complete, otherwise it falls through to
+        // the editing path exactly as it did before keybinds existed.
+        if (action === "complete" && (items.length || (!value && typeof onTab === "function"))) {
+          if (items.length) return selectOnEnter ? finish(items[selected].value ?? items[selected].text, true, items[selected].label || items[selected].text) : apply(items[selected]);
+          onTab(); dismissed = false; selected = 0; return render();
         }
-        if (key.name === "tab" && !value && typeof onTab === "function") {
-          onTab();
-          dismissed = false; selected = 0;
-          return render();
-        }
-        if (key.name === "return" || key.name === "enter") {
-          if (selectOnEnter && items[selected]) {
-            const item = items[selected];
-            return finish(item.value ?? item.text, true, item.label || item.text);
-          }
-          // Exact input wins even when another prefix match is highlighted first
-          // (`/model` vs `/models`). Enter submits what the user actually typed;
-          // Tab is the explicit "apply highlighted completion" key.
+        if (action === "submit") {
+          if (selectOnEnter && items[selected]) return finish(items[selected].value ?? items[selected].text, true, items[selected].label || items[selected].text);
           if (items.some((item) => item?.text === value)) return finish(value);
           if (items.length && items[selected]?.text) return apply(items[selected]);
           return finish(value);
@@ -172,8 +167,15 @@ export class AgentComposer {
           const moved = verticalCursor(value, cursor, layout.lineWidth, key.name === "up" ? -1 : 1, verticalColumn);
           if (moved.moved) { cursor = moved.cursor; verticalColumn = moved.column; return render(); }
         }
-        if ((key.name === "up" && !items.length) || (key.ctrl && key.name === "p")) return historyMove(-1);
-        if ((key.name === "down" && !items.length) || (key.ctrl && key.name === "n")) return historyMove(1);
+        // The caller owns the command registry, so the composer only reports the key and closes cleanly.
+        // Close this prompt FIRST, then open the dialog: the dialog paints into the row this prompt was
+        // holding, so opening it while the prompt still owns that row draws both on top of each other.
+        // Hand the key back to the caller and let it close this prompt. Opening a second prompt from
+        // inside the key handler draws the dialog into rows this one still owns, so the menu never
+        // appears and the screen looks blank.
+        if (action === "commands") return openCommandDialog(onCommands || this.onCommands, cancel);
+        if (action === "history_prev" || (key.name === "up" && !items.length)) return historyMove(-1);
+        if (action === "history_next" || (key.name === "down" && !items.length)) return historyMove(1);
         const row = chars(value);
         if (key.ctrl && key.name === "d") {
           if (!value) return finish(null, false);
@@ -202,8 +204,7 @@ export class AgentComposer {
 
       input.on("keypress", onKey);
       if (typeof output.on === "function") output.on("resize", onResize);
-      input.resume();
-      if (typeof input.setRawMode === "function") input.setRawMode(true);
+      input.resume(); if (typeof input.setRawMode === "function") input.setRawMode(true);
       const separatorRow = separatorText();
       if (separatorRow) output.write(`${separatorRow}\r\n`);
       render();

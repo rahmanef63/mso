@@ -1,48 +1,20 @@
-# Demo fork: official-manef/mso
+# Demo publik MSO
 
-Fork ini adalah **demo publik** dari [`rahmanef63/mso`](https://github.com/rahmanef63/mso),
-bukan rilis produksi dan bukan sumber instalasi. Perbedaan dengan upstream:
+[`official-manef/mso`](https://github.com/official-manef/mso) adalah GitHub fork dari
+[`rahmanef63/mso`](https://github.com/rahmanef63/mso).
 
-## 1. PTY dihapus
+Entrypoint di `demo/app` mengimpor `OsRoot` dan stylesheet MSO langsung. Build
+mengaktifkan `NEXT_PUBLIC_OS_DEMO=1` untuk memakai adapter dan data contoh yang
+sudah ada di MSO. Terminal dan fitur host tetap mengikuti mode demo upstream.
 
-Terminal PTY asli (`node-pty` / shell interaktif di host) dihapus dari fork demo. Demo
-tidak menjalankan shell interaktif nyata; permukaan shell dirender sebagai UI demo.
-Jangan menganggap capability shell di demo sebagai bukti capability shell di upstream.
+Siapkan dependensi dengan `bun install --frozen-lockfile`, lalu jalankan
+`node demo/build.mjs`. Sajikan `demo/out` sebagai file statis dari root domain.
+Output berisi halaman, aset dan JavaScript browser. API dan proses server MSO
+berada di luar proyek ekspor. Vercel memakai konfigurasi di `vercel.json`.
 
-## 2. Build demo
-
-Frontend/backend dibangun sebagai build demo (tanpa layanan host nyata, tanpa kredensial
-operator). Deploy dilakukan lewat Vercel deploy hook, bukan lewat `scripts/install.sh`
-atau `mso update`.
-
-## 3. Auto-sync harian
-
-Workflow [`.github/workflows/sync-upstream.yml`](../.github/workflows/sync-upstream.yml)
-menjalankan sinkronisasi terjadwal:
-
-- cron `0 3 * * *` (03:00 UTC setiap hari) dan `workflow_dispatch` manual;
-- checkout `main` dengan `fetch-depth: 0`, tambah remote
-  `https://github.com/rahmanef63/mso.git`, fetch, lalu
-  `git merge --no-edit upstream/main` dan push ke `origin main`;
-- memakai `GITHUB_TOKEN` bawaan (`permissions: contents: write`).
-
-Setelah itu [`.github/workflows/deploy-hook.yml`](../.github/workflows/deploy-hook.yml)
-trip dari `workflow_run` sync (atau manual) dan POST ke `VERCEL_DEPLOY_HOOK_URL`.
-
-## 4. Konflik = gagal, bukan ditimpa
-
-Merge **tidak** memakai `|| true` atau strategi `-X ours/theirs`. Jika upstream
-berubah di file yang sengaja berbeda di fork demo (mis. penghapusan PTY, konfigurasi
-build demo), job sync **gagal dan tampil merah di UI Actions**. Perbaiki manual:
-selesaikan konflik di `main`, lalu jalankan ulang workflow. Fork demo tidak boleh
-menutupi divergensi dengan menimpa perubahan upstream.
-
-## Menjaga fork ini
-
-1. `git remote add upstream https://github.com/rahmanef63/mso.git` (sekali saja).
-2. `git fetch upstream main && git merge upstream/main` lokal untuk melihat konflik lebih awal.
-3. Simpan divergensi demo sekecil mungkin; setiap konflik berulang adalah sinyal bahwa
-   patch demo perlu dirapikan atau dipindah ke lapisan konfigurasi.
-
-Dokumen ini collateral demo, bukan otoritas teknis MSO. Otoritas tetap
-[`ARCHITECTURE.md`](./ARCHITECTURE.md) dan [`CLAUDE.md`](../CLAUDE.md).
+Workflow [Sync upstream](../.github/workflows/sync-upstream.yml) menjalankan
+`git merge` dari `rahmanef63/mso:main` setiap hari dan dapat dijalankan manual
+melalui GitHub Actions. Jika konflik terjadi, periksa log dan selesaikan lewat
+merge biasa agar riwayat kedua repo tetap tersimpan. Konfigurasi demo berada
+di direktori `demo/` sehingga perubahan frontend dan dependensi MSO dapat masuk
+melalui merge upstream.

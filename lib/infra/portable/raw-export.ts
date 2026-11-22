@@ -28,7 +28,7 @@ export async function exportRawCredentials(selectionInput:unknown,format:RawCred
     const users=[...new Set(rows.map(row=>row.user))].map(user=>({id:user,connections:rows.filter(row=>row.user===user).map(({provider,connection,label,values})=>({provider,id:connection,label,values}))}));
     return{content:JSON.stringify({format:"mso-raw-credentials",version:1,exportedAt:stamp,users},null,2)+"\n",contentType:"application/json; charset=utf-8",filename:`mso-credentials-${stamp.slice(0,10)}.json`,connectionCount:rows.length};
   }
-  const single=rows.length===1;const lines=["# MSO RAW CREDENTIAL EXPORT — KEEP PRIVATE",`# Exported ${stamp}`,"# Values below are plaintext. Rotate credentials if this file is exposed.",""];
+  const single=rows.length===1;const lines=["# MSO RAW CREDENTIAL EXPORT: KEEP PRIVATE",`# Exported ${stamp}`,"# Values below are plaintext. Rotate credentials if this file is exposed.",""];
   for(const row of rows){lines.push(`# ${row.user} / ${row.provider} / ${row.connection} / ${row.label}`);for(const[key,value]of Object.entries(row.values)){const name=single?key:`${envKey(row.user)}__${envKey(row.provider)}__${envKey(row.connection)}__${key}`;lines.push(`${name}=${dotenvQuote(value)}`)}lines.push("")}
   return{content:lines.join("\n"),contentType:"text/plain; charset=utf-8",filename:`mso-credentials-${stamp.slice(0,10)}.env`,connectionCount:rows.length};
 }

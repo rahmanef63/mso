@@ -1,50 +1,26 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  type Ref
-} from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { errText } from "./error-text";
+import { useActiveShell } from "@/features/appshell";
 import {
-  updateAlfa,
-  useActiveShell,
-  useAlfaMessages,
-  awaitAlfaApproval,
-  resolveAlfaApproval,
-  clearAlfaApprovals,
-  useAlfaBusy,
-  sendToAlfa,
-  ChatComposer,
-  type AlfaMessage
-} from "@/features/appshell";
-import { AlfaRunProgress, AlfaApprovalGrants, alfaRunState, setAlfaOperation, pulseAlfaRun, recordAlfaRunActivity, endAlfaRunState, stopAlfaRunState } from "@/features/appshell";
-import { runToolAgent, useOsApi, type AgentMsg } from "../lib/host";
+  updateAlfa, useAlfaMessages, resolveAlfaApproval, useAlfaBusy, sendToAlfa,
+  ChatComposer, type AlfaMessage, AlfaRunProgress, AlfaApprovalGrants,
+  type ChatMessage, useChatAutoScroll, ScrollToBottomButton,
+} from "@/features/appshell/alfa";
+import { useOsApi, type AgentMsg } from "../lib/host";
 import type { Agent, Automation } from "../lib/types";
-import { activeAgent } from "../lib/store";
-import { composeSystem } from "../lib/agent-request";
 import { composeAutomationRequest } from "../lib/automation-request";
-import { useHostCommands, type HostToolUi } from "../host-tools/use-host-commands";
-import { type ChatMessage, type ToolCard } from "@/features/appshell";
 import { ChatTranscript } from "./chat-transcript";
 import { TurnUsage } from "./turn-usage";
 import { useTurnUsage } from "./use-turn-usage";
-
 import { EmptyState } from "./empty-state";
 import { useThreadPersistence } from "./use-thread-persistence";
 import { useAlfaRunner } from "./use-alfa-runner";
-import { beginAlfaRun, finishAlfaRun } from "../lib/alfa-activity";
-import { alfaProjectContext } from "@/features/appshell";
+import { useChatEngine } from "./use-chat-engine";
 
 const SUGGESTED = ["Show system stats", "List ~/projects", "Create notes.txt in ~/projects with a TODO"];
-
-let seq = 0;
-const nextId = () => `m${Date.now()}-${seq++}`;
 
 export type ChatHandle = {
   runSteps: (auto: Automation, agent?: Agent) => void;
@@ -53,32 +29,23 @@ export type ChatHandle = {
   newThread: () => void;
 };
 
-// Alfa's chat — now a REAL host-tool agent. The model streams a turn, then any
-// tool_use runs through `invoke` (host-tools binding): read tools execute
-// immediately, mutate tools (fs.write/mkdir/move, exec.run) render an approval
-// card and PARK the loop until the user clicks Approve/Deny. An AbortController
-// threads through the loop so Stop / window-close cancels the stream and unblocks
-// any pending approval. The wire history lives in `historyRef` (tool_use +
-// tool_result blocks), separate from the display `messages`.
 export function ChatPanel({
   agent,
   switcher,
   cockpit,
   prompts = [],
+  onActiveThreadChange,
   ref,
 }: {
   agent: Agent;
   switcher: React.ReactNode;
   cockpit?: React.ReactNode;
   prompts?: string[];
+  onActiveThreadChange?: (id: string | null) => void;
   ref?: Ref<ChatHandle>;
 }) {
   const api = useOsApi();
   const ios = useActiveShell().id === "ios";
-  // The display list lives in the SHARED Alfa store, not in this component. That
-  // is what makes the per-app Alfa sheet show this very conversation instead of a
-  // second, disconnected one — and it is less memory, not more: one array for
-  // every surface rather than one per mounted view.
   const messages = useAlfaMessages() as ChatMessage[];
   const setMessages = useCallback(
     (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) =>
@@ -87,143 +54,29 @@ export function ChatPanel({
       ),
     [],
   );
-  // No local streaming mirror. sendToAlfa sets the shared busy flag BEFORE calling
-  // the registered runner, so a local copy plus an `if (streaming) return` guard in
-  // send() meant every send routed through the store was silently dropped.
   const streaming = useAlfaBusy();
   const { turnUsage, threadUsage, record, reset } = useTurnUsage();
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const { containerRef, bottomRef, showScrollDown, scrollToBottom } = useChatAutoScroll(messages);
   const agentRef = useRef(agent);
   const historyRef = useRef<AgentMsg[]>([]);
+  const stopRef = useRef<() => void>(() => {});
   useEffect(() => { agentRef.current = agent; }, [agent]);
 
-  useEffect(() => {
-    // Coalesce into one rAF (streaming appends `messages` per token) and use
-    // instant behavior — a smooth scroll restarted every token both janks and
-    // forces a layout each frame.
-    const id = requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" }));
-    return () => cancelAnimationFrame(id);
-  }, [messages]);
-
-  // Stable UI seam for the tool binding: push/patch tool cards + await approval.
-  const pushCard = useCallback((id: string, card: ToolCard) => {
-    setAlfaOperation(card.name, card.status === "pending");
-    recordAlfaRunActivity(id, card.name, card.status);
-    setMessages((prev) => [...prev, { id, createdAt: Date.now(), role: "tool", tool: card }]);
-  }, [setMessages]);
-  const updateCard = useCallback((id: string, patch: Partial<ToolCard>) => {
-    if (patch.status) {
-      recordAlfaRunActivity(id, "", patch.status);
-      setAlfaOperation(patch.status === "running" ? "Executing tool" : "Requesting response");
-    }
-    setMessages((prev) => prev.map((m) => (m.id === id && m.tool ? { ...m, tool: { ...m.tool, ...patch } } : m)));
-  }, [setMessages]);
-  // Shared rendezvous: any surface showing the card can answer it, including the
-  // mobile sheet where this panel is not even mounted.
-  const requestApproval = useCallback((id: string) => awaitAlfaApproval(id), []);
-  const ui = useMemo<HostToolUi>(() => ({ pushCard, updateCard, requestApproval }), [pushCard, updateCard, requestApproval]);
-  const { tools, invoke } = useHostCommands(ui);
-
-  const stop = useCallback(() => {
-    stopAlfaRunState();
-    abortRef.current?.abort();
-    abortRef.current = null;
-    clearAlfaApprovals(); // unblock parked calls so the loop unwinds cleanly
-  }, []);
-
-  // Abort the in-flight run if the panel unmounts (window close / app swap).
-  useEffect(() => stop, [stop]);
-
-  // Thread persistence: save the conversation to a YAML thread + resume one.
-  const { persist, loadThread, newThread } = useThreadPersistence(historyRef, setMessages, stop);
-
-  const send = useCallback(
-    async (text: string, fromAppId?: string) => {
-      // Read FRESH, never from a ref. sendToAlfa can invoke the engine
-      // synchronously in the same tick as an @mention switches the agent, so a ref
-      // would still hold the previous one and the first turn after a switch would
-      // carry the wrong persona.
-      const a = activeAgent();
-      // `appId` tags the turn with the app it came from — that tag is the whole
-      // cross-feature trail the sheet renders ("in Camoufox", "in Files").
-      const createdAt = Date.now();
-      setMessages((prev) => [
-        ...prev,
-        { id: nextId(), createdAt, role: "user", text, appId: fromAppId },
-        { id: nextId(), createdAt, role: "assistant", text: "", appId: fromAppId },
-      ]);
-      historyRef.current.push({ role: "user", text });
-
-      const appendToLastAssistant = (fn: (t: string) => string) =>
-        setMessages((prev) => {
-          const next = [...prev];
-          for (let k = next.length - 1; k >= 0; k--) {
-            if (next[k].role === "assistant") { next[k] = { ...next[k], text: fn(next[k].text ?? "") }; break; }
-          }
-          return next;
-        });
-
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
-      const modeNote =
-        api.mode === "live"
-          ? " You are in LIVE mode on a production VPS; tool actions are real."
-          : " You are in MOCK mode: fs, exec and sys tools are simulated (no real VPS). The skills.* and memory.* tools are NOT simulated — they read and write real host state even here.";
-      const runId = beginAlfaRun(text);
-      const stateId = alfaRunState()?.id;
-      setAlfaOperation("Requesting response");
-      let runOk = false;
-      try {
-        const { history: next, outcome, usage } = await runToolAgent(
-          historyRef.current,
-          tools,
-          invoke,
-          {
-            onDelta: (c) => { pulseAlfaRun(); appendToLastAssistant((t) => t + c); },
-            // After each tool card, open a fresh assistant bubble so the next
-            // turn's text streams BELOW the card rather than into an earlier one.
-            onTool: () => setMessages((prev) => [...prev, { id: nextId(), createdAt: Date.now(), role: "assistant", text: "" }]),
-          },
-          8,
-          // The persona belongs HERE, rebuilt every turn, not smuggled into history
-          // as a fake user message injected once when the thread was empty. That old
-          // shape is why switching agent mid-thread changed nothing: the first
-          // agent's persona was frozen into turn zero forever.
-          composeSystem(a, modeNote, alfaProjectContext()),
-          ctrl.signal,
-        );
-        historyRef.current = next;
-        record(usage);
-        runOk = outcome === "completed";
-        if (outcome === "limit") appendToLastAssistant((t) => t + "\n\nTurn limit reached. Execution has stopped; send a new message to continue.");
-      } catch (err) {
-        if (!ctrl.signal.aborted) {
-          const note = errText(err);
-          appendToLastAssistant((t) => (t ? `${t}\n\n⚠ ${note}` : note));
-        }
-      } finally {
-        if (stateId !== undefined) endAlfaRunState(stateId, ctrl.signal.aborted ? "stopped" : runOk ? "done" : "failed");
-        finishAlfaRun(runId, ctrl.signal.aborted ? "cancelled" : runOk ? "completed" : "failed");
-        if (abortRef.current === ctrl) abortRef.current = null;
-        // Drop the empty streaming placeholders (model ended on a tool / no text),
-        // then persist the finished turn to its thread.
-        setMessages((prev) => {
-          const cleaned = prev.filter((m) => !(m.role === "assistant" && !m.text));
-          persist(cleaned);
-          return cleaned;
-        });
-      }
-    },
-    [tools, invoke, api.mode, persist, record, setMessages],
-  );
+  const stopProxy = useCallback(() => stopRef.current(), []);
+  const { activeThreadId, persist, loadThread, newThread } = useThreadPersistence(historyRef, setMessages, stopProxy);
+  const { send, stop, retryLast, editMessage } = useChatEngine({
+    messages,
+    setMessages,
+    historyRef,
+    streaming,
+    persist,
+    recordUsage: record,
+  });
+  useEffect(() => { stopRef.current = stop; }, [stop]);
+  useEffect(() => { onActiveThreadChange?.(activeThreadId); }, [activeThreadId, onActiveThreadChange]);
 
   useAlfaRunner(send, stop);
 
-  // Browser-local automations are execution recipes, not a second executor. One
-  // click feeds their exact ordered tool intent back through Alfa's normal agent
-  // loop, so reads use the same host bindings and every mutation still parks on
-  // the same approval card. This keeps automation safety DRY with ordinary chat.
   useImperativeHandle(ref, () => ({
     runSteps: (auto, runAgent) => void sendToAlfa(composeAutomationRequest(auto, (runAgent ?? agentRef.current).name)),
     stop,
@@ -232,7 +85,7 @@ export function ChatPanel({
   }));
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 overflow-x-auto border-b border-border bg-card/40 px-3 py-2 [scrollbar-width:none]">
         {switcher}
       </div>
@@ -242,33 +95,43 @@ export function ChatPanel({
       <div
         className={cn(
           "px-3 py-1 text-center text-[11px] font-medium",
-          api.mode === "live" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground",
+          api.mode === "live" ? "bg-destructive/10 text-destructive" : "bg-muted/70 text-muted-foreground",
         )}
       >
         {api.mode === "live"
-          ? "● LIVE — Alfa acts on your real VPS; every change needs your approval"
-          : "MOCK — actions are simulated (switch to Live in Settings → Server)"}
+          ? "LIVE mode: actions run on your VPS and mutations require approval"
+          : "MOCK mode: actions are simulated (switch to Live in Settings > Server)"}
       </div>
       {messages.length === 0 ? (
         <div className="flex-1 overflow-y-auto">
           <EmptyState prompts={[...new Set([...prompts, ...SUGGESTED])].slice(0, 6)} onPick={(t) => void sendToAlfa(t)} />
         </div>
       ) : (
-        <ScrollArea className="flex-1">
-          <div
-            data-native-context-menu
-            onContextMenu={(e) => e.stopPropagation()}
-            className={cn("flex flex-col p-4", ios ? "gap-1.5" : "gap-4")}
-          >
-            <ChatTranscript messages={messages} ios={ios} onResolve={(id, approve, remember) => resolveAlfaApproval(id, approve, remember)}/>
-            <div ref={bottomRef} />
-          </div>
-        </ScrollArea>
+        <div ref={containerRef} className="relative flex min-h-0 flex-1 flex-col">
+          <ScrollArea className="min-h-0 flex-1">
+            <div
+              data-native-context-menu
+              onContextMenu={(e) => e.stopPropagation()}
+              className={cn("mx-auto flex w-full max-w-3xl flex-col px-4 py-4", ios ? "gap-2" : "gap-5")}
+            >
+              <ChatTranscript
+                messages={messages}
+                ios={ios}
+                streaming={streaming}
+                onResolve={(id, approve, remember) => resolveAlfaApproval(id, approve, remember)}
+                onRetry={retryLast}
+                onEdit={editMessage}
+              />
+              <div ref={bottomRef} />
+            </div>
+          </ScrollArea>
+          <ScrollToBottomButton visible={showScrollDown} onClick={scrollToBottom} />
+        </div>
       )}
       <TurnUsage turnUsage={messages.length > 0 ? turnUsage : null} threadTotal={messages.length > 0 ? threadUsage : null} />
-      {/* Through sendToAlfa, not send(): one entry point means one single-flight
-          guard and one busy flag for every surface. */}
-      <ChatComposer onSend={(t) => void sendToAlfa(t)} streaming={streaming} onStop={stop} />
+      <div className="mx-auto w-full max-w-3xl">
+        <ChatComposer onSend={(t) => void sendToAlfa(t)} streaming={streaming} onStop={stop} />
+      </div>
     </div>
   );
 }

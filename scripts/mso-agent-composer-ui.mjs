@@ -1,21 +1,48 @@
 import { fit, pad } from "./mso-agent-editing.mjs";
+import { kindColor } from "./mso-agent-theme.mjs";
 
 export const CLEAR_LINE = "\x1b[2K";
 export const CURSOR_UP = (n) => n > 0 ? `\x1b[${n}A` : "";
 export const CURSOR_DOWN = (n) => n > 0 ? `\x1b[${n}B` : "";
 export const CURSOR_RIGHT = (n) => n > 0 ? `\x1b[${n}C` : "";
 export const CLEAR_SCREEN = "\x1b[2J\x1b[H";
+export const PROMPT_ROWS = 3;
+
+// Clamps composer rows:
+// - At least PROMPT_ROWS (3) so clearing/erasing draft does not bounce the panel.
+// - At most terminalRows - 4, which still leaves room for the chrome block and one transcript row.
+//   A quarter of the terminal would be 3 rows on a 12 row terminal, and a 6 line draft is exactly
+//   the case that overflows there, so the fraction was the wrong bound: it made the fix inert
+//   where it was needed.
+export function clampPromptRows(rows, terminalRows) {
+  const termRows = Math.max(6, Number(terminalRows || 24));
+  const maxRows = Math.max(PROMPT_ROWS, termRows - 4);
+  return clamp(Number(rows) || 0, PROMPT_ROWS, maxRows);
+}
+
 const plain = (value) => String(value ?? "").replace(/\x1b\[[0-9;]*m/g, "");
 export const chars = (value) => Array.from(String(value ?? ""));
 export const width = (value) => chars(plain(value)).length;
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export function reserveComposerRows(output, reservedRows, rows) {
-  if (rows <= reservedRows) return reservedRows;
-  if (reservedRows) output.write(CURSOR_DOWN(reservedRows));
-  for (let i = reservedRows; i < rows; i++) output.write("\r\n");
-  output.write(`${CURSOR_UP(rows)}\r`);
-  return rows;
+  const current = Math.max(0, Number(reservedRows) || 0);
+  const target = Math.max(0, Number(rows) || 0);
+  if (target === current) return current;
+  if (!output || typeof output.write !== "function") return target;
+  if (target > current) {
+    if (current) output.write(CURSOR_DOWN(current));
+    for (let i = current; i < target; i++) output.write("\r\n");
+    output.write(`${CURSOR_UP(target)}\r`);
+    return target;
+  }
+  // Shrink symmetrically. Moving down to the OLD extent and clearing upward releases the rows the
+  // frame no longer uses. Without this a closed completion menu left its rows reserved forever, so
+  // the prompt never moved back up and a gap sat above it.
+  if (current) output.write(CURSOR_DOWN(current));
+  for (let i = current; i > target; i--) output.write(`\r${CLEAR_LINE}${CURSOR_UP(1)}`);
+  output.write(`${CURSOR_UP(target)}\r`);
+  return target;
 }
 
 export function eraseComposerRows(output, reservedRows) {
@@ -87,6 +114,10 @@ export function completionWindow(items, selected, size = 8) {
   return { start, items: rows.slice(start, start + count) };
 }
 
+// A one-cell glyph per kind, so the menu still distinguishes an agent from an MCP plugin from a
+// command when colour is unavailable (NO_COLOR, mono theme, a captured frame, a diff).
+const KIND_GLYPH = { agent: "◉", plugin: "⬢", mcp: "⬢", command: "/", skill: "◆" };
+
 export function menuLines(items, selected, columns, C, panelLabel = "commands & skills") {
   const { start, items: visible } = completionWindow(items, selected, 8);
   if (!visible.length) return [];
@@ -99,8 +130,14 @@ export function menuLines(items, selected, columns, C, panelLabel = "commands & 
     const active = start + offset === selected;
     const marker = active ? `${C.blue}${C.bold}›${C.reset}` : " ";
     const stateColor = item.state === "queued" ? C.warn : ["invoking", "invoked"].includes(item.state) ? C.c : C.blue;
-    const stateMark = item.kind === "skill" ? `${stateColor}${item.state === "invoked" ? "✓" : item.state === "ready" ? "◇" : "◆"}${C.reset}` : " ";
-    const nameColor = item.kind === "skill" ? stateColor : active ? C.blue : "";
+    // Two independent signals for "what is this row": a hue from the kind, and a glyph. The glyph is what
+    // survives a mono palette or a piped frame, so the distinction is never colour-only.
+    const hue = kindColor(item.kind, C);
+    const glyph = KIND_GLYPH[String(item.kind || "")] || " ";
+    const stateMark = item.kind === "skill"
+      ? `${stateColor}${item.state === "invoked" ? "✓" : item.state === "ready" ? "◇" : "◆"}${C.reset}`
+      : `${hue || C.dim}${glyph}${C.reset}`;
+    const nameColor = item.kind === "skill" ? stateColor : (hue || (active ? C.blue : ""));
     const displayText = item.label || item.text;
     const name = nameColor ? `${nameColor}${active ? C.bold : ""}${pad(displayText, nameWidth)}${C.reset}` : pad(displayText, nameWidth);
     const metaText = fit(item.meta || "", metaWidth), meta = metaWidth ? `${C.dim}${metaText}${C.reset}` : "";
@@ -110,4 +147,13 @@ export function menuLines(items, selected, columns, C, panelLabel = "commands & 
   const bottomText = fit(hint, panelWidth - 3);
   const bottom = `╰─${bottomText}${"─".repeat(Math.max(0, panelWidth - width(bottomText) - 3))}╯`;
   return [`${C.blue}${top}${C.reset}`, ...body, `${C.blue}${bottom}${C.reset}`];
+}
+
+// Normalizes footer input (string, array of strings, or supplier function) into clean rows.
+// Splits multi-line strings so writeFrame never receives embedded newlines that would cause scrollback.
+export function footerLines(footer) {
+  const raw = typeof footer === "function" ? footer() : footer;
+  if (!raw) return [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  return list.flatMap((row) => String(row ?? "").split(/\r?\n/)).filter(Boolean);
 }

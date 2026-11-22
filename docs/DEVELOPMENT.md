@@ -13,10 +13,13 @@ node scripts/approve-device.js <deviceId> "my laptop" --role owner   # deviceId 
 
 ## Layout
 
-Every feature is a self-contained **vertical slice** under `frontend/slices/<slug>/`
-(its own components, hooks, and a `lib/host.ts` seam for host I/O). One manifest,
-`frontend/slices/os-shell/shell.manifest.ts`, wires slices into the shell — so
-**adding an app = one slice + one manifest entry**. Host access is bounded in
+Every built-in feature is a self-contained **vertical slice** under `frontend/slices/<slug>/`
+(its own components, hooks, barrel, colocated unit tests, and declarative entry in
+`frontend/slices/feature-contracts.ts`). One manifest,
+`frontend/slices/os-shell/shell.manifest.ts`, wires built-in slices into the shell.
+Features that should update independently without rebuilding Next.js core can instead be packaged
+as **modular feature packages** under `~/.mso/features/<id>/` using `bun run feature:pack`
+(see [MODULAR-FEATURES.md](./MODULAR-FEATURES.md)). Host access is bounded in
 `lib/host` (Node `fs`/`child_process`, filesystem-jailed) behind signed-cookie plus live device-role auth
 (`lib/auth`). See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
@@ -25,7 +28,10 @@ Every feature is a self-contained **vertical slice** under `frontend/slices/<slu
 TypeScript enforces `noUnusedLocals` and `noUnusedParameters`. Remove genuinely unused imports/declarations; keep required side effects and use an explicit `_` prefix only for positional interface/callback arguments.
 
 ```bash
-bun run verify              # full repository quality gate
+bun run gate:plan           # inspect change-aware verification plan for current diff
+bun run gate:smart          # fast change-aware gate for local/PR iteration (--with-build / --full optional)
+bun run check:features      # automated feature contract & ratchet validator (feature.boundaries.json)
+bun run verify              # full repository quality gate (Svelte steps run only when frontend/svelte changes locally)
 bun run test:features        # one process per area; exit 2 means skipped/incomplete evidence
 bun run audit:strict         # fail closed on missing/malformed dependency evidence
 bun run security:ultimate   # release assurance: independent scanners + component security review + DAST
@@ -39,12 +45,17 @@ The **committed source of truth** for pre-push policy is `scripts/gates.sh`. The
 actual `.git/hooks/pre-push` file is an intentionally tiny untracked shim; reinstall it
 idempotently with `bash scripts/gates.sh --install`.
 
-The gate runs the repository-owned `bun run verify`, cycle checks, generated-changelog freshness, documentation/skill checks,
-comparison evidence/freshness, the strict high/critical dependency audit, and an out-of-tree production
-build plus mandatory synthetic browser journeys.
+On non-`main` feature branches, `scripts/gates.sh` automatically runs `scripts/run-smart-gate.mjs --pr-fast`
+(typecheck, changed-file lint, all static checks including `check-features.mjs`, and affected Vitest
+targets — typically 20–45 s). On `main` (`bun run ship`), in CI, or with `MSO_GATE_FULL=1`
+(`bun run pr:local`), it runs the complete release gate: `bun run verify`, generated-changelog
+freshness (`gen-changelog.mjs --check`, which defers automatically on PR branches when
+`docs/CHANGELOG.md` matches `origin/main`), the strict high/critical dependency audit, and an
+out-of-tree production build plus mandatory synthetic browser journeys (`scripts/verify-build.sh`
+with `--reflink=auto` and optional `MSO_E2E_JOBS=2`).
 `check-contrast.mjs` blocks palette regressions. None of the build verification touches the live
-checkout's `.next`. A healthy push ends with `audit: clean at high/critical.` and
-`build: HEAD compiles (out-of-tree).`
+checkout's `.next`. For conflict-free PR documentation, write per-PR progress notes under
+`docs/progress/YYYY-MM-DD-<slug>.md` instead of prepending to `docs/PROGRESS.md`.
 
 The local dependency audit may explicitly skip an unavailable registry; that is not a security pass.
 `bun run audit:strict`, the pre-push gate, and the assurance runner reject incomplete evidence. `test:features` distinguishes
@@ -79,6 +90,42 @@ the same checks after its production build. The
 browser journey checks all five shells, absence of graph/editor/terminal/ONNX
 runtime chunks on cold startup, delayed first-open/close/reopen Search, eager
 clipboard capture, and retained Inspector tab state. It uses synthetic stores.
+
+### Perceived-performance measurement
+
+Bundle bytes are deterministic; the numbers a person actually feels are not, so
+they live in a separate, deliberately weaker gate.
+
+| Command | What it does | Gates a push |
+|---|---|---|
+| `bun run perf:probe` | Cold load at Slow 4G + 4× CPU against a synthetic fixture (or `--base=`), writes `perf-report.json` | no |
+| `bun run perf:check` | Enforces `scripts/perf-budget.json` against a report | **yes** |
+| `bun run perf:hydration` | Mark chain: FCP → last JS byte → shell mount → first paint of icons → LCP | no |
+| `bun run perf:tasks` | CDP-trace attribution of every long task to the script that owns it | no |
+| `bun run perf:apps` | Per-app open latency, fetched chunks and long tasks caused | no |
+
+`perf:hydration` is the one that answers "what actually gates LCP". Reading it off the
+LCP element tag does not work: an element that ends up largest can be painted arbitrarily
+late by JavaScript, so `SPAN` or `IMG` says nothing about the cause. On this shell the
+chain is decisive — FCP ~1.2 s, mount ~2.6-2.9 s, LCP ~3.2-4.0 s — which means LCP is
+gated by downloading and executing ~940 KB of first-load JS, not by first paint.
+
+`perf:check` fails hard on a **missing** measurement — a silent zero is how a perf gate
+dies — and on a 2× TBT blowup against `scripts/perf-baseline.json`, because this box also
+serves production and a wall-clock gate that flakes gets muted. The TBT comparison is
+skipped, with a printed reason, when the host 1-minute load average is above
+`enforce.maxLoadAvg1ForTiming`: the same commit measures 138 ms idle and 794 ms under load,
+and the baseline is an idle measurement. CI runs this in the `verify` job. Bundle bytes are
+deliberately *not* re-gated here: `check-bundle.mjs` already gates gzip bytes
+deterministically from build output, while a browser-measured byte count includes deferred
+chunks and moves. Targets in the budget file (`tbtMs 150`, `lcpMs 2500`,
+`initialGzipBytes 256000`) are the post-migration goal from `docs/MSO-MIGRATION.md`; they
+are printed as advisory and never enforced, since holding today's Next build to a Svelte
+target would just make the gate permanently red.
+
+Regenerate the baseline with `node scripts/perf-probe.mjs --json` and commit the
+runs. Do that deliberately after a real improvement, not to silence a failure.
+
 
 The report deduplicates eager catch-all entry chunks plus the framework runtime.
 It lists `nomodule` polyfills separately: charging them to modern browsers would
@@ -143,6 +190,27 @@ TypeScript 7. Remove an ignore only after the isolated candidate passes typechec
 checks, and the out-of-tree production build. This is a compatibility hold, not a permanent version
 pin and not an exemption from Dependabot security updates.
 
+### Security scanners run as your own uid, never as root
+
+Every `docker run` in `.github/workflows/security-core.yml` and any local reproduction of one needs
+`--user "$(id -u):$(id -g)"`. This is not tidiness.
+
+This repository is a **partial clone** (`blob:none` in `.git/config`). Run gitleaks as root against
+a read-write mount and its `git` sees missing blobs, decides the repo is corrupt, promisor-fetches
+during the scan, and rewrites refs and logs — as root. Observed once: 67 files under `.git` became
+root-owned, `git commit` then failed with `unable to append to '.git/logs/HEAD': Permission denied`,
+and `sudo` here needs an interactive password.
+
+Recovery, without sudo, when it does happen:
+
+```
+docker run --rm -v "$PWD/.git:/g" alpine chown -R "$(id -u):$(id -g)" /g
+git fsck --no-progress --connectivity-only   # dangling commits are normal; errors are not
+```
+
+Prefer `:ro` on the mount for scanners that only read, and `--network=none` for gitleaks, which
+never needs the network once the clone is complete.
+
 ## Deploy — and the build hazard ⚠️
 
 mso deploys via **systemd on the VPS**, not `git push` (no webhook, no Dokploy/
@@ -165,6 +233,19 @@ tail -f ~/.mso/self-update.log     # success ends with UPDATE OK
 
 A direct manual build-and-replace remains available for recovery, but it bypasses the
 release gates and should not be the normal path.
+
+**Committing by hand instead of through `ship`.** The changelog lists commit subjects, so it
+can only be regenerated *after* the commit exists — which means any commit touching `docs/`
+leaves `docs/CHANGELOG.md` stale by default. Run `node scripts/gen-changelog.mjs` and commit
+the result **before** considering the change finished, not after the gate tells you: every
+`docs/` commit here has cost an extra round trip for forgetting exactly this. `ship` does it
+for you by folding the regenerated file into the same commit with `--amend`; if you commit by
+hand, expect two commits or one extra `--amend`.
+
+A `docs/`-only commit is not exempt. The generator lists every commit subject except the ones
+that only regenerate this file, so a commit that edits prose still adds a line and still leaves
+`docs/CHANGELOG.md` stale. That is precisely how this rule got written: three separate
+`docs/`-only commits in one session each needed a second commit to regenerate the file.
 
 **`bun run build` now refuses when a live Next/MSO runtime serves the same checkout.**
 `next start` loads the build manifest at boot; overwriting `.next` under the live

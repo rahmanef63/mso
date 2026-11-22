@@ -91,7 +91,7 @@ describe("protocol", () => {
 describe("restricted service-token dispatch", () => {
   const context = {
     allowedTools: ["project_capabilities", "project_function_call"],
-    toolArgumentConstraints: { project_function_call: { project: ["antinrml-game"], name: ["capture_scene"] } },
+    toolArgumentConstraints: { project_function_call: { project: ["demo-game"], name: ["capture_scene"] } },
   } as const;
 
   it("filters list-time and call-time capability exposure", async () => {
@@ -105,7 +105,7 @@ describe("restricted service-token dispatch", () => {
   it("pins exact string arguments for the allowed project function", async () => {
     const wrongProject = await dispatch(call("project_function_call", { project: "mso", name: "capture_scene", input: {} }), "exec", "mcp:service", context);
     expect(wrongProject.error).toMatchObject({ code: -32602 });
-    const wrongFunction = await dispatch(call("project_function_call", { project: "antinrml-game", name: "dangerous_write", input: {} }), "exec", "mcp:service", context);
+    const wrongFunction = await dispatch(call("project_function_call", { project: "demo-game", name: "dangerous_write", input: {} }), "exec", "mcp:service", context);
     expect(wrongFunction.error).toMatchObject({ code: -32602 });
   });
 });

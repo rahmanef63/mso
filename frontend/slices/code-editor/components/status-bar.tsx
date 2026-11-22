@@ -21,14 +21,14 @@ export function StatusBar({
   // Live host may reject writes; surface that distinctly from a clean save.
   const status =
     saveState === "error"
-      ? "Read-only · saved locally"
+      ? "Save failed; changes remain in this window"
       : dirty
         ? "● Unsaved"
         : "Saved";
 
   return (
     <footer className="flex min-h-6 shrink-0 items-center gap-3.5 border-t border-[#2a2a30] bg-[#16161a] px-3.5 [padding-bottom:var(--sai-bottom)] font-mono text-[11px] text-[#7d8590]">
-      <span className="truncate">{path ?? "—"}</span>
+      <span className="truncate">{path ?? "No file"}</span>
       {path ? (
         <>
           <span className="ml-auto">

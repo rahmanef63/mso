@@ -32,15 +32,12 @@ function snap(): string[] {
 }
 
 function commit(next: string[]) {
-  ids = next;
   if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      /* quota / private mode */
-    }
+    try { localStorage.setItem(KEY, JSON.stringify(next)); }
+    catch { throw new Error("Browser storage could not save this change. Free some space or allow site storage, then try again."); }
   }
-  subs.forEach((f) => f());
+  ids = next;
+  subs.forEach((notify) => notify());
 }
 
 function subscribe(cb: () => void) {

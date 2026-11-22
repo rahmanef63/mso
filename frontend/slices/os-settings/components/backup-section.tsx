@@ -62,7 +62,7 @@ export function BackupSection() {
       <SettingsSection
         icon={<DatabaseBackup />}
         title="Browser backup"
-        footnote="Covers Playbooks, Agents, Automations, the window layout, installed apps, desktop icons, widgets and wallpapers — everything stored in this browser only. The approved-device identity is deliberately left out, so a leaked backup can't skip device approval. Appearance and Quicklinks also sync to the server, and the server copy wins on the next sign-in."
+        footnote="Covers Playbooks, Agents, Automations, the window layout, installed apps, desktop icons, widgets and wallpapers (everything stored in this browser only). The approved-device identity is deliberately left out, so a leaked backup can't skip device approval. Appearance and Quicklinks also sync to the server, and the server copy wins on the next sign-in."
       >
         <SettingsActionRow label="Export browser backup…" icon={<Download />} onClick={doExport} />
         <SettingsActionRow label="Import browser backup…" icon={<Upload />} onClick={() => fileInput.current?.click()} />

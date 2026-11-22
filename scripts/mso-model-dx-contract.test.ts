@@ -17,12 +17,16 @@ const providerAuthCli = fs.readFileSync(
   path.join(root, "scripts/cli/ai-provider-auth.sh"),
   "utf8",
 );
+// The handler body moved to a colocated handler.ts when route.ts became a thin
+// adapter (Phase 2). These two assertions are about the request-parsing logic, so
+// they read the file that actually owns it; pointing them at route.ts would only
+// ever match its import lines.
 const configRoute = fs.readFileSync(
-  path.join(root, "app/api/config/route.ts"),
+  path.join(root, "app/api/config/handler.ts"),
   "utf8",
 );
 const oauthRoute = fs.readFileSync(
-  path.join(root, "app/api/oauth/[provider]/route.ts"),
+  path.join(root, "app/api/oauth/[provider]/handler.ts"),
   "utf8",
 );
 const slash = fs.readFileSync(

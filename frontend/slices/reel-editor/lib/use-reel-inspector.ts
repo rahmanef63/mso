@@ -15,7 +15,7 @@ export function useReelInspector(comp: Composition, selected: Clip | null, start
         { label: "FPS", value: String(comp.fps) },
         { label: "Duration", value: `${comp.duration} frames` },
         { label: "Clips", value: String(comp.clips.length) },
-        { label: "Selected", value: selected?.name ?? "—" },
+        { label: "Selected", value: selected?.name ?? "None" },
       ],
       actions: [{ id: "render", label: "Render", run: () => void startRender() }],
       context: `Reel editor: ${comp.w}x${comp.h} @ ${comp.fps}fps, ${comp.clips.length} clips`,

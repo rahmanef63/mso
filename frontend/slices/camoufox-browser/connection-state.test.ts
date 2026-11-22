@@ -14,5 +14,6 @@ it("retries only the read-only connection path and observes real polled power st
   expect(retry).toContain("await connect(controller.signal)");
   expect(retry).not.toContain("setPower(");
   expect(source).toContain("onClick={() => void retryConnection()}>Retry connection");
-  expect(source).toContain("waitForViewer(signal, 30_000, setStatus)");
+  expect(source).toContain("waitForViewer(signal, 30_000,");
+  expect(source).toContain("if (!signal.aborted) setStatus(next)");
 });

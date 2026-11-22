@@ -1,5 +1,5 @@
 import type { WinId, SnapZone } from "./types";
-import { M, patch } from "./store-state";
+import { M, patch, emit } from "./store-state";
 import { GAP, workArea, snapRect, clampRect, setChromeInsets } from "./store-geometry";
 
 // Snap + chrome-inset actions, split from store.ts (≤200 LOC discipline).
@@ -20,16 +20,23 @@ export function applyChromeInsets(i: { top?: number; bottom?: number }) {
 export function retileSnapped() {
   if (typeof window === "undefined") return;
   const { vw, top, bottom } = workArea();
-  M.state.order.forEach((id) => {
-    const win = M.state.windows[id];
-    if (!win || win.minimized) return;
-    if (win.maximized) patch(id, { x: GAP, y: top, w: vw - GAP * 2, h: bottom - top });
-    else if (win.snapZone) patch(id, snapRect(win.snapZone));
-    else {
-      const c = clampRect({ x: win.x, y: win.y, w: win.w, h: win.h });
-      if (c.x !== win.x || c.y !== win.y || c.w !== win.w || c.h !== win.h) patch(id, c);
+  const windows = { ...M.state.windows };
+  let changed = false;
+  for (const id of M.state.order) {
+    const win = windows[id];
+    if (!win) continue;
+    const preferredRect = win.preferredRect ?? win.prevRect ?? { x: win.x, y: win.y, w: win.w, h: win.h };
+    const rect = win.maximized ? { x: GAP, y: top, w: vw - GAP * 2, h: bottom - top }
+      : win.snapZone ? snapRect(win.snapZone) : clampRect(preferredRect);
+    if (!win.preferredRect || Object.entries(rect).some(([key, value]) => win[key as keyof typeof rect] !== value)) {
+      windows[id] = { ...win, ...rect, preferredRect };
+      changed = true;
     }
-  });
+  }
+  if (changed) {
+    M.state = { ...M.state, windows };
+    emit();
+  }
 }
 
 export function snapWindow(id: WinId, zone: SnapZone) {
@@ -39,7 +46,8 @@ export function snapWindow(id: WinId, zone: SnapZone) {
     ...snapRect(zone),
     maximized: false,
     snapZone: zone,
-    prevRect: { x: win.x, y: win.y, w: win.w, h: win.h },
+    prevRect: win.preferredRect ?? win.prevRect ?? { x: win.x, y: win.y, w: win.w, h: win.h },
+    preferredRect: win.preferredRect ?? win.prevRect ?? { x: win.x, y: win.y, w: win.w, h: win.h },
   });
   // Snap-Assist pulse: a transient one-shot for half-snaps (left/right) so a
   // shell can offer the other windows for the complementary zone. Pure UI

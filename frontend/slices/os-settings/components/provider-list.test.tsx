@@ -14,7 +14,7 @@ describe("custom provider affordance", () => {
     expect(html).toContain('aria-controls="custom-provider-form"');
     expect(html).toContain("Discover to pull in the model ids");
     // Collapsed: the form itself is not mounted until asked for.
-    expect(html).not.toContain("Custom endpoint —");
+    expect(html).not.toContain("Custom endpoint:");
   });
 });
 

@@ -20,7 +20,14 @@ describe("software update visibility contract", () => {
     expect(source).not.toContain('IS_DEMO || (!info && !checking)');
     expect(read("update-status-card")).toContain('role="alert"');
     expect(read("update-status-card")).toContain('>Try again</Button>');
-    expect(readFileSync("frontend/slices/os-settings/components/update-status-client.ts", "utf8")).toContain('res.status === 401 || res.status === 403');
+    // 401 is an auth problem and 403 is a same-origin problem. They must stay
+    // distinct sentences: the old single message told a loopback visitor to sign
+    // in as an Owner, which was not their problem and not something they could fix.
+    const client = readFileSync("frontend/slices/os-settings/components/update-status-client.ts", "utf8");
+    expect(client).toContain("res.status === 401");
+    expect(client).toContain("res.status === 403");
+    expect(client).toContain("Sign in as an Owner");
+    expect(client).toContain("not same-origin");
   });
   it("keeps version checks available even without a restart manager", () => {
     expect(read("update-section")).toContain('{!running && (');

@@ -155,7 +155,7 @@ export function MobileShell() {
       {/* --sai-top (notch/Dynamic-Island floor) now comes from the shared
           [data-shell="ios"] rule in globals.css — one source of truth for both
           touch shells, inherited by every iOS surface (home, nav, spotlight). */}
-      <div className={cn("absolute inset-0 z-[10] flex flex-col", locked && "invisible")} inert={locked || undefined}>
+      <div id="shell-main" role="main" tabIndex={-1} className={cn("absolute inset-0 z-[10] flex flex-col", locked && "invisible")} inert={locked || undefined}>
       <div
         data-slot="system-status-host"
         data-status-placement="ios-status-bar"
@@ -224,7 +224,7 @@ export function MobileShell() {
             className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]"
             style={{ "--sai-bottom": "max(env(safe-area-inset-bottom, 0px), 34px)" } as React.CSSProperties}
           >
-            <WindowContent app={top.app} payload={top.payload} />
+            <WindowContent key={top.id} app={top.app} payload={top.payload} winId={top.id} />
           </main>
           <div className="absolute inset-x-0 bottom-0 z-[5]">
             <HomeIndicator light={false} onHome={goHome} onSwitcher={openSwitcher} onSwitchApp={switchApp} />

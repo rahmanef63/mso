@@ -52,8 +52,14 @@ function projectNote(project?: AlfaWorkContext | null): string {
   return parts ? ` ${parts.slice(0, PROJECT_CONTEXT_CAP)}` : "";
 }
 
-export function composeSystem(agent: Agent | undefined, modeNote: string, project?: AlfaWorkContext | null): string {
+export function composeSystem(
+  agent: Agent | undefined,
+  modeNote: string,
+  project?: AlfaWorkContext | null,
+  appContext?: string,
+): string {
   const persona = agent?.persona?.trim().slice(0, PERSONA_CAP);
   const identity = agent && persona ? ` You are acting as ${agent.name}. ${persona}` : "";
-  return HOST_SYSTEM + modeNote + projectNote(project) + identity;
+  const surface = appContext?.trim() ? ` Active app context: ${oneLine(appContext, 600)}.` : "";
+  return HOST_SYSTEM + modeNote + projectNote(project) + surface + identity;
 }

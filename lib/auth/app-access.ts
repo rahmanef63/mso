@@ -15,11 +15,16 @@ const OPERATOR_APPS = new Set([
   "openclaw",
   "9router",
   "orca",
+  "t3",
+  "n8n",
 ]);
 
-/** Unknown/runtime apps fail closed for delegated devices until explicitly classified. */
+/** Unknown/runtime apps fail closed for delegated devices until explicitly classified.
+ *  Modular packages (`mod-*`) are pre-filtered by `/api/v1/features` against their
+ *  server-validated manifest `minRole` and re-checked on every asset request. */
 export function appAllowedForRole(appId: string, role: DeviceRole | null): boolean {
   if (role === "owner") return true;
+  if (role && appId.startsWith("mod-")) return true;
   if (role === "operator") return OPERATOR_APPS.has(appId);
   return VIEWER_APPS.has(appId);
 }

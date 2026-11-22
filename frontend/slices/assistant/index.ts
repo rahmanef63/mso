@@ -12,7 +12,17 @@ export const assistantApp: AppDescriptor = {
   defaultSize: { w: 520, h: 620 },
 };
 
-// Publishes @ agents and / skills+tools to the shared composer. Exported here so
-// os-shell reaches it through the barrel (house rule) — it pulls the tool catalog
-// and the agent presets, never the app component, so the bundle stays deferred.
-export { installAlfaSources } from "./lib/alfa-sources";
+// Publishes @ agents and / skills+tools to the shared composer.
+//
+// Imported dynamically rather than re-exported statically: `alfa-sources` imports
+// `HOST_TOOLS` from `host-tools/catalog`, a large tool-schema catalog. A static
+// re-export here leaked that catalog into the first-load chunk because shell.manifest
+// imports `assistantApp` from this barrel. The dynamic import keeps HOST_TOOLS
+// deferred until an AI composer actually requests completion sources.
+let alfaSourcesModule: Promise<typeof import("./lib/alfa-sources")> | null = null;
+const loadAlfaSources = () => (alfaSourcesModule ??= import("./lib/alfa-sources"));
+
+export async function installAlfaSources(): Promise<void> {
+  const { installAlfaSources: install } = await loadAlfaSources();
+  install();
+}

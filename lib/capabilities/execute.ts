@@ -14,6 +14,8 @@ import { recipeActor, workflowActor, type CapabilityAgentContext } from "./actor
 import { capabilityRateLimited } from "./rate-limit";
 import { flowFields, recordAgentEvent, sessionDetail, workflowFromResult } from "./execution-support";
 import { withIsolatedFilesystem } from "@/lib/host/fs-api";
+import { beginSliceCall, recordSliceUsage, serializedBytes, sliceConcurrency } from "@/lib/resources/ledger";
+import { sliceForTool } from "@/lib/resources/attribution";
 
 export interface CapabilityExecutionContext extends CapabilityAgentContext {
   capabilities?: CapabilityRuntime;
@@ -28,6 +30,12 @@ export type CapabilityExecutionResult =
  * One execution authority for every adapter. Scope, required arguments, workflow
  * correlation, rate limiting, audit/activity and session telemetry are enforced
  * here once; transports only serialize the returned outcome.
+ *
+ * This is also the resource measurement point (`lib/resources/ledger.ts`): every
+ * call records wall time, process CPU delta, peak in-flight concurrency for its
+ * owning slice, and result bytes. Attribution comes from
+ * `lib/resources/attribution.ts`; a tool no slice provably owns records with
+ * `slice: null` and reports as unaccounted rather than being guessed into one.
  */
 export async function executeCapabilityCall(input: {
   tool: CapabilityTool;
@@ -36,7 +44,30 @@ export async function executeCapabilityCall(input: {
   actor?: string;
   context?: CapabilityExecutionContext;
 }): Promise<CapabilityExecutionResult> {
-  return withIsolatedFilesystem(undefined, () => executeCall(input));
+  const slice = sliceForTool(input.tool.name);
+  const release = beginSliceCall(slice);
+  const concurrent = sliceConcurrency(slice);
+  const cpuStart = process.cpuUsage();
+  const startedAt = Date.now();
+  let outcome: CapabilityExecutionResult | undefined;
+  try {
+    outcome = await withIsolatedFilesystem(undefined, () => executeCall(input));
+    return outcome;
+  } finally {
+    release();
+    const cpu = process.cpuUsage(cpuStart);
+    recordSliceUsage({
+      slice,
+      tool: input.tool.name,
+      actor: input.actor,
+      wallMs: Date.now() - startedAt,
+      // Microseconds → milliseconds; user + system is the process total.
+      cpuMs: Math.round((cpu.user + cpu.system) / 1000),
+      resultBytes: outcome?.kind === "success" ? serializedBytes(outcome.result) : 0,
+      concurrent,
+      at: startedAt,
+    });
+  }
 }
 
 async function executeCall(input: Parameters<typeof executeCapabilityCall>[0]): Promise<CapabilityExecutionResult> {

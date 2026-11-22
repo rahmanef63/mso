@@ -155,7 +155,7 @@ function StatusBar({
   if (status.kind === "live")
     return (
       <div className={base} style={{ color: "#0d0e12", background: "#5be0c8" }}>
-        ● LIVE PTY — interactive shell on this host
+        ● LIVE PTY: interactive shell on this host
       </div>
     );
   if (status.kind === "connecting")

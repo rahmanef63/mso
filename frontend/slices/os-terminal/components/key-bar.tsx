@@ -34,10 +34,10 @@ const NAV: KeyDef[] = [
   { label: "PgDn", aria: "Page down", seq: "\x1b[6~" },
 ];
 const CHORDS: KeyDef[] = [
-  { label: "^C", aria: "Control C — interrupt", seq: "\x03" },
-  { label: "^D", aria: "Control D — end of input", seq: "\x04" },
-  { label: "^L", aria: "Control L — clear screen", seq: "\x0c" },
-  { label: "^Z", aria: "Control Z — suspend", seq: "\x1a" },
+  { label: "^C", aria: "Control C: interrupt", seq: "\x03" },
+  { label: "^D", aria: "Control D: end of input", seq: "\x04" },
+  { label: "^L", aria: "Control L: clear screen", seq: "\x0c" },
+  { label: "^Z", aria: "Control Z: suspend", seq: "\x1a" },
 ];
 const CHARS: KeyDef[] = [
   { label: "|", aria: "Pipe", seq: "|" },
@@ -128,7 +128,7 @@ export default function KeyBar({
   const mod = (label: string, armed: boolean, toggle: () => void) => (
     <button
       type="button"
-      aria-label={`${label} (sticky — applies to the next key)`}
+      aria-label={`${label} (sticky: applies to the next key)`}
       aria-pressed={armed}
       onPointerDown={noSteal}
       onMouseDown={noSteal}

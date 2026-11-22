@@ -83,12 +83,12 @@ export function FilesHeader({
             }}
             placeholder="Search this folder"
             aria-label="Search this folder"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-base outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
           />
           <button
             onClick={() => { setQuery(""); onToggleSearch(); }}
             aria-label="Close search"
-            className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+            className="grid size-11 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
           >
             <X className="size-3.5" />
           </button>
@@ -119,11 +119,11 @@ export function FilesFooter({
     <>
       {!isMobile && selectedEntry && <FileDetails entry={selectedEntry} dir={fs.path} />}
       <div className="flex items-center gap-3 px-3 pt-1.5 text-[11px] text-muted-foreground [padding-bottom:calc(0.375rem+var(--sai-bottom))]">
-        <span>{orderedLen !== null ? `${orderedLen} items` : "—"}</span>
+        <span>{orderedLen !== null ? `${orderedLen} items` : "-"}</span>
         {selectedCount > 0 && <span>{selectedCount} selected</span>}
         {fs.clip && (
           <span className="ml-auto">
-            {fs.clip.names.length} {fs.clip.mode === "cut" ? "cut" : "copied"} — {shell === "windows" ? "Ctrl" : "⌘"}V to paste
+            {fs.clip.names.length} {fs.clip.mode === "cut" ? "cut" : "copied"}: {shell === "windows" ? "Ctrl" : "⌘"}V to paste
           </span>
         )}
       </div>

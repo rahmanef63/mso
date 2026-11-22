@@ -33,6 +33,11 @@ validate_artifact_lock() {
   [[ "$HERMES_IMAGE_REF" =~ ^nousresearch/hermes-agent@sha256:[0-9a-f]{64}$ ]] || return 1
   [[ "$OPENCLAW_VERSION" =~ ^[0-9][0-9A-Za-z.-]*$ ]] || return 1
   [[ "$OPENCLAW_TARBALL_SHA512" =~ ^[0-9a-f]{128}$ ]] || return 1
+  [[ "$T3_VERSION" =~ ^[0-9][0-9A-Za-z.-]*$ ]] || return 1
+  [[ "$T3_LINUX_X64_SHA256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$T3_LINUX_ARM64_SHA256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$N8N_VERSION" =~ ^[0-9][0-9A-Za-z.-]*$ ]] || return 1
+  [[ "$N8N_IMAGE_REF" =~ ^docker\.n8n\.io/n8nio/n8n@sha256:[0-9a-f]{64}$ ]] || return 1
 }
 validate_artifact_lock || { echo "invalid managed-app artifact lock" >&2; exit 2; }
 
@@ -50,9 +55,9 @@ APP_ORIGIN="${MSO_INSTALL_APP_ORIGIN:-}"
 log() { printf '\n=== %s\n' "$*"; }
 
 case "$APP" in
-hermes | openclaw | 9router | orca) ;;
+hermes | openclaw | 9router | orca | t3 | n8n) ;;
 *)
-  echo "usage: managed-app-install <hermes|openclaw|9router|orca>" >&2
+  echo "usage: managed-app-install <hermes|openclaw|9router|orca|t3|n8n>" >&2
   exit 2
   ;;
 esac
@@ -65,6 +70,12 @@ if [ "$APP" = "9router" ]; then
   exec "$(dirname "$0")/managed-app-9router" install
 fi
 
+# Self-hosted n8n uses the pinned upstream Docker image bound to loopback 5678
+# with persistent state in ~/.n8n. Hand off before the systemd user-bus check.
+if [ "$APP" = "n8n" ]; then
+  exec "$(dirname "$0")/managed-app-n8n" install
+fi
+
 # Orca is the MSO-owned web/Node runtime installed as `mso-orca.service`. Its
 # adapter verifies the pinned release, the user bus (without enabling linger or
 # any other access change), the fixed loopback port and the configured split
@@ -72,6 +83,13 @@ fi
 # (which calls `loginctl enable-linger`). Dispatch before it and stop here.
 if [ "$APP" = "orca" ]; then
   exec "$(dirname "$0")/managed-app-orca" install
+fi
+
+# T3 Code is installed from its pinned standalone Linux release tarball and runs
+# as the loopback-only user unit `t3-code.service`. Its adapter verifies the user
+# bus and SHA-256 lock directly without changing linger or host access policy.
+if [ "$APP" = "t3" ]; then
+  exec "$(dirname "$0")/managed-app-t3" install
 fi
 
 # Both apps are installed as systemd USER units, and `systemctl --user` finds the

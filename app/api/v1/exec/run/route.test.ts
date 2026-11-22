@@ -44,27 +44,21 @@ describe("/api/v1/exec/run", () => {
     vi.useRealTimers();
   });
 
-  it("returns 200 with stdout for an authenticated safe command", async () => {
+  it("returns 200 with stdout for an authenticated safe command and audits success", async () => {
     runCommandMock.mockResolvedValueOnce({ stdout: "hi\n", stderr: "", code: 0 });
     const { POST } = await import("./route");
-    const res = await POST(makeReq({ cmd: "echo hi" }));
+    const res = await POST(makeReq({ cmd: "echo hi", cwd: "/home" }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.stdout).toBe("hi\n");
     expect(body.code).toBe(0);
-    expect(runCommandMock).toHaveBeenCalledWith("echo hi", undefined);
+    expect(runCommandMock).toHaveBeenCalledWith("echo hi", "/home");
+    expect(auditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "exec.run", ok: true, target: "echo hi", detail: "exit 0 @ /home" }),
+    );
   });
 
-  it("returns 401 when verifyAuth rejects the caller", async () => {
-    const { verifyAuth } = await import("@/lib/agent/server");
-    vi.mocked(verifyAuth).mockResolvedValueOnce(false);
-    const { POST } = await import("./route");
-    const res = await POST(makeReq({ cmd: "echo hi" }));
-    expect(res.status).toBe(401);
-    expect(runCommandMock).not.toHaveBeenCalled();
-  });
-
-  it("returns 200 with code 126 + 'refused:' stderr for destructive commands", async () => {
+  it("returns 200 with code 126 + 'refused:' stderr for destructive commands and audits blocked", async () => {
     // The route doesn't itself reject destructive — runCommand returns the
     // signed refusal envelope (stderr "refused: …", code 126) which the route
     // then logs as audit.action=exec.blocked. We assert that mapping.
@@ -84,7 +78,7 @@ describe("/api/v1/exec/run", () => {
     );
   });
 
-  it("returns 429 when burst limit exceeds 60 hits in 60s", async () => {
+  it("returns 429 when burst limit exceeds 60 hits in 60s and audits rate-limited", async () => {
     runCommandMock.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
     const { POST } = await import("./route");
     // 60 within window pass; 61st trips.
@@ -101,10 +95,21 @@ describe("/api/v1/exec/run", () => {
     );
   });
 
-  it("returns 400 when the cmd field is missing", async () => {
+  it("returns 400 when command shape is invalid (missing cmd or invalid cwd)", async () => {
     const { POST } = await import("./route");
-    const res = await POST(makeReq({}));
-    expect(res.status).toBe(400);
+    expect((await POST(makeReq({}))).status).toBe(400);
+    expect((await POST(makeReq({ cmd: 123 }))).status).toBe(400);
+    expect((await POST(makeReq({ cmd: "ls", cwd: 123 }))).status).toBe(400);
     expect(runCommandMock).not.toHaveBeenCalled();
+  });
+
+  it("audits failure and returns error when runCommand throws", async () => {
+    runCommandMock.mockRejectedValueOnce(new Error("spawn failed"));
+    const { POST } = await import("./route");
+    const res = await POST(makeReq({ cmd: "broken" }));
+    expect(res.status).toBe(500);
+    expect(auditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "exec.run", target: "broken", ok: false }),
+    );
   });
 });

@@ -3,16 +3,22 @@
 // everything else is logged server-side with the route name and replaced by a
 // generic message so raw Node errors (ENOENT/EACCES with absolute paths) and
 // unexpected exceptions never leak to the client.
-import { NextResponse } from "next/server";
 import { HostError } from "./host-error";
+
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
 
 export function apiError(
   route: string,
   e: unknown,
   fallback: { status?: number; error?: string } = {},
-): NextResponse {
+): Response {
   if (e instanceof HostError)
-    return NextResponse.json({ error: e.message }, { status: e.status });
+    return json({ error: e.message }, e.status);
   // A missing path or a permission denial is a fact about the REQUEST, not a
   // server fault. They used to fall through to 500, which sends a client (and a
   // reader of the logs) hunting a broken server when the file simply is not there
@@ -21,13 +27,13 @@ export function apiError(
   // carries an absolute path and must not reach the client.
   const code = (e as NodeJS.ErrnoException)?.code;
   if (code === "ENOENT" || code === "ENOTDIR")
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return json({ error: "Not found" }, 404);
   if (code === "EACCES" || code === "EPERM")
-    return NextResponse.json({ error: "Permission denied" }, { status: 403 });
+    return json({ error: "Permission denied" }, 403);
   console.error(`[api/v1/${route}]`, e);
-  return NextResponse.json(
+  return json(
     { error: fallback.error ?? "Operation failed" },
-    { status: fallback.status ?? 500 },
+    fallback.status ?? 500,
   );
 }
 
@@ -78,6 +84,6 @@ export function requireInt(
   return n >= min && n <= max ? n : null;
 }
 
-export function invalidRequest(field: string): NextResponse {
-  return NextResponse.json({ error: `Invalid request: ${field}` }, { status: 400 });
+export function invalidRequest(field: string): Response {
+  return json({ error: `Invalid request: ${field}` }, 400);
 }

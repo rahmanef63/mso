@@ -4,17 +4,450 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-21
+
+**Added**
+
+- `modular` add change-aware gates, modular feature packages, and … (#342)
+- `managed-apps` fix Orca audit findings and add T3 Code managed app (#340)
+- `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll (#339)
+
+**Fixed**
+
+- `t3` forward T3 app cookies on WebSocket upgrades, protocol header, and auto-pairing (#343)
+- `n8n` dedicated single-bar iframe workspace, N8N_PUBLIC_URL support, and portability guard (#341)
+
+**Docs**
+
+- `modular` sync agent rules, guides, and changelog for modular gates and feature contracts
+
+## 2026-11-20
+
+**Fixed**
+
+- `dast` refuse a scan target that answers with an edge error page (#337)
+
+## 2026-11-19
+
+**Fixed**
+
+- `gate` stop the changelog gate flipping stale on a doubled squash suffix (#335)
+- `host,ui` rebase #314 onto main — readable disk root, preset font CSP, off the owner's device store (#326)
+- `managed-apps` rebase #323 onto main so the thin-surface fix can land (#325)
+- `gate` one audit waiver record, one expiry rule, no withdrawn waivers (#327)
+
+**Tests**
+
+- `native` pick the loopback port from the OS, not a fixed Windows-hostile range (replay of #329) (#333)
+- `e2e` activate the pager page before right-clicking a home tile (replay of #328) (#332)
+- `infra` keep an operator host literal out of the portable source
+
+**Chores**
+
+- `verify` fail closed when the bun runtime cannot read lockfileVersion 2 (#317)
+
+## 2026-11-18
+
+**Fixed**
+
+- `convex,integrations` resolve regional Convex host and theme native select popups
+
+**Other**
+
+- `infra` preserve uncommitted MSO host-password provider draft
+
+## 2026-11-16
+
+**Fixed**
+
+- `composio` retain named Connect identity during discovery and execution
+- `integrations` inspect named Composio accounts with read scope
+- `convex` support team access tokens for cloud management
+- `test` honour VITEST_MAX_WORKERS instead of documenting it and ignoring it
+- `lint` keep git-excluded task worktrees out of repo-wide typecheck and lint
+- `update` read status on a tag that predates the CLI, and default to main
+- `update` keep refusing an Origin-less update check
+- `integrations` let the provider picker load its brand marks
+- `update` let the Settings update check work on the host itself
+- `auth` stop the onboarding dialog from desyncing hydration
+
+**Tests**
+
+- `integrations` use scanner-compatible mock typing
+- give the two heavy I/O suites their own timeout
+- `e2e` scope the workflow Directory click to its details rail
+- `update` assert the 401 and 403 messages stay distinct
+
+**Docs**
+
+- `slices` document bot-desktops and refresh derived counts
+
+**Other**
+
+- a screenshot no longer fails on a display that is still booting
+- Say "signed out", not "no desktops", and stop polling a refusal
+- Register the slice, cite its limits, and keep Settings on page one
+- Give the bot-desktop API a screen, and let it see :1..:3
+
+## 2026-11-15
+
+**Fixed**
+
+- `resources` stop Turbopack tracing the whole project from the slice readdir
+
+## 2026-11-14
+
+**Added**
+
+- `auth` follow the MSO login password into Nakama (#299)
+- `capabilities` account for resources per feature slice (#298)
+
+**Fixed**
+
+- `security` honour a reviewed OSV exception in the alert gate
+- `settings` keep a stored model id, and stop edits from erasing the model list
+- `security` match the lockfile chain without a hand-escaped pattern
+- `security` record one unfixed advisory, and prove the chain still holds
+
+**Changed**
+
+- `store` one row primitive and one catalog model (#297)
+
+**Tests**
+
+- `managed-apps` pin owned-unit fixture dir mode
+
+## 2026-11-13
+
+**Added**
+
+- `shell` every official app mark reaches the dock, the store and the picker
+
+**Fixed**
+
+- `cli` clear the Semgrep parse failure and two CodeQL alerts
+- `integrations` Verify stays a visible action, not a hidden menu item
+
+## 2026-11-12
+
+**Added**
+
+- `managed-apps` drop the chrome bar, put controls on the terminal strip
+- `integrations` addressable connections and one sidebar surface
+
+**Fixed**
+
+- `managed-apps` collapse two chrome bands into one bar
+- `dev` let the local preview panel frame a loopback dev server
+
+## 2026-11-10
+
+**Other**
+
+- Add a desktop observer API for bot desktop containers
+
+## 2026-11-09
+
+**Added**
+
+- `svelte` add isolated static entry and session-gated monitor
+
+## 2026-11-04
+
+**Added**
+
+- `tui` the completion menu says what each row IS, in colour and in glyph (#274)
+
+**Fixed**
+
+- `tui` put the caret on the prompt row, not on the footer
+- `tui` fifteen audits, and the defects that made the panel lie about safety (#273)
+- keep credentials out of Composio cache keys
+- preserve window drafts and modal focus
+- bind Composio sessions to selected connections
+- guard concurrent workflow replacements
+- guard workspace save and browser lifecycles
+- prevent direct remote markdown file export
+- `settings` retain About subpage across shell changes
+- `ui` preserve external editor height on short screens
+- `n8n` keep frame controls stable during refresh
+- `ui` surface refresh and persistence failures
+- `ui` harden shell controls and picker interactions
+- `workflows` serialize toolbar actions
+- protect agent collaboration drafts and actions
+- `frontend` allow relinking recovered media
+- `frontend` protect workspace and media sessions
+
+**Tests**
+
+- retain Camoufox abort callback contract
+
+**Docs**
+
+- reconcile all frontend audit findings
+- record rendered surfaces verification
+
+**Chores**
+
+- changelog pass
+- changelog
+
+## 2026-11-03
+
+**Added**
+
+- `tui` a footer that says what a turn will do, and Ctrl+P for the command dialog
+- `tui` @ addresses agents and MCP plugins, with / owning commands (#263)
+- `tui` opencode batch three, from starved flags to a written contract (#258)
+
+**Fixed**
+
+- `tui` the footer reads the context field that exists, and shows the queue (#268)
+- `ui` define frontend contract and accessible action icons
+- `ui` preserve workspace state and share dynamic shell layout
+- `ci` stop the CodeQL analysis job from gating on open alerts
+- `export` create the markdown export atomically, closing a TOCTOU write
+- `a11y` scope the drawer inert to the compact layout
+- `tui` the panel no longer scrolls itself away, and command output survives (#261)
+- `a11y` close the four keyboard defects the audit found
+- `integrations` restore three fixes a later PR silently reverted, and follow the shell theme
+- `integrations` the iOS zoom fix targeted a selector the page does not use
+
+**Tests**
+
+- `tui` wait for the footer before asserting on the pty grid
+- `integrations` parse each inline script, not one greedy concatenation
+- `config` document MSO_EVIDENCE_DIR, the evidence harness output path
+
+**Docs**
+
+- `progress` the security gate was gating itself
+- `progress` record the integrations close-out, the reverted merge, and the traps
+
+**Chores**
+
+- changelog pass
+- changelog
+- regenerate changelog again
+- regenerate changelog
+- regenerate changelog after merging main
+
+## 2026-11-02
+
+**Added**
+
+- `tui` restore the three modules #249 dropped, with their wiring (#256)
+- `tui` opencode batch two, six capabilities and five honest refusals (#249)
+- `tui` the opencode-inspired batch, nine branches in one change (#241)
+- `tui` pin a pane slot without losing the cycle (#229)
+- `tui` a preferences registry, and settings that survive a restart (#231)
+- `tui` a vertical tab rail, from the same layout the horizontal row uses (#230)
+- `integrations` write Convex deployment env, and an addressable connection reference
+
+**Fixed**
+
+- `changelog` make the file independent of when it was regenerated
+- `changelog` stop listing automated dependency bumps
+- `integrations` follow the host theme, and stop iOS zooming the search field
+- `integrations` keyboard-operable confirmation, visible transfer errors, and wrapping status
+- `integrations` safe secret layout, real landmarks, and a sidebar that closes
+- `integrations` show the real MSO logo, and activate the dead container query
+- `integrations` WCAG contrast, 44px tap targets, and no em dashes in UI copy
+- `convex` write env over HTTP with the deployment key, and fix the regional host
+
+**Changed**
+
+- `integrations` move the inlined assets out, back under the 220-line ratchet
+
+**Tests**
+
+- `integrations` check every inline script, not one greedy match
+
+**Docs**
+
+- `agent` the activity signal cannot be derived, and updatedAt inverts the truth
+
+## 2026-11-01
+
+**Added**
+
+- `tui` /tabs as a table, with real activity and no invented idle (#226)
+- `tui` mcp and context pane kinds, with an honest unknown (#225)
+- `tui` /terminal hands the real terminal to a shell or a one-shot command (#224)
+- `skills` add mso-agent-fleet for Orca + OpenCode fan-out (#217)
+- `ci` three security scanners that actually run, and lanes that fail closed (#210)
+- `tui` the panel is the default, and the banner lives in the transcript (#209)
+
+**Fixed**
+
+- `assets` refresh the wallpaper cache hashes, and gate them
+- `tui` let the composer reservation shrink, so Esc really closes the menu (#223)
+- `tui` stop the panel erasing the slash menu, and keep the banner ASCII art (#221)
+- `security` validate the model half of a provider/model ref
+- `security` read only .message from a caught error, never stringify it
+- `ci` check out full history, or the changelog gate fails on every run
+- `docs` collapse squash duplicates in the changelog instead of listing twice
+- `ci` run the changelog gate in CI, where it was never running
+- `docs` regenerate the changelog, and stop squash merges from re-breaking it
+- `docs` regenerate the changelog after the #215 squash (#216)
+- `security` one patched minimatch, a working scanner lane, and an honest perf baseline (#215)
+- `tui` an approval prompt must leave the alternate screen, or it is erased before it is read (#213)
+
+**Faster**
+
+- `shell` re-encode the wallpapers without downscaling them
+- `shell` ship artwork at the size it renders, not 256x256
+- `shell` defer the lock curtain, keeping its timer eager
+
+## 2026-10-31
+
+**Added**
+
+- `tui` install the print sink the last change forgot, and migrate the modules that still print (#206)
+- `tui` a suspended panel really leaves the alternate screen, so an approval is readable (#205)
+- `tui` mid-turn writes go into the panel, and prompts suspend it instead of fighting it (#204)
+- `tui` the composer reports its height, so the panel stops guessing how much to reserve (#203)
+- `tui` one print sink, so command output lands in the panel instead of on top of it (#202)
+- `tui` a right-hand side pane for todos, the last diff and changed files (#198)
+- `tui` mouse wheel scrolling and tab clicks, only inside the alternate screen (#197)
+- `tui` a transcript viewport with a scrollbar, so the alternate screen has a reason (#193)
+- `tui` an alternate screen behind a flag, with teardown on every exit path (#192)
+- `tui` a tab row and a footer that stay put, painted through the frame writer (#191)
+- `tui` a transcript model, because scrollback is the only transcript that exists (#187)
+
+**Fixed**
+
+- `tui` the two bugs a real pty found, and the test that found them (#201)
+- `ci` apply the same parser workaround to the last two mock call sites (#196)
+- `ci` stop the semgrep scan failing on a generic argument in a test mock (#195)
+
+**Changed**
+
+- `tui` paint the composer through a frame writer instead of appending (#189)
+
+**Tests**
+
+- `api` every route now has a test — 117 of 117
+- `api` cover 30 more routes, and close the one fs route with no rate limit
+
+**Docs**
+
+- `tui` a handover for the panel track, so a pause costs nothing (#208)
+- handover for the next session, plus the entry this session was missing
+- `tui` name the four things between here and an alternate screen default (#199)
+
+## 2026-10-30
+
+**Added**
+
+- `agent` /jobs, so background subagents are visible instead of fire and forget (#183)
+- `tui` configurable keybinds, with the defaults kept byte-identical (#182)
+- `agent` show the todo checklist in the TUI and in the status row (#179)
+
+**Changed**
+
+- `tui` share the cell and pane primitives instead of growing a second copy (#186)
+
+**Tests**
+
+- `api` lock the status-code contract on the routes where a dropped gate is an RCE
+- `perf,api` prove the gate catches regressions, and restore the rationale the refactor dropped
+
+**Docs**
+
+- `tui` plan the retained renderer, M0 (#185)
+- `migration` correct the "2.8x" claim that justified cancelling Phase 4
+- `bench` the after-side comparison, and a status header that was no longer true
+
+## 2026-10-29
+
+**Added**
+
+- `agent` fs_edit reports the diff it applied and can preview without writing (#178)
+- `agent` a bounded pty_session tool, so an agent can drive an interactive process (#176)
+- `agent` background subagents, so a parent can keep working in parallel (#175)
+- `agent` surgical edit, content search, glob and a todo list (#173)
+- `perf` hydration mark chain, and the LCP conclusion it overturns
+- `tui` close the opencode TUI gap on the seams MSO already owns (#166)
+
+**Fixed**
+
+- `gates` make the full local gate match CI, fixing three real defects it exposed
+- `perf` compare TBT only on the same machine, not just the same load
+- `shell, gates` restore the artwork reveal rule, and make the instance guard actually read files (#171)
+- `install` make bun install compile node-pty without a global node-gyp
+- `api` restore the models provider name the route extraction dropped (#169)
+- `build` restore the turbopackIgnore annotation the route extraction dropped
+
+**Faster**
+
+- `gate` run it in CI, and make the timing half load-aware
+- `shell` take hidden app artwork off the layout and paint path (#167)
+- close two eager leaks, cancel the island plan, budget from arithmetic
+- `app-store` load RuntimeApp lazily so vaul leaves the first-load chunk
+
+**Changed**
+
+- `api` every route handler is a thin adapter, and lib is next-free
+- `lib` drop static next/* imports, plus three measured perf findings
+
+**Docs**
+
+- `migration` Phase 5 edge-behaviour spike, verified with curl
+- `progress` record Phase 2 completion, the bun install fix and the Phase 6 no-go
+- `progress` record the perf gate and the numbers it retracted
+
+**Chores**
+
+- `gates` restore the CI-parity runner lost in the rebase
+- `gates` re-add the 12-gate runner and regenerate the changelog
+
+## 2026-10-28
+
+**Added**
+
+- `perf` phase 0 perceived-performance gate and migration baseline
+- `cli` close the opencode parity gap on run/session/stats/pair/doctor --json/completion (#165)
+
+**Docs**
+
+- `agents` refresh AGENTS.md and add .mso/KNOWLEDGE.md for #154-#162 (#164)
+- `antislop` design direction, agent pointer, and the R-10 glass audit (#163)
+
+## 2026-10-27
+
+**Added**
+
+- `infra` collapse Convex into one provider with a real self-hosted kind
+
+**Fixed**
+
+- `copy` replace em dashes across user-visible strings (antislop R-02) (#162)
+- `update` one Settings cue, no toast and no floating badge (#161)
+- `build` keep Convex project linking out of Turbopack's traced filesystem
+
+**Tests**
+
+- `infra` make Convex fixtures unambiguously synthetic for the secret scanner
+- `e2e` select the collapsed Convex card in the release journey
+
+## 2026-10-26
+
+**Docs**
+
+- `license` switch to PolyForm Noncommercial and add per-repo references (#155)
+
 ## 2026-10-25
 
 **Added**
 
 - `agent` one live activity row and env-tunable turn budgets (#154)
 
-**Docs**
-
-- `license` switch to PolyForm Noncommercial and add per-repo references
-
 ## 2026-10-24
+
+**Added**
+
+- `infra` deterministic Convex project linker and per-project provider view
 
 **Fixed**
 
@@ -78,15 +511,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `assistant` accept OpenAI-shaped {content} messages and harden recall
 - `build` keep convex CLI config path out of asset tracing
-
-## 2026-10-19
-
-**Build**
-
-- `deps` bump the production-minor-patch group across 1 directory with 15 updates
-- `deps-dev` bump the test-toolchain group across 1 directory with 2 updates
-- `deps` bump the actions-minor-patch group with 6 updates
-- `deps-dev` bump the development-minor-patch group with 3 updates
 
 ## 2026-10-18
 
@@ -203,12 +627,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `e2e` right-click the desktop from its measured box
 - `e2e` scope workflow directory assertions to the panel
-
-**Build**
-
-- `deps-dev` bump the development-minor-patch group with 3 updates
-- `deps` bump the production-minor-patch group with 15 updates
-- `deps-dev` bump the test-toolchain group with 2 updates
 
 ## 2026-10-12
 
@@ -365,10 +783,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-10-05
 
-**Chores**
-
-- `deps-dev` bump simple-icons
-
 **CI**
 
 - preserve strict audit and require native audit and shell journeys
@@ -384,12 +798,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `appearance` version immutable default wallpaper URLs
 - `appearance` refine default 27 desktop wallpapers
 - `security` clear unfixed dependency and Semgrep audit gates
-
-**Chores**
-
-- `deps` bump the actions-minor-patch group with 3 updates
-- `deps` bump the production-minor-patch group with 5 updates
-- `deps-dev` bump the test-toolchain group with 2 updates
 
 ## 2026-10-02
 
@@ -444,13 +852,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `host` exercise native macOS and Windows candidate build
 - `projects` isolate count and deadline continuation budgets
-
-**Chores**
-
-- `deps-dev` bump the development-minor-patch group across 1 directory with 3 updates
-- `deps` bump the actions-minor-patch group with 3 updates
-- `deps` bump the production-minor-patch group with 5 updates
-- `deps-dev` bump the test-toolchain group with 2 updates
 
 ## 2026-09-27
 
@@ -625,11 +1026,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `mcp` negotiate native app ui
 
-**Chores**
-
-- `deps-dev` bump the development-minor-patch group with 3 updates
-- `deps` bump the production-minor-patch group with 4 updates
-
 ## 2026-09-20
 
 **Added**
@@ -742,11 +1138,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `ci` document independent runner state directory
 - `security` document the hosted passive scan target
 
-**Chores**
-
-- `deps-dev` bump @types/node
-- `deps` bump the production-minor-patch group across 1 directory with 7 updates
-
 ## 2026-09-17
 
 **Added**
@@ -794,9 +1185,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Chores**
 
-- `deps` bump the actions-minor-patch group with 3 updates
-- `deps-dev` bump postcss in the development-minor-patch group
-- `deps` bump the production-minor-patch group with 7 updates
 - `release` bump app version to 0.2.18
 - `release` bump app version to 0.2.17
 
@@ -938,551 +1326,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `termux` add one-pass Android installer
 - `security` document fresh-install MCP exec exposure
-
-## 2026-09-10
-
-**Added**
-
-- `mcp` expose complete ChatGPT tool surface
-
-## 2026-09-09
-
-**Added**
-
-- `integrations` unify semantic credential management
-- add bounded Dokploy Dockerfile build operation
-- `mcp` add session cards, readable logs and handover guide
-- split MCP access and add plugin registry
-
-**Fixed**
-
-- `mcp` keep ChatGPT Page iframe-free
-- `mcp` make Page surface registry instance-dynamic
-- `update` harden release verification and settings UX
-- `auth` harden browser session persistence
-- `integrations` synchronize owner-local SC credential snapshots
-- `security` eliminate parser gaps and enforce strict SAST coverage
-- `gateway` wait for launcher handoff before tracking tunnel identity
-- `build` separate runtime inputs and clarify mobile MCP guides
-- `a11y` label settings controls and expose selected options
-- `settings` clarify MCP navigation and enforce zero-warning tests
-- persist the ready tunnel process identity after launcher exec
-- reject login redirects normalized into external destinations
-- isolate legacy browser credentials and close scanner findings
-- keep the session mode badge clear of mobile navigation
-- harden audited execution, integrations and release journeys
-
-**Faster**
-
-- `mcp` bound active session refresh to live leases
-
-**Changed**
-
-- `gateway` keep provisional readiness with pending lifecycle
-
-**Tests**
-
-- `pty` wait for terminal output to drain after exit
-- remove obsolete preview directory configuration
-- validate the bundle fixture before checking tag rejection
-- stabilize authenticated release journeys and retain build failure logs
-- distinguish desktop dock launch from icon selection
-- target accessible launchers and clarify delegated sign-in
-
-**Docs**
-
-- record extended production browser verification
-- record audit remediation verification and limits
-
-## 2026-09-08
-
-**Added**
-
-- `desktop` give Finder, Explorer and Settings native platform layouts
-
-**Fixed**
-
-- `portability` allow configured auth query
-- `portability` derive instance MCP context
-- `integrations` verify self-hosted Convex admin keys
-
-**Chores**
-
-- standardize bun 1.4.2
-
-## 2026-09-07
-
-**Added**
-
-- `integrations` share a responsive connection workbench
-- `mcp` bind modular project tools to private integrations
-- `infra` ensure Dokploy GitHub applications
-
-**Fixed**
-
-- `infra` allow Baton build SHA metadata
-
-## 2026-09-06
-
-**Added**
-
-- `infra` add bounded Dokploy application deploy
-- `infra` separate DOKU payment and MCP credentials
-- `infra` add private DOKU MCP connections
-- `infra` add private Convex env presence checks
-- `infra` add safe Dokploy deployment recovery
-- `infra` manage Convex Cloud custom domains safely
-- `infra` add bounded Dokploy public env rollout
-
-**Fixed**
-
-- `infra` allow bounded Dokploy public env values
-- `mcp` preserve compact integration headroom
-- `infra` expose bounded Dokploy integration operations
-- `infra` support modern pinned DNS lookups
-
-## 2026-09-05
-
-**Added**
-
-- `integrations` detect local SI-Coder migration
-- `agent` add native integrations slash skill
-- `integrations` polish Finder TUI frame and UX
-- `integrations` use Finder-style column browser
-- `integrations` add interactive terminal navigator
-- `hostinger` add Mail API connection operations
-- `integrations` add portable JSON transfer and standalone import adapter
-- `integrations` unify native users connections and source-aware execution
-- `artifacts` add private per-session screenshot storage and retention
-- `integrations` add native secure credential setup in browser and MCP Page
-- add safe local maintenance and visual README
-- `mcp` preserve restricted project service bridge
-
-**Fixed**
-
-- `security` enforce actual branch code-scanning alerts
-- `security` make import preview confirmations opaque
-- `security` key portable import preview confirmations
-- `mcp` render one bounded inline Page preview
-- preserve home-relative stores and prove tunnel rollback completion
-- `security` verify exact branch dispositions and narrow message origins
-- `security` retain artifact-lock compatibility and require fresh scan evidence
-- `security` pin store paths and eliminate unsafe file-read patterns
-- `mcp` add explicit browser sign-in for reviewed embedded apps
-- `security` gate on actual GitHub open findings
-- `integrations` repair embedded setup and complete native provider catalog
-- `integrations` recover setup UI and cached chat links
-- `release` wait for HTTP readiness before validating served assets
-- `mcp` initialize page previews and verify embedded app readiness
-- reconcile maintenance handoff and CLI version contracts
-- `security` close exec expansion gap and exact test discovery
-- `security` harden share audit and release verification
-- `update` handle diverged checkout explicitly
-
-**Changed**
-
-- remove unused symbols and enforce compiler checks
-
-**Tests**
-
-- make insecure-permission fixture explicit under private umask
-- validate PR integration and maintenance safety boundaries
-
-**Docs**
-
-- show the interactive mso terminal in README
-- restore inline demo and lead with agent capabilities
-- `mcp` document service tokens and update reconciliation
-
-**Chores**
-
-- `security` expose sanitized alert annotations
-- release security and visual documentation fixes as app 0.2.4
-
-## 2026-09-04
-
-**Added**
-
-- `mcp` simplify ChatGPT UI to Block and Page
-- `assistant` turn Alfa into MSO cockpit
-
-**Fixed**
-
-- `mcp` align widgets with rahmanef palette
-- `release` bound local dependency audit
-
-**Changed**
-
-- `mcp` dedupe ChatGPT CSP metadata
-
-## 2026-09-03
-
-**Added**
-
-- `mcp` embed Play Together securely
-- `mcp` add secure ChatGPT MSO Surface
-- `agent` add P10 memory lifecycle calibration
-- `mcp` complete Fresh 3 plugin contracts
-- `mcp` maximize Fresh 3 operator capabilities
-- `mcp` harden ChatGPT profile and project bridge
-
-**Fixed**
-
-- `mcp` correct Fresh 3 Surface scope
-- `mcp` open contextual MSO views
-- `runtime` prevent live Next build corruption
-- `mcp` harden Open in MSO navigation
-- `agent` calibrate correction memory semantics
-- `agent` compare normalized token proofs per row
-- `mcp` advertise implemented protocol era
-- `mcp` support trusted browser probes
-- `oauth` issue distinct dynamic client ids
-- `mcp` make read pipeline schema portable
-
-**Faster**
-
-- `agent` add P8 calibration harness
-- `agent` add repeatable corpus runner
-- `agent` expand objective repo corpus
-
-**Changed**
-
-- `mcp` unify ChatGPT Surface UI
-
-**Tests**
-
-- `agent` calibrate local semantic memory retrieval
-- separate corpus accounting ownership
-- keep Fresh 3 within architecture ratchets
-- `gateway` await complete browser argv capture
-
-**Docs**
-
-- bound Cognitive Runtime claims to verified evidence
-- refresh maintainability changelog
-- `agent` record P9 memory calibration
-- `agent` record P8 calibration baseline
-- `agent` record P7 repeated corpus baseline
-
-## 2026-09-02
-
-**Added**
-
-- `mcp` add two-way local agent receive
-- `mcp` add read-only result pipeline
-- add RASMIC orchestration memory automation
-- `agent` section terminal and recover API errors
-- `agent` name sessions and wrap composer
-- `agent` correlate local replies and add subagents
-- `agent` add native local session messaging
-- `agent` add restart and new session
-- `a2a` enable local and inbound defaults
-- ship authenticated and local A2A
-- `agent` add eval-gated tool forge
-- `agent` add interactive permissions and a2a v1
-
-**Fixed**
-
-- make modular shell ownership explicit
-- `agent` wake on local requests
-- `cli` clear ShellCheck warnings
-- `agent` require live receiver for mentions
-- `agent` make restart process-safe
-- `a2a` harden remote v1 delegation
-
-**Faster**
-
-- `agent` normalize provider usage semantics
-- `agent` add comparable quality corpus
-- `agent` route capabilities before model reasoning
-
-**Changed**
-
-- split installer phases and lock release lifecycle
-- split CLI into bounded command modules
-- separate shared client server contracts
-- segment host capability facades
-- separate workflow and memory ownership
-- enforce one-way shell dependencies
-- extract capability kernel and architecture ratchets
-
-**Tests**
-
-- lock security coverage for new boundaries
-- follow modular onboarding owner
-- follow RASMIC storage split
-
-**Docs**
-
-- generate MCP catalog and lock architecture ownership
-- reconcile RASMIC with latest agent docs
-- publish catalog-first RASMIC runtime
-- publish RASMIC MCP contract
-- `testing` record 1.12 live verification
-
-**Chores**
-
-- `agent` sync docs and trim internal exports
-
-**Other**
-
-- cover maintainability architecture boundaries
-- pin ZAP Docker Hub mirror
-- cover RASMIC orchestration
-
-## 2026-09-01
-
-**Added**
-
-- `agent` ship cognitive runtime p1
-- `agent` humanize sessions and add yolo mode
-- `mcp` ship cognitive runtime p0
-- `agent` add interrupt-safe terminal controls
-- `agent` add arrow picker and skill states
-- `agent` align model and session terminal UX
-- `install` make upgrades agent-friendly
-- `agent` add interactive slash palette
-- `agent` add project-aware slash skills
-- `agent` persist terminal and MCP sessions
-- `mcp` render live workflow progress in ChatGPT
-- `cli` add MSO folder ASCII icon
-
-**Fixed**
-
-- `agent` resolve resumes across full session store
-- `mcp` remove session lookup contention
-- `agent` wake prompt after child tty sigint
-- `cli` clarify version and update labels
-- `agent` stabilize terminal banner navigation
-- `cli` make updates visible and idempotent
-- `9router` proxy over internal Docker network
-- `mcp` preserve app-only workflow status schema
-
-## 2026-08-31
-
-**Added**
-
-- `cli` add MSO agent and infrastructure providers
-- `mcp` add guided client setup
-
-**Fixed**
-
-- `update` wait through systemd restart drain
-- `cli` diagnose HTTPS login and add doctor --fix
-- `mcp` validate browser origins
-- `security` avoid recovery guard fsync convoy
-- `runtime` verify service readiness before handoff
-- `jobs` finish retention before releasing runtime
-- `runtime` preserve fallback recovery readiness
-- `runtime` keep service starts on shared exclusion
-- `service` bound lifecycle exclusion wait
-- `settings` hide premature update warning
-- `update` enforce main and raise MCP daily limit
-- `mcp` raise daily token call limit
-- `gateway` canonicalize public origin assignment
-- `git` restore executable script modes
-- `runtime` close service installer and notice races
-- `install` hold update lock across checkout refresh
-- `install` restore service after pre-mutation abort
-
-**Tests**
-
-- `security` remove recovery marker TOCTOU
-- `gateway` assert one live tunnel after concurrent start
-- `install` read abort capture by descriptor
-- `install` align bootstrap and abort harness
-- `install` make abort recovery harness static
-
-**Docs**
-
-- `mcp` mark guided setup shipped
-
-**Chores**
-
-- `deps` bump aquasecurity/trivy-action (#32)
-- `deps` bump actions/checkout from 6.1.0 to 7.0.1 (#31)
-- `deps-dev` bump @types/react-dom (#29)
-
-## 2026-08-30
-
-**Added**
-
-- `gateway` secure laptop public access lifecycle
-- `gateway` add loopback-only public web gateway
-
-**Fixed**
-
-- `runtime` close update authority and stop races
-- `runtime` preserve installer and env lifecycles
-- `runtime` serialize deploy and service starts
-- `gateway` recheck web state under lock
-- `update` reject unowned live runtimes
-- `runtime` verify live update identities
-- `runtime` close final update web edges
-- `update` emit success after runtime restore
-- `update` serialize all checkout runtimes
-- `gateway` reject active named tunnel switches
-- `gateway` serialize runtime recovery and updates
-- `gateway` close final lifecycle boundaries
-- `gateway` close tunnel fork signal race
-- `gateway` serialize offline recovery state
-- `gateway` harden update and proxy edges
-- `gateway` close lifecycle review gaps
-- `security` harden gateway scanner fixtures
-- `install` survive Bun bin metadata corruption
-- `install` keep bootstrap guard shellcheck-clean
-- `install` guard earliest bootstrap prefix
-- `install` make bootstrap handoff truncation-safe
-- `install` make one-line bootstrap atomic
-- `install` bind readiness to runtime instance
-- `install` preserve caller path semantics
-- `install` prove stable-id service takeover
-- `install` keep security hint literal
-- `install` make WSL CLI setup reliable
-- `security` harden GitHub quality controls
-- `security` canonicalize writable path containment
-
-**Tests**
-
-- `gateway` treat zombie children as stopped
-- `gateway` isolate lifecycle fixtures
-- `cli` lock offline update dispatch
-- `gateway` harden hosted security fixtures
-
-**Docs**
-
-- `security` disclose scorecard posture gaps
-
-## 2026-08-29
-
-**Fixed**
-
-- `security` keep path sinks in validated branches
-- `security` make root containment explicit
-- `security` close follow-up CodeQL flows
-
-**Docs**
-
-- `comparison` use explicit SEO-friendly ratings
-
-**Chores**
-
-- `deps` hold incompatible toolchain majors
-- `deps` migrate to lucide-react 1.33.0
-
-## 2026-08-28
-
-**Added**
-
-- `operations` add evidence-backed comparison and delegated control
-- `mcp` add bounded async exec jobs
-
-**Fixed**
-
-- `security` remediate hosted CodeQL findings
-- `security` remediate ultimate assurance findings
-- `security` resolve full assurance findings
-- `security` raise complete component scan budget
-- `security` keep Codex scan state private
-- `security` block recursive credential relocation
-
-**Chores**
-
-- `deps` bump actions/setup-python from 6.3.0 to 7.0.0
-- `deps` bump zaproxy/action-baseline
-- `deps` bump actions/setup-node from 6.5.0 to 7.0.0
-- `deps` bump actions/upload-artifact from 4.6.2 to 7.0.1
-- `deps` bump ossf/scorecard-action in the actions-minor-patch group
-- `deps-dev` bump the development-minor-patch group with 4 updates
-- `deps` bump the production-minor-patch group with 4 updates
-- `security` update Codex Security to 0.1.21
-
-## 2026-08-26
-
-**Added**
-
-- `mcp` add reverse-engineering implementation playbook
-
-**Fixed**
-
-- `security` split documentation scan scope
-- `security` bound Codex component scope
-- `security` use complete Codex component scans
-- `security` size Codex budget for full scan
-
-**Docs**
-
-- refresh changelog
-
-**Chores**
-
-- `security` add ultimate assurance suite
-- `security` add Codex Security scanning
-
-## 2026-08-24
-
-**Added**
-
-- `managed-apps` add 9Router as a one-click managed app
-
-**Fixed**
-
-- `managed-apps` embed 9router existing domain
-- `managed-apps` make 9router public-ip first
-- harden security state and credential guards
-
-## 2026-08-23
-
-**Added**
-
-- add interactive onboarding and skill market
-- complete terminal and mobile app surfaces
-
-**Fixed**
-
-- `android` clear notch in app drawer
-- `mobile` stabilize widgets back and viewport
-
-**Changed**
-
-- `ui` separate shell design systems
-
-**Docs**
-
-- refresh architecture and ChatGPT MCP guide
-
-## 2026-08-22
-
-**Fixed**
-
-- `settings` adopt native iOS hierarchy
-- `icons` align mobile platform artwork
-- `responsive` harden mobile and landscape layouts
-- `git` isolate push-gate test repositories
-- `settings` improve MCP UI and activity scrolling
-
-## 2026-08-21
-
-**Added**
-
-- `projects` add opt-in function capabilities
-
-## 2026-08-20
-
-**Added**
-
-- `mcp` global project/skill discovery, drop image generation
-- `mcp` import ChatGPT generated files
-- `mcp` add provider-backed image generation
-
-**Fixed**
-
-- `mcp` lossless scan continuation and exact-id project resolution
-- `mcp` one project validator, dirent budgets, resumable caps
-- `mcp` contain, bound and uniquely identify project discovery
-- `mcp` make ChatGPT file imports region agnostic
-- `mcp` allow ChatGPT India South Central file storage
-- `mcp` allow ChatGPT New Zealand file storage
-- `mcp` allow ChatGPT Australia file storage
-- `mcp` allow ChatGPT regional file storage
-- `mcp` report rejected file host safely

@@ -87,13 +87,13 @@ export function spawnRect(n: number, w: number, h: number): Rect {
 export function clampRect(r: Rect): Rect {
   if (typeof window === "undefined") return r;
   const { vw, top, bottom } = workArea();
-  const w = Math.min(r.w, vw - GAP * 2);
-  const h = Math.min(r.h, bottom - top);
+  const w = Math.max(1, Math.min(Number.isFinite(r.w) && r.w > 0 ? r.w : 720, vw - GAP * 2));
+  const h = Math.max(1, Math.min(Number.isFinite(r.h) && r.h > 0 ? r.h : 460, bottom - top));
   return {
     w,
     h,
-    x: Math.max(GAP, Math.min(r.x, vw - GAP - w)),
-    y: Math.max(top, Math.min(r.y, bottom - h)),
+    x: Math.max(GAP, Math.min(Number.isFinite(r.x) ? r.x : GAP, vw - GAP - w)),
+    y: Math.max(top, Math.min(Number.isFinite(r.y) ? r.y : top, bottom - h)),
   };
 }
 

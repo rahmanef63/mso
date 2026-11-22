@@ -17,17 +17,25 @@ import "@/features/os-shell/integrations";
 
 import { AuthGate, SessionProvider, useSession, type DeviceRole, type SessionStatus } from "@/features/auth";
 import { appAllowedForRole } from "@/lib/auth/app-access";
-import { useInstalledApps, useDisabledIds, useExternalApps, ShellAppsProvider } from "@/features/app-store";
+import {
+  useInstalledApps,
+  useDisabledIds,
+  useExternalApps,
+  ShellAppsProvider,
+  ModularFeaturesProvider,
+  useModularFeatures,
+} from "@/features/app-store";
 
 function Shell() {
   const dynamic = useInstalledApps();
   const external = useExternalApps();
+  const modular = useModularFeatures();
   const disabled = useDisabledIds();
   const { status, role } = useSession();
   const manifest: ShellManifest = useMemo(() => {
     const off = new Set(disabled);
-    const reserved = new Set([...BUILTIN_APPS, ...external].map(app => app.id));
-    const all = [...BUILTIN_APPS, ...external, ...dynamic.filter(app => !reserved.has(app.id))].filter((app) => !off.has(app.id));
+    const reserved = new Set([...BUILTIN_APPS, ...modular, ...external].map(app => app.id));
+    const all = [...BUILTIN_APPS, ...modular, ...external, ...dynamic.filter(app => !reserved.has(app.id))].filter((app) => !off.has(app.id));
     // Signed-out is the unrestricted mock showcase. A live delegated session sees
     // only apps its role can actually use; unknown runtime apps fail closed for
     // non-owners because their host contract cannot be inferred safely.
@@ -45,13 +53,19 @@ function Shell() {
       persistKey: TOPSIDE_PERSIST_KEY,
       capabilities: topsideCapabilities,
     };
-  }, [dynamic, external, disabled, status, role]);
+  }, [dynamic, external, modular, disabled, status, role]);
   return <AppShell manifest={manifest} />;
 }
 
 function ConnectedShell() {
   const { status, role } = useSession();
-  return <ShellAppsProvider active={status === "in" && role === "owner"}><Shell /></ShellAppsProvider>;
+  return (
+    <ModularFeaturesProvider active={status === "in"}>
+      <ShellAppsProvider active={status === "in" && role === "owner"}>
+        <Shell />
+      </ShellAppsProvider>
+    </ModularFeaturesProvider>
+  );
 }
 
 export function OsRoot({
@@ -66,7 +80,7 @@ export function OsRoot({
       <QuicklinksProvider>
         <A11yCommands />
         <a
-          href="#main-content"
+          href="#shell-main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[var(--z-skip-link)] focus:rounded-md focus:bg-foreground focus:px-3 focus:py-2 focus:text-background focus:outline-2 focus:outline-ring"
         >
           Skip to main content

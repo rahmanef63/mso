@@ -74,7 +74,7 @@ export function UpdateStatusCard({
   const headline = checking
     ? "Checking for updates…"
     : diverged
-      ? "Update blocked — local and remote diverged"
+      ? "Update blocked: local and remote diverged"
       : localAhead
         ? `${ahead} local commit${ahead > 1 ? "s" : ""} not on origin/main`
         : behind > 0
@@ -149,7 +149,7 @@ export function UpdateStatusCard({
       )}
       {!info.remoteChecked && !running && (
         <p className="text-[11px] leading-relaxed text-amber-500">
-          Could not reach the remote — this is what was last fetched, not
+          Could not reach the remote. This is what was last fetched, not
           necessarily what is on main now.
         </p>
       )}
@@ -160,7 +160,7 @@ export function UpdateStatusCard({
       )}
       {finished === "ok" && !running && (
         <p className="flex items-center gap-1.5 text-[11px] text-emerald-500">
-          <CheckCircle2 className="size-3.5" /> Updated and restarted — reload
+          <CheckCircle2 className="size-3.5" /> Updated and restarted. Reload
           to run the new build.
         </p>
       )}

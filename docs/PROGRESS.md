@@ -1,3 +1,1154 @@
+## 2026-11-21 — T3 Code proxy forwards app WebSocket cookies, protocol header, and auto-pairing
+
+Live Playwright verification against the split-origin T3 managed-app host uncovered three protocol
+gaps in the initial T3 Code managed-app integration that left the framed app stuck on pairing or a
+blank screen:
+
+- `upstreamSocketHeaders()` deleted the `cookie` header unconditionally on WebSocket upgrades, so
+  T3's own `__Host-mapp_t3_t3_session_*` browser session cookie never reached `ws://127.0.0.1:3773/ws`
+  (producing upstream `401` and proxy `502`). It now unwraps only the target app's `__Host-mapp_<id>_*`
+  cookies using `upstreamCookieHeader()`, matching HTTP `buildUpstreamHeaders()` while keeping
+  cockpit and sibling-app cookies strictly isolated.
+- `APP_REQUEST_HEADERS` omitted `x-t3-orchestration-protocol`, causing T3's orchestration HTTP API
+  (`/api/orchestration/shell`) to reject requests with `400`. That static protocol header is now
+  forwarded only for `t3`.
+- `/api/v1/managed-apps/t3/session` now mints a short-lived one-time `/pair#token=...` URL via
+  `t3 auth pairing create --json` (validated strictly on the exact HTTPS T3 origin with fragment-only
+  token, falling back to `/` when unavailable), so opening T3 Code in MSO auto-pairs in one click
+  just like Orca.
+
+## 2026-11-21 — Dedicated n8n workspace matches third-party iframe apps
+
+`frontend/slices/n8n/app.tsx` previously showed an unconfigured card linking to three unrelated
+MSO apps (`Native Workflows`, `Organization`, `Integrations`) with no inline way to connect an
+n8n instance, and when configured it stacked an outer `AppFrame` toolbar on top of
+`ExternalAppFrame`'s chrome and bottom disclaimer.
+
+The n8n slice now owns only n8n, matching third-party surfaces such as Hermes and 9Router:
+
+- Removed the `Native Workflows`, `Organization`, and `Integrations` shortcut cards and copy from
+  `frontend/slices/n8n/app.tsx` (each already has its own first-class app in `shell.manifest.ts`).
+- Replaced the unconfigured placeholder with `N8nConnectPanel`, a centered n8n-only setup and
+  settings surface backed by the existing owner-reviewed `POST /api/v1/workflow-embeds` endpoint
+  (`placements: ["n8n"]`, revision guard, HTTPS-only validation without credentials or query
+  parameters, embed/tab toggle, optional sign-in path), deriving its suggested host placeholder
+  dynamically from `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` (`appNamespaceHost("n8n")`) and
+  supporting `N8N_PUBLIC_URL` (matching `NINE_ROUTER_PUBLIC_URL`) with zero hardcoded domains.
+- Collapsed configured n8n framing into a single minimal action bar on `ExternalAppFrame`
+  (`minimal` mode with `Open n8n`, optional `Sign in`, `Reload n8n`, and a `Settings2` toggle
+  into connection settings) while preserving fail-closed cookie isolation, sandbox remounting,
+  and viewer-role demotion.
+
+## 2026-11-21 — Alfa AI chat upgraded to standard modern chat UX across all surfaces
+
+Alfa's streaming chat (`frontend/slices/assistant`, `frontend/slices/appshell/components/`, and `lib/ai/`) had several UX and state gaps compared to standard modern AI chats: raw markdown text in the Desktop Right Dock and Mobile Sheet (`AlfaThread`), scroll hijacking on every streamed token, fixed-height composer without IME composition guard, ignored reasoning/thinking deltas, no retry/regenerate or edit-and-resend, dangling wire-history user turns on error, bracketed `[Context: ...]` strings leaked into visible user bubbles, and no direct New Chat button in the chat header.
+
+We evaluated Vercel AI SDK (`ai@7`, `@ai-sdk/react@4`, `@ai-sdk/openai-compatible@3`, `@ai-sdk/anthropic@4`) against MSO's Next.js 16 + React 19 + Bun stack and kept MSO's zero-bloat provider-neutral streaming layer to preserve the `+2%` eager bundle budget (`bundle-budget.json`), the shared multi-surface `useSyncExternalStore` store, SSRF/byte-budget guards, custom Anthropic gateway headers, and the ChatGPT Codex OAuth Responses adapter across all five callers. On top of that foundation, we added provider-neutral `reasoning` stream events across Anthropic, OpenAI-compatible, and Codex adapters; streaming-safe React Markdown rendering (`chat-markdown.tsx`) with per-code-block copy buttons, tables, lists, blockquotes, and XSS-safe links across Assistant, Dock, and Mobile Sheet; smart autoscroll with a jump-to-bottom trigger; auto-growing IME-safe composer; collapsible completed tool steps (with pending mutate approvals kept fully expanded); clean system-prompt app grounding; centered desktop reading width; New Chat header action; active-thread highlight; and wire-history-synchronized Retry/Regenerate and Edit-and-Resend.
+
+## 2026-11-19 — The Anthropic SDK major lands with its compatibility fix, not after it
+
+`@anthropic-ai/sdk` 0.135.0 → 1.6.0 is a major bump that changes how the client authenticates.
+The SDK now sends `Authorization: Bearer` and `anthropic-version: 2026-10-21` by default, which is
+correct for Anthropic's own API and wrong for every Anthropic-compatible gateway operators point
+MSO at. Merging the bump alone would have made streaming chat and the Settings "test key" button
+return 401 for BYOK gateways, with the key reported as invalid while it was fine.
+
+The bump therefore lands together with `lib/ai/custom-provider-headers.ts`, one helper applied at
+both `new Anthropic(...)` call sites (`lib/ai/selected-model-stream.ts` and
+`app/api/models/test/handler.ts`) that restores `x-api-key` and the pinned `anthropic-version` for
+custom gateways only. First-party traffic keeps the SDK defaults. A negative control with the
+override removed fails with `AuthenticationError: 401 x-api-key required`, which is the regression
+the test locks.
+
+## 2026-11-18 — Convex deploy keys resolve their regional host, and native selects stop rendering light-on-light
+
+Two separate operator-visible failures, both reproduced before changing anything.
+
+**Convex deployment key reported as HTTP 404.** A valid key (`prod:quiet-rooster-165|…`)
+failed verification with `Convex Cloud HTTP 404`. The key was never rejected: Convex Cloud
+deployments are regional (`<name>.<region>.convex.cloud`), and MSO probed the bare
+`<name>.convex.cloud` alias, which answers 404 for every deployment outside the default
+region. The same key returned `200` with full deployment info at
+`quiet-rooster-165.ap-southeast-2.convex.cloud`. Verification, canonical URLs and env-presence
+now resolve the real origin through the official `POST api.convex.dev/api/deployment/url_for_key`
+resolver, exactly like the Convex CLI, and refuse any origin that is not this deployment's own
+`.convex.cloud` host (no credentials are sent when it is refused). `convexDeploymentUrl` is gone;
+`resolveConvexDeploymentOrigin` + `convexDeploymentOriginUrl` replace it.
+
+**Native select popups were light-on-light in dark mode.** `<select>` triggers used the semantic
+tokens, but the option list is painted by the UA: Chromium gave it a light surface while the
+option text kept our near-inverted `--foreground`. Every dropdown in the Integrations surface
+(folder routing, variables, export format) and in the shell read as light text on a light popup.
+Option rows are now painted from the same tokens in `setup-ui.ts`, `connection-ui-style.ts`,
+`portable/ui.ts`, `setup-page.ts` and `app/globals.css`; a style-contract test pins all five and
+the contrast gate stays at zero failures for 36 presets in both themes.
+
+## 2026-11-19 — A withdrawn advisory stops holding a waiver slot
+
+GHSA-fc5q-39xc-vjpf (picomatch ReDoS) was withdrawn upstream at
+2026-11-18T15:38:56Z. `bun audit` no longer reports it, so `node scripts/audit.mjs
+--strict` was already exiting 0 before this change; the three waiver records still
+in the tree (osv-scanner.toml, the `IGNORE` map in scripts/audit.mjs, the `EXPECTED`
+list in scripts/audit-exceptions.mjs) described a fact that had stopped being true.
+A waiver for an advisory nobody reports is not extra safety, it is a stale
+suppression that silently widens the next time the same id is reused.
+
+The three picomatch records are deleted. The expiry machinery from the previous
+commit is untouched and still fails closed: a waiver absent from the lockfile, an
+empty or unparseable registry report, an unwaived critical advisory and a waiver
+accepted on 2020-01-01 all exit non-zero. The deepmerge waiver is also gone: GHSA-gcqx-w48m-w2h4 was withdrawn on
+2026-11-16T18:55:38Z because it does not describe a vulnerability, so the recorded
+entry was stale as well.
+
+## 2026-11-18 — The audit waiver finally expires on its own
+
+`scripts/audit.mjs` carried `accepted: "2026-11-18"` next to the picomatch waiver, and
+nothing read it. Setting that date to 2020 still printed `clean at high/critical` and
+exited 0 under `--strict`, so the one waiver in the repository was permanent in
+practice while `osv-scanner.toml` and `scripts/audit-native-tool.mjs` both enforced
+theirs. A waiver nobody can outlive is not a review, it is a suppression.
+
+The rule now lives in `scripts/lib/audit-waivers.mjs`: expiry is 90 days after
+acceptance, an unparseable date counts as expired, and the check runs before the
+registry probe so a network failure cannot be what hides a stale exception. With the
+date in the tree that is 2027-02-16. `scripts/lib/audit-waivers.test.ts` pins the
+boundary (day 89 valid, day 90 expired) and the negative control fails with
+`expired waiver(s) in scripts/audit.mjs`.
+
+## 2026-11-17 — The disk gauge reads a root it can actually read, and preset fonts load
+
+Two defects that both failed silently, found by the parallel surface audit.
+
+`GET /api/v1/fs/usage` defaulted to `~` when no `path` was given. Read roots default to
+`[cwd, ~/projects]`, and `~` itself is not one of them, so every caller that omitted the
+parameter hit `Path outside readable roots`. The Storage widget and Settings → About both
+swallow that rejection in `catch {}`, so the gauge rendered `n/a` instead of reporting a
+failure. The route now defaults to the first configured read root, which is readable by
+construction, and the old test that pinned `"~"` was asserting the bug.
+
+The appearance presets name families the app does not bundle (DM Sans, Poppins,
+Merriweather, and others). `lib/appearance/presets/fonts.ts` injects one
+`fonts.googleapis.com` stylesheet for them and the files come from `fonts.gstatic.com`,
+but the cockpit CSP allowed neither. Every non-Geist preset therefore fell back to system
+fonts while logging a CSP violation on every page. The managed-app policy already allowed
+these origins, so the cockpit policy was the outlier. `style-src` and `font-src` now name
+those two hosts; `script-src` stays nonce plus `strict-dynamic` with no `unsafe-inline`,
+so the relaxation cannot execute code.
+
+## 2026-11-16 — Read Composio account inventory without a source-changing workflow
+
+Named Composio project keys could be configured, but the agent could only inspect local
+connection metadata or use a mixed exec-scope tool. A provider-only workflow had no Git
+workspace, while binding it to a dirty owner repository refused startup. Neither path
+could discover the existing PostHog accounts without coupling a read to source isolation.
+
+`integration_query` now has a bounded read-only `broker` view. It uses the exact selected
+credential owner and named connection, projects only account identifiers/status/toolkit,
+and exposes a cursor for complete pagination. Connect keys discover tool schemas on
+the fixed Connect MCP endpoint; Platform keys list account metadata on the Platform API.
+Direct Composio calls also retain the explicit named connection when selecting their key. It performs no OAuth/session creation,
+credential change or provider action. Provider errors omit raw payloads and credentials;
+unknown fields, malformed responses and changing connection revisions fail closed.
+Existing exec/write scope, source isolation and provider mutation guards remain intact.
+
+## 2026-11-18 — A single-app read waits for the version, a list still does not
+
+The 2026-11-16 change removed the blocking `--version` probe from the managed-apps
+list, which is what held Orca's window blank. It also left `getManagedApp()` returning
+the cold-cache `null`, and `null` is rendered as "unknown" in the Details pane and in
+`mso mapp show` (`/api/v1/managed-apps/[id]`). A first read of one app therefore
+reported nothing rather than the string it had just measured.
+
+`app-version.ts` gains `settledAppVersion()`: a warm entry is returned without forking,
+a cold one awaits the shared in-flight probe. `getManagedApp(id, { settledVersion: true })`
+uses it, and exactly two callers opt in: the single-app GET handler and the
+lifecycle reply (which forgets the cache entry first, so the caller gets the version
+the app reports after the restart). `listManagedApps()` and the panel's 10 s poll stay
+on the non-blocking `appVersion()`, so the window's first paint is still never held.
+
+Verified: `lib/managed-apps/app-version.test.ts` (8 tests) adds the settle-once case;
+`manager.test.ts` asserts the list view still returns `version: null` on a cold cache
+and that `getManagedApp("hermes", { settledVersion: true })` resolves to the measured
+string. Typecheck and eslint clean on all touched files.
+
+Owned Orca needed one more change. Its detection rehashes the release through the
+adapter's `--version` (about 8 s here) and that same call prints the verified version,
+but the view then forked the adapter a SECOND time through the 4 s display probe, which
+can never finish. `detectOrca` now returns that proven string (`ManagedInstallation.version`)
+and `getManagedApp` prefers it, so an owned Orca reports `1.4.230` and no second fork
+happens. `orca-strict-recheck.test.ts` asserts the version and an empty `--version` call
+list.
+
+Measured, 6 fresh mounts per arm, one variable (which build answers the cockpit origin),
+app origin untouched: live 4005 iframe shown 5028/6211/20735 ms (min/median/max) and app
+painted 12960/15053/33773 ms; patched build 2531/5712/13391 ms and 8478/13843/21444 ms.
+Every mount painted the app in both arms, so the frame is not broken either way; the
+patched build is faster at every percentile but the spread overlaps, and one mount in
+each arm was an outlier. That is not proof that the original 13 to 19 s blank window is
+gone under load, only that a single mount no longer waits on the version probe.
+
+## 2026-11-16 — A managed app's version string no longer holds its window shut
+
+Seven surfaces were reported as thin or blank: hermes, openclaw, 9router, orca, n8n,
+connections and links. All seven were measured in a real browser against the live cockpit
+with an owner session. The honest split: four already work, one was a real defect, one is
+waiting on infrastructure, and one is empty data rather than an empty feature.
+
+Hermes, OpenClaw, 9Router and Orca each render their own dashboard inside the window. Orca
+was the real defect: its frame stayed blank for 13 to 19 seconds, or for the whole session
+when two loads overlapped.
+
+The cause was not Orca. `version()` in `lib/managed-apps/manager.ts` awaited
+`<app> --version` inline while building `/api/v1/managed-apps`, and that list is what
+`ManagedAppsSurface` waits for before painting anything. Measured on this host, `hermes
+--version` is 15.4 s wall (it boots a Python environment) against a 10 s cap, so the probe
+could never succeed and always cost the full cap. The panel re-polls that list every 10 s
+and the answer cache only lasts 60 s, so an open window paid it again every minute.
+
+Detection and the app-host proxy also share one process. With three detect calls in flight,
+average latency of twelve Orca assets went 1.13 s to 2.17 s. Serving the same list from a
+frozen snapshot instead brought Orca's blank window down to 9 to 10 s, which is what named
+the detect poll as the cause rather than the app.
+
+`lib/managed-apps/app-version.ts` now owns the probe. A known answer returns without forking,
+a stale one is refreshed in the background, and concurrent callers share one in-flight probe
+per app so overlapping window polls cannot stack child processes. The cap drops to 4 s, which
+still covers every probe that can finish at all. A cold list went from 20.2 s to 3.8 s, warm
+polls from 1.2 to 1.8 s down to 1.1 s, and the version strings still appear one poll later.
+
+Not changed, and why. n8n is not an MSO defect: the external n8n host had no Traefik route (the
+edge answers 404) while the real instance answers on host loopback `:5678` with
+`X-Frame-Options: SAMEORIGIN`, so it could not be framed even once routed. Fixing it means
+publishing a host and changing that host's frame policy, which is a deployment decision.
+Connections frames the native Integrations manager and paints its provider list. Quicklinks
+renders the project-neutral fallback because `~/.mso/prefs.json` holds no `quicklinks`
+section yet; that is owner data, not a broken empty state. Orca's own detect still costs
+about 5 s per 30 s window because the adapter rehashes its release on `--version`, which is
+real but separate work.
+
+Verified: 7 tests in `lib/managed-apps/app-version.test.ts` cover resolve-by-path, the 4 s
+cap, one shared probe for concurrent callers, cache reuse, background refresh and re-probe
+after an install; `manager.test.ts` asserts the view returns without waiting for the version.
+All 444 tests under `lib/managed-apps` pass, and typecheck plus the architecture ratchet are
+unchanged. Browser evidence, per surface, is in the audit recorded for this task.
+
+## 2026-11-16 — Onboarding stops reporting a hydration mismatch it caused itself
+
+Every signed-in page logged two console errors: "Encountered a script tag while rendering
+React component" against `app/layout.tsx:86`, and "Hydration failed" whose diff pointed at
+Next's `MetadataOutlet` script. Neither was the cause. `FirstLoginOnboarding` seeded its open
+state with `useState(() => typeof window !== "undefined" && shouldOpenOnboarding(...))`. The
+server never sees `localStorage`, so it rendered the dialog closed while the client rendered
+it open; React rebuilt from the nearest boundary, and the first thing that rebuild reported
+was the metadata script it had just re-created. The pre-hydration theme script in the layout
+was innocent, and removing it changed nothing.
+
+Open state is now external: `useSyncExternalStore(subscribeOnboarding, () =>
+shouldOpenOnboarding(onboardingStorage()), () => false)`. Both passes start closed and React
+re-reads storage immediately after hydration, so the guide still opens by itself on a browser
+that never dismissed it. Settings → Account → About → Maintenance → Setup still reopens it
+after dismissal, through its own `reopened` state fed by the existing `ONBOARDING_OPEN` event,
+because that explicit request must survive a `done` marker in storage.
+
+Verified with `frontend/slices/auth/lib/first-login-onboarding.test.tsx` (the server render
+never contains the dialog) plus a browser pass over `/`, `/files`, `/docs`, `/settings` and
+`/workflows`: zero console errors, and the guide still visible after hydration. Next is also
+bumped 16.4.3 → 16.4.6, which is unrelated to this bug and did not fix it on its own.
+
+## 2026-11-14 — Nakama follows the MSO login password, without becoming a login dependency
+
+Nakama kept its own hashed admin password, so the operator had to remember to change it
+by hand every time Settings rotated `OS_LOGIN_PASSWORD`. #296 makes it follow.
+
+The hook is the end of `rotateLoginPassword` in `lib/auth/login-password.ts`, after
+`writeEnvFile` and `process.env.OS_LOGIN_PASSWORD = input.next`, so `setLocalPassword`
+(`mso passwd` / the local CLI path) and `POST /api/auth/password` are both covered by one
+call. `lib/auth/nakama-password.ts` signs in with the password Nakama still has, then calls
+`POST /v1/auth/change-password` with the session cookie and the `__Host-nakama_csrf` value
+as `X-CSRF-Token`. The rotation returns success before this matters: the follower is
+`.catch()`-ed and returns a result, so MSO login never depends on Nakama being up.
+
+A failed sync is not swallowed. It is audited as `auth.nakama` with `ok: false` and a
+reason category only (`change_http_4xx`, `login_http_401`, `ECONNREFUSED`, `timeout`), and
+the previous password is written to a 0600 owner-private retry record so `reconcileNakamaPassword`
+in `instrumentation.ts` can replay it at boot. The reconcile probes the current password
+first, so a change call whose response was lost converges instead of retrying the old
+password forever. Nothing about the Nakama password reaches a response body, the browser,
+a committed file or a log line.
+
+Opt in with `NAKAMA_BASE_URL` + `NAKAMA_ADMIN_EMAIL`; with either unset MSO makes no Nakama
+call at all. The operational story and the one uncovered case (a first-install password
+that was created rather than rotated) are in `docs/TROUBLESHOOTING.md`.
+
+Verified: 11 tests in `lib/auth/nakama-password.test.ts` (call shape, 4xx surfaced while
+the rotation still completes, unreachable → queued, idempotent converge, oldest queued
+password retained, insecure base URL refused), plus the existing rotation, route, audit and
+env-example suites. Live proof against a real Nakama container is still required before
+this can be called operationally verified.
+
+## 2026-11-14 — The App Store has one row primitive and one catalog model
+
+Three cards rendered the same row. `store-app-card` and `system-card` carried byte-identical
+shell (`flex gap-3 p-3.5`), 12x12 gradient glyph tile, overlay span and body block, differing
+only in tile content and one overlay. Two catalogs (`CatalogApp`, `SystemEntry`) repeated
+`title`/`gradient`/`desc`, and `apps-panel` rebuilt the store's menu inside the render body.
+
+`components/store-tile.tsx` now owns the row: `StoreTile` (shell, tile, overlay, title/meta,
+description, trailing action slot) and `StoreGlyph` (gradient tile + overlay, `none` for the
+hero). The three cards are thin wrappers supplying glyph and buttons; the installed/uninstall
+hover verbs stay in them because that is their behaviour, not the row's. `CatalogEntryBase`
+declares the shared metadata once and `CatalogApp`/`SystemEntry`/`CatalogEntry` narrow it, so
+`system-catalog.ts` imports its row type instead of redeclaring it. `mergeCatalog` is untouched
+and now covered by three tests (persisted rows win, curated default survives, foreign rows
+ignored). The panel's menu is a module constant and both grids share one `StoreGrid`.
+
+Verified no visual change by dumping `renderToStaticMarkup` for all 68 card states (6 curated
+apps x installed/uninstalled x grid/hero, 22 built-ins x installed/uninstalled) before and
+after the refactor and diffing with class-token order normalized: 0 mismatches. The only real
+drift the diff caught was a dropped `shadow-sm` on the hero tile, which was restored.
+`grep -rc "flex gap-3 p-3.5" frontend/slices/app-store` went from 2 files to 1.
+
+## 2026-11-14 — Slice cost becomes observable: a cited registry, a measured ledger, and enforcement that stays off
+
+MSO had 32 feature slices and no answer to "what does this slice cost". The only cost
+signals were whole-host: a per-result byte bound, a request-count limiter, a scope ceiling and
+the System Monitor's host gauges. A slice could be expensive in a way nothing named.
+
+`lib/resources/` now holds a per-slice registry with five fields (CPU-time per minute, memory,
+concurrent slots, external calls per minute, may-spawn-worker). Every number is labelled with
+its provenance: `cited` at `file:line`, `derived` from named inputs, `policy` from an explicit
+declaration in `lib/resources/policy.ts`, or `unmeasured`. There is no bare literal, and the
+one place a number could have been invented (memory) stays `not-instrumented` rather than
+borrowing result bytes as a proxy. `registry.test.ts` reads the real `frontend/slices/`
+directory, so a new slice without an entry fails the test instead of reporting as free.
+
+The ledger measures at the honest point: `lib/capabilities/execute.ts` now records wall time,
+a `process.cpuUsage()` delta, in-flight concurrency per slice and result bytes for every
+capability call. Attribution comes from `lib/resources/attribution.ts`, which only asserts a
+tool belongs to a slice where both modules exist for the same concept. Anything else records
+`slice: null` and reports in an `unaccounted` block, so a total is never quietly completed by
+guessing. The ledger's own limits are stated in the module: CPU is process-scoped and therefore
+an upper bound under concurrency, and the 2048-sample buffer is process-local.
+
+`GET /api/v1/sys/slice-resources` follows the `/api/v1/sys/*` neighbours and stays owner-only
+through the existing default-deny role policy; it is deliberately absent from
+`VIEWER_READ_PATHS`. The System Monitor gained a fourth tab rendering the worst offenders
+through the existing `GlassPanel`, with a per-field evidence label so no estimate reads as a
+fact. The report is installation-wide and says so: MSO has no per-tenant resource ledger.
+
+Enforcement is a separate decision and is **off**. `OS_SLICE_RESOURCE_ENFORCEMENT=1` is the
+only enabling value, because `"false"` and `"0"` are truthy strings. Only the concurrent-task
+ceiling is scoped, since that ceiling already exists in code; CPU and call-rate refusals are not
+implemented because a process-scoped CPU figure is not admissible evidence for refusing one
+slice's call.
+
+Honest coverage: 32 of 32 slices are registered, but measurement is partial. A slice with no
+attributed capability call yet reports declared budgets with `not-instrumented` actuals, which
+is why the report labels every field instead of totalling them into one number.
+
+Verified: 64 targeted tests green across the registry, ledger, report arithmetic, the route's
+auth and role policy, and executor instrumentation; typecheck and lint clean; the architecture
+ratchet stayed at 47/47 `filesOver220` by compacting the new registry rather than raising it.
+
+## 2026-11-14 — One recorded dependency exception, with a chain check and an expiry
+
+The Svelte entry brought `deepmerge@4.3.1` in as a devDependency of
+`@sveltejs/vite-plugin-svelte@7.3.1`, and OSV fails the scan on
+GHSA-gcqx-w48m-w2h4 (CVE-2026-93753, CVSS 5.3). There is no fixed version: 4.3.1 is
+the newest release and the upstream advisory is closed as unfixed on master. The
+package is build-time only, never parses untrusted input and never ships to a runtime,
+and removing it would mean replacing the Svelte build toolchain.
+
+`osv-scanner.toml` records that single advisory with an expiry and a reason, which is
+how this repository has handled an unfixed dependency before. Because osv-scanner
+silences an advisory by id alone, `scripts/audit-exceptions.mjs` narrows it back to the
+reviewed decision: the package must still arrive only through the named dev toolchain,
+the lockfile must still contain it, and the date must still be in the future. An
+unknown advisory, a missing expiry, a moved lockfile or an expired date fails the gate
+rather than silently widening the exception. `audit` now runs the guard, and the CI OSV
+step passes the same config while `security-core.yml` runs the guard as its own step.
+
+Verified: OSV reports `No issues found` with one advisory explicitly filtered and
+named in the log, and the guard rejects an expired date, an unknown advisory and a
+missing expiry. No scanner rule, no `continue-on-error` and no dismissal was added.
+
+## 2026-11-13 — Official app marks reach the shell, the store and the picker
+
+Ten built-in windows were still drawing a Lucide glyph while a finished official-mark set
+sat unmerged in a stranded worktree: n8n, Orca, Dokploy, Cloudflare, plus the Hermes,
+OpenClaw and 9Router marks that only existed as generated tiles. The dock, the App Store
+catalog and the integration provider picker each had their own hard-coded icon path, so a
+single mark had to be added three times and was added zero times.
+
+`APP_MARKS` now owns every official mark, including a `officialMarkOnBackground()` tile that
+gives monochrome marks (OpenClaw, Dokploy, Cloudflare) a neutral ground so they stay legible
+in both themes. The App Store reads `SystemEntry.artwork` and the connection picker reads
+`PROVIDER_ICON_ASSETS` with `PROVIDER_ICON_TILE_COLORS`, so Composio, Dokploy and DOKU render
+their real multi-colour lockups instead of a flattened path. Telegram, Discord, Google OAuth,
+Search Console and Analytics join `PROVIDER_ICON_PATHS` as monochrome currentColor marks.
+
+The generated legacy tiles for camoufox, hermes and openclaw are gone: `makeBrand()` and
+`brandTileSvg()` are removed from `scripts/gen-app-icons.mjs`, their PNG/SVG sources are
+deleted, and the service worker no longer precaches the retired `/app-icons/*` paths. Every
+replacement is lossless WebP at 192px with alpha, and `SOURCES.md` pins the upstream commit
+for the vector and pixel-art sources.
+
+Verified by 38 focused tests over mark rendering, per-shell invariance, tile contrast,
+WebP format/alpha/VP8L, the provider asset map and the service-worker asset list. Sharp
+compares the OpenClaw raster against its retained SVG pixel for pixel. TypeScript, ESLint,
+the architecture ratchets, WCAG contrast in both themes, docs currency and the instance
+literal guard are clean. Real vendor artwork at other DPI and the remaining Windows/macOS
+platform art direction stay explicit limits.
+
+## 2026-11-12 — No chrome bar on a CLI-only managed app
+
+After the two bands became one, the remaining 44px row still only held a sentence and a
+gear above a terminal that already names the app in the window title. Removed entirely: the
+no-dashboard explanation is now the terminal's own first line, and the details control rides
+the terminal's existing tab strip, so the surface starts at the window title.
+
+Verified on `/hermes` with a synthetic running app and no dashboard origin: zero app
+headers, note inside the terminal, gear inside the tab strip at 28px, terminal at y=95
+under the title bar, zero console errors.
+
+Worth recording because the next question was why this is a TUI at all: it is not a
+rendering bug. `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` is unset in this dev instance, and
+`featureSource()` refuses to fall back to a cockpit path by design (upstream JS would then
+run in a realm holding the session and could reach `/api/v1/exec`). No template means no
+embeddable dashboard, so the CLI is the correct surface. The note now names that variable
+so the cause and the fix are both on screen.
+
+## 2026-11-12 — One bar per managed app surface
+
+The managed-app window stacked two chrome bands before any content: a 44px identity
+header with the app name, a state dot and a text "Details" button, sitting above a 36px
+toolbar whose controls were all pushed right into an empty left half. A third full-width
+strip carried the one-sentence "no browser dashboard" note. Measured on `/hermes`: 80px of
+chrome plus a 28px bordered band, for one row of actual information.
+
+The identity header and the feature toolbar are now one 44px row. The no-dashboard note is
+inline muted text in that row instead of its own bordered strip, and the app controls
+(lifecycle, logs, update) are reached from an icon-only gear with an accessible name
+rather than a repeated text button. The management pane gets the same treatment plus an
+explicit close, so there is a way back instead of a second identity band.
+
+Verified in the running app against a synthetic running Hermes with no dashboard origin: one
+44px header, the note at 15px inline with no border of its own, a single icon button named
+"Application details", zero console errors. The terminal below is unblocked.
+
+Local gates: 1027 test files / 6671 tests passing, `tsc` and `eslint . --max-warnings=0`
+clean, architecture within ratchets.
+
+## 2026-11-12 — Addressable connections and one sidebar surface
+
+A named connection could only be described in prose ("the github one under studio"), so an
+agent had to translate before acting. Every connection card now shows an address
+(`provider / owner / connection`) whose copy control emits the absolute
+`/integrations?provider=&user=&connection=` route. Server-side authorization entrypoints use
+the same builder (`lib/infra/connection-address.ts`), so there is one definition of the
+address. The manager reads the query back and lands on that connection, marking, scrolling
+and focusing the card once; a stale address says it no longer matches instead of silently
+showing the provider.
+
+Sidebar width now belongs to the active shell. Finder rendered 192px, Code 240px, Store
+160px and the Dashboard rail 240px under the same macOS shell because each feature carried a
+literal `w-*` class. `AppSidebar` sizes the rail from `--feature-sidebar-width` and offers a
+`narrow` ratio; Finder, Store and Dashboard adopt it. Measured after the change on one
+running dev server: macos 192/240/192/240, windows 248, dashboard 224, with no console
+errors.
+
+Development-only fixes found while bringing the dev server up: `next dev` was running with a
+leaked `NODE_ENV=production` (so the dev CSP never applied), and Next blocked HMR from
+`127.0.0.1` because no `allowedDevOrigins` was configured, leaving every edit unrefreshed and
+the console full of handshake failures. The allowlist is loopback and private ranges only and
+is absent from production builds.
+
+Local gates: `tsc --noEmit` clean, `eslint . --max-warnings=0` clean, 1026 test files / 6666
+tests passing, architecture within ratchets, contrast AA with zero failures. Browser checks
+ran against synthetic connections only. Not done: migrating the remaining sidebar consumers
+to a ratio, and the dev-only `frame-ancestors` decision for the T3 preview panel.
+## 2026-11-04: restrict Markdown transcript file export
+
+Markdown transcripts may contain server-provided content. The TUI now prints them for
+review and copying instead of writing that content directly to a local file. File flags
+are refused before fetching a session; the separate non-Markdown export is unchanged.
+
+## 2026-11-04 — Complete audited frontend implementation follow-ups
+
+The existing 55-group frontend audit is tracked in [the implementation ledger](evidence/2026-11-04-frontend-audit-ledger.md), with per-slice source, behavior evidence and remaining acceptance limits. The previous foundation is on main through PR #270; this increment addresses its unresolved Settings credential remount, Composio selection/cache binding and external-frame readiness gaps, plus save/conflict/pending-action races found during verification.
+
+Settings retains operational input in the existing exact-window memory store, tags sensitive drafts for selective cleanup, preserves nonsecret editor buffers at auth boundaries, orders session probes across logout and blocks navigation during submitted provider writes. Responsive drawers acquire focus on open, including Shortcuts; the actual full Settings remount and five-shell/two-theme focus regressions are wired into mandatory release journeys. Workspace saves acknowledge only the revision saved, video draft baselines come from their load, and Camoufox aborts its current operation on unmount. Workflow source copy/restore share the action lock and preserve newer edits. Composio uses an authorized explicit owner/connection and a credential-revision-bound cache; frame fallback says readiness is unknown instead of inferring success from load.
+
+Composio session cache identity uses selected and backing connection UIDs plus the backing revision, without hashing credentials. Legacy projected connections bypass cache reads and writes because their identity and revision are not durable. Focused route tests cover rotation and shared-backing replacement.
+
+Focused unit and mounted synthetic component checks passed during implementation. External headless fixtures cover selected five-shell/two-theme/320–844 samples with a prior CSS build; they are not exact-SHA release proof. Full local, pinned scanner and remote results must be recorded for the final commit before merge readiness; real devices, assistive technology and upstream vendor behavior remain explicit limits. No production deployment, host data or tunnel was changed.
+
+## 2026-11-03: frontend contract for every feature and agent
+
+Frontend rules were spread across product direction, shell design notes and the dynamic
+foundation contract. `docs/FRONTEND-CONTRACT.md` now gives every feature one implementation
+and acceptance contract: layer ownership, token/container layout, state lifetimes, asynchronous
+recovery, icon/menu semantics, accessibility, themes and per-feature verification evidence.
+
+Both root agent entry points and a scoped `frontend/AGENTS.md` require it. The docs gate checks
+those links, including the shell/foundation references, so a later edit cannot silently detach
+agent routing. This documents required practice and explicit migration limits; it does not
+claim every existing feature has already been individually polished or exercised in production.
+
+## 2026-11-03: compact credential actions and connection menus
+
+Credential rows use labelled eye, copy and trash icon buttons with native tooltips. The
+connection action trigger uses an ellipsis; menu items retain text with leading icons.
+Owner pickers show a chevron and selected check without changing keyboard behaviour.
+The masked value reserves eight character widths so 200% text reflows controls instead of
+collapsing the value into a vertical column.
+
+Copying keeps the displayed value masked. Reveal after Copy now opens the cached value
+instead of silently clearing it. Hide, the 30-second timeout and clipboard failures discard
+the cache. Pending reads disable both read actions. Destructive actions still require typed
+confirmation; cancellation restores the exact field action or the closed menu trigger.
+
+The same native DOM helpers serve browser and embedded integrations. Targeted synthetic
+browser journeys, now required by the isolated build gate, cover these state transitions,
+deletion guards and keyboard focus, alongside
+the existing 320–1920 px light/dark layout checks. Release evidence is tracked by the PR.
+
+## 2026-11-03: dynamic shell presentation and workspace recovery (local verification)
+
+The shell manifest now accepts per-shell layout metrics. Feature frames can override those
+metrics while shared controls, dialogs and the Integrations iframe inherit the active values.
+Viewport projection preserves preferred window geometry across resize, shell changes and
+reload; layout persistence flushes before page exit and ignores malformed cache entries.
+
+Mobile shells forward window identity to shared feature state. URL sync defers rewrites until
+a restored connected app appears in the asynchronous registry, preserving reload on phones.
+
+Integrations uses opaque navigation, one sidebar scroll, initial compact-pane inert state,
+deduplicated account badges and an explicit same-origin ready handshake. Workflows adds a
+real Sources action, distinct empty/filter states and unsaved-change guards. Desktop widgets
+remain reachable after resize, the dock keeps a usable size floor, n8n refreshes cancel stale
+requests, and live System Monitor no longer displays a fabricated GPU gauge.
+
+Validation and release status are recorded in `docs/UI-UX-FOUNDATION.md`. This entry describes
+local work on the task branch; it does not claim deployment or release to main.
+
+## 2026-11-03 (later): the security gate was gating itself
+
+Two CodeQL alerts were open when this session started, and both turned out to be the same
+kind of problem: a check that measured the wrong thing.
+
+### #197 js/file-system-race, high, `scripts/mso-agent-export-markdown.mjs:191`
+
+Real bug. The overwrite refusal was a check-then-write:
+
+```js
+if (fs.existsSync(resolved) && !force) throw ...
+fs.writeFileSync(resolved, content, "utf8");
+```
+
+Anything created between those lines was silently overwritten — the exact case the guard exists
+to prevent. Fixed by letting the kernel decide: `flag: "wx"` creates-or-fails in one operation,
+and `EEXIST` maps back to the same user-facing message. `mkdir` lost its `existsSync` too, since
+`recursive: true` already treats an existing directory as success.
+
+**The first version of the test passed against the vulnerable code.** It called the function
+twice and checked it refused — but both shapes refuse in the same cases, so behaviour cannot
+distinguish them. The difference is a window neither call can observe. Test 4b now spies on
+`writeFileSync` and requires the exclusive flag:
+
+```
+red (old shape):    expected [ undefined ] to include 'wx'
+green (fix):        7/7
+```
+
+### #137 Scorecard SASTID, "29 of 30 commits checked"
+
+Not a finding. A **closed loop in CI**, which is why it had been open since 2026-09-17:
+
+```
+one open alert        -> CodeQL analysis run red
+red analysis          -> Scorecard counts that commit as not SAST-checked
+its SASTID alert     stays open  -> keeps the analysis step red
+```
+
+`codeql.yml` ran `security-alerts.mjs` in failing mode inside the analysis job, while
+`security-alerts.yml` already gated on the same inventory. Two gates, one of them self-defeating:
+**57 of the last 100 CodeQL runs on `main` were red**, every one reporting
+`CODE_SCANNING_OPEN 1` — the Scorecard alert, never a code finding.
+
+The analysis step now passes `--inventory` (report, annotate, exit 0). `security-alerts.yml`
+keeps the failing gate, unchanged.
+
+**And the test had the loop baked in**: `scripts/security-alerts.test.ts` asserted that
+`codeql.yml` may *never* contain `--inventory`. Written to stop a gate being weakened, it
+required the duplicate that caused the loop. The invariant is "exactly one gate", not "two", so
+it now asserts report-only for `codeql.yml` and still-strict for `security-alerts.yml`. Red first:
+removing `--inventory` fails with `expected false to be true`.
+
+### Result
+
+```
+open code-scanning alerts   0   (#137 and #197 both fixed)
+dependabot alerts           0
+bun run coverage            1009 files / 6562 tests, rc=0
+audit.mjs --strict          clean at high/critical
+main                        4c69c354, tree clean, remote heads: main only
+open PRs                    0
+all workflows on main       success  (Security alert inventory included)
+```
+
+Lesson worth keeping: a red gate is evidence only if it measures the thing it claims to. Two of
+these three defects were in the checks, not the code.
+
+### Still open
+
+- `perf-baseline.json` predates several dependency bumps; re-measure on an idle host.
+- Local branches from other tracks remain under `~/.cache/mso-worktrees` and own their worktrees.
+  Left alone.
+## 2026-11-03: integrations UI closed out, and one merged fix that had been silently deleted
+
+Everything below is merged. `main` at `269b6721`, working tree clean, gate green.
+
+### The finding that matters most
+
+PR #248 fixed four integration-UI defects, each with a test. **PR #249 (unrelated TUI feature
+work) overwrote two of the same files with stale copies**, removing the code *and the assertions
+that pinned it*. The gate stayed green because the tests vanished with the behaviour.
+
+What was actually gone from main, verified by reading the files rather than trusting the merge log:
+
+```
+role="alertdialog" on the delete confirmation   missing
+Escape / focus return on that dialog            missing
+.transfer-error styling                         missing
+.connection-state wrapping                      missing
+```
+
+Found by a browser audit, not by CI. `lib/infra/integration-ui-regressions.test.ts` now asserts them
+**by behaviour, reading the source directly**, so replacing a file wholesale fails there even if the
+original tests disappear with it.
+
+Lesson: a green gate after a merge proves nothing about whether the merge kept the previous work.
+A test file that a later PR can delete is not a guard.
+
+### Browser evidence, and why string tests kept lying
+
+Two UI claims in this work passed their tests while the browser disagreed:
+
+| claim | what the test checked | what the browser did |
+|---|---|---|
+| iOS auto-zoom fixed | `input[type=search]` | page uses `.integration .integration-sidebar-header>input[type=search]`, still 12px |
+| theme follows the shell | the two backgrounds *differ* | they differed because the OS differed, not because the app chose |
+
+`scripts/integrations-ui-evidence.mjs` now drives four viewports, light and dark, and a 240px-tall
+iframe, checking horizontal overflow, one `main`, one `h1`, 44px tap targets, accessible names, alt
+text, the 16px input threshold, keyboard reachability, focus visibility, console errors, and that a
+dark preference produces dark tokens. **43/43** on the current build.
+
+### Keyboard defects closed
+
+| defect | evidence |
+|---|---|
+| skip link pointed at `#main-content`, which wraps the menu bar, and was not focusable | `hash=#shell-main`, `activeElement=SECTION#shell-main` |
+| closed mobile drawer left 30 items in the tab order (31 invisible stops) | 10 Tabs, zero off-screen stops |
+| full-screen backdrop ignored Escape (handler lived on the panel) | Escape sets `data-open="false"` |
+| `<details>` "More" popover had no Escape and no outside-click close | both handled, focus returns to summary |
+
+Every shell (macOS, Windows, mobile) now carries `#shell-main` with `role="main"` and `tabIndex={-1}`.
+
+### A regression I caused, caught by the release E2E
+
+Marking the sidebar `inert` whenever `data-open` was false also hit the desktop layout, where the
+sidebar is a permanent visible column with `data-open="false"`. Every nav button became unclickable:
+
+```
+waiting for getByRole('button', { name: /^Convex$/ })
+<div class="integration-settings-shell"> intercepts pointer events
+```
+
+`verify-build.sh` caught it; the unit suite did not. The inert is now scoped to the 37.5rem compact
+breakpoint, matching the CSS rule that does the translating.
+
+### Dependencies, without force-merging
+
+Four Dependabot PRs could not merge cleanly. Each was rebased, `bun install`ed and gated on its own
+branch rather than merged as-is, because a lockfile resolved against an older tree is a guess.
+`@anthropic-ai/sdk` **0.135.0 -> 1.3.0** is a major jump, so it was verified at runtime
+(`messages.stream` is a function, constructor works) and then 6434 tests passed.
+
+The gate they were all failing was my own: it listed dependency bumps as user-facing changelog
+entries. It then failed a second time in a subtler way — the file depended on **when** it was
+regenerated, because a squash appends `" (#NNN)"` to the subject. That one was CI-only: local passed
+while GitHub's PR merge ref, which includes the squash, reported stale.
+
+### Traps that cost real time
+
+1. **A parallel track moved this session's worktree to `main` twice mid-run.** Commits appeared lost;
+   recovered from the reflog, then all further work moved to a dedicated worktree with a symlinked
+   `node_modules`.
+2. **`/tmp` filled to 78% with three out-of-tree builds.** The release E2E reported it as
+   `verification failed during mandatory release E2E`, which reads exactly like a code failure.
+   Cleaned; re-ran; passed.
+3. **A stale build directory made three evidence runs report false failures.** After changing
+   source, the harness must be rebuilt; check the build's own files before believing a red result.
+4. `git stash pop` after `git checkout main` silently dropped a change that the merge had already
+   taken; `gen-changelog --check` caught it, nothing else would have.
+
+### Deliberately not changed
+
+Disabled buttons render at `opacity .55`, giving 2.26:1 on "Add connection". WCAG 1.4.3 exempts
+disabled controls, so it is not a violation, but it reads as a broken button rather than a
+deliberately inactive one. The honest fix is a disabled state built from `color`/`background`
+instead of `opacity`, which is a design decision, not a bug fix.
+
+### Open
+
+- `perf-baseline.json` predates several dependency bumps. Re-measure on an idle host before trusting
+  the TBT comparison.
+- Three remote branches were left over and all already merged; deleted.
+## 2026-11-01: the green full run, and the parallel-run trap
+
+`bash scripts/gates-12.sh full` on the TUI panel branch: **passed=16, failed=0, skipped=1**. The
+single skip is `bundle budget`, which is enforced by `verify-build.sh` inside the same run rather
+than twice, so a skip there means the out-of-tree build already checked it.
+
+**The red runs before it were not real.** Two `gates-12.sh full` invocations were left running in
+the same worktree at once. They do not fail cleanly, they corrupt each other:
+
+- `tests + coverage` failed because both wrote the coverage output directory and removed it from
+  under the other, so vitest reported a script error rather than a threshold miss.
+- `production build` failed with "verification failed during mandatory release E2E" because
+  `verify-build.sh` copies the tree into `/tmp` per run, and two copies exhausted the 9.8 GB tmpfs.
+  The real error was `cp: error writing ... No space left on device`, three lines above the
+  verification message.
+
+Both passed once a single run had the machine to itself. A killed run also leaves `verify-build.sh`
+orphaned with `ppid 1`, still holding a `/tmp` tree, so killing the gate is not enough to free the
+disk: check for survivors before starting another.
+
+**Rule: one `gates-12.sh` run per worktree, never in parallel, not even `fast` alongside `full`.**
+They share `/tmp/gate-out.txt` and `/tmp` itself, so the outputs describe each other's failures.
+
+**The coverage numbers, from one run alone.** `bun run coverage` with no other vitest in the worktree
+and the stale `coverage/` directory removed first: **964 test files, 6,278 tests, all passing**;
+statements 53.72%, branches 50.47%, functions 42.63%, lines 57.5% against thresholds of 42 / 40 / 32 /
+43.5. The earlier failure was never a threshold miss. It was vitest refusing to start:
+
+```
+The coverage report directory ".../mso-flip/coverage" is already in use by another Vitest process
+(pid ...). Running coverage for multiple Vitest processes in the same directory at the same time is
+not supported, because they would delete each other's reports.
+```
+
+That message names the cause precisely, so it is worth reading before assuming a regression: vitest
+detects the collision itself.
+
+**One more trap, in the tooling rather than the code.** `pgrep -f "vitest run --coverage"` always
+reports a live process, because the pattern matches the `bash -c` wrapper line that *is* the command
+you just ran. The same is true of `pgrep -f "gates-12.sh"`. Use
+`pgrep -af "node .*vitest" | grep -v "bash -c"` to see what is actually running, or the check will
+insist the worktree is busy forever.
+
+## 2026-10-31: the LCP lever in the handover was the wrong lever
+
+The handover said the cheapest untried LCP lever was taking wallpaper artwork off the critical
+path. Measured first, and it is not a lever at all. Mobile's LCP element is
+`IMG.shell-artwork-macos` — app-icon artwork, 60x60 — while the wallpaper is a CSS background.
+Emptying **every** image byte on the live build (artwork + wallpaper, 331 KB) moved LCP
+3020 -> 2996 ms, inside the noise band. LCP is bound to `lastJs` (~2.75 s) plus mount cost.
+
+Method note that cost a run: `route.abort()` on image requests makes the browser retry, so the
+first experiment showed 47 -> 179 requests and looked like a regression. `route.fulfill()` with a
+1x1 body measures what was intended.
+
+### What the images actually cost
+
+Three `<img>` per app tile (default, macOS, Windows), two always hidden by CSS. Mobile: **231**
+artwork `<img>` in the DOM for **77** displayed, **370,926** bytes across **47** requests, with
+`/app-icons` 71,526 + `/app-icons/macos` 159,258 + `/app-icons/windows` 81,784 — two of three
+families never painting.
+
+The three-variant markup was justified by a comment claiming SSR would guess the shell.
+`curl /` returns **zero** `shell-artwork` occurrences, so none of it is server-rendered and
+`useActiveShell()` already knows the answer at render time. Now one `<img>` per tile: 77/29 in
+the DOM, 19 image requests, 217,616 bytes mobile. No CSS change.
+
+### Eager graph: -26.7 KiB gzip
+
+Three things sat in the first-load bundle without being needed to paint:
+
+| What | Why it was dead weight |
+|---|---|
+| Alfa/chat surface re-exported from `appshell/index.ts` | all 14 consumers are lazy (`chat-panel`, `chat-transcript`, `inspector`, `alfa-sheet`, `use-host-commands`, `os-settings`) |
+| auth panels in `auth/index.ts` | consumed only by `/login`, `install`, `login-page`, `os-settings` |
+| widgets + shortcut-help via static imports | `search`/`control-center`/`inspector` already used `DeferredSurface` |
+
+Moved to `@/features/appshell/alfa` and `frontend/slices/auth/panels.ts`; widgets and
+shortcut-help now defer through the same primitive while their hooks (registry, context menu,
+command palette, the ⌘/ wrapper handler) stay eager.
+
+```
+entry    141.2 -> 114.5 KiB gzip   (416.8 -> 326.5 KiB raw, 13 -> 12 files)
+initial  270.8 -> 244.0 KiB gzip   (850.5 -> 760.2 KiB raw, 18 -> 17 files)
+```
+
+**Lock-screen was deliberately not deferred.** `organization/bundle-boundary.test.ts` pins it
+because it owns the idle auto-lock timer; deferring it means auto-lock does not arm until someone
+opens the lock screen. A security regression is not worth ~4 KiB.
+
+### LCP, against a pristine-HEAD control build
+
+Both sides under `releaseFixture`, 5 interleaved runs. Comparing against the live `:4005` first was
+misleading: it serves real data, and fixture-vs-fixture is the only honest pair.
+
+| surface | head | this branch | delta |
+|---|---|---|---|
+| desktop | 3332 ms | 3160 ms | -172 ms |
+| mobile | 3076 ms | 2872 ms | -204 ms |
+| mounted | 2592 / 2562 | 2409 / 2439 | -183 / -123 ms |
+
+`lastJs` reads *higher* (2846 -> 3105) because deferred chunks now download after mount instead
+of before it. Behaviour re-checked against the old build: ⌘/ still opens the cheat sheet and
+closes on both Escape and a second ⌘/, mobile still renders 4 widget cards, desktop 3, CLS
+unchanged (0.0005 vs 0.001 desktop, 0 both mobile).
+
+### The gate could not read the new budget
+
+Tightening the budget exposed a gate reading the wrong tree. `.next` is never built in place
+here, so it belongs to whatever was built last — usually a different commit. `gates-12.sh full`
+ran `check-bundle` *before* `verify-build.sh`, and fast mode ran it with no build at all, so a
+lowered budget failed against bytes describing history and read like a regression.
+
+Fixed: `check-bundle` now detects a stale build and says so; fast mode reports bytes without
+enforcing; full mode leaves enforcement to `verify-build.sh` against its own out-of-tree build;
+`bundle-budget.json` drops to entry 119,540 / initial 252,219 with the same +2.0 % arithmetic.
+
+### Two security jobs were red on `main` before this branch
+
+Both fail identically on `main` (`41214069060`):
+
+- **Gitleaks** — two findings, same fixture line of
+  `app/api/internal/socket-policy/route.test.ts`:
+  `"test-secret-at-least-32-characters-long-policy-key"`. The route module is mocked in that same
+  file, so nothing leaves the process. Allowlisted by exact commit/file/rule/line after verifying
+  with the pinned scanner the workflow uses: `leaks found: 2` -> `no leaks found`.
+- **OSV** — `minimatch@3.1.5` and `@10.2.6`, one medium advisory (GHSA-g3hv-75wg-m249, glob-parts
+  amplification, CVSS 6.9). **Left unfixed on purpose:** the patch is `minimatch@11.0.1`, which is
+  ESM-only, and `@typescript-eslint/typescript-estree` needs the 10.x line. Forcing it is a
+  breaking dependency change and does not belong in a perf PR.
+
+### Traps that cost real time, again
+
+1. **Worked on someone else's branch.** The working tree was on `fix/tui-pty-bugs`, not `main`, and
+   three commits landed there. Recovered: that branch was reset to its original `0425ec8c` (its
+   TUI work was already identical to `origin/main` #201, so nothing was lost) and the commits moved
+   to `perf/eager-graph-artwork` rebased onto `origin/main`.
+2. **A `git add` in a shared working tree swept six throwaway probe scripts into another track's
+   commit** (`80adb801`). Removed in `860b4c07`. The lesson is not "commit faster" — it is that a
+   second track committing in the same tree will `add` whatever is lying around.
+3. **`/tmp` filled to 99 %** with three out-of-tree builds at 2.3 GB each. `production build`
+   failed with `Failed to write upload` in the 200 MiB E2E, which looks exactly like a code bug.
+   The pristine-HEAD control failed identically until `/tmp` was cleaned. The handover warned
+   about this one.
+4. **Running the gitleaks container with `-v "$PWD:/repo"` left 67 files in `.git` owned by root**,
+   because it is a partial clone (`blob:none`) and git inside the container promisor-fetched and
+   rewrote refs. `sudo` needs a password here. Fixed with
+   `docker run --rm -v "$PWD/.git:/g" alpine chown -R 1000:1000 /g`; `git fsck --connectivity-only`
+   clean afterwards. Use `-v "$PWD/.git:/repo/.git:ro"` next time, or a `--user "$(id -u)"` flag.
+
+### Why CI looks silent on a feature branch — it is not broken
+
+I recorded "the missing workflow triggers on the latest head are unexplained". That was wrong,
+and worth correcting rather than leaving in the record: it was a misread trigger configuration,
+not a GitHub fault.
+
+`.github/workflows/ci.yml` triggers on `push.branches: [main, "security/**"]` and on
+`pull_request.branches: [main]`. A push to any other branch therefore fires **nothing**. Every CI
+run this branch ever got arrived through the `pull_request` event, one per PR head push. Over the
+last 30 CI runs on the repo, 13 are `push` and all 13 are `main`.
+
+So "CI stopped firing after `b2cffa6a`" means exactly one thing: no PR head was pushed after that
+commit. Local commits that are not pushed are not part of any PR, so there is nothing for GitHub
+to test. Nothing is stuck. The corollary is the useful part: **the only way to get CI on a
+non-main branch is to move that branch's PR head**, and a rebase that stays local changes nothing.
+
+`workflow_dispatch` exists in the same file, but it **cannot stand in for push-triggered CI here**:
+a dispatched run executes against the workflow file on the ref you dispatch *at* — which for
+GitHub UI and the API means a ref that already exists on the remote. Since the whole point is to
+test commits that have not been pushed, dispatching can only ever test what is already visible to
+GitHub, i.e. the same `7c4569ae` the PR already shows. It is useful to re-run a flaky job on an
+existing ref, not as evidence for unpushed work. The `pull_request` run is the proof, and it needs
+the push first.
+
+### Open
+
+- **PR #207** — branch `perf/eager-graph-artwork`. Remote head is `7c4569ae` (7 commits, CI green
+  on `Verify`, `Native host` macOS + Windows, `CodeQL`, `Dependency Review`); local is rebased
+  further onto `origin/main` and **not pushed**, so the PR still reports the older head and stays
+  `mergeable_state: dirty` against a `main` that has moved. Pushing it is a force-push and needs
+  the owner's explicit go-ahead.
+- **`perf-baseline.json` was regenerated after all** (commit `ba13b20b`), on an idle host: desktop
+  LCP 3222 → 3044 ms / TBT 164 → 81 ms, mobile LCP 3054 → 2740 ms / TBT 132 → 81 ms. An earlier
+  revision of this entry said it had been skipped because load sat between 7 and 19; the harness
+  was then taught to wait for load1 < 1.5 and to discard runs whose own recorded load exceeded it,
+  one of four attempts was discarded that way, and the median of the three clean runs is what is
+  committed.
+- Phase 5 (full SvelteKit swap) untouched, still needs the owner's 8-12 month decision.
+
+## 2026-10-31: every route has a test, and the workflow conflict that made each PR slow
+
+Route test coverage went from **59 of 117 to 117 of 117**. No route in the repository is
+untested. Tests went 5,844 -> 6,194; statements 53.23 -> 53.79, branches 50.01 -> 50.46,
+lines 56.93 -> 57.6. Test files 873 -> 953.
+
+**How it was split.** Six parallel batches on disjoint paths, each with a contract rather than
+"add tests":
+
+| Batch | The assertion that matters |
+|---|---|
+| `.well-known` + `a2a` | these are public **by design** — the test proves they stay public and keep the exact keys MCP clients read. A well-meaning "harden this" would break every client |
+| public probes | `internal/socket-policy` must return **404 specifically** when its secret is wrong or short; it hides its own existence, so encoding 401 would be the wrong contract |
+| integrations | Google start is owner-gated and must carry a `state` param; callback must reject a mismatched host and malformed state |
+| misc v1 | `federation/status` and `app-catalog` differ — 401 `unauthorized` vs 403 `owner_required` — and that difference **is** the contract |
+| sys + camoufox | `camoufox/session` returns 503 `viewer_unconfigured` on a short secret; managed-apps jobs distinguish unknown-app from unknown-job with separate keys |
+| fs + auth | `auth/me` is the probe the shell boots on, so a wrong answer breaks start-up; `auth/logout` must clear cookies and not 500 when there was no session |
+
+**`app/api/skills`, the last one, has the most interesting branch in the router.** A bare skill
+name matching several projects returns **409 `ambiguous`** with candidates — not 404, and not a
+guess — because returning one project's instructions under another project's name is the bug
+that branch exists to prevent. Mutation-tested: replacing the 409 with a guess fails the
+assertion, restoring returns 8/8.
+
+**A real gap closed earlier in the same push:** `fs/read` was the only fs route with no rate
+limit while every sibling was throttled. It now carries 60/min plus an audit entry, and
+`fs.read` joined the `AuditAction` union. That required fixing `lib/mcp/fs-credential-boundary.test.ts`,
+which drives the route to prove the credential boundary — with the limiter live, ten
+back-to-back reads would have returned 429 and a refusal would have been indistinguishable
+from throttling. The limiter is stubbed open there, and the suite was re-verified to still
+bite: disabling `isCredentialPath` gives 12 failed | 1 passed.
+
+**Every file was mutation-tested.** Removing the guard a test covers had to make it fail:
+`verifyAuth` deleted from a handler yields 200 instead of 401, `rateLimited` removed yields 200
+instead of 429, `IS_DEMO` removed yields 202 instead of 403, the manager route returning 500
+fails its 200 assertion. This discipline exists because a cannot-fail test shipped earlier in
+this work — `getSessionActor` always resolved, so deleting `exec/run`'s gate left the suite
+14/14 green — and was counted as coverage.
+
+**Workflow fix.** `.gitattributes` now marks `docs/CHANGELOG.md` as `merge=ours`. It is derived
+from git history and rewritten wholesale on regeneration, so two branches that both regenerate
+it always conflict textually even though neither is wrong, and the only correct resolution is to
+regenerate — which the changelog gate enforces anyway. That single file cost three rebases on
+one PR this session. The attribute is inert until a clone runs `git config merge.ours.driver
+true`, so an unconfigured clone still conflicts rather than silently merging.
+
+**Findings recorded rather than papered over.** `fs` routes do no path validation at the route
+layer — roots-escape enforcement lives entirely in the host primitives, which throw `HostError`
+and surface as 400. That is a legitimate design, but it means those route tests prove the
+delegation exists, not that containment is correct. Three `infra` routes collapse a wrong-role
+caller into 401 rather than 403, and `infra/setup` returns 403 even when completely
+unauthenticated — inconsistent with every other route, but pre-existing, so documented in the
+test rather than changed here.
+
+**Evidence.** `typecheck` 0, `lint` 0, `check-architecture` healthy at 42/43 (improved from
+43/43), `check-docs` current, full vitest **953 files / 6,194 tests passed**, coverage
+53.79 / 50.46 / 42.64 / 57.6.
+
+## 2026-10-30: Svelte marginal-cost retraction, status-code contract, and the CI-parity gate
+
+Four findings where empirical measurement corrected assumptions and hardened safety boundaries.
+
+**The "2.8×" retraction and marginal component costs.** Phase 4 was originally cancelled on the
+claim that "one Svelte component costs 2.8× the whole React slice it replaces" (17.75 KiB vs.
+6.27 KiB). That comparison was flawed: it compared a Svelte build including the Svelte runtime
+against a React slice chunk that excluded the React runtime (which the shell had already paid for).
+Compiling the same component 1, 2, 3, 5, 9, and 10 times into a single bundle revealed the actual
+marginal cost: 17.74 / 17.75 / 17.80 / 17.86 / 17.96 / 17.99 KiB gzip. The Svelte runtime is
+~17.7 KiB paid once, and each additional component costs ~0.03 KiB (all nine system-monitor
+components together are ~17.96 KiB). Phase 4 remains cancelled, but for the correct architectural
+reason: in a hybrid shell, Svelte adds a second ~17.7 KiB runtime *beside* React without removing
+React's 132.7 KiB floor, producing a net +11.7 KiB regression even after the slice's own 6.27 KiB
+is removed. Phase 5 is completely unaffected: React is replaced rather than joined, swapping
+132.7 KiB out for 33.07 KiB in (−99.6 KiB net measured reduction).
+
+**The status-code contract and the cannot-fail harness bug.** Mechanical extraction of 107 route
+handlers left a critical gap: an audit confirmed current parity, but nothing prevented future
+refactors from accidentally dropping auth checks. `app/api/status-contract.test.ts` locked down a
+15-assertion contract across the 20 most dangerous routes where a dropped gate is an RCE (`exec/run`),
+arbitrary file write/delete (`fs/write`, `fs/delete`), secret leak (`agent-vault`, `fs/raw`), or role
+escalation (`mcp/tokens`, `auth/devices`). Writing it surfaced a dangerous harness bug: the mock
+`getSessionActor` always resolved to `"dev-1"` regardless of the auth flag. Deleting `verifyAuth`
+from `exec/run` still left the route treated as authenticated through the session actor, keeping the
+suite 14/14 green. Because a test that cannot fail is worse than no test (it is falsely cited as
+coverage), `getSessionActor` was rewired to follow the auth flag. Running mutation testing confirmed
+the fix: removing `verifyAuth` from `exec/run` produced 1 failed | 13 passed, and restoring it
+yielded 15 passed. (The suite also documents that `fs/raw` has two independent gates—`verifyAuth`
+and `getSessionActor`—so defence in depth holds even if either is dropped alone).
+
+**Comment restoration on mechanical routes.** The refactor that moved 107 route handler bodies
+passed all behavior audits, but stripped critical context: 55 routes lost their design rationale.
+Restored 33 security-and-visibility comment blocks across 28 files explaining why routes are public
+(e.g., `/api/health` as an unauthenticated systemd WatchdogSec and Dokploy liveness probe), why
+they are owner-only, or why they reside under specific paths (e.g., `/api/mcp/tokens` kept under
+`/api` for cookie auth and proxy depth-2 CSRF gating, and `/api/changelog` session-gated so
+unauthenticated visitors cannot enumerate deployment specifics). A naive first attempt split
+multi-line comments line-by-line, creating fragmented syntax errors; this was redone cleanly
+block-by-block.
+
+**Three defects surfaced by the CI-parity gate.** Aligning local validation with CI via
+`gates-12.sh full` ran `vitest run --coverage` and provisioned the Forge container sandbox,
+immediately revealing three latent bugs:
+- `provision-forge-sandbox.sh` built an unstartable image (`exec: /usr/bin/node: permission denied`)
+  from three compounded issues: `install` preserved the host uid 1000 ownership (fixed by tarring
+  with `--owner=0 --group=0`), `umask 077` created `/usr` and `/usr/bin` as `drwx------` which failed
+  under container `--cap-drop ALL` lacking `CAP_DAC_OVERRIDE` (fixed by normalizing directory modes
+  to `0755`), and a blanket file `chmod 0644` cleared the executable bit on `ld-linux` and dynamic
+  libraries (fixed by restricting permissions normalization to directories only, preserving 0755
+  on binaries).
+- `lib/host/fs-zip.test.ts` assumed `os.tmpdir()` was private and counted `os-zip-*` directories
+  globally. Under vitest's multi-worker coverage pool, concurrent test workers created and cleaned
+  temp directories simultaneously, causing spurious failures. The test was rewritten to scope
+  assertions strictly to directories appearing during its own measured execution phase.
+- Consequently, `bun run coverage` went from 3 failed to 0 failed across 882 files / 5,772 tests.
+
+**Evidence.** `typecheck` 0, `lint` 0, `check-cycles` 2174 files / 0 cycles, `check-architecture`
+healthy at 43/43, `check-docs` current, `gates-12.sh full` 17 passed / 0 failed / 0 skipped, full
+vitest **887 files / 5,826 tests passed**.
+
+## 2026-10-29: Phase 2 finished, `bun install` fixed, and Phase 6 measured out of existence
+
+Three results, two of which were earned by measurement rather than assumed.
+
+**Phase 2 is done.** Every one of the 117 route handlers is now a thin adapter (median 40 LOC
+before, all ≤ 15 after, largest was 219), and `lib/` has zero static `next/*` imports — one
+documented dynamic `import("next/headers")` seam remains in `lib/auth/require-session.ts` because
+`cookies()` is request-scoped plumbing with no web-standard equivalent. Bodies moved to a
+colocated `handler.ts`, or to `lib/` only when they were already framework-free.
+
+Two regressions were caught before they reached main, and both are worth recording because the
+guards were the thing that caught them, not review:
+
+- Three workflow services first landed in `lib/` importing `@/lib/mcp/*`, which tripped
+  `nonMcpMcpImports` (7 / max 0). They moved back to `app/api/v1/workflows/` as `route-read.ts`
+  and friends, following the pattern `a2a` already used. A ratchet, not a reviewer, found a real
+  boundary violation.
+- Moving bodies into `lib/` carried `import { NextResponse } from "next/server"` with them, so
+  `lib next/*` went 0 → 23 immediately after Phase 2 had just achieved 0. All 23 were converted
+  to the web-standard `Response`; the count is back to 0 and grep-verified.
+
+One route test needed updating rather than the code: `scripts/mso-model-dx-contract.test.ts`
+asserted on request parsing by reading `app/api/config/route.ts`, and now reads `handler.ts`,
+which owns that logic. Behaviour was verified by diffing status/error strings per route and by
+probing a live fixture — every endpoint still answers with its original status and body,
+including the case where `/api/status` says `"Unauthorized"` while its neighbours say
+`"unauthorized"`. Seven routes deliberately keep bespoke auth because `requireOwner` would have
+changed their status code or check order.
+
+**`bun install` now works from a clean tree.** The blocker was real: `node-pty@1.1.0` ships no
+`linux-x64` prebuild (upstream excluded Linux deliberately), so a native build is required, and
+npm survives only because `@npmcli/run-script` injects its own `node-gyp-bin` into PATH. The
+compiler was never missing — calling npm's `node-gyp.js` directly builds `pty.node` fine. Fixed
+with a `patchedDependencies` patch that probes PATH first (so npm and a global `node-gyp` are
+untouched) then locates the node-gyp inside the host's npm. Proven in a throwaway copy with
+node-gyp absent: `bun install --frozen-lockfile` exits 0 and `require('node-pty')` loads under
+both node and bun. `npm install` was already broken here with `EOVERRIDE` before and after the
+patch, and this repo has no `package-lock.json`, so the npm path was never the flow.
+
+**Phase 6 (Rust sidecar) is a no-go, with arithmetic.** `proxy.ts` does string comparisons,
+header lookups, one URL parse and one UUID nonce — no disk IO, no network IO, no body parsing. It
+costs **15 µs** per document request and **2.5 µs** per API request, against a measured TTFB of
+9.7 ms and 3.6 ms. A Rust sidecar would have to sit in front of Next and pay a 200–500 µs
+loopback hop, so it would make every request **~0.3 ms slower**, add ~20 MB RSS next to a Next
+process that must stay running, double the deploy pipeline across three instances, and put the
+CSP nonce and split-origin rewrite parity at risk — where a one-byte divergence from what Next
+expects breaks hydration under `strict-dynamic`. The proxy belongs where it is.
+
+**Also fixed:** the release gate blocks a push on any Turbopack build warning, and one appeared
+after the route extraction — `lib/camoufox/http.ts` lost its `/* turbopackIgnore: true */`
+annotation, which is load-bearing rather than decorative: `PASSWD_FILE` comes from the
+environment, so without it Turbopack traces the whole project. Four other files still carried the
+annotation, so the convention existed and this one had simply fallen out of it.
+
+**Evidence.** `typecheck` 0, `lint` 0, `check-cycles` 2174 files / 0 cycles, `check-architecture`
+healthy at 43/43 with `nonMcpMcpImports` 0, `check-docs` current, `check-contrast` 0 fail,
+`check-instance-literals` 3411 files, `audit --strict` clean, full vitest
+**876 files / 5721 tests passed**, `verify-build.sh` exit 0 with all release browser journeys
+green. A 12-gate runner (`scripts/gates-12.sh`) now reports each check on one line so a push
+decision does not require reading an 1800-line log.
+
+## 2026-10-29: Perceived-performance gate, and the migration numbers it retracted
+
+Before this, the only performance claims in the repo were bundle bytes from build output and a
+browser journey that asserted *absence* of heavy engines. Neither could answer "did it get
+slower", so a Next → Svelte/Bun/Rust proposal was resting on opinions. `docs/MSO-MIGRATION.md`
+recorded a baseline for it; then the gate that was supposed to make that baseline reproducible
+measured the page properly and contradicted it.
+
+Five numbers in the first pass were wrong, and each one had a failure mode worth keeping:
+
+- The throttle was set to 200 kbps down, which is Lighthouse's **Slow 3G**, not Slow 4G. At that
+  rate the ~900 KB shell needs ~37 s to arrive, so the run measured the network and reported an
+  FCP of 7.6 s.
+- The wait selector was `#main-content`, which exists in the server-rendered skeleton. The run
+  therefore scored an 82-node pre-hydration frame and called it the shell.
+- `data-shell` is `macos` on desktop and `ios` on mobile; a hardcoded `macos` made the mobile run
+  wait until timeout.
+- LCP lands ~3 s in, so a "settle when nothing changed for 1 s" loop exited at ~1.2 s and reported
+  `lcpMs: null`.
+- **TBT was reported as the raw sum of long-task durations.** TBT is
+  `Σ max(0, duration − 50 ms)`. The corrected numbers are roughly a third of the retracted ones.
+
+Recorded honestly: the earlier claim of desktop 443 ms / mobile 553 ms TBT was not a
+measurement, it was an arithmetic error. Slow 4G + 4× CPU gives **164 ms desktop / 132 ms
+mobile**, against the 150 ms target the migration was supposed to reach. Desktop is within
+10 % of it and mobile already beats it — before any migration. Attribution puts ~280 ms of
+~355 ms of long-task self time on the `react-dom` chunk, but TBT that low means most of that work
+overlaps idle rather than blocking input. What is actually still slow is **LCP 3.1 s**, and that
+is first paint (CSS + the wallpaper artwork), which a framework swap does not change.
+`docs/MSO-MIGRATION.md` §3 now sequences the cheap LCP work ahead of any rewrite, and its gate
+criterion gates LCP instead of TBT.
+
+Three more traps the gate had to absorb, all found by running it rather than reasoning about it:
+a first cold load per session pays disk-cache misses for the whole shell and measured TBT 418 ms
+against 164 ms warm, so one warm-up boot is discarded or CI flakes on every fresh runner; a null
+`tbtMs` must be a **violation**, not a skip, because a painted shell with no attributable long
+task means the probe broke, and passing it turns the gate off exactly when instrumentation
+fails; and browser-measured first-load bytes must not be gated a second time, because they count
+deferred chunks and move, while `check-bundle.mjs` already gates gzip bytes deterministically
+from build output.
+
+Shipped: `perf-probe` (cold load, Slow 4G + 4× CPU), `check-perf` (the gate), `perf-longtasks`
+(CDP trace → long task → owning script), `perf-app-open` (per-app open cost), plus
+`lib/perf-report` (parse/check/format, 23 tests), `lib/trace-longtasks` (pure attribution,
+testable without a browser) and `lib/browser-metrics` (one place for the TBT formula, the
+shell-ready selector and the throttle profile). `check-perf` gates a 2× TBT blowup against
+`scripts/perf-baseline.json` and fails on a missing measurement; the 150 ms / 2.5 s targets are
+printed as advisory so the gate is not permanently red.
+
+**Evidence.** `typecheck` 0, `lint` 0, `check-cycles` 2145 files / 0 cycles, `check-architecture`
+exit 0 at 43/43 files-over-220, `check-docs` current, `check-contrast` 0 fail LIGHT+DARK,
+`check-instance-literals` 3278 files, `audit --strict` clean at high/critical, full vitest
+**862 files / 5633 tests passed**, out-of-tree build plus every mandatory release journey
+passed. Median of 3 fixtures runs at `1c74603`: desktop FCP 1180 / LCP 3222 / TBT 164 / 870 DOM
+nodes / 942 KB first-load JS; mobile FCP 1166 / LCP 3054 / TBT 132 / 1165 DOM / 926 KB.
+Per-app open at 4× CPU: Image Editor ~550–600 ms and ~600 ms of long task, Video Editor
+~450–470 ms and ~300 ms, System Monitor ~230 ms, Terminal ~190 ms.
+
+Follow-up the same day, because the gate contradicted the doc it was built for: the entry
+above concluded that a framework swap could not help, on the belief that LCP was set by
+first paint. `bun run perf:hydration` disproved that. The shell mounts client-side by design
+(`appshell/components/desktop.tsx`: the surface depends on `innerWidth`, `localStorage` and
+the wallpaper pref, so SSR would guess macOS and a phone would hydrate iOS), so SSR paints a
+82-node skeleton and the real shell arrives only after ~940 KB of JS executes. The mark chain
+is FCP ~1.2 s → last JS byte ~2.9–3.1 s → mount ~2.6–2.9 s → icons ~3.2–3.9 s → LCP
+~3.2–4.0 s. Throttle controls separate the levers: Slow 4G at 1× CPU saves 644 ms and no
+network limit saves 1516 ms, so network dominates and CPU is real but secondary. LCP is
+therefore hydration-bound, i.e. gated by exactly the bundle a migration shrinks, and
+`docs/MSO-MIGRATION.md` §3 now gates on LCP instead of TBT with LCP 3.2–4.0 → ~2.5–2.9 s as
+the realistic migration win. The lesson recorded in §6: reading the gate off the LCP element
+tag is wrong, because the element that ends up largest can be painted arbitrarily late by
+JavaScript.
+
+
 ## 2026-10-25: Agent transcript — one live row per turn, and owner-owned turn budgets
 
 The interactive Agent printed an `Agent work` divider for every model round and a separate row
@@ -4958,3 +6109,21 @@ Screenshot evidence previously lived in unrelated scratch directories or only in
 ### 2026-10-22 — Composio session MCP credential
 - `POST /api/v3.1/tool_router/session` has no `mcp` request field and its 201 response carries `mcp.url` without headers, so a stored session previously had no credential and could never be called. `mcpHeaders` is now the exact header `composioAuthHeader` returned for the credential that authenticated that same create call (`x-api-key` project, `x-user-api-key` user, `x-org-api-key` org), matching `docs/sessions-via-mcp`. A future response `mcp.headers` still wins verbatim.
 - The session MCP URL host is validated against the existing Composio redirect allowlist plus `app.composio.dev` (the spec example host); any other host fails closed with `invalid_composio_mcp_host`. Header values stay server-side: the route still returns only `mcpUrl`.
+
+## 2026-11-09: isolated static Svelte migration entry
+
+The owner resumed Svelte implementation with frequent reviewed integration to main; the
+reported symptom is a heavy server. The new frontend/svelte package builds static assets,
+not a React island or a second production SSR service. Its first journey checks the existing
+device session and reads a one-shot System Monitor snapshot using the shared host DTO.
+No auth policy, host state, production routing or deployment service was changed.
+
+Separate frozen dependencies, Svelte checks, Node behavior tests, browser fixtures and a
+nested dependency audit are wired into verification. Tests cover signed-out access, malformed
+responses, revocation, retry, cancellation/disposal and a fixed loopback GET-only preview
+proxy. Browser coverage samples 320/390/1440 px in light/dark, keyboard skip/refresh and
+320 px at 200% text. Full five-shell parity and real device/production-host evidence are not
+claimed. Exact release/gate evidence belongs in the PR; see SVELTE-IMPLEMENTATION.md for the
+feature ledger, remaining milestones, production CSP integration and server resource gate.
+
+This increment does not remove Next from the backend and does not claim an RSS/CPU win.

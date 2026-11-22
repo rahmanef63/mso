@@ -58,7 +58,7 @@ export function AiPanel() {
       const m = e instanceof Error ? e.message : "failed";
       if (m.startsWith("no_api_key")) {
         const provider = m.split(":")[1] || "selected provider";
-        setErr(`No API key for ${provider} — add it in Settings → AI.`);
+        setErr(`No API key for ${provider}. Add it in Settings → AI.`);
       } else {
         setErr(m);
       }
@@ -87,7 +87,7 @@ export function AiPanel() {
               <div key={i} className={cn("flex items-center gap-1.5 rounded px-2 py-1 text-[11px]", it.ok ? "bg-muted text-muted-foreground" : "bg-destructive/10 text-destructive")}>
                 <Wrench className="size-3 shrink-0" />
                 <span className="font-mono">{it.name}</span>
-                <span className="truncate opacity-80">— {it.result}</span>
+                <span className="truncate opacity-80">: {it.result}</span>
               </div>
             ) : (
               <div key={i} className={cn("max-w-[90%] rounded-lg px-2.5 py-1.5 text-xs", it.kind === "user" ? "self-end bg-primary text-primary-foreground" : "self-start bg-card border border-border")}>

@@ -1,11 +1,13 @@
+"use client";
+
 // MSO app artwork.
 //
 // Raster app artwork is intentionally WebP. Toolbar/menu/control glyphs stay
 // vector (Lucide), while app icons are allowed to carry richer platform-specific
 // illustration. macOS and Windows do NOT share the same art direction: the shell
-// chooses the correct image through data-shell CSS. Mobile intentionally reuses
+// chooses the correct image via useActiveShell(). Mobile intentionally reuses
 // those families: iOS = macOS artwork, Android = Windows artwork.
-import type { AppIconComponent } from "@/features/appshell";
+import { useActiveShell, type AppIconComponent } from "@/features/appshell";
 
 /** An official third-party brand mark is shell-invariant by definition. */
 function officialMark(src: string): AppIconComponent {
@@ -18,18 +20,55 @@ function officialMark(src: string): AppIconComponent {
   return Mark;
 }
 
+/** A neutral brand tile keeps monochrome/transparent marks legible in both themes. */
+function officialMarkOnBackground(src: string, background: string, scale = "78%"): AppIconComponent {
+  const Mark: AppIconComponent = ({ className: cls }) => (
+    <span
+      className={`relative grid size-full place-items-center overflow-hidden rounded-[var(--radius-icon)] ${cls ?? ""}`}
+      style={{ background }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        className="object-contain"
+        style={{ width: scale, height: scale }}
+        draggable={false}
+        decoding="async"
+      />
+    </span>
+  );
+  Mark.displayName = `OfficialArtworkTile(${src})`;
+  return Mark;
+}
+
 /** One app identity with distinct native-looking artwork per desktop shell. */
 function platformMark(fallback: string, macos: string, windows: string): AppIconComponent {
   const Mark: AppIconComponent = ({ className: cls }) => {
     const size = cls ?? "size-full";
+    const { id: shellId } = useActiveShell();
+
+    let src = fallback;
+    let variant = "default";
+    if (shellId === "macos" || shellId === "ios") {
+      src = macos;
+      variant = "macos";
+    } else if (shellId === "windows" || shellId === "android") {
+      src = windows;
+      variant = "windows";
+    }
+
     return (
       <span className={`shell-platform-mark relative block ${size}`} aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={fallback} alt="" className="shell-artwork shell-artwork-default" draggable={false} decoding="async" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={macos} alt="" className="shell-artwork shell-artwork-macos" draggable={false} decoding="async" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={windows} alt="" className="shell-artwork shell-artwork-windows" draggable={false} decoding="async" />
+        <img
+          src={src}
+          alt=""
+          className={`shell-artwork shell-artwork-${variant}`}
+          draggable={false}
+          decoding="async"
+        />
       </span>
     );
   };
@@ -90,11 +129,20 @@ export const APP_MARKS: Record<string, AppIconComponent> = {
     "/app-icons/windows/docs.webp",
   ),
   hermes: officialMark("/brand/official/hermes.webp"),
-  openclaw: officialMark("/brand/official/openclaw.webp"),
+  openclaw: officialMarkOnBackground("/brand/official/openclaw.webp", "#f5fbff", "84%"),
+  n8n: officialMark("/brand/official/n8n.webp"),
   "9router": officialMark("/brand/official/9router.webp"),
+  dokploy: officialMarkOnBackground("/brand/official/dokploy.webp", "#111827", "78%"),
+  cloudflare: officialMarkOnBackground("/brand/official/cloudflare.webp", "#111827", "74%"),
+  orca: officialMark("/brand/official/orca.webp"),
+  t3: officialMark("/brand/official/t3.webp"),
 };
 
 export const HermesMark = APP_MARKS.hermes;
 export const OpenClawMark = APP_MARKS.openclaw;
 export const NineRouterMark = APP_MARKS["9router"];
+export const DokployMark = APP_MARKS.dokploy;
+export const CloudflareMark = APP_MARKS.cloudflare;
+export const OrcaMark = APP_MARKS.orca;
+export const T3Mark = APP_MARKS.t3;
 export const CamoufoxMark = APP_MARKS["camoufox-browser"];

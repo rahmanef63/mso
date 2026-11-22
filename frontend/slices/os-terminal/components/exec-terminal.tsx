@@ -38,7 +38,7 @@ export default function ExecTerminal({ initialCwd }: { initialCwd?: string } = {
       ...l,
       {
         t: "sys",
-        v: api.mode === "live" ? "● switched to LIVE — real shell on this host" : "○ switched to MOCK — demo data",
+        v: api.mode === "live" ? "● switched to LIVE: real shell on this host" : "○ switched to MOCK: demo data",
       },
     ]);
   }, [api.mode, initialCwd]);
@@ -127,8 +127,8 @@ export default function ExecTerminal({ initialCwd }: { initialCwd?: string } = {
         }
       >
         {api.mode === "live"
-          ? "● LIVE — commands run on this host"
-          : "○ MOCK — Settings → Server → This VPS to run real commands"}
+          ? "● LIVE: commands run on this host"
+          : "○ MOCK: Settings → Server → This VPS to run real commands"}
       </div>
       {lines.map((l, i) => {
         if (l.t === "fetch") return <Neofetch key={i} rows={l.rows} />;

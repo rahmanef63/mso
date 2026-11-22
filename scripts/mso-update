@@ -23,7 +23,16 @@ GATEWAY="$ROOT/scripts/mso-gateway"
 fail() { printf 'mso update: %s\n' "$*" >&2; exit 1; }
 git_root() { [ "$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)" = "$ROOT" ]; }
 current_version() { sed -n 's/^VERSION="\([^"]*\)".*/\1/p' "$ROOT/bin/mso" | head -1; }
-remote_version() { git -C "$ROOT" show "${1:-origin/main}:bin/mso" 2>/dev/null | sed -n 's/^VERSION="\([^"]*\)".*/\1/p' | head -1; }
+# A resolved target that predates `bin/mso` (v0.2.0, the repository's first commit)
+# has no VERSION to read. Under `set -euo pipefail` that `git show` failure used to
+# kill the whole command with exit 128 and no message, which is why `mso update
+# status` looked broken instead of saying "the release tag is older than the CLI".
+# An unreadable version is a display detail, never a reason to abort a status read.
+remote_version() {
+  local version
+  version="$(git -C "$ROOT" show "${1:-origin/main}:bin/mso" 2>/dev/null | sed -n 's/^VERSION="\([^"]*\)".*/\1/p' | head -1)" || true
+  printf '%s' "$version"
+}
 require_checkout() {
   git_root || fail "$ROOT is not a Git checkout; reinstall from the official repository"
   [ "$(git -C "$ROOT" branch --show-current)" = main ] || fail "updates require the installed checkout to be on main"
@@ -34,12 +43,19 @@ fetch_main() { update_git_fetch_origin "$ROOT" main --tags || fail "could not re
 # The owner's channel. Precedence: the caller's resolved enum (the detached offline
 # wrapper passes the same value the API chose) → the prefs file the Settings panel
 # writes → the documented default. Only the two-word enum is ever accepted.
+#
+# The fallback is `main`, matching UPDATE_PREF_DEFAULTS in lib/prefs/updates.ts.
+# It used to say `stable`, and that default is actively wrong for this repository:
+# the newest release tag (v0.2.0) predates `bin/mso`, so a tag target makes every
+# status read report a release with no readable version and refuses to update a
+# checkout that is 1400+ commits ahead of it. `main` is what every install already
+# followed, and it is what the Settings panel writes.
 configured_channel() {
   local raw
-  raw="${MSO_UPDATE_CHANNEL:-$(jq -r '.updates.channel // "stable"' "${OS_PREFS_PATH:-$HOME/.mso/prefs.json}" 2>/dev/null || printf 'stable')}"
+  raw="${MSO_UPDATE_CHANNEL:-$(jq -r '.updates.channel // "main"' "${OS_PREFS_PATH:-$HOME/.mso/prefs.json}" 2>/dev/null || printf 'main')}"
   case "$raw" in
-    main) printf 'main' ;;
-    *) printf 'stable' ;;
+    stable) printf 'stable' ;;
+    *) printf 'main' ;;
   esac
 }
 

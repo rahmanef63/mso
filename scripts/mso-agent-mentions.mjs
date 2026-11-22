@@ -2,6 +2,7 @@ import { api } from "./mso-agent-api.mjs";
 import { persistSession } from "./mso-agent-session-ui.mjs";
 import { sectionBlock } from "./mso-agent-layout.mjs";
 import { safeErrorSummary } from "./mso-agent-errors.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 function clean(value) {
   return String(value || "").trim().replace(/^\[|\]$/g, "").toLocaleLowerCase();
@@ -104,7 +105,7 @@ export async function handleLocalAgentMentionInput(session, line, colors) {
   try {
     const mention = await dispatchLocalAgentMention(session, line);
     if (!mention) return false;
-    console.log(sectionBlock("local", `${colors.c}↳ ${mention.acknowledgement}${colors.reset}`, {
+    createPrinter({ session }).print(sectionBlock("local", `${colors.c}↳ ${mention.acknowledgement}${colors.reset}`, {
       columns: process.stdout.columns, detail: mention.result?.target?.label || parsedTarget(line), colors,
     }));
     return true;

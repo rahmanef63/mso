@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.17.0 version=2026.10.18.3 tools=119 read=59 write=37 exec=23 -->
+<!-- mcp-toolset: server=1.17.0 version=2026.11.16.1 tools=127 read=62 write=39 exec=26 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.17.0` |
-| Toolset | `2026.10.18.3` |
-| Toolset changed at | `2026-10-18T13:24:00+00:00` |
-| Transport tools | **121** |
-| Model/operator tools | **119** |
-| Read | **59** |
-| Write | **37** |
-| Exec | **23** |
+| Toolset | `2026.11.16.1` |
+| Toolset changed at | `2026-11-16T15:35:00+00:00` |
+| Transport tools | **129** |
+| Model/operator tools | **127** |
+| Read | **62** |
+| Write | **39** |
+| Exec | **26** |
 | App-only bridges | **2** |
 
-### Read (59)
+### Read (62)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -30,6 +30,7 @@
 - `agent_session_flow`
 - `agent_session_resume`
 - `agent_sessions_list`
+- `agent_subagent_status`
 - `apps_list`
 - `apps_logs`
 - `browser_status`
@@ -41,6 +42,8 @@
 - `flow_catalog`
 - `flow_status`
 - `fs_export_file`
+- `fs_glob`
+- `fs_grep`
 - `fs_list`
 - `fs_read`
 - `fs_search`
@@ -80,7 +83,7 @@
 - `tool_forge_candidates`
 - `vps_status`
 
-### Write (37)
+### Write (39)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -96,6 +99,7 @@
 - `flow_manage`
 - `fs_copy`
 - `fs_delete`
+- `fs_edit`
 - `fs_mkdir`
 - `fs_move`
 - `fs_upload_file`
@@ -115,17 +119,20 @@
 - `project_script_run`
 - `session_artifact_register`
 - `session_artifacts_cleanup`
+- `todo_write`
 - `tool_forge_propose`
 - `workflow_cancel`
 - `workflow_finish`
 - `workflow_start`
 
-### Exec (23)
+### Exec (26)
 
 - `a2a_handoff`
 - `a2a_message_send`
 - `a2a_task_cancel`
+- `agent_subagent_cancel`
 - `agent_subagent_run`
+- `agent_subagent_start`
 - `browser_power`
 - `exec_job_cancel`
 - `exec_job_start`
@@ -142,6 +149,7 @@
 - `project_function_call`
 - `project_mcp_call`
 - `project_mcp_tools`
+- `pty_session`
 - `tool_forge_evaluate`
 - `tool_forge_promote`
 - `workflow_graph`
@@ -153,20 +161,20 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.17.0 version=2026.10.18.3 tools=119 read=59 write=37 exec=23 app-only=2 total=121 -->
+<!-- mcp-chatgpt-profile: server=1.17.0 version=2026.11.16.1 tools=127 read=62 write=39 exec=26 app-only=2 total=129 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **121** |
-| ChatGPT model/operator tools | **119** |
-| Read | **59** |
-| Write | **37** |
-| Exec | **23** |
+| ChatGPT transport tools | **129** |
+| ChatGPT model/operator tools | **127** |
+| Read | **62** |
+| Write | **39** |
+| Exec | **26** |
 | App-only bridges | **2** |
 
-### ChatGPT read (59)
+### ChatGPT read (62)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -178,6 +186,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `agent_session_flow`
 - `agent_session_resume`
 - `agent_sessions_list`
+- `agent_subagent_status`
 - `apps_list`
 - `apps_logs`
 - `browser_status`
@@ -189,6 +198,8 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `flow_catalog`
 - `flow_status`
 - `fs_export_file`
+- `fs_glob`
+- `fs_grep`
 - `fs_list`
 - `fs_read`
 - `fs_search`
@@ -228,7 +239,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `tool_forge_candidates`
 - `vps_status`
 
-### ChatGPT write (37)
+### ChatGPT write (39)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -244,6 +255,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `flow_manage`
 - `fs_copy`
 - `fs_delete`
+- `fs_edit`
 - `fs_mkdir`
 - `fs_move`
 - `fs_upload_file`
@@ -263,17 +275,20 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `project_script_run`
 - `session_artifact_register`
 - `session_artifacts_cleanup`
+- `todo_write`
 - `tool_forge_propose`
 - `workflow_cancel`
 - `workflow_finish`
 - `workflow_start`
 
-### ChatGPT exec (23)
+### ChatGPT exec (26)
 
 - `a2a_handoff`
 - `a2a_message_send`
 - `a2a_task_cancel`
+- `agent_subagent_cancel`
 - `agent_subagent_run`
+- `agent_subagent_start`
 - `browser_power`
 - `exec_job_cancel`
 - `exec_job_start`
@@ -290,6 +305,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `project_function_call`
 - `project_mcp_call`
 - `project_mcp_tools`
+- `pty_session`
 - `tool_forge_evaluate`
 - `tool_forge_promote`
 - `workflow_graph`

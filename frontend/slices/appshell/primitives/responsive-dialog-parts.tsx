@@ -38,20 +38,20 @@ export function ResponsiveDialogHeader({ className, children, ...props }: Respon
   }
   if (variant === "alert") {
     return (
-      <AlertDialogHeader className={cn(baseClasses, "gap-1.5 px-6 pb-4 pt-6", className)} {...props}>
+      <AlertDialogHeader className={cn(baseClasses, "gap-1.5 px-[var(--feature-padding,1.5rem)] pb-4 pt-[var(--feature-padding,1.5rem)]", className)} {...props}>
         {children}
       </AlertDialogHeader>
     );
   }
   if (variant === "panel") {
     return (
-      <SheetHeader className={cn(baseClasses, "gap-1.5 px-6 pb-4 pt-6", className)} {...props}>
+      <SheetHeader className={cn(baseClasses, "gap-1.5 px-[var(--feature-padding,1.5rem)] pb-4 pt-[var(--feature-padding,1.5rem)]", className)} {...props}>
         {children}
       </SheetHeader>
     );
   }
   return (
-    <DialogHeader className={cn(baseClasses, "gap-1.5 px-6 pb-4 pt-6", className)} {...props}>
+    <DialogHeader className={cn(baseClasses, "gap-1.5 px-[var(--feature-padding,1.5rem)] pb-4 pt-[var(--feature-padding,1.5rem)]", className)} {...props}>
       {children}
     </DialogHeader>
   );
@@ -90,7 +90,7 @@ export function ResponsiveDialogBody({ className, children, ...props }: Responsi
   useResponsiveDialogContext("Body");
   return (
     <div
-      className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 sm:px-6", className)}
+      className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-[var(--feature-padding,1.25rem)] py-[var(--feature-padding,1rem)]", className)}
       {...props}
     >
       {children}
@@ -120,20 +120,20 @@ export function ResponsiveDialogFooter({ className, children, ...props }: Respon
   }
   if (variant === "alert") {
     return (
-      <AlertDialogFooter className={cn(baseClasses, "gap-2 px-6 pb-5 pt-4 sm:justify-end", className)} {...props}>
+      <AlertDialogFooter className={cn(baseClasses, "gap-2 px-[var(--feature-padding,1.5rem)] pb-[var(--feature-padding,1.25rem)] pt-4 sm:justify-end", className)} {...props}>
         {children}
       </AlertDialogFooter>
     );
   }
   if (variant === "panel") {
     return (
-      <SheetFooter className={cn(baseClasses, "mt-0 flex-row justify-end gap-2 px-6 pb-5 pt-4", className)} {...props}>
+      <SheetFooter className={cn(baseClasses, "mt-0 flex-row justify-end gap-2 px-[var(--feature-padding,1.5rem)] pb-[var(--feature-padding,1.25rem)] pt-4", className)} {...props}>
         {children}
       </SheetFooter>
     );
   }
   return (
-    <DialogFooter className={cn(baseClasses, "gap-2 px-6 pb-5 pt-4 sm:justify-end", className)} {...props}>
+    <DialogFooter className={cn(baseClasses, "gap-2 px-[var(--feature-padding,1.5rem)] pb-[var(--feature-padding,1.25rem)] pt-4 sm:justify-end", className)} {...props}>
       {children}
     </DialogFooter>
   );

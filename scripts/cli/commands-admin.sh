@@ -67,6 +67,7 @@ case "$cmd" in
   logout)  if [ -s "$JAR" ]; then jpost "/api/auth/logout" >/dev/null 2>&1 || true; fi
            mso_private_state_remove_file "$JAR" || die "refusing unsafe cookie jar: $JAR"
            echo "signed out (jar cleared)" ;;
+  pair)    source "$ROOT/scripts/cli/pair.sh"; mso_pair "$@" ;;
 
   # ── service (local systemd) ──────────────────────────────────────────────
   service)
@@ -135,14 +136,8 @@ case "$cmd" in
     if [ -n "$body" ]; then req -X "$m" -H 'content-type: application/json' -d "$body" "$B$p"
     else req -X "$m" "$B$p"; fi ;;
 
-  # Verb list comes from verbs(), so completion cannot go stale.
-  completion)
-    case "${1:-bash}" in
-      bash) printf 'complete -W "%s" mso\n' "$(verbs | grep -v '^-' | sort -u | tr '\n' ' ')" ;;
-      zsh)  printf 'compdef _gnu_generic mso\ncompctl -k "(%s)" mso\n' "$(verbs | grep -v '^-' | sort -u | tr '\n' ' ')" ;;
-      *) die "completion: bash|zsh   (eval \"\$(mso completion bash)\")" ;;
-    esac
-    exit 0 ;;
+  # Verb list comes from verbs(), subcommands from U_<verb> usage strings.
+  completion) source "$ROOT/scripts/cli/completion.sh"; mso_completion "$@"; exit 0 ;;
   *) die "internal CLI routing error: $cmd reached the wrong command family" ;;
 esac
 }

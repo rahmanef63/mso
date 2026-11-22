@@ -45,7 +45,7 @@ export function WhatsNew() {
       icon={<Sparkles />}
       title="What's new"
       bare
-      footnote="Generated from the commit history of this deployment — it cannot drift from what shipped."
+      footnote="Generated from the commit history of this deployment, so it cannot drift from what shipped."
     >
       <ChangelogView days={days} />
     </SettingsSection>

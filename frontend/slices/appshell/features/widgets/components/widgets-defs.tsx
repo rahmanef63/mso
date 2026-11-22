@@ -27,7 +27,7 @@ function CpuWidget() {
   const s = useSystemStats();
   return (
     <Card>
-      <Row icon={Cpu} label="CPU" value={s ? `${s.cpu.pct}%` : "—"} sub={s ? `${s.cpu.cores} cores` : ""} />
+      <Row icon={Cpu} label="CPU" value={s ? `${s.cpu.pct}%` : "n/a"} sub={s ? `${s.cpu.cores} cores` : ""} />
       <Sparkline data={s?.cpuHistory ?? []} max={100} />
     </Card>
   );
@@ -37,7 +37,7 @@ function MemWidget() {
   const s = useSystemStats();
   return (
     <Card>
-      <Row icon={MemoryStick} label="Memory" value={s ? gb(s.mem.used) : "—"} sub={s ? `of ${gb(s.mem.total)}` : ""} />
+      <Row icon={MemoryStick} label="Memory" value={s ? gb(s.mem.used) : "n/a"} sub={s ? `of ${gb(s.mem.total)}` : ""} />
       <Bar pct={s ? (s.mem.used / s.mem.total) * 100 : 0} />
     </Card>
   );
@@ -47,7 +47,7 @@ function DiskWidget() {
   const s = useSystemStats();
   return (
     <Card>
-      <Row icon={HardDrive} label="Storage" value={s ? gb(s.disk.used) : "—"} sub={s ? `of ${gb(s.disk.total)}` : ""} />
+      <Row icon={HardDrive} label="Storage" value={s ? gb(s.disk.used) : "n/a"} sub={s ? `of ${gb(s.disk.total)}` : ""} />
       <Bar pct={s ? (s.disk.used / s.disk.total) * 100 : 0} />
     </Card>
   );
@@ -132,7 +132,7 @@ function UptimeWidget() {
   const s = useSystemStats();
   return (
     <Card>
-      <Row icon={Timer} label="Uptime" value={s?.uptime != null ? fmtUptime(s.uptime) : "—"} sub="" />
+      <Row icon={Timer} label="Uptime" value={s?.uptime != null ? fmtUptime(s.uptime) : "n/a"} sub="" />
     </Card>
   );
 }
@@ -144,7 +144,7 @@ function NetworkWidget() {
       <Row
         icon={Network}
         label="Network"
-        value={s?.net ? `↓ ${s.net.rx.toFixed(1)}` : "—"}
+        value={s?.net ? `↓ ${s.net.rx.toFixed(1)}` : "n/a"}
         sub={s?.net ? `↑ ${s.net.tx.toFixed(1)} MB/s` : ""}
       />
       <Sparkline data={s?.netHistory ?? []} />

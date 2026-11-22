@@ -9,6 +9,7 @@ const MAX = 8 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"]);
 
 export function UploadTab({ onSelect, onUpload }: { onSelect: (c: ImageValue) => void; onUpload: UploadFn }) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -20,6 +21,8 @@ export function UploadTab({ onSelect, onUpload }: { onSelect: (c: ImageValue) =>
 
   const pick = (f: File | undefined) => {
     if (!f) return;
+    setFile(null);
+    setPreview(null);
     if (!ALLOWED_IMAGE_TYPES.has(f.type)) { setErr("PNG, JPEG, WebP, GIF or AVIF only"); return; }
     if (f.size > MAX) { setErr("Max 8 MB"); return; }
     setErr(null);
@@ -57,9 +60,10 @@ export function UploadTab({ onSelect, onUpload }: { onSelect: (c: ImageValue) =>
             <span>Drag an image or click to choose (≤ 8 MB)</span>
           </>
         )}
-        <input type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0] ?? undefined)} />
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { pick(e.target.files?.[0] ?? undefined); e.target.value = ""; }} />
       </label>
-      {err && <p className="text-xs text-destructive">{err}</p>}
+      <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>Choose file</Button>
+      {err && <p role="alert" className="text-xs text-destructive">{err}</p>}
       <Button onClick={apply} disabled={!file || busy} className="w-full">
         {busy ? "Uploading…" : "Upload & set image"}
       </Button>

@@ -26,6 +26,7 @@ describe("MSO Agent responsive wrapped composer", () => {
   it("repaints a wrapped draft on terminal resize without losing the submitted value", async () => {
     class FakeInput extends EventEmitter { isRaw = false; resume() {} pause() {} setRawMode(value: boolean) { this.isRaw = value; } }
     class FakeOutput extends EventEmitter {
+    isTTY = true;
       columns = 24; rows = 16; chunks: string[] = [];
       write(value: string) { this.chunks.push(String(value)); return true; }
     }

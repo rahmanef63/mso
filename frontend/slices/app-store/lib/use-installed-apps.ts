@@ -1,10 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { createElement, useMemo } from "react";
 import type { AppDescriptor } from "./host";
 import { glyphIcon } from "./glyph";
-import { RuntimeApp, type AppManifest } from "../components/runtime-app";
+import type { AppManifest } from "../components/runtime-app-types";
+import type { AppProps } from "../lib/host";
 import { useApps } from "./apps-store";
+
+// `runtime-app` — and through it LegacyHtmlApp, AppConsole and the vaul drawer — is
+// imported dynamically, never at module scope. This hook runs in app/os-root.tsx, so a
+// static import here pulled that whole subtree into the catch-all's FIRST-LOAD chunk,
+// paid by every visitor including one who never installs or opens a runtime app.
+//
+// The promise is memoised so repeated window opens reuse one chunk fetch and one
+// evaluation, which is the contract `descriptor.load()` already promises callers.
+let runtimeAppModule: Promise<typeof import("../components/runtime-app")> | null = null;
+const loadRuntimeApp = () => (runtimeAppModule ??= import("../components/runtime-app"));
 
 // Turns the owner's installed runtime apps (localStorage) into AppDescriptors
 // the shell can mount — merged with the built-in slices by the app layer. This
@@ -25,14 +36,20 @@ export function useInstalledApps(): AppDescriptor[] {
         entry: a.entry,
         source: a.source,
       };
-      const Comp = () => RuntimeApp({ manifest });
-      Comp.displayName = `Runtime(${a.appId})`;
       return {
         id: a.appId,
         title: a.title,
         icon: glyphIcon(a.glyph),
         gradient: a.gradient,
-        load: () => Promise.resolve({ default: Comp }),
+        load: async () => {
+          const { RuntimeApp } = await loadRuntimeApp();
+          // A wrapper, not RuntimeApp itself: the manifest is bound here, so the
+          // descriptor's ComponentType<AppProps> signature stays honest. createElement
+          // because this module is .ts — JSX is not available here.
+          const Comp = (props: AppProps) => createElement(RuntimeApp, { manifest, ...props });
+          Comp.displayName = `Runtime(${a.appId})`;
+          return { default: Comp };
+        },
         defaultSize: { w: 640, h: 460 },
       };
     });

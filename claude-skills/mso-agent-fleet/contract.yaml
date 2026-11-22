@@ -1,0 +1,39 @@
+version: 1
+routing:
+  use_when:
+    - "one request must become several parallel coding sessions"
+    - "work must stay visible on an Orca board or reachable from an HTTPS webhook"
+    - "fan out bounded subagents and supervise them to a verified outcome"
+  do_not_use_when:
+    - "One bounded edit answers the request; a fleet adds risk with no benefit."
+    - "The task is a single obvious tool call with no second agent or trigger needed."
+  fallback: false
+  prefer_over:
+    - a2a
+context:
+  target: agent-fleet
+  mode: execute
+  actor: operator
+lifecycle:
+  discover:
+    - orca_status
+    - orca_host_list
+    - orca_worktree_list
+    - workflow_start
+  validate:
+    - host-label-matches-handle
+    - repo-identity-exact
+    - subagent-scope-not-widened
+  verify:
+    - orca_worktree_ps
+    - exec_job_status
+    - workflow_finish
+state:
+  source_of_truth: live
+  refresh: always
+safety:
+  risk: medium
+  confirmation: contextual
+  concurrency: contextual
+presentation:
+  authority: hybrid

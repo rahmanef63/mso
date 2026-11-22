@@ -9,6 +9,11 @@ import { archiveDroppedSessionEvents } from "./session-action-history";
 import { captureSessionArtifactRevision } from "./session-artifact-history";
 import { compactIfNeeded, requireOwned } from "./session-record";
 import type { AgentSession, AgentSessionEvent, AgentSessionTitleSource } from "./session-types";
+export {
+  compactAgentSessionNow,
+  compactAgentSessionRouteHandler,
+  type CompactAgentSessionReport,
+} from "./session-compact-now";
 
 export async function updateAgentSessionHistory(
   principal: string,
@@ -139,4 +144,3 @@ export async function appendAgentSessionEvent(
     await writeSessionFile(record);
   });
 }
-

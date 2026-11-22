@@ -1,69 +1,41 @@
 "use client";
-
 import { useCallback, useState } from "react";
-
 import { setInstalled } from "./apps-store";
 import { setEnabled } from "./enabled-store";
 import type { CatalogApp } from "./store-catalog";
 import type { SystemEntry } from "./system-catalog";
 
-// Install/uninstall state machine for the App Store. Touch users have no
-// hover affordance, so tapping the "Installed" pill instantly fires uninstall —
-// that's the destructive path we gate behind a confirm. Install is instant.
-// Returns the toggles cards bind to, the busy id (per-card spinner), the
-// pending entries (drive the dialogs), and the confirm callbacks.
 export function useStoreInstall(off: Set<string>) {
   const [pendingApp, setPendingApp] = useState<CatalogApp | null>(null);
   const [pendingSystem, setPendingSystem] = useState<SystemEntry | null>(null);
-
-  const doInstall = useCallback((app: CatalogApp, nextInstalled: boolean) => {
-    setInstalled({
-      appId: app.appId,
-      installed: nextInstalled,
-      title: app.title,
-      glyph: app.glyph,
-      gradient: app.gradient,
-      runtime: app.runtime,
-      entry: app.entry,
-    });
+  const [error, setError] = useState("");
+  const persist = useCallback((change: () => void) => {
+    setError("");
+    try { change(); return true; }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "The change could not be saved."); return false; }
   }, []);
-
-  const toggle = useCallback(
-    (app: CatalogApp) => {
-      if (app.installed) setPendingApp(app);
-      else doInstall(app, true);
-    },
-    [doInstall],
-  );
-
-  const toggleSystem = useCallback(
-    (e: SystemEntry) => {
-      const currentlyInstalled = !off.has(e.id);
-      // Confirm before disabling, instant on re-enable (not destructive).
-      if (currentlyInstalled) setPendingSystem(e);
-      else setEnabled(e.id, true);
-    },
-    [off],
-  );
-
+  const doInstall = useCallback((app: CatalogApp, installed: boolean) => persist(() => setInstalled({
+    appId: app.appId, installed, title: app.title, glyph: app.glyph,
+    gradient: app.gradient, runtime: app.runtime, entry: app.entry,
+  })), [persist]);
+  const toggle = useCallback((app: CatalogApp) => {
+    if (app.installed) setPendingApp(app);
+    else doInstall(app, true);
+  }, [doInstall]);
+  const toggleSystem = useCallback((entry: SystemEntry) => {
+    if (!off.has(entry.id)) setPendingSystem(entry);
+    else persist(() => setEnabled(entry.id, true));
+  }, [off, persist]);
   const confirmUninstallApp = useCallback(() => {
-    if (pendingApp) doInstall(pendingApp, false);
-    setPendingApp(null);
+    if (pendingApp && doInstall(pendingApp, false)) setPendingApp(null);
   }, [doInstall, pendingApp]);
-
   const confirmUninstallSystem = useCallback(() => {
-    if (pendingSystem) setEnabled(pendingSystem.id, false);
-    setPendingSystem(null);
-  }, [pendingSystem]);
-
+    if (pendingSystem && persist(() => setEnabled(pendingSystem.id, false))) setPendingSystem(null);
+  }, [pendingSystem, persist]);
   return {
-    pendingApp,
-    pendingSystem,
-    toggle,
-    toggleSystem,
-    cancelApp: () => setPendingApp(null),
-    cancelSystem: () => setPendingSystem(null),
-    confirmUninstallApp,
-    confirmUninstallSystem,
+    error, pendingApp, pendingSystem, toggle, toggleSystem,
+    cancelApp: () => { setPendingApp(null); setError(""); },
+    cancelSystem: () => { setPendingSystem(null); setError(""); },
+    confirmUninstallApp, confirmUninstallSystem,
   };
 }

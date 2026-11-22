@@ -18,6 +18,8 @@ export {
   type ServiceInventory,
   type ServiceLogs,
   type PackageUpdateSummary,
+  type SliceResourceReport,
+  type SliceResourceRow,
 } from "@/features/appshell";
 export { useResponsive, ResponsiveToolbar } from "@/features/appshell";
 export type { ToolbarItem } from "@/features/appshell";

@@ -1,3 +1,4 @@
+import { pruneFeatureState } from "./feature-state";
 import type { ShellState, WindowState, WinId } from "./types";
 
 // Module-level external store, held in a mutable `M` object (not a rebindable
@@ -24,7 +25,12 @@ export const M = {
 
 const listeners = new Set<Listener>();
 
+let previousOrder = M.state.order;
 export function emit() {
+  if (previousOrder !== M.state.order) {
+    previousOrder = M.state.order;
+    pruneFeatureState(new Set(previousOrder));
+  }
   listeners.forEach((l) => l());
 }
 

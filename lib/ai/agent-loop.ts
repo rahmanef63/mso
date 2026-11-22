@@ -11,6 +11,8 @@ export type ToolOutcome = { ok: boolean; result: string };
 export type AgentEvents = {
   /** Streaming text deltas for the current assistant turn. */
   onDelta: (chunk: string) => void;
+  /** Optional streaming reasoning/thinking deltas for the current assistant turn. */
+  onReasoning?: (chunk: string) => void;
   /** A tool the model called, with the local execution outcome. */
   onTool: (name: string, input: Record<string, unknown>, outcome: ToolOutcome) => void;
 };
@@ -44,13 +46,21 @@ export async function runToolAgent(
   let totalUsage: ProviderUsage | undefined = undefined;
   for (let i = 0; i < maxTurns; i++) {
     if (signal?.aborted) { outcome = "stopped"; break; }
-    const { text, toolUses, usage } = await streamAgentTurn(msgs, tools, ev.onDelta, signal, system);
+    const { text, toolUses, usage } = await streamAgentTurn(msgs, tools, ev.onDelta, signal, system, ev.onReasoning);
     if (usage) {
       totalUsage = addProviderUsage(totalUsage, usage) as ProviderUsage;
     }
+    if (signal?.aborted) {
+      if (text.trim()) {
+        msgs.push({ role: "assistant", text });
+        lastText = text;
+      }
+      outcome = "stopped";
+      break;
+    }
     msgs.push({ role: "assistant", text, toolUses });
     if (text) lastText = text;
-    if (toolUses.length === 0) { outcome = signal?.aborted ? "stopped" : "completed"; break; }
+    if (toolUses.length === 0) { outcome = "completed"; break; }
     const results = [];
     for (const tu of toolUses) {
       if (signal?.aborted) {

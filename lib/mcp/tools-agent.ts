@@ -8,6 +8,7 @@ import { semanticSessionFlow } from "@/lib/agent/session-flow";
 import { resolveHistoricalSessionAction } from "@/lib/agent/session-action-history";
 import { resolveHistoricalSessionArtifact } from "@/lib/agent/session-artifact-resolver";
 import { AGENT_SESSION_RESUME_TOOL } from "./tools-agent-recovery";
+import { writeAgentSessionTodos } from "@/lib/agent/todos";
 
 function principal(context: { principal?: string }): string {
   if (!context.principal) throw new Error("agent session principal is unavailable");
@@ -122,6 +123,40 @@ export const AGENT_TOOLS: McpTool[] = [
       const note = str(a, "note").trim(); if (note.length > 500) throw new Error("session note must be 500 characters or fewer");
       await appendAgentSessionEvent(principal(context), context.sessionId, { kind: "note", detail: note });
       return { ok: true, sessionId: context.sessionId };
+    },
+  },
+  {
+    name: "todo_write",
+    description: "Replace the session todo list with a full updated list, never merge or append: send every pending, in_progress and completed item each time. Keeps long multi-step work visible.",
+    scope: "write",
+    limit: { key: "agent.session", max: 30, windowMs: 60_000 },
+    audit: { action: "agent.session", targetArg: "session_id" },
+    inputSchema: S({
+      todos: {
+        type: "array",
+        description: "Full list of todo items. This call REPLACES the entire todo list, it does not append or merge. Always send the full list with updated statuses.",
+        items: {
+          type: "object",
+          required: ["content", "status"],
+          properties: {
+            content: { type: "string", description: "Description of the task, non-empty, max 200 characters." },
+            status: { type: "string", enum: ["pending", "in_progress", "completed"], description: "Current status of the task." },
+            activeForm: { type: "string", description: "Optional present-tense description while in progress." },
+          },
+        },
+      },
+      session_id: {
+        type: "string",
+        description: "Optional session ID. If provided, it must match the active conversation session.",
+      },
+    }, ["todos"]),
+    run: async (a, context) => {
+      if (!context.sessionId) throw new Error("this tool call has no conversation-bound MSO session");
+      const explicitId = optionalString(a, "session_id");
+      if (explicitId && explicitId !== context.sessionId) {
+        throw new Error("session_id must match the active agent session");
+      }
+      return writeAgentSessionTodos(principal(context), context.sessionId, a.todos);
     },
   },
   {

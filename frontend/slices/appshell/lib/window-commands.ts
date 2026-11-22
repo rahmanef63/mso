@@ -68,7 +68,7 @@ registerCommands("window", [
         return;
       }
       snapWindow(win.id, zone);
-      toast(`${label} — ${win.title}`);
+      toast(`${label}: ${win.title}`);
     },
   })),
 ]);

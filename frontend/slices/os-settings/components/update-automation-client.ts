@@ -55,5 +55,5 @@ export function describeLastAttempt(last: AutomationView["last"] | undefined): s
   const when = new Date(last.lastAttemptAt).toISOString().replace("T", " ").slice(0, 19) + " UTC";
   const result = last.lastResult ? RESULTS[last.lastResult] : "finished";
   const pause = last.consecutiveFailures >= 2 ? " Paused after 2 failed builds." : "";
-  return `Last attempt ${when} — ${result}.${pause}`;
+  return `Last attempt ${when}: ${result}.${pause}`;
 }

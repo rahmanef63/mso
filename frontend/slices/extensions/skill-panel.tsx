@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { SkillMarketSnapshot, SkillMarketRow } from "@/lib/contracts/skill-market";
@@ -9,33 +9,47 @@ export function SkillStorePanel() { return <ExtensionAccess><OwnerSkillPanel /><
 function OwnerSkillPanel() {
   const [market, setMarket] = useState<SkillMarketSnapshot | null>(null);
   const [existing, setExisting] = useState<ExistingSkill[]>([]), [partial, setPartial] = useState(false);
-  const [query, setQuery] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  const reload = useCallback(async (signal?: AbortSignal) => {
-    setBusy(true); setError("");
+  const [query, setQuery] = useState(""), [loading, setLoading] = useState(false), [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const busy = loading || saving;
+  const controller = useRef<AbortController | null>(null), generation = useRef(0), writing = useRef(false);
+  const source = useRef(Symbol("skill-market"));
+  const reload = useCallback(async () => {
+    controller.current?.abort();
+    const request = new AbortController(); controller.current = request;
+    const epoch = ++generation.current;
+    const current = () => !request.signal.aborted && generation.current === epoch;
+    setLoading(true); setError("");
     try {
-      const response = await fetch("/api/v1/skill-market", { cache: "no-store", signal });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Skill market failed");
-      setMarket(data);
-      const installed = await fetch("/api/skills", { cache: "no-store", signal });
-      const skills = await installed.json(); if (!installed.ok) throw new Error(skills.error || "Skill discovery failed");
-      setExisting(skills.skills ?? []); setPartial(Boolean(skills.scan?.truncated));
-    } catch (cause) { if (!signal?.aborted) setError(cause instanceof Error ? cause.message : "Skill catalog failed"); }
-    finally { if (!signal?.aborted) setBusy(false); }
+      const [response, installed] = await Promise.all([
+        fetch("/api/v1/skill-market", { cache: "no-store", signal: request.signal }),
+        fetch("/api/skills", { cache: "no-store", signal: request.signal }),
+      ]);
+      const [data, skills] = await Promise.all([response.json(), installed.json()]);
+      if (!response.ok || !installed.ok) throw new Error(!response.ok ? data.error || "Skill market failed" : skills.error || "Skill discovery failed");
+      if (!current()) return;
+      setMarket(data); setExisting(skills.skills ?? []); setPartial(Boolean(skills.scan?.truncated));
+    } catch (cause) { if (current()) setError(cause instanceof Error ? cause.message : "Skill catalog failed"); }
+    finally { if (current()) setLoading(false); }
   }, []);
   useEffect(() => {
-    const controller = new AbortController(); const timer = window.setTimeout(() => { void reload(controller.signal); }, 0);
-    const changed = () => { void reload(controller.signal); }; window.addEventListener("mso:extensions-changed", changed);
-    return () => { window.clearTimeout(timer); controller.abort(); window.removeEventListener("mso:extensions-changed", changed); };
+    const timer = window.setTimeout(() => { void reload(); }, 0);
+    const changed = (event: Event) => { if ((event as CustomEvent).detail?.source !== source.current) void reload(); };
+    window.addEventListener("mso:extensions-changed", changed);
+    return () => { clearTimeout(timer); controller.current?.abort(); window.removeEventListener("mso:extensions-changed", changed); };
   }, [reload]);
   async function change(action: "install" | "remove", row: SkillMarketRow) {
+    if (writing.current || busy) return;
     if (!window.confirm(`${action === "remove" ? "Remove" : "Install"} ${row.title} ${action === "remove" ? "from" : "on"} this VPS? Only this managed skill directory will change.`)) return;
-    setBusy(true); setError("");
+    writing.current = true; setSaving(true); setError("");
+    controller.current?.abort(); generation.current++;
     try {
       const response = await fetch("/api/v1/skill-market", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, id: row.id, revision: row.revision }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || "Skill operation failed");
-      setMarket(data); window.dispatchEvent(new Event("mso:extensions-changed"));
+      await reload();
+      window.dispatchEvent(new CustomEvent("mso:extensions-changed", { detail: { source: source.current } }));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Skill operation failed"); }
-    finally { setBusy(false); }
+    finally { writing.current = false; setSaving(false); }
   }
   const q = query.trim().toLowerCase();
   return <div className="min-w-0 space-y-4">

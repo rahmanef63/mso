@@ -67,7 +67,7 @@ export function CompProps({
         </div>
       </Field>
 
-      <Field label={`Duration — ${(comp.duration / comp.fps).toFixed(1)}s`}>
+      <Field label={`Duration: ${(comp.duration / comp.fps).toFixed(1)}s`}>
         <Slider min={60} max={900} step={30} value={comp.duration} onChange={(e) => onDuration(Number(e.target.value))} />
       </Field>
 

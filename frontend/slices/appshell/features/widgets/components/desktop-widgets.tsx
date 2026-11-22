@@ -3,16 +3,12 @@
 import { createElement, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, LayoutGrid, Trash2 } from "lucide-react";
 import { ContextMenu, useContextMenu } from "../../../components/shells/context-menu";
-import { registerCommands } from "../../../lib/commands";
-import { registerContextMenu, type MenuItem } from "../../../lib/context-menu";
-import { toast } from "../../../lib/toast";
+import type { MenuItem } from "../../../lib/context-menu";
 import { cn } from "@/lib/utils";
 import {
-  getWidgetState,
   setPickerOpen,
   setWidgetPos,
   setWidgetSize,
-  setWidgetsOn,
   toggleWidget,
   useWidgetState,
   type WidgetPos,
@@ -26,31 +22,6 @@ import { WidgetPicker } from "./widget-picker";
 // removes it. Layout + membership live in the widget-registry store; the
 // WidgetPicker (live-preview gallery) edits membership.
 
-registerCommands("desktop-widgets", [
-  {
-    id: "widgets:desktop",
-    label: "Toggle desktop widgets",
-    hint: "Widgets",
-    keywords: "glance dashboard wallpaper stats",
-    run: () => {
-      const next = !getWidgetState().on;
-      setWidgetsOn(next);
-      toast(next ? "Desktop widgets on" : "Desktop widgets off");
-    },
-  },
-  {
-    id: "widgets:configure",
-    label: "Configure desktop widgets",
-    hint: "Widgets",
-    keywords: "desktop widget picker add remove reorder",
-    run: () => setPickerOpen(true),
-  },
-]);
-
-registerContextMenu("macos", () => [
-  { label: "Desktop widgets…", icon: LayoutGrid, onClick: () => setPickerOpen(true) },
-]);
-
 const SIZE_W: Record<WidgetSize, string> = { s: "w-44", m: "w-60", l: "w-72" };
 const SIZE_PX: Record<WidgetSize, number> = { s: 176, m: 240, l: 288 };
 
@@ -58,6 +29,17 @@ const SIZE_PX: Record<WidgetSize, number> = { s: 176, m: 240, l: 288 };
 // buttons keep working); the move commits once on drop (not every frame). Right-
 // click sets its size or removes it.
 function DesktopWidget({ id, size, pos }: { id: string; size: WidgetSize; pos: WidgetPos }) {
+  const element = useRef<HTMLDivElement>(null);
+  const [bounds, setBounds] = useState({ w: 0, h: 0, cardH: 0 });
+  useEffect(() => {
+    const card = element.current, parent = card?.parentElement;
+    if (!card || !parent) return;
+    const measure = () => setBounds({ w: parent.clientWidth, h: parent.clientHeight, cardH: card.offsetHeight });
+    const observer = new ResizeObserver(measure);
+    observer.observe(parent); observer.observe(card);
+    measure();
+    return () => observer.disconnect();
+  }, []);
   const ctx = useContextMenu();
   const Render = WIDGET_RENDER[id];
   const drag = useRef<{ x: number; y: number } | null>(null);
@@ -76,12 +58,14 @@ function DesktopWidget({ id, size, pos }: { id: string; size: WidgetSize; pos: W
     if (!drag.current) return;
     setOffset({ dx: e.clientX - drag.current.x, dy: e.clientY - drag.current.y });
   };
-  const onPointerUp = () => {
-    if (drag.current && offset) setWidgetPos(id, pos.x + offset.dx, pos.y + offset.dy);
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (drag.current) setWidgetPos(id, origin.x + e.clientX - drag.current.x, origin.y + e.clientY - drag.current.y);
     drag.current = null;
     setOffset(null);
   };
 
+  const origin = { x: Math.max(0, Math.min(pos.x, bounds.w - SIZE_PX[size])), y: Math.max(0, Math.min(pos.y, bounds.h - bounds.cardH)) };
+  const cancelDrag = () => { drag.current = null; setOffset(null); };
   const items: MenuItem[] = [
     { label: "Small", icon: size === "s" ? Check : undefined, onClick: () => setWidgetSize(id, "s") },
     { label: "Medium", icon: size === "m" ? Check : undefined, onClick: () => setWidgetSize(id, "m") },
@@ -93,6 +77,7 @@ function DesktopWidget({ id, size, pos }: { id: string; size: WidgetSize; pos: W
 
   return (
     <div
+      ref={element}
       className={cn(
         // Elevation so a widget reads as the same floating surface family as
         // windows (which carry --shadow-win). filter drop-shadow — not box-shadow
@@ -100,10 +85,12 @@ function DesktopWidget({ id, size, pos }: { id: string; size: WidgetSize; pos: W
         "pointer-events-auto absolute touch-none cursor-grab active:cursor-grabbing drop-shadow-[0_8px_24px_rgba(0,0,0,0.28)]",
         SIZE_W[size],
       )}
-      style={{ left: pos.x + (offset?.dx ?? 0), top: pos.y + (offset?.dy ?? 0) }}
+      style={{ left: origin.x + (offset?.dx ?? 0), top: origin.y + (offset?.dy ?? 0), maxWidth: "100%", maxHeight: "100%", overflowY: "auto" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={cancelDrag}
+      onLostPointerCapture={cancelDrag}
       onContextMenu={(e) => { e.stopPropagation(); ctx.open(e); }}
     >
       {createElement(Render)}

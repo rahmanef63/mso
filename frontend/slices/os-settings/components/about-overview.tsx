@@ -47,7 +47,7 @@ export function AboutOverview({ onOpenPage }: { onOpenPage: (page: AboutPage) =>
     ["App version", pkg.version ?? "0.0.0"],
     ["Build ID", process.env.NEXT_PUBLIC_BUILD_ID || "dev"],
     ["Commit", process.env.NEXT_PUBLIC_COMMIT_SHA || "not set"],
-    ["Runtime mode", IS_DEMO ? "Demo — mock data only" : "Live-capable"],
+    ["Runtime mode", IS_DEMO ? "Demo: mock data only" : "Live-capable"],
     ["Cores", stats ? String(stats.cpu.cores) : <ValueSkeleton width="w-8" />],
     ["Memory", stats ? fmtGiB(stats.mem.total) : <ValueSkeleton />],
     ["Disk", stats ? fmtGiB(stats.disk.total) : <ValueSkeleton />],
@@ -71,7 +71,7 @@ export function AboutOverview({ onOpenPage }: { onOpenPage: (page: AboutPage) =>
       <SettingsSection
         icon={<Info />}
         title="System"
-        footnote={isSample ? "Sample data — connect a live host in Server for real specs." : "Build identity and live host capacity."}
+        footnote={isSample ? "Sample data. Connect a live host in Server for real specs." : "Build identity and live host capacity."}
       >
         {rows.map(([key, value]) => <SettingsValueRow key={key} label={key} value={value} />)}
         <SettingsActionRow label="Version" trailing={<ChevronRight className="size-4" aria-hidden />} onClick={() => onOpenPage("version")} />

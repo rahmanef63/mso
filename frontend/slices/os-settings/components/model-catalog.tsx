@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FormDrawer } from "@/features/appshell";
 import { filterAndSortModels, type CatModel, type ModelFilters, type ModelSort } from "./model-catalog-utils";
 
-const fmtCtx = (n?: number) => (!n ? "—" : n >= 1e6 ? `${n / 1e6}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : `${n}`);
-const fmtCost = (n?: number) => (n == null ? "—" : `$${n}`);
+const fmtCtx = (n?: number) => (!n ? "-" : n >= 1e6 ? `${n / 1e6}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : `${n}`);
+const fmtCost = (n?: number) => (n == null ? "-" : `$${n}`);
 
 // Searchable browser over the same live model catalog used by CLI onboarding.
 // `free` is server-derived only from explicit zero input+output pricing; unknown
@@ -39,7 +39,7 @@ export function ModelCatalog({ provider, value, onPick }: { provider: string; va
       <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} className="[@media(pointer:coarse)]:min-h-[44px]">Browse</Button>
       <FormDrawer open={open} onOpenChange={setOpen} size="md">
         <FormDrawer.Header>
-          <FormDrawer.Title>Models — {provider}</FormDrawer.Title>
+          <FormDrawer.Title>Models: {provider}</FormDrawer.Title>
         </FormDrawer.Header>
         <FormDrawer.Body className="space-y-3">
           <Input autoFocus placeholder="Search models…" value={q} onChange={(e) => setQ(e.target.value)} />

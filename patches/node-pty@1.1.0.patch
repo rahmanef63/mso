@@ -1,0 +1,66 @@
+diff --git a/package.json b/package.json
+index 94a2c14381727674b8964c1b50e5e47a9205ffbc..c894b252679ab4f193913275dce0773da0eda7ec 100644
+--- a/package.json
++++ b/package.json
+@@ -38,7 +38,7 @@
+     "build": "tsc -b ./src/tsconfig.json",
+     "watch": "tsc -b -w ./src/tsconfig.json",
+     "lint": "eslint -c .eslintrc.js --ext .ts src/",
+-    "install": "node scripts/prebuild.js || node-gyp rebuild",
++    "install": "node scripts/prebuild.js || node scripts/rebuild.js",
+     "postinstall": "node scripts/post-install.js",
+     "compileCommands": "node scripts/gen-compile-commands.js",
+     "test": "cross-env NODE_ENV=test mocha -R spec --exit lib/*.test.js",
+diff --git a/node_modules/node-pty/scripts/rebuild.js b/scripts/rebuild.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..6211f1b6d9f92cead690fbeedf2f6477cb0470f5
+--- /dev/null
++++ b/scripts/rebuild.js
+@@ -0,0 +1,47 @@
++//@ts-check
++const { spawnSync } = require('child_process');
++const fs = require('fs');
++const path = require('path');
++
++function findNodeGyp() {
++  // 1. Direct command if available in PATH
++  const check = spawnSync('node-gyp', ['--version'], { encoding: 'utf8' });
++  if (check.status === 0) return { cmd: 'node-gyp', args: [] };
++
++  // 2. Locate from npm
++  try {
++    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
++    const npmBin = spawnSync(whichCmd, ['npm'], { encoding: 'utf8' }).stdout.trim().split('\n')[0].trim();
++    if (npmBin) {
++      const realNpm = fs.realpathSync(npmBin);
++      const npmDir = path.dirname(realNpm);
++      
++      // Check node-gyp-bin
++      const binGyp = path.join(npmDir, 'node-gyp-bin', process.platform === 'win32' ? 'node-gyp.cmd' : 'node-gyp');
++      if (fs.existsSync(binGyp)) {
++        return { cmd: binGyp, args: [] };
++      }
++
++      // Check bundled node-gyp.js
++      const jsGyp = path.join(npmDir, '../node_modules/node-gyp/bin/node-gyp.js');
++      if (fs.existsSync(jsGyp)) {
++        return { cmd: process.execPath, args: [jsGyp] };
++      }
++    }
++  } catch (err) {}
++
++  return null;
++}
++
++const gyp = findNodeGyp();
++if (!gyp) {
++  console.error('\x1b[31m> node-pty: node-gyp not found in PATH or via npm\x1b[0m');
++  process.exit(127);
++}
++
++const result = spawnSync(gyp.cmd, [...gyp.args, 'rebuild'], {
++  stdio: 'inherit',
++  cwd: path.join(__dirname, '..')
++});
++
++process.exit(result.status ?? 1);

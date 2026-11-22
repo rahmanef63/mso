@@ -75,15 +75,15 @@ function frameAncestors(mount: PolicyMount): string[] {
 const socketOrigin = (url: string): string => url.replace(/^https:/i, "wss:").replace(/^http:/i, "ws:");
 
 function ourPolicy(prefixUrl: string, mount: PolicyMount): Policy {
-  const isOrca = mount.appId === "orca";
+  const needsWasmAndWorkers = mount.appId === "orca" || mount.appId === "t3" || mount.appId === "n8n";
   return new Map([
     ["default-src", [prefixUrl]],
-    ["script-src", isOrca ? [prefixUrl, "'unsafe-inline'", "blob:", "'wasm-unsafe-eval'"] : [prefixUrl, "'unsafe-inline'", "blob:"]],
+    ["script-src", needsWasmAndWorkers ? [prefixUrl, "'unsafe-inline'", "blob:", "'wasm-unsafe-eval'"] : [prefixUrl, "'unsafe-inline'", "blob:"]],
     ["style-src", [prefixUrl, "'unsafe-inline'"]],
     ["img-src", [prefixUrl, "data:", "blob:"]],
     ["font-src", [prefixUrl, "data:", "https:"]],
     ["media-src", [prefixUrl, "data:", "blob:"]],
-    ["worker-src", isOrca ? [prefixUrl, "blob:"] : ["blob:"]],
+    ["worker-src", needsWasmAndWorkers ? [prefixUrl, "blob:"] : ["blob:"]],
     ["connect-src", [prefixUrl, socketOrigin(prefixUrl), "data:", "blob:"]],
     ["frame-src", [prefixUrl]],
     ["form-action", [prefixUrl]],

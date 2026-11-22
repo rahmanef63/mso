@@ -1,4 +1,3 @@
-import { NextResponse, type NextRequest } from "next/server";
 import { liveSessionAuthorized } from "@/lib/auth/live-authorization";
 import type { SurfaceApp } from "@/lib/contracts/surface-app";
 import { createShellAppCredential, verifyShellAppCredential, shellAppSession, SHELL_APP_COOKIE, SHELL_APP_COOKIE_TTL } from "./session";
@@ -10,15 +9,15 @@ export function shellSessionHeaders() {
 export function shellAppResponseHeaders() {
   return { ...shellSessionHeaders(), "content-security-policy": `frame-ancestors ${new URL(process.env.OS_PUBLIC_ORIGIN!).origin}` };
 }
-function response(body: string | null, status: number, contentType = "text/plain; charset=utf-8") {
-  return new NextResponse(body, { status, headers: { ...shellAppResponseHeaders(), "content-type": contentType,
+function response(body: string | null, status: number, contentType = "text/plain; charset=utf-8"): Response {
+  return new Response(body, { status, headers: { ...shellAppResponseHeaders(), "content-type": contentType,
     "content-security-policy": `default-src 'none'; script-src 'self'; connect-src 'self'; frame-ancestors ${new URL(process.env.OS_PUBLIC_ORIGIN!).origin}` } });
 }
 function script() {
   return "(async()=>{const p=new URLSearchParams(location.hash.slice(1));const t=p.get('app_ticket');p.delete('app_ticket');history.replaceState(null,'',location.pathname+location.search+(p.toString()?'#'+p.toString():''));if(!t){location.replace(decodeURIComponent(document.body.dataset.msoLogin));return;}const r=await fetch('/__mso_app_auth',{method:'POST',headers:{authorization:'Bearer '+t},credentials:'include',cache:'no-store'});if(!r.ok){document.body.textContent='MSO session expired. Reopen this application from MSO.';return;}location.reload();})().catch(()=>{document.body.textContent='Application authorization failed.';});";
 }
-export async function gateShellApp(request: NextRequest, app: SurfaceApp) {
-  const pathname = request.nextUrl.pathname;
+export async function gateShellApp(request: Request, app: SurfaceApp): Promise<Response | null> {
+  const pathname = new URL(request.url).pathname;
   if (pathname === "/__mso_app_bootstrap.js") return request.method === "GET" ? response(script(), 200, "application/javascript; charset=utf-8") : response(null, 404);
   if (pathname === "/__mso_app_auth") {
     if (request.method !== "POST" || request.headers.get("origin") !== app.origin) return response(null, 403);
@@ -27,9 +26,8 @@ export async function gateShellApp(request: NextRequest, app: SurfaceApp) {
     const session = token ? verifyShellAppCredential(app, token, secret, "ticket") : null;
     if (!session || !await liveSessionAuthorized(session, "owner")) return response(null, 401);
     const result = response(null, 204);
-    result.cookies.set(SHELL_APP_COOKIE, createShellAppCredential(app, session, secret, "cookie"), {
-      httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: Math.floor(Math.max(0, Math.min(SHELL_APP_COOKIE_TTL, session.parent_expires_at - Date.now()) / 1000)),
-    });
+    const maxAge = Math.floor(Math.max(0, Math.min(SHELL_APP_COOKIE_TTL, session.parent_expires_at - Date.now()) / 1000));
+    result.headers.set("set-cookie", `${SHELL_APP_COOKIE}=${createShellAppCredential(app, session, secret, "cookie")}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=strict`);
     return result;
   }
   if (await shellAppSession(request, app)) return null;

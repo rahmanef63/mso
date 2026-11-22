@@ -16,9 +16,10 @@ import { ensureFreshCodex } from "@/lib/ai/oauth/codex";
 import { streamCodex } from "@/lib/ai/codex-stream";
 import { streamOpenAI, type OaMsg, type OaTool } from "@/lib/ai/openai-stream";
 import { anthropicDonePayload } from "@/lib/ai/usage";
+import { anthropicClientHeaders } from "@/lib/ai/custom-provider-headers";
 import { boundedProviderFetch, PROVIDER_TIMEOUT_MS } from "./provider-response";
 
-export type SelectedModelEvent = "delta" | "tool_use" | "done";
+export type SelectedModelEvent = "delta" | "reasoning" | "tool_use" | "done";
 export type SelectedModelEmit = (
   event: SelectedModelEvent,
   data: unknown,
@@ -167,6 +168,7 @@ export async function streamPreparedSelectedModel(opts: {
     apiKey: prepared.resolved.apiKey,
     baseURL: prepared.resolved.baseUrl,
     fetch: boundedProviderFetch(prepared.customProvider ? safeProviderFetch : fetch),
+    ...anthropicClientHeaders(prepared.customProvider, prepared.resolved.apiKey),
   });
   const ai = anthropic.messages.stream(
     {
@@ -182,11 +184,11 @@ export async function streamPreparedSelectedModel(opts: {
   );
   for await (const event of ai) {
     if (signal.aborted) break;
-    if (
-      event.type === "content_block_delta" &&
-      event.delta.type === "text_delta"
-    )
-      emit("delta", event.delta.text);
+    if (event.type === "content_block_delta") {
+      if (event.delta.type === "text_delta") emit("delta", event.delta.text);
+      else if (event.delta.type === "thinking_delta" && typeof event.delta.thinking === "string")
+        emit("reasoning", event.delta.thinking);
+    }
   }
   if (signal.aborted) {
     ai.abort();

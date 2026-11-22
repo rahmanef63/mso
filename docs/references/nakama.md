@@ -28,7 +28,10 @@ bytes that were read. A hash proves which bytes were read, not that a feature wo
 - Shingle comparison of 2,830 MSO files against 1,524 Nakama source files: the only
   overlap above 0.25 is `components/ui/*`, which is shadcn/ui present in MSO's initial
   commit `71a4303` (2026-08-02), before parity work began on 2026-10-18.
-- `grep -r nakama lib app frontend` returns nothing outside `scripts/parity/` and docs.
+- `grep -r nakama lib app frontend` stayed empty outside `scripts/parity/` and docs until
+  #296 added one server-side follower (`lib/auth/nakama-password.ts`): it carries no copied
+  code and no Nakama UI, only the documented `POST /v1/auth/login` →
+  `POST /v1/auth/change-password` contract so the Nakama admin password follows MSO's.
 
 ## Local study instance
 

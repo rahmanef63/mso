@@ -1,10 +1,10 @@
 # Orca Web Integration Architecture & Security Contracts
 
-Status: **local development candidate** on the task branch. Not merged, released, or
-deployed, and not claimed live: no real Orca runtime, browser journey, or upstream install has
-been executed as part of this worktree. The MSO-owned installer/adapter, the pinned-release
-lifecycle, and the manager ownership rule below are implemented and covered by dry-run/unit
-fixtures; the live service install remains the operator's explicit action.
+Status: **implemented on `main`** (pinned release `v1.4.230`). The MSO-owned installer/adapter,
+download retry for transient `429`/`503` responses, the pinned-release lifecycle, and the manager
+ownership rules below are implemented and covered by unit/e2e fixtures; live service installation
+and split-origin DNS/tunnel routing (`orca.<managed-app-host>`) remain explicit operator actions
+per deployment.
 
 Target: Orca IDE v1.4.230, Node-only headless `orcad` server.
 

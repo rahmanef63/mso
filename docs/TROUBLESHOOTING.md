@@ -187,6 +187,30 @@ it. Use HTTPS/Tailscale Serve or access through a localhost SSH tunnel.
 A changed `OS_SESSION_SECRET` invalidates all signed sessions. Confirm deployment automation
 is not regenerating it.
 
+### Nakama admin password no longer matches the MSO login password
+
+`NAKAMA_BASE_URL` + `NAKAMA_ADMIN_EMAIL` opt in to the follower (#296). MSO's `.env.local`
+write stays authoritative and happens first; Nakama is called afterwards. A rotation that
+Nakama rejects or cannot reach is audited as `auth.nakama` with `ok: false` and a reason
+(`change_http_4xx`, `login_http_401`, `ECONNREFUSED`, `timeout`), and the previous password
+Nakama still has is kept in the private 0600 retry record `OS_NAKAMA_PENDING_STORE`
+(default `~/.mso/private/nakama-password-pending.json`) so the boot reconcile can replay it.
+MSO login keeps working throughout; Nakama is never consulted on the login path. To re-run
+the reconcile by hand, restart MSO (`mso service restart` or Settings → Update MSO) with the
+retry record present, or delete the record and set the Nakama admin password to
+`OS_LOGIN_PASSWORD` in Nakama once. With Nakama reachable and the passwords already equal, the
+reconcile only signs in and deletes the record, so it is safe to repeat. Check the trail with
+`mso audit 50 auth.nakama` or by grepping `auth.nakama` in `OS_AUDIT_LOG`.
+
+The one case the boot reconcile cannot repair is a brand-new installation whose first
+password was created in `.env.local` rather than rotated: no previous password is recorded,
+so Nakama has never accepted the new one. That run is audited as `reconcile_failed:
+login_http_401` (a `drift` result) rather than passing silently, and the fix is the manual
+Nakama password change above, after which every later rotation follows automatically.
+Nakama also requires at least 8 characters, while `passwordPolicyError` accepts 6, so a
+6-7 character MSO password rotates locally and is reported once as `change_http_400`
+instead of silently drifting.
+
 ## Deploy & build
 
 ### UI is unstyled or JS/CSS chunks 404 after deploy

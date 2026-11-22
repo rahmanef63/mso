@@ -108,7 +108,7 @@ export function DevicesHostCard() {
           Every /api host route enforces the session server-side. */}
       {!IS_DEMO && (
         <SettingsSection icon={authed ? <LogOut /> : <LogIn />} title="Server access" footnote="The shell is public and browses safe mock data. Sign in with the admin password to connect to this VPS's real files, terminal, and monitor.">
-          <SettingsValueRow label="Status" value={authed ? "Signed in — live host access" : "Public — mock data only"} />
+          <SettingsValueRow label="Status" value={authed ? "Signed in: live host access" : "Public: mock data only"} />
           {authed ? (
             <SettingsActionRow label="Sign out" onClick={onSignOut} />
           ) : (

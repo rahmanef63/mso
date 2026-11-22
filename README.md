@@ -95,15 +95,13 @@ when shell access is unnecessary. Never paste passwords or tokens into a prompt.
 [How to use MCP — Bahasa Indonesia](./docs/MCP-HOW-TO.md) · [ChatGPT setup/reference](./docs/CHATGPT-PLUGIN.md) · [Protocol and security](./docs/MCP.md) · [Generated tool catalog](./docs/generated/MCP-CATALOG.md)
 
 ## Build with it
-
 ```bash
 bun install --frozen-lockfile
-bun run verify
-bun run test:features
-bun run audit:strict
+bun run gate:smart && bun run check:features && bun run verify
+bun run test:features && bun run audit:strict
 ```
 
-Use Bun >=1.2.15 with native audit support. [Contributing](./CONTRIBUTING.md) · [Development](./docs/DEVELOPMENT.md) · [Changelog](./docs/CHANGELOG.md)
+Use Bun >=1.2.15 with native audit support. [Contributing](./CONTRIBUTING.md) · [Development](./docs/DEVELOPMENT.md) · [Modular features](./docs/MODULAR-FEATURES.md) · [Changelog](./docs/CHANGELOG.md)
 
 ## Powerful by design. Not a sandbox.
 

@@ -102,6 +102,40 @@ const definitions = {
     homeDir: orcaManagedRoot(),
     gradient: "linear-gradient(160deg,#0284c7,#1e3a8a)",
   },
+  t3: {
+    id: "t3",
+    installBackends: ["user-systemd"],
+    name: "T3 Code",
+    description: "T3 Code web workspace and multi-agent coding server",
+    // The lifecycle adapter ships in THIS repo, so its presence proves nothing;
+    // detection rests on the installed user systemd unit.
+    command: join(process.cwd(), "scripts", "managed-app-t3"),
+    commandProvesInstall: false,
+    serviceNames: ["t3-code.service"],
+    containerNames: [],
+    dashboardUrl: process.env.T3_DASHBOARD_URL ?? "http://127.0.0.1:3773",
+    healthPath: "/api/auth/session",
+    stateDirName: ".t3",
+    homeDir: expandHome(process.env.T3CODE_HOME),
+    gradient: "linear-gradient(160deg,#18181b,#4f46e5)",
+  },
+  n8n: {
+    id: "n8n",
+    installBackends: ["docker"],
+    name: "n8n",
+    description: "Self-hosted workflow automation workspace managed outside MSO core",
+    command: join(process.cwd(), "scripts", "managed-app-n8n"),
+    commandProvesInstall: false,
+    serviceNames: [],
+    containerNames: ["n8n"],
+    dashboardUrl: process.env.N8N_DASHBOARD_URL ?? "http://127.0.0.1:5678",
+    healthPath: "/healthz",
+    publicPort: process.env.N8N_EXPOSE_PUBLIC === "1" ? 5678 : undefined,
+    publicUrl: process.env.N8N_PUBLIC_URL,
+    stateDirName: ".n8n",
+    homeDir: expandHome(process.env.N8N_DATA),
+    gradient: "linear-gradient(160deg,#ea4b71,#ff6d5a)",
+  },
 } as const satisfies Record<ManagedAppId, ManagedAppDefinition>;
 
 export function isManagedAppId(value: string): value is ManagedAppId {

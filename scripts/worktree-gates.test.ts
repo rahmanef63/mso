@@ -57,6 +57,7 @@ function fixture(script: string) {
     ["scripts/check-bundle.mjs", "bundle budget"],
     ["scripts/e2e/bundle-performance.mjs", "deferred performance"],
     ["scripts/e2e/google-integrations.mjs", "native Google UI"],
+    ["scripts/e2e/integrations.mjs", "credential actions"],
     ["scripts/e2e/assistant-chat-ux.mjs", "Assistant chat UX"],
     ["scripts/e2e/macos-figma.mjs", "macOS chrome"],
     ["scripts/e2e/ios-lock.mjs", "iOS lock"],
@@ -137,6 +138,7 @@ describe("isolated worktree release guards", () => {
     expect(run.stdout).toContain("isolated bundle budget fixture passed");
     expect(run.stdout).toContain("isolated deferred performance fixture passed");
     expect(run.stdout).toContain("isolated native Google UI fixture passed");
+    expect(run.stdout).toContain("isolated credential actions fixture passed");
     expect(run.stdout).toContain("isolated Assistant chat UX fixture passed");
     expect(run.stdout).toContain("isolated macOS chrome fixture passed");
     expect(run.stdout).toContain("isolated iOS lock fixture passed");

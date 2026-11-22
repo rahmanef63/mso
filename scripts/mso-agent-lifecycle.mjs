@@ -1,5 +1,6 @@
 import process from "node:process";
 import { CLI } from "./mso-agent-api.mjs";
+import { leaveScreen } from "./mso-agent-altscreen.mjs";
 
 const RESTART_PERMISSION_ENV = "MSO_AGENT_RESTART_PERMISSION";
 const RESTART_STATUSBAR_ENV = "MSO_AGENT_RESTART_STATUSBAR";
@@ -33,6 +34,8 @@ export function relaunchAgentSession(
   // execve replaces the current process image instead of spawning a child. Combined
   // with the CLI wrapper's `exec node`, repeated /restart keeps a constant process
   // depth and reloads both the current wrapper and Agent modules from disk.
+  // Releases the alternate screen buffer before handing the terminal to the replaced process image.
+  leaveScreen();
   execve(command, [command, "agent", "--restart-session", id], env);
   throw new Error("MSO Agent process replacement unexpectedly returned");
 }

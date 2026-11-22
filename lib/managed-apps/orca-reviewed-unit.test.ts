@@ -52,7 +52,10 @@ const writeStaleConfig = () => {
   return writeFile(configPath(), JSON.stringify(old), { mode: 0o600 });
 };
 const writeOwned = async (over: Record<string, unknown> = {}, mode = 0o644) => {
-  await mkdir(path.dirname(unitPath()), { recursive: true });
+  // The owned-unit contract requires a private containing directory. `mkdir`'s
+  // mode is masked by the ambient umask (e.g. 0002 on a shared host), so pin it
+  // instead of inheriting a group-writable directory the proof must refuse.
+  await mkdir(path.dirname(unitPath()), { recursive: true, mode: 0o700 });
   await writeFile(unitPath(), renderFor(over), { mode });
   await writeConfig();
   await writeFile(path.join(root(), "managed-install.json"), "{}", { mode: 0o600 });

@@ -42,12 +42,17 @@ function GraphStage({
 }) {
   const [view, setView] = useState(bounds);
   const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const zoom = (factor: number) => setView(current => { const w = Math.min(bounds.w * 4, Math.max(bounds.w / 4, current.w * factor)); const ratio = w / current.w; return { ...current, w, h: current.h * ratio }; });
   return (
+    <div className="relative h-full">
+    <div className="absolute right-2 top-2 z-10 flex gap-1"><button className="rounded border bg-background px-2 py-1" onClick={() => zoom(0.8)} aria-label="Zoom in">+</button><button className="rounded border bg-background px-2 py-1" onClick={() => zoom(1.25)} aria-label="Zoom out">-</button><button className="rounded border bg-background px-2 py-1" onClick={() => setView(bounds)}>Fit</button></div>
     <svg
       className="h-full w-full touch-none bg-background"
       viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
       role="application"
       aria-label="Memory graph"
+      tabIndex={0}
+      onKeyDown={(event) => { const delta = view.w * 0.1; const direction: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }; const move = direction[event.key]; if (move && event.target === event.currentTarget) { event.preventDefault(); setView(current => ({ ...current, x: current.x + move[0] * delta, y: current.y + move[1] * delta })); } }}
       onPointerDown={(event) => {
         if (event.target !== event.currentTarget) return;
         drag.current = { x: event.clientX, y: event.clientY, vx: view.x, vy: view.y };
@@ -60,10 +65,12 @@ function GraphStage({
         setView((current) => ({ ...current, x: drag.current!.vx - (event.clientX - drag.current!.x) * scale, y: drag.current!.vy - (event.clientY - drag.current!.y) * scale }));
       }}
       onPointerUp={() => { drag.current = null; }}
+      onPointerCancel={() => { drag.current = null; }}
+      onLostPointerCapture={() => { drag.current = null; }}
       onWheel={(event) => {
         event.preventDefault();
         const factor = event.deltaY > 0 ? 1.08 : 0.92;
-        setView((current) => ({ ...current, w: current.w * factor, h: current.h * factor }));
+        zoom(factor);
       }}
     >
       {edges.map((edge) => {
@@ -81,7 +88,7 @@ function GraphStage({
             aria-pressed={selected === node.id} aria-label={node.title}
             onClick={() => onSelect(node.id)}
             onDoubleClick={() => onOpen(node)}
-            onKeyDown={(event) => { if (event.key === "Enter") onOpen(node); }}
+            onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); onSelect(node.id); } else if (event.key === "Enter") onOpen(node); }}
           >
             {node.kind === "folder"
               ? <rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} rx={4} fill={fill} stroke={selected === node.id ? "var(--accent)" : "transparent"} strokeWidth={3} />
@@ -91,5 +98,6 @@ function GraphStage({
         );
       })}
     </svg>
+    </div>
   );
 }

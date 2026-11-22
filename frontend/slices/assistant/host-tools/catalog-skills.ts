@@ -10,7 +10,7 @@ export const SKILL_TOOLS: HostTool[] = [
     group: "agent",
     label: "List skills",
     effect: "read",
-    description: "List every trusted skill on this VPS — MSO/OpenClaw/Codex roots plus per-project skill roots across all configured project containers. Use the returned id (a project skill is <project>/<name>) with skills.read.",
+    description: "List every trusted skill on this VPS: MSO/OpenClaw/Codex roots plus per-project skill roots across all configured project containers. Use the returned id (a project skill is <project>/<name>) with skills.read.",
     parameters: obj({}),
     run: async () => {
       const data = (await fetch("/api/skills", { cache: "no-store" })
@@ -22,7 +22,7 @@ export const SKILL_TOOLS: HostTool[] = [
       const skills = data.skills ?? [];
       const safe = skills.filter((s) => s.trust !== "untrusted");
       const blocked = skills.length - safe.length;
-      const rows = safe.map((s) => `${s.id ?? s.name} [${s.trust ?? "legacy"}/${s.source ?? "unknown"}${s.project ? `/project:${s.project.name}` : ""}]${s.description ? ` — ${s.description}` : ""}`);
+      const rows = safe.map((s) => `${s.id ?? s.name} [${s.trust ?? "legacy"}/${s.source ?? "unknown"}${s.project ? `/project:${s.project.name}` : ""}]${s.description ? `: ${s.description}` : ""}`);
       if (blocked) rows.push(`(${blocked} discovered skill${blocked === 1 ? "" : "s"} hidden because trust=untrusted)`);
       for (const r of data.recipes ?? []) {
         const rate = r.attempts ? Math.round((r.successes / r.attempts) * 100) : 0;
@@ -53,7 +53,7 @@ export const SKILL_TOOLS: HostTool[] = [
         const steps = h.steps?.length
           ? ` · ${h.steps.map((x) => `${x.tool}${x.args ? ` ${JSON.stringify(x.args)}` : ""}`).join(" → ")}`
           : "";
-        return `${h.kind} ${h.name} (${Math.round(h.score * 100)}%)${speed}${steps}${h.description ? ` — ${h.description}` : ""}`;
+        return `${h.kind} ${h.name} (${Math.round(h.score * 100)}%)${speed}${steps}${h.description ? `: ${h.description}` : ""}`;
       });
       return rows.length ? `${d.engine ?? "semantic"}\n${rows.join("\n")}` : "no relevant skill, tool or learned workflow found";
     },

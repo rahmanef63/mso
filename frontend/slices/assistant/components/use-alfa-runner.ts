@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { registerAlfaRunner, registerAlfaStop, unregisterAlfaRunner } from "@/features/appshell";
+import { registerAlfaRunner, registerAlfaStop, unregisterAlfaRunner } from "@/features/appshell/alfa";
 
 /**
  * Publish this panel as THE Alfa engine while it is mounted, so the per-app Alfa
@@ -16,7 +16,7 @@ import { registerAlfaRunner, registerAlfaStop, unregisterAlfaRunner } from "@/fe
  * unmount clears it, and a surface that finds no engine opens the Assistant.
  */
 export function useAlfaRunner(
-  send: (text: string, fromAppId?: string) => Promise<void>,
+  send: (text: string, fromAppId?: string, appContext?: string) => Promise<void>,
   stop: () => void,
 ): void {
   // The registered closure must never capture a stale `send`.
@@ -35,13 +35,12 @@ export function useAlfaRunner(
     // back through this registration or those buttons do nothing.
     registerAlfaStop(() => stopRef.current());
     registerAlfaRunner(async () => async (text, ctx) => {
-      // Ground the turn in whatever app the sheet was opened over, the way the old
-      // scoped inspector chat did — and tag it so the shared thread can show the
-      // cross-feature trail.
-      const grounded = ctx.subject
-        ? `[Context — the user is in the ${ctx.subject} app.${ctx.context ? ` ${ctx.context}` : ""}] ${text}`
-        : text;
-      await sendRef.current(grounded, ctx.appId);
+      // Pass app grounding cleanly into the system prompt instead of prefixing
+      // the user's visible chat bubble with bracketed metadata.
+      const appContext = ctx.subject
+        ? `The user is in the ${ctx.subject} app.${ctx.context ? ` ${ctx.context}` : ""}`
+        : undefined;
+      await sendRef.current(text, ctx.appId, appContext);
     });
     return () => unregisterAlfaRunner();
   }, []);

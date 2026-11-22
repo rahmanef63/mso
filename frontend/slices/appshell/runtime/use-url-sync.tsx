@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { openWindow, focusApp, shellStore } from "../lib/store";
 import { useFocused, useWindow } from "../hooks/use-shell";
+import { stateToUrl } from "../lib/window-url";
 import type { AppDescriptor } from "../lib/types";
 
 // Maps the OS window model onto a single URL: the FOCUSED app (+ its launch
@@ -17,23 +18,11 @@ import type { AppDescriptor } from "../lib/types";
 // ⌘/middle-click on the dock <Link>, back/forward) still loads/repaints normally.
 //
 // The two effects fire on DIFFERENT triggers and never on each other's:
-//   • state → URL reacts to focus/payload, reads the latest pathname from a ref
+//   • state → URL reacts to focus/payload and registry readiness, reading the latest pathname from a ref
 //     so OUR own address-bar rewrite doesn't re-trigger it.
 //   • URL → state reacts to the pathname (incl. popstate from back/forward),
 //     reads the focused app LIVE from the store (not a dep) so a focus change
 //     can't re-run it and fight the rewrite.
-
-function payloadPath(payload: unknown): string {
-  const p = (payload as { path?: unknown } | null)?.path;
-  return typeof p === "string" && p ? "/" + p.replace(/^\/+/, "") : "";
-}
-
-function stateToUrl(apps: AppDescriptor[], appId: string | null, payload: unknown): string {
-  if (!appId) return "/";
-  const app = apps.find((a) => a.id === appId);
-  if (!app) return "/";
-  return "/" + (app.slug ?? app.id) + payloadPath(payload);
-}
 
 function urlToApp(
   apps: AppDescriptor[],
@@ -80,6 +69,7 @@ export function UrlSync({ apps }: { apps: AppDescriptor[] }) {
   // URL→state opens its window.
   useEffect(() => {
     const target = stateToUrl(apps, visibleApp, payload);
+    if (target === null) return;
     if (!booted.current || target === pathnameRef.current) {
       booted.current = true;
       prevApp.current = visibleApp;
@@ -94,8 +84,7 @@ export function UrlSync({ apps }: { apps: AppDescriptor[] }) {
     }
     pathnameRef.current = target;
     prevApp.current = visibleApp;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleApp, payload]);
+  }, [visibleApp, payload, apps]);
 
   // URL → state: open/focus the app named in the URL (deep link + back/forward).
   // Reads the focused app live so a focus change can't re-enter this effect.

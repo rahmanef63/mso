@@ -12,7 +12,18 @@ import {
 } from "@/lib/a2a";
 import { a2aInboundConfig } from "@/lib/a2a/inbound-config";
 import { readAuditTail } from "@/lib/host/audit-api";
-import { a2aLimited } from "./route-shared";
+import { a2aLimited, a2aOwnerContext, a2aRouteError } from "./route-shared";
+
+export async function handleA2AGetRoute(req: NextRequest) {
+  const context = await a2aOwnerContext();
+  if (!context)
+    return NextResponse.json({ error: "owner_role_required" }, { status: 403 });
+  try {
+    return await handleA2AGet(req, context.session.device_id || "owner");
+  } catch (error) {
+    return a2aRouteError(error);
+  }
+}
 
 export async function handleA2AGet(req: NextRequest, actor: string) {
   const action = req.nextUrl.searchParams.get("action") || "list";

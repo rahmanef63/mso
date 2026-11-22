@@ -3,8 +3,16 @@
 import { useMemo, useRef } from "react";
 import { matchDestructive, useOsApi } from "../lib/host";
 import type { AiTool, ToolInvocation, ToolOutcome } from "../lib/host";
-import { useApps, type ToolCard } from "@/features/appshell";
-import { alfaRunState, alfaProjectContext, alfaApprovalScope, alfaApprovalKey, hasAlfaApproval, rememberAlfaApproval } from "@/features/appshell";
+import { useApps } from "@/features/appshell";
+import {
+  type ToolCard,
+  alfaRunState,
+  alfaProjectContext,
+  alfaApprovalScope,
+  alfaApprovalKey,
+  hasAlfaApproval,
+  rememberAlfaApproval,
+} from "@/features/appshell/alfa";
 import { findHostTool, HOST_AI_TOOLS } from "./registry";
 import { recordAlfaTool } from "../lib/alfa-activity";
 
@@ -78,7 +86,7 @@ export function useHostCommands(ui: HostToolUi): {
         if (denied.current.has(sig)) {
           ui.updateCard(id, { status: "denied", result: "Auto-denied (already declined this exact call)." });
           recordAlfaTool(id, name, "denied", "auto-denied", Date.now() - startedAt);
-          return { ok: false, result: "Auto-denied: the user already declined this exact call. Stop retrying it — propose an alternative or ask." };
+          return { ok: false, result: "Auto-denied: the user already declined this exact call. Stop retrying it. Propose an alternative or ask." };
         }
         if (!danger && hasAlfaApproval(name, args, scope)) return execute();
         const { approve, remember } = await ui.requestApproval(id);

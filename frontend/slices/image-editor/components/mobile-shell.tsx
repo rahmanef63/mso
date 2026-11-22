@@ -57,7 +57,12 @@ export function MobileShell({ stage, onSave, onSaveAs }: { stage: ReactNode; onS
           onPointerDown={onGripDown}
           onPointerMove={onGripMove}
           onPointerUp={onGripUp}
-          className="flex h-5 shrink-0 cursor-row-resize touch-none items-center justify-center"
+          onPointerCancel={onGripUp}
+          onLostPointerCapture={onGripUp}
+          role="separator" tabIndex={0} aria-orientation="horizontal"
+          aria-valuemin={25} aria-valuemax={80} aria-valuenow={Math.round(sheetPct)}
+          onKeyDown={(e) => { const delta = e.key === "ArrowUp" ? 2 : e.key === "ArrowDown" ? -2 : e.key === "PageUp" ? 10 : e.key === "PageDown" ? -10 : 0; if (delta || e.key === "Home" || e.key === "End") { e.preventDefault(); setSheetPct((v) => e.key === "Home" ? 25 : e.key === "End" ? 80 : Math.min(80, Math.max(25, v + delta))); } }}
+          className="flex h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary shrink-0 cursor-row-resize touch-none items-center justify-center"
           aria-label="Resize panel"
         >
           <div className="h-1 w-10 rounded-full bg-muted-foreground/40" />

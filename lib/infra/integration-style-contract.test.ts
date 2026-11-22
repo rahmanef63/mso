@@ -32,6 +32,19 @@ describe("Integrations visual token contract", () => {
     expect(value).not.toMatch(/(?:^|[:;,\s])(white|black)(?:[;,\s}]|$)/i);
   });
 
+  it("themes the UA-painted native select popup in both themes", () => {
+    // Regression: the option list is painted by the UA, so it kept a light surface
+    // under our near-inverted --foreground and every dropdown in dark mode read as
+    // light-on-light. Each shipped style sheet that renders a native select must
+    // paint option rows from the same semantic tokens.
+    for (const [name, css] of Object.entries(styles)) {
+      if (!/(^|[\s,{])select[\s,{:.]/.test(css)) continue;
+      expect(css, `${name} must theme native select options`).toMatch(/select option\{background-color:var\(--/);
+    }
+    const globals = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+    expect(globals).toMatch(/select option,\s*\nselect optgroup \{\s*\n\s*background-color: var\(--background\);\s*\n\s*color: var\(--foreground\);/);
+  });
+
   it("uses the shared Settings semantic surfaces and accent", () => {
     expect(CONNECTION_MANAGER_STYLE).toContain("var(--settings-card)");
     expect(CONNECTION_MANAGER_STYLE).toContain("var(--settings-sidebar)");
@@ -49,4 +62,27 @@ describe("Integrations visual token contract", () => {
     }
   });
 
+  it("enforces WCAG AA compliant text token for missing credential fields (R-25)", () => {
+    // Stored/Missing is a pill, not a bare colored word: same tokens, but the state
+    // reads without relying on colour alone (dot + border + label).
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .credential-field-state{display:inline-flex");
+    expect(CONNECTION_MANAGER_STYLE).toContain("border-radius:var(--radius-pill)");
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .credential-field-state[data-stored=true]{color:var(--success-text)");
+    expect(CONNECTION_MANAGER_STYLE).not.toContain("color:var(--warning)");
+  });
+
+  it("enforces minimum control-size tap targets for interactive elements (R-03)", () => {
+    // Summary disclosure targets
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration summary{display:flex;align-items:center;min-height:var(--control-size);cursor:pointer}");
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .identity-guide summary{display:flex;align-items:center;min-height:var(--control-size);cursor:pointer;font-weight:var(--weight-strong)}");
+    expect(INTEGRATION_FORM_STYLE).toContain(".integration summary{display:flex;align-items:center;min-height:var(--control-size);cursor:pointer;font-weight:var(--weight-strong)}");
+
+    // Guide inline links
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .identity-guide a{display:inline-flex;align-items:center;min-height:var(--control-size)");
+    expect(INTEGRATION_FORM_STYLE).toContain(".integration details a{display:inline-flex;align-items:center;min-height:var(--control-size)}");
+
+    // Checkbox labels
+    expect(CONNECTION_MANAGER_STYLE).toContain(".integration .identity-check{display:flex;align-items:center;gap:var(--space-2);min-height:var(--control-size);cursor:pointer;font-weight:var(--weight-regular)}");
+    expect(PORTABILITY_STYLE).toContain(".portable-transfer .identity-check{display:flex;gap:var(--space-2);align-items:center;min-height:var(--control-size);cursor:pointer;font-weight:var(--weight-regular)}");
+  });
 });

@@ -20,6 +20,8 @@ cd "$ROOT" || exit 1
 . "$ROOT/scripts/lib/update-git-authority.sh"
 # shellcheck source=scripts/lib/update-remote-authority.sh
 . "$ROOT/scripts/lib/update-remote-authority.sh"
+# shellcheck source=scripts/lib/promote-next-build.sh
+. "$ROOT/scripts/lib/promote-next-build.sh"
 
 LOG="${MSO_UPDATE_LOG:-$HOME/.mso/self-update.log}"
 mkdir -p "$(dirname "$LOG")"
@@ -131,19 +133,27 @@ if [ "$REBUILD_ONLY" -eq 0 ]; then
   node -e "require('node-pty')" || die "node-pty did not load after install — every /api/v1 route imports it"
 fi
 
+STAGED_NEXT="$ROOT/.next-staged"
+rm -rf "$STAGED_NEXT"
+
 if [ "$SHIP_FINALIZE" -eq 1 ]; then
   step "using the exact commit already proven by the pre-push out-of-tree build"
   [ "$(git rev-parse HEAD)" = "$EXPECTED_SHA" ] && [ -z "$(git status --porcelain)" ] \
     || die "checkout moved before the in-place build"
 else
-  step "verifying compile + browser release gates out-of-tree (this does not touch the live .next)"
-  if ! bash scripts/verify-build.sh; then
+  step "verifying compile + browser release gates out-of-tree (staging verified .next)"
+  if ! NEXT_PUBLIC_COMMIT_SHA="$(git rev-parse --short HEAD)" MSO_EXPORT_NEXT_DIR="$STAGED_NEXT" MSO_E2E_JOBS="${MSO_E2E_JOBS:-2}" bash scripts/verify-build.sh; then
+    rm -rf "$STAGED_NEXT"
     die "out-of-tree verification failed at the stage shown above — nothing was deployed"
   fi
 fi
 
-step "building in place"
-node node_modules/next/dist/bin/next build || die "in-place build failed — check the build output above and disk space"
+if promote_staged_next_build "$ROOT" "$STAGED_NEXT"; then
+  step "promoted verified .next artifact atomically (skipped duplicate build)"
+else
+  step "building in place"
+  node node_modules/next/dist/bin/next build || die "in-place build failed — check the build output above and disk space"
+fi
 
 step "restarting mso.service (same-user signal; no sudo)"
 # mso.service runs as the owner and has Restart=always. Signalling its MainPID is
@@ -164,13 +174,7 @@ PID_UID="$(stat -c %u "/proc/$OLD_PID" 2>/dev/null || true)"
 [ "$PID_UID" = "$SELF_UID" ] || die "mso.service MainPID $OLD_PID belongs to uid ${PID_UID:-unknown}, not $SELF_UID"
 kill -TERM "$OLD_PID" || die "could not signal mso.service MainPID $OLD_PID"
 
-# A system service can legitimately spend close to TimeoutStopSec draining the old
-# control group before Restart=always creates the replacement. The installed MSO
-# unit currently inherits systemd's 90 s TimeoutStopSec; the old fixed 40 s loop
-# could therefore declare failure while systemd was still correctly stopping the
-# old Next/npm process, then the new service would appear seconds later. Keep a
-# bounded but realistic verification budget. The override is intentionally narrow
-# (30..300 s) so a typo cannot make the release finalizer hang forever.
+# Bounded wait for systemd TimeoutStopSec draining before Restart=always brings up the new PID.
 RESTART_WAIT_SECONDS="${MSO_SERVICE_RESTART_WAIT_SECONDS:-120}"
 case "$RESTART_WAIT_SECONDS" in
   ""|*[!0-9]*) die "MSO_SERVICE_RESTART_WAIT_SECONDS must be an integer from 30 to 300" ;;

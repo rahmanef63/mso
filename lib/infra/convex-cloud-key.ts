@@ -9,9 +9,10 @@ import {
   type FetchLike,
 } from "./convex-cloud-core";
 
-export async function convexCloudPersonalToken(): Promise<string> {
-  const token = (await readInfraProvider("convex-cloud")).personalToken;
-  if (!token) throw new IntegrationError("convex_personal_token_required", 409);
+export async function convexCloudManagementToken(): Promise<string> {
+  const values = await readInfraProvider("convex-cloud");
+  const token = values.teamToken || values.personalToken;
+  if (!token) throw new IntegrationError("convex_management_token_required", 409);
   return token;
 }
 

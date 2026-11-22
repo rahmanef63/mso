@@ -68,7 +68,7 @@ export function RollbackPanel({ appId, centre }: { appId: ManagedAppId; centre: 
       ) : backups.length === 0 ? (
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           No snapshots yet. Run <span className="font-medium">Backup</span> on the card above, or start an
-          update — one is taken automatically before every update.
+          update; one is taken automatically before every update.
         </p>
       ) : (
         <ul className="space-y-2">
@@ -108,11 +108,11 @@ export function RollbackPanel({ appId, centre }: { appId: ManagedAppId; centre: 
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         A restore <span className="font-medium">overwrites</span> {support.stateDir} with the snapshot after
-        snapshotting the current state. It does not delete files created since — those stay, so the result is
+        snapshotting the current state. It does not delete files created since; those stay, so the result is
         a mix, not the old tree. It also does not bring back what the backup never had (symlinks,{" "}
         <span className="font-mono">node_modules</span>, <span className="font-mono">.venv</span>,{" "}
         <span className="font-mono">.git</span>, <span className="font-mono">.cache</span> and the app&apos;s own{" "}
-        <span className="font-mono">backups/</span>), and it does not move the installed code — the version
+        <span className="font-mono">backups/</span>), and it does not move the installed code: the version
         stays wherever the last update left it unless you pin one.
       </p>
 
@@ -131,7 +131,7 @@ export function RollbackPanel({ appId, centre }: { appId: ManagedAppId; centre: 
         }}
       >
         <ul className="list-disc space-y-1 pl-4">
-          <li>The current {support.stateDir} is snapshotted first — that snapshot is the undo.</li>
+          <li>The current {support.stateDir} is snapshotted first: that snapshot is the undo.</li>
           <li>Snapshot files overwrite live ones; files added since are left where they are.</li>
           {/* Straight off this snapshot's own manifest — what it never held is
               exactly what restoring it cannot bring back. */}
@@ -145,7 +145,7 @@ export function RollbackPanel({ appId, centre }: { appId: ManagedAppId; centre: 
           )}
           <li>
             The app stays on its installed version
-            {support.rollbackPin ? " — pin it below if you are undoing an update." : "; this app cannot be pinned here (below)."}
+            {support.rollbackPin ? "; pin it below if you are undoing an update." : "; this app cannot be pinned here (below)."}
           </li>
         </ul>
         {/* No pin field where a pin would UNDO the restore: for Hermes the only

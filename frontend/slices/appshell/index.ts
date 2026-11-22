@@ -51,6 +51,7 @@ export {
   ResponsiveDialog,
   ResponsiveDialog as FormDrawer,
 } from "./primitives/responsive-dialog";
+export { ConfirmDialog, type ConfirmDialogProps } from "./primitives/confirm-dialog";
 export {
   toast, dismissToast, useToasts,
   useNotifications, dismissNotification, clearNotifications, markNotificationsRead,
@@ -66,6 +67,7 @@ export type {
   OsApi, Unsub, HostAccessRole, HostAccess, SysStats, FsEntry, FsRoot, FsList, FsUsage, FsHit,
   UploadFile, UploadResult, UploadProgress, ExecResult, Process, ServiceScope, ServiceAction,
   SystemService, ServiceInventory, ServiceLogs, PackageUpdate, PackageUpdateSummary, AppManifest,
+  SliceResourceReport, SliceResourceRow,
 } from "./lib/host-api";
 // F1–F20 window-manager + productivity libs (each module exports its own
 // public surface — commands/badges/layouts/recents/window-commands/window-title/
@@ -119,20 +121,7 @@ export type {
 export type { Toast, ToastOptions, ToastTone } from "./lib/toast";
 export type { AppDescriptor, AppIconComponent, AppMenu, AppMenuItem, WindowState, WinId, AppProps } from "./lib/types";
 export { CopyButton } from "./components/copy-button";
-export { AlfaThread } from "./components/alfa-thread";
-export { ChatComposer } from "./components/chat-composer";
-export * from "./lib/mentions";
-export * from "./lib/alfa";
-export * from "./lib/alfa-run-state";
-export * from "./lib/alfa-approval-policy";
-export { AlfaApprovalGrants } from "./components/alfa-approval-grants";
-export { AlfaRunProgress } from "./components/alfa-run-progress";
-export * from "./lib/alfa-sources";
-export * from "./lib/alfa-approvals";
-export * from "./lib/alfa-work-context";
-export { MessageBubble } from "./components/message-bubble";
-export type { ChatMessage, ToolCard } from "./components/message-bubble";
-export { ApprovalCard } from "./components/approval-card";
+export { registerAlfaLoader } from "./lib/alfa-loader";
 
 export {
   registerShell,
@@ -215,3 +204,7 @@ export type {
 // consumer drops `features: DEFAULT_FEATURES` into its manifest in one line.
 export { mdToHtml } from "./features/widgets/components/md";
 export * from "./defaults";
+
+export { clearSensitiveFeatureState } from "./lib/feature-state";
+export { useFeatureState } from "./hooks/use-feature-state";
+export type { LayoutMetrics, LayoutConfig } from "./design";

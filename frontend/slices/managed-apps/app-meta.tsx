@@ -1,4 +1,4 @@
-import { Bot, SquareCode, Workflow, type LucideIcon } from "lucide-react";
+import { Bot, Code2, SquareCode, Workflow, type LucideIcon } from "lucide-react";
 import React, { createElement } from "react";
 import type { AppIconComponent } from "@/features/appshell";
 import type { ManagedAppId } from "@/lib/managed-apps/types";
@@ -15,9 +15,10 @@ export const NineRouterIcon: AppIconComponent = ({ className }) =>
 export interface ManagedAppMeta {
   title: string;
   gradient: string;
-  loader: "HermesApp" | "OpenClawApp" | "NineRouterApp" | "OrcaApp";
+  loader: "HermesApp" | "OpenClawApp" | "NineRouterApp" | "OrcaApp" | "T3CodeApp" | "N8nManagedApp";
   icon: LucideIcon | AppIconComponent;
   artwork?: string;
+  artworkBackground?: string;
   tone?: string;
 }
 
@@ -27,6 +28,7 @@ export const MANAGED_APP_META: Record<ManagedAppId, ManagedAppMeta> = {
     gradient: "linear-gradient(160deg,#8b5cf6,#4f46e5)",
     loader: "HermesApp",
     icon: Bot,
+    artwork: "/brand/official/hermes.webp",
     tone: "text-violet-400",
   },
   openclaw: {
@@ -34,6 +36,8 @@ export const MANAGED_APP_META: Record<ManagedAppId, ManagedAppMeta> = {
     gradient: "linear-gradient(160deg,#f97316,#dc2626)",
     loader: "OpenClawApp",
     icon: Workflow,
+    artwork: "/brand/official/openclaw.webp",
+    artworkBackground: "#f5fbff",
     tone: "text-orange-400",
   },
   "9router": {
@@ -48,7 +52,24 @@ export const MANAGED_APP_META: Record<ManagedAppId, ManagedAppMeta> = {
     gradient: "linear-gradient(160deg,#0284c7,#1e3a8a)",
     loader: "OrcaApp",
     icon: SquareCode,
+    artwork: "/brand/official/orca.webp",
     tone: "text-sky-400",
+  },
+  t3: {
+    title: "T3 Code",
+    gradient: "linear-gradient(160deg,#18181b,#4f46e5)",
+    loader: "T3CodeApp",
+    icon: Code2,
+    artwork: "/brand/official/t3.webp",
+    tone: "text-indigo-400",
+  },
+  n8n: {
+    title: "n8n",
+    gradient: "linear-gradient(160deg,#ea4b71,#ff6d5a)",
+    loader: "N8nManagedApp",
+    icon: Workflow,
+    artwork: "/brand/official/n8n.webp",
+    tone: "text-rose-400",
   },
 };
 
@@ -57,13 +78,23 @@ export const MANAGED_APP_NAMES: Record<ManagedAppId, string> = {
   openclaw: MANAGED_APP_META.openclaw.title,
   "9router": MANAGED_APP_META["9router"].title,
   orca: MANAGED_APP_META.orca.title,
+  t3: MANAGED_APP_META.t3.title,
+  n8n: MANAGED_APP_META.n8n.title,
 };
 
 export function AppMark({ id, className }: { id: ManagedAppId; className?: string }) {
   const meta = MANAGED_APP_META[id];
   if (meta.artwork) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={meta.artwork} alt="" aria-hidden className={`${className ?? "size-4"} object-contain`} draggable={false} />;
+    const imageClass = meta.artworkBackground ? "size-[84%] object-contain" : "size-full object-contain";
+    return (
+      <span
+        className={`${className ?? "size-4"} ${meta.artworkBackground ? "inline-grid place-items-center overflow-hidden rounded-md" : "inline-block"}`}
+        style={meta.artworkBackground ? { background: meta.artworkBackground } : undefined}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={meta.artwork} alt="" aria-hidden className={imageClass} draggable={false} decoding="async" />
+      </span>
+    );
   }
   const Icon = meta.icon as LucideIcon;
   return <Icon className={`${className ?? "size-4"} ${meta.tone ?? ""}`} />;
@@ -74,4 +105,6 @@ export const MANAGED_APP_ICONS: Record<ManagedAppId, React.ReactNode> = {
   openclaw: <AppMark id="openclaw" />,
   "9router": <AppMark id="9router" />,
   orca: <AppMark id="orca" />,
+  t3: <AppMark id="t3" />,
+  n8n: <AppMark id="n8n" />,
 };

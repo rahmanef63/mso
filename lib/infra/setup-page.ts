@@ -1,3 +1,4 @@
+import { SETTINGS_COMPACT_MAX } from "@/lib/presentation/responsive-contract";
 import { MSO_LOGO_SVG } from "@/lib/presentation/logo";
 import {PORTABILITY_SCRIPT,PORTABILITY_STYLE} from "./portable/ui";
 import { randomBytes } from "node:crypto";
@@ -5,20 +6,30 @@ import { MSO_WIDGET_TOKENS } from "@/lib/presentation/widget-tokens";
 import { INTEGRATION_FORM_SCRIPT, INTEGRATION_FORM_STYLE } from "./setup-ui";
 import { CONNECTION_MANAGER_SCRIPT, CONNECTION_MANAGER_STYLE } from "./connection-ui";
 import { INTEGRATION_BROWSER_SCRIPT } from "./setup-browser";
+import { INTEGRATION_THEME_SCRIPT } from "./integration-theme";
 import { connectionCatalog } from "./connection-registry";
 export const INTEGRATION_PAGE_STYLE = String.raw`
 *{box-sizing:border-box}
 body{margin:0;background:var(--background);padding:var(--space-6);font-family:var(--font-body);color:var(--foreground)}
 .site-bar{max-width:var(--measure);margin:0 auto var(--space-6);font-size:var(--type-small);display:flex;justify-content:space-between;gap:var(--space-3)}
 .site-bar strong{display:flex;align-items:center;gap:var(--space-3);font-weight:var(--weight-strong)}.site-bar svg{width:var(--brand-size);height:var(--brand-size)}.site-bar span{color:var(--muted-foreground)}
+@media(max-width:${SETTINGS_COMPACT_MAX}){body{padding:0}.site-bar{padding:var(--space-3);flex-wrap:wrap}.site-bar span{overflow-wrap:anywhere}}
 button{border:var(--stroke) solid var(--input);border-radius:var(--radius-control);background:var(--secondary);color:var(--secondary-foreground);padding:var(--space-2) var(--space-3);font:var(--type-small)/var(--line-body) var(--font-body);cursor:pointer}a{color:var(--settings-action-text)}
+/* The integration page is raw HTML, so every native select in it (folder routing,
+   variables, export format) opened a UA-painted popup: a light surface under our
+   near-inverted option text. Paint the options from the same tokens. */
+select option{background-color:var(--surface);color:var(--foreground)}
 `;
 
 export function integrationSetupPage(embedded = false) {
   const nonce = randomBytes(18).toString("base64");
   const catalog = JSON.stringify(connectionCatalog()).replace(/</g,"\\u003c");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Integrations · MSO</title><style nonce="${nonce}">${MSO_WIDGET_TOKENS}${INTEGRATION_PAGE_STYLE}${INTEGRATION_FORM_STYLE}${CONNECTION_MANAGER_STYLE}${PORTABILITY_STYLE}${embedded ? "html,body{height:100%}body{padding:0;overflow:hidden}.site-bar{display:none}#setup{height:100%}" : ""}</style></head><body><header class="site-bar"><strong>${MSO_LOGO_SVG} MSO</strong><span>Your service connections</span></header><main id="setup" class="integration"><h1>Integrations</h1><p>Preparing the native provider catalog…</p><noscript>Enable JavaScript to open the secure credential form. Credentials can also be entered through the MSO terminal.</noscript></main><script nonce="${nonce}">const INTEGRATIONS_CATALOG=${catalog};${INTEGRATION_FORM_SCRIPT}${CONNECTION_MANAGER_SCRIPT}${PORTABILITY_SCRIPT}${INTEGRATION_BROWSER_SCRIPT}</script></body></html>`;
-  return { html, csp: `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors ${embedded ? "'self'" : "'none'"}` };
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Integrations · MSO</title><style nonce="${nonce}">${MSO_WIDGET_TOKENS}${INTEGRATION_PAGE_STYLE}${INTEGRATION_FORM_STYLE}${CONNECTION_MANAGER_STYLE}${PORTABILITY_STYLE}${embedded ? "html,body{height:100%}body{padding:0;overflow:hidden}.site-bar{display:none}#setup{height:100%}" : ""}</style><script nonce="${nonce}">${INTEGRATION_THEME_SCRIPT}</script></head><body><header class="site-bar"><strong>${MSO_LOGO_SVG} MSO</strong><span>Your service connections</span></header><main id="setup" class="integration"><h1>Integrations</h1><p>Preparing the native provider catalog…</p><noscript>Enable JavaScript to open the secure credential form. Credentials can also be entered through the MSO terminal.</noscript></main><script nonce="${nonce}">const INTEGRATIONS_CATALOG=${catalog};${INTEGRATION_FORM_SCRIPT}${CONNECTION_MANAGER_SCRIPT}${PORTABILITY_SCRIPT}${INTEGRATION_BROWSER_SCRIPT}</script></body></html>`;
+  // `img-src 'self' data:` is required, not decorative: the provider picker paints
+  // official brand marks (`/brand/official/*.webp`) with <img>. Under a bare
+  // `default-src 'none'` every one of them was refused, so Dokploy, Composio and
+  // DOKU rendered as empty tiles with no error the operator could act on.
+  return { html, csp: `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; img-src 'self' data:; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors ${embedded ? "'self'" : "'none'"}` };
 }
 function integrationResponse(embedded: boolean) {
   const page = integrationSetupPage(embedded);

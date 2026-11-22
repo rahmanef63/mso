@@ -112,6 +112,9 @@ describe("Orca checkpoint 1 identity and presentation", () => {
     const html = renderToStaticMarkup(<OrcaApp />);
     expect(html).toContain("Orca");
     expect(html).toContain("Detecting Orca");
-    expect(html).toContain("Details");
+    // No app-identity header of its own: the surface used to stack a 44px name/state bar
+    // above the feature bar, and the operator asked for one row with an icon-only toggle.
+    expect(html).not.toContain("Details");
+    expect(html).not.toMatch(/<h2[^>]*>Orca<\/h2>/);
   });
 });

@@ -1,8 +1,15 @@
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetLoginPasswordAttempts, rotateLoginPassword } from "./login-password";
+
+// The CLI (`mso passwd`) copies this module graph into a fixture without the Nakama
+// follower, so the real regression is "the follower cannot load". A throwing mock is the
+// closest honest stand-in and proves the lazy seam swallows it.
+vi.mock("./nakama-password", () => {
+  throw new Error("follower unavailable");
+});
 
 const CURRENT = "current-pass";
 const NEXT = "next-pass-1";
@@ -73,6 +80,18 @@ describe("login password rotation", () => {
     await put("OS_LOGIN_PASSWORD=someone-else\n");
     await expect(rotate()).rejects.toMatchObject({ code: "password_source_mismatch" });
     expect(await fs.readFile(file, "utf8")).toBe("OS_LOGIN_PASSWORD=someone-else\n");
+  });
+
+  it("rotates even when the Nakama follower cannot load, and never leaks the secret", async () => {
+    vi.stubEnv("NAKAMA_BASE_URL", "https://nakama.example.com");
+    vi.stubEnv("NAKAMA_ADMIN_EMAIL", "owner@example.com");
+    try {
+      await rotate();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect(await fs.readFile(file, "utf8")).toContain(`OS_LOGIN_PASSWORD=${NEXT}`);
+    expect(process.env.OS_LOGIN_PASSWORD).toBe(NEXT);
   });
 
   it("stops guessing after five wrong passwords and never echoes the secret", async () => {

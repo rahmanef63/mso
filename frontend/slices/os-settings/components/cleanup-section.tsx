@@ -79,12 +79,12 @@ export function CleanupSection() {
       </div>)}
       {freed !== null ? <SettingsValueRow label="Last cleanup freed" value={fmt(freed)} /> : null}
       {error ? <SettingsValueRow label="Problem" value={error} /> : null}
-      <SettingsActionRow label={selected.size ? `Review ${selected.size} categories — up to ${fmt(selectedBytes)}` : "Select categories to review"} icon={<Trash2 />} onClick={() => setConfirming(true)} busy={busy === "clean"} disabled={!selected.size || busy !== null} />
+      <SettingsActionRow label={selected.size ? `Review ${selected.size} categories, up to ${fmt(selectedBytes)}` : "Select categories to review"} icon={<Trash2 />} onClick={() => setConfirming(true)} busy={busy === "clean"} disabled={!selected.size || busy !== null} />
       <SettingsActionRow label="Rescan" icon={<RefreshCw />} onClick={rescan} busy={busy === "scan"} disabled={busy !== null} />
     </SettingsSection>
     <FormDrawer open={confirming} onOpenChange={setConfirming} size="sm">
       <FormDrawer.Header><FormDrawer.Title>Confirm selected cleanup</FormDrawer.Title><FormDrawer.Description>Only the selected categories below will run. This does not back up your VPS. Preview expires after five minutes.</FormDrawer.Description></FormDrawer.Header>
-      <FormDrawer.Body><div className="space-y-2 text-sm">{choices.map((item) => <p key={item.id}>{item.label} — up to {fmt(item.bytes)}</p>)}<p className="text-xs text-muted-foreground">Preserved: {data?.protected.join(", ")}. Do not treat logs or Trash as recoverable caches.</p></div></FormDrawer.Body>
+      <FormDrawer.Body><div className="space-y-2 text-sm">{choices.map((item) => <p key={item.id}>{item.label} (up to {fmt(item.bytes)})</p>)}<p className="text-xs text-muted-foreground">Preserved: {data?.protected.join(", ")}. Do not treat logs or Trash as recoverable caches.</p></div></FormDrawer.Body>
       <FormDrawer.Footer><Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button><Button variant="destructive" onClick={() => void clean()}>Confirm cleanup</Button></FormDrawer.Footer>
     </FormDrawer>
   </>;

@@ -1,0 +1,194 @@
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+
+// Two separate failures led here, both of which let `main` go red without CI noticing:
+//
+//   1. `docs/CHANGELOG.md` is generated from commit subjects, so a hand-made docs commit
+//      leaves it stale the moment it lands. Three docs-only commits in one session each
+//      needed a second commit to fix.
+//   2. The staleness check lived only in the local pre-push hook and in gates-12.sh. CI
+//      runs `bun run check`, which did not include it — so a squash merge could leave the
+//      file stale again and every CI run stayed green.
+//
+// This pins both: the generator's `--check` really fails on a stale file, and the CI-facing
+// `check` script actually invokes it. A gate nobody runs is not a gate.
+
+const ROOT = path.resolve(__dirname, "..");
+
+describe("changelog staleness gate", () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  it("is wired into the script CI runs, not just the local hook", () => {
+    const scripts = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).scripts as Record<string, string>;
+    expect(scripts.check, "CI runs `bun run check`; the gate must be in it").toContain("gen-changelog.mjs --check");
+    // The pre-push hook already had it; keep both, since a local run should fail too.
+    expect(readFileSync(path.join(ROOT, "scripts/gates.sh"), "utf8")).toContain("gen-changelog.mjs --check");
+    expect(readFileSync(path.join(ROOT, "scripts/gates-12.sh"), "utf8")).toContain("gen-changelog.mjs --check");
+  });
+
+  it("exits non-zero when the file does not match history", () => {
+    // A repo-shaped fixture: two commits, and a changelog that lists neither.
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-changelog-gate-"));
+    roots.push(root);
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, "scripts/gen-changelog.mjs"), readFileSync(path.join(ROOT, "scripts/gen-changelog.mjs")));
+    writeFileSync(path.join(root, "docs/CHANGELOG.md"), "# Changelog\n\nstale placeholder\n");
+
+    const git = (...args: string[]) =>
+      spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    git("init", "-q");
+    writeFileSync(path.join(root, "a.txt"), "a");
+    git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "add", "-A");
+    git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", "feat(x): a real change");
+
+    const stale = spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" });
+    expect(stale.status, "a changelog that omits a commit must fail the gate").toBe(1);
+    expect(stale.stderr).toMatch(/stale/i);
+
+    // Regenerating must make it current, and stay current on a second check — that is
+    // what stops the "regenerate, then stale again" loop.
+    expect(spawnSync(process.execPath, ["scripts/gen-changelog.mjs"], { cwd: root, encoding: "utf8" }).status).toBe(0);
+    const fresh = spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" });
+    expect(fresh.status, "after regenerating the gate must pass").toBe(0);
+    expect(fresh.stdout + fresh.stderr).toMatch(/current/i);
+  });
+
+  // A squash merge appends " (#NNN)" to the subject, so the same change can land in
+  // history twice on one day — once as the original commit, once as the squash that
+  // replaced it. Listing it twice is what made this file stale after every squash.
+  it("collapses a squash duplicate but keeps a PR number that stands alone", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-changelog-squash-"));
+    roots.push(root);
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, "scripts/gen-changelog.mjs"), readFileSync(path.join(ROOT, "scripts/gen-changelog.mjs")));
+
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const commit = (file: string, subject: string) => {
+      writeFileSync(path.join(root, file), file);
+      git("init", "-q");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "add", "-A");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", subject);
+    };
+    git("init", "-q");
+    // Same change, twice: the original and the squash that replaced it.
+    commit("a.txt", "feat(x): a real change");
+    commit("b.txt", "feat(x): a real change (#999)");
+    // A different change whose PR number is its only occurrence.
+    commit("c.txt", "feat(y): only once (#777)");
+
+    expect(spawnSync(process.execPath, ["scripts/gen-changelog.mjs"], { cwd: root, encoding: "utf8" }).status).toBe(0);
+    const out = readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
+
+    expect(out.match(/a real change/g)?.length, "the duplicate must appear once").toBe(1);
+    expect(out, "the collapsed line drops the PR suffix").not.toContain("a real change (#999)");
+    expect(out, "a lone PR number must survive, it links the line to its discussion").toContain("only once (#777)");
+  });
+
+  // Dependabot PRs touch no docs, so listing their subjects turned every one of them red on a gate
+  // whose only fix was "commit a changelog for a version bump". They are also not what a user
+  // reads in Settings -> About.
+  it("leaves automated dependency bumps out of the user-facing changelog", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-changelog-deps-"));
+    roots.push(root);
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, "scripts/gen-changelog.mjs"), readFileSync(path.join(ROOT, "scripts/gen-changelog.mjs")));
+
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const commit = (file: string, subject: string) => {
+      writeFileSync(path.join(root, file), file);
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "add", "-A");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", subject);
+    };
+    git("init", "-q");
+    commit("real.txt", "feat(app): something a user would notice");
+    commit("d1.txt", "build(deps): bump @anthropic-ai/sdk from 0.135.0 to 1.3.0");
+    commit("d2.txt", "build(deps-dev): bump the development-minor-patch group with 4 updates");
+    commit("d3.txt", "chore(deps): update dependency sharp to v0.36.0");
+
+    expect(spawnSync(process.execPath, ["scripts/gen-changelog.mjs"], { cwd: root, encoding: "utf8" }).status).toBe(0);
+    const out = readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
+
+    expect(out, "the real change is listed").toContain("something a user would notice");
+    expect(out, "no automated bump leaks into the user-facing list").not.toMatch(/bump @anthropic|bump the development|update dependency sharp/);
+    // And the gate must pass afterwards, which is the actual defect being fixed.
+    expect(spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" }).status).toBe(0);
+  });
+
+  // The subject a squash writes is not the subject the branch had, so the file used to depend on
+  // WHEN it was regenerated. Seen as a CI-only failure: local passed while GitHub's PR merge ref,
+  // which includes the squash commit, reported stale.
+  it("is stable whether or not a subject carries its squash PR number", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-changelog-suffix-"));
+    roots.push(root);
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, "scripts/gen-changelog.mjs"), readFileSync(path.join(ROOT, "scripts/gen-changelog.mjs")));
+
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const commit = (file: string, subject: string) => {
+      writeFileSync(path.join(root, file), file);
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "add", "-A");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", subject);
+    };
+    git("init", "-q");
+    commit("a.txt", "feat(x): a change that will be squashed");
+
+    const gen = () => spawnSync(process.execPath, ["scripts/gen-changelog.mjs"], { cwd: root, encoding: "utf8" });
+    const check = () => spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" }).status;
+
+    expect(gen().status).toBe(0);
+    const before = readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
+    expect(before).toContain("a change that will be squashed");
+    expect(check(), "current right after generating").toBe(0);
+
+    // Now the same change gains its squash number, exactly as a PR merge ref would see it.
+    commit("b.txt", "feat(x): a change that will be squashed (#4242)");
+    expect(check(), "adding the squash suffix must not invalidate the file").toBe(0);
+    expect(gen().status).toBe(0);
+    const after = readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
+    expect(after.match(/a change that will be squashed/g)?.length, "still one row").toBe(1);
+  });
+
+  // A squash can append more than one meta group. A branch that was itself a replay landed on
+  // main as "… (replay of #328) (#332)"; stripping only the last group left a key that no longer
+  // matched the bare subject, so main flipped stale after that merge and every open PR inherited
+  // a red changelog gate. The comparison must ignore the whole trailing run of meta groups.
+  it("treats a trailing run of squash and replay markers as the same row", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-changelog-replay-"));
+    roots.push(root);
+    mkdirSync(path.join(root, "scripts"), { recursive: true });
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, "scripts/gen-changelog.mjs"), readFileSync(path.join(ROOT, "scripts/gen-changelog.mjs")));
+
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const commit = (file: string, subject: string) => {
+      writeFileSync(path.join(root, file), file);
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "add", "-A");
+      git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", subject);
+    };
+    git("init", "-q");
+    commit("a.txt", "feat(x): a replayed change");
+
+    const gen = () => spawnSync(process.execPath, ["scripts/gen-changelog.mjs"], { cwd: root, encoding: "utf8" });
+    const check = () => spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" }).status;
+    expect(gen().status).toBe(0);
+
+    // The same change lands once more, now carrying a replay marker AND a squash number.
+    commit("b.txt", "feat(x): a replayed change (replay of #328) (#332)");
+    expect(check(), "a doubled meta suffix must not invalidate the file").toBe(0);
+
+    // A genuinely different row must still fail, or the gate has stopped meaning anything.
+    const file = path.join(root, "docs/CHANGELOG.md");
+    writeFileSync(file, readFileSync(file, "utf8").replace("a replayed change", "a different change"));
+    expect(check(), "a real content difference is still stale").toBe(1);
+  });
+});

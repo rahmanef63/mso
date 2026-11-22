@@ -1,14 +1,25 @@
 import process from "node:process";
+import { activityText, formatDuration } from "./mso-agent-activity.mjs";
+import { cellWidth, stripAnsi } from "./tui/cells.mjs";
+import {
+  applyTheme,
+  C,
+  colorEnabled,
+  currentThemeName,
+  THEME_NAMES,
+  themeNames,
+  THEMES,
+} from "./mso-agent-theme.mjs";
 
-const color = process.stdout.isTTY && !process.env.NO_COLOR;
-export const C = {
-  reset: color ? "\x1b[0m" : "", bold: color ? "\x1b[1m" : "", dim: color ? "\x1b[2m" : "",
-  blue: color ? "\x1b[38;2;58;160;255m" : "", cyan: color ? "\x1b[38;2;52;211;153m" : "",
-  warn: color ? "\x1b[38;2;245;158;11m" : "", err: color ? "\x1b[38;2;239;68;68m" : "",
+export {
+  applyTheme,
+  C,
+  colorEnabled,
+  currentThemeName,
+  THEME_NAMES,
+  themeNames,
+  THEMES,
 };
-C.a = C.blue;
-C.b = C.blue;
-C.c = C.cyan;
 
 export const MSO_TITLE_ART = [
   "   ████████████",
@@ -25,24 +36,58 @@ export const MSO_TITLE_ART = [
   "                                                       ── MSO Agent ──",
 ];
 
-// Exact True Color ANSI sequence requested for the hybrid MSO Agent banner.
-export const MSO_TITLE_COLORS = color ? [
-  "\x1b[38;2;155;81;224m", "\x1b[38;2;155;81;224m",
-  "\x1b[38;2;112;111;245m", "\x1b[38;2;112;111;245m",
-  "\x1b[38;2;69;142;255m", "\x1b[38;2;69;142;255m",
-  "\x1b[38;2;45;184;255m", "\x1b[38;2;45;184;255m",
-  "\x1b[38;2;34;211;206m", "\x1b[38;2;34;211;206m",
-  "\x1b[38;2;46;229;157m", "\x1b[38;2;46;229;157m",
-] : MSO_TITLE_ART.map(() => "");
+export function titleColors() {
+  if (!colorEnabled()) return MSO_TITLE_ART.map(() => "");
+  const theme = currentThemeName();
+  if (theme === "light") {
+    return [
+      "\x1b[38;2;76;29;149m", "\x1b[38;2;76;29;149m", "\x1b[38;2;46;44;168m", "\x1b[38;2;46;44;168m",
+      "\x1b[38;2;21;94;183m", "\x1b[38;2;21;94;183m", "\x1b[38;2;10;110;168m", "\x1b[38;2;10;110;168m",
+      "\x1b[38;2;13;122;112m", "\x1b[38;2;13;122;112m", "\x1b[38;2;13;122;86m", "\x1b[38;2;13;122;86m",
+    ];
+  }
+  if (theme === "mono") return MSO_TITLE_ART.map(() => "");
+  return [
+    "\x1b[38;2;155;81;224m", "\x1b[38;2;155;81;224m", "\x1b[38;2;112;111;245m", "\x1b[38;2;112;111;245m",
+    "\x1b[38;2;69;142;255m", "\x1b[38;2;69;142;255m", "\x1b[38;2;45;184;255m", "\x1b[38;2;45;184;255m",
+    "\x1b[38;2;34;211;206m", "\x1b[38;2;34;211;206m", "\x1b[38;2;46;229;157m", "\x1b[38;2;46;229;157m",
+  ];
+}
 
-function plain(value) { return String(value ?? "").replace(/\x1b\[[0-9;]*m/g, ""); }
-function width(value) { return [...plain(value)].length; }
+// The gradient is decoration, not semantics. It follows the theme so a light
+// terminal does not get a near-white banner on white.
+export const MSO_TITLE_COLORS = titleColors();
+
+/** Compact per-turn receipt replacing the rows each tool used to claim. */
+export function completedReceipt(calls, elapsedMs) {
+  const rows = Array.isArray(calls) ? calls : [];
+  if (!rows.length) return "";
+  const ok = rows.filter((row) => row.ok).length;
+  const failed = rows.length - ok;
+  return activityText([
+    `${rows.length} tool${rows.length === 1 ? "" : "s"}`,
+    failed ? `${failed} failed` : "all ok",
+    formatDuration(elapsedMs || 0),
+  ]);
+}
+
+function plain(value) { return stripAnsi(value); }
+function width(value) { return cellWidth(value); }
 export function fit(value, max) {
   const source = plain(value).replace(/[\r\n\t]+/g, " ");
   if (max <= 0) return "";
-  if ([...source].length <= max) return source;
+  // Measured in CELLS: a CJK character is two columns, so the old code-point count returned a "fitted"
+  // string up to twice the budget and the box row wrapped.
+  if (cellWidth(source) <= max) return source;
   if (max <= 1) return "…".slice(0, max);
-  return [...source].slice(0, max - 1).join("") + "…";
+  let out = "", used = 0;
+  for (const ch of source) {
+    const w = cellWidth(ch);
+    if (used + w > Math.max(0, max - 1)) break;
+    out += ch;
+    used += w;
+  }
+  return `${out}…`;
 }
 function pad(value, max) {
   const clean = fit(value, max);
@@ -51,7 +96,9 @@ function pad(value, max) {
 function rule(char, n) { return char.repeat(Math.max(0, n)); }
 function terminalWidth() {
   const cols = Number(process.stdout.columns || 104);
-  return Math.max(72, Math.min(118, cols - 2));
+  // The old floor of 72 ignored the real width, so on a 60-column terminal every box row was drawn 74
+  // cells wide. The floor exists to keep the banner readable, but readability cannot exceed the screen.
+  return Math.max(24, Math.min(118, cols - 2));
 }
 function countSkills(data) { return Array.isArray(data?.skills) ? data.skills.length : 0; }
 function summarizeInfra(data) {
@@ -90,10 +137,13 @@ function kv(label, value, widthLimit) {
   const labelWidth = Math.min(13, Math.max(8, widthLimit > 36 ? 12 : 9));
   return `${pad(label, labelWidth)} ${fit(value, Math.max(0, widthLimit - labelWidth - 1))}`;
 }
+// Body rows are drawn as "│ " + content + " │", which costs four cells of the two border columns, so the
+// content budget is two cells less than the space between the borders. Padding straight to `inner` made
+// every body row two cells wider than the box above it.
 function panelLine(left, right, leftWidth, rightWidth, gap = 3) {
   return `│ ${pad(left, leftWidth)}${" ".repeat(gap)}${pad(right, rightWidth)} │`;
 }
-function panelSingle(text, inner) { return `│ ${pad(text, inner)} │`; }
+function panelSingle(text, inner) { return `│ ${pad(text, Math.max(0, inner - 2))} │`; }
 function panelTitle(title, inner) {
   const label = ` ${title} `;
   const remaining = Math.max(0, inner - width(label));
@@ -101,14 +151,15 @@ function panelTitle(title, inner) {
   return `┌${rule("─", before)}${label}${rule("─", remaining - before)}┐`;
 }
 
-export function printAgentBanner(s, agentSession, { base, version }) {
+export function printAgentBanner(s, agentSession, { base, version, print = (line = "") => console.log(line) }) {
   const totalWidth = terminalWidth();
   const inner = totalWidth - 2;
   const titleArtWidth = Math.max(...MSO_TITLE_ART.map(width));
   if (totalWidth >= titleArtWidth) {
-    MSO_TITLE_ART.forEach((line, index) => console.log(`${MSO_TITLE_COLORS[index]}${C.bold}${line}${C.reset}`));
-  } else console.log(`${C.blue}${C.bold}── MSO Agent ──${C.reset}`);
-  console.log();
+    const colors = titleColors();
+    MSO_TITLE_ART.forEach((line, index) => print(`${colors[index]}${C.bold}${line}${C.reset}`));
+  } else print(`${C.blue}${C.bold}── MSO Agent ──${C.reset}`);
+  print();
 
   const byScope = { read: 0, write: 0, exec: 0 };
   for (const tool of s.tools) byScope[tool.scope] = (byScope[tool.scope] || 0) + 1;
@@ -120,7 +171,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
   const sessionName = `@${agentSession?.name || "agent"}`;
   const title = fit(`MSO Agent${version ? ` v${version}` : ""} · ${sessionName} · ${sessionTitle}`, inner - 2);
 
-  console.log(panelTitle(title, inner));
+  print(panelTitle(title, inner));
   if (totalWidth >= 94) {
     const gap = 4;
     const leftWidth = Math.max(30, Math.floor((inner - gap) * 0.37));
@@ -131,6 +182,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
       fit(`${byScope.read} read · ${byScope.write} write · ${byScope.exec} exec`, leftWidth),
       fit("write/exec approval-gated", leftWidth), "", `${C.bold}Infrastructure${C.reset}`,
       fit(`${infra.ready.length}/${infra.total} ready`, leftWidth),
+      // Product-facing setup is /integrations: runCli(["integrations", ...args])
       fit(infra.ready.length ? infra.ready.join(" · ") : "run /integrations to connect", leftWidth),
     ];
     const right = [`${C.bold}Available Tools${C.reset}`];
@@ -138,7 +190,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
     right.push("", `${C.bold}Available Skills${C.reset}`);
     for (const row of skills) right.push(kv(row.label, row.value, rightWidth));
     const rows = Math.max(left.length, right.length);
-    for (let i = 0; i < rows; i++) console.log(panelLine(left[i] || "", right[i] || "", leftWidth, rightWidth, gap));
+    for (let i = 0; i < rows; i++) print(panelLine(left[i] || "", right[i] || "", leftWidth, rightWidth, gap));
   } else {
     const lines = [
       `${C.bold}Runtime${C.reset}`, kv("model", model, inner), kv("name", sessionName, inner), kv("session", sessionTitle, inner), kv("endpoint", base, inner), "",
@@ -147,10 +199,10 @@ export function printAgentBanner(s, agentSession, { base, version }) {
       `${C.bold}Capabilities${C.reset}`, `${byScope.read} read · ${byScope.write} write · ${byScope.exec} exec · write/exec approval-gated`,
       `${C.bold}Infrastructure${C.reset}`, `${infra.ready.length}/${infra.total} ready · ${infra.ready.length ? infra.ready.join(" · ") : "run /integrations to connect"}`,
     ];
-    for (const line of lines) console.log(panelSingle(line, inner));
+    for (const line of lines) print(panelSingle(line, inner));
   }
-  console.log(`└${rule("─", inner)}┘`);
-  console.log(`${C.dim}${s.tools.length} tools · ${countSkills(s.skills)} skills · /skills · /<skill> · /help${C.reset}`);
-  console.log();
-  console.log(`${C.bold}Welcome to MSO Agent!${C.reset} Type your message or /help for commands.`);
+  print(`└${rule("─", inner)}┘`);
+  print(fit(`${C.dim}${s.tools.length} tools · ${countSkills(s.skills)} skills · /skills · /<skill> · /help${C.reset}`, inner));
+  print();
+  print(fit(`${C.bold}Welcome to MSO Agent!${C.reset} Type your message or /help for commands.`, inner));
 }

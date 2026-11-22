@@ -32,6 +32,14 @@ const COMMIT_SHA =
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Next blocks cross-origin dev asset/HMR requests unless the requesting hostname is
+  // allowlisted. The dev server is normally opened on 127.0.0.1 (and the LAN address on a
+  // headless box), not on `localhost`, so without this every edit lands with a dead HMR
+  // socket and a console full of handshake errors. Loopback and private ranges only: this
+  // is a dev-server allowlist, never a production origin policy.
+  ...(process.env.NODE_ENV === "production"
+    ? {}
+    : { allowedDevOrigins: ["127.0.0.1", "0.0.0.0", "*.local", "10.*", "192.168.*", "172.16.*", "172.17.*", "172.18.*", "172.19.*", "172.2*.*", "172.30.*", "172.31.*"] }),
   // Don't advertise the framework/version — the shell is now public; minimize
   // the fingerprint an unauthenticated visitor can use for CVE matching.
   poweredByHeader: false,
@@ -90,6 +98,7 @@ const nextConfig = {
     // Tree-shake heavy icon/radix barrels — keeps the OS shell bundle lean.
     optimizePackageImports: [
       "lucide-react",
+      "@phosphor-icons/react",
       "@radix-ui/react-dialog",
       "@radix-ui/react-dropdown-menu",
       "@radix-ui/react-tooltip",
@@ -137,7 +146,14 @@ const nextConfig = {
           // script-src) is set PER-REQUEST in proxy.ts so a fresh nonce can gate
           // inline scripts; a static CSP here can't nonce, so it's intentionally
           // omitted (proxy owns it).
-          { key: "X-Frame-Options", value: "DENY" },
+          //
+          // Development allows framing because an agent's local preview panel is an
+          // iframe of this same server. Production keeps DENY, and proxy.ts sets the
+          // per-request CSP frame-ancestors gate, which is the header that actually
+          // decides a loopback dev case (XFO has no "allow this parent" value).
+          ...(process.env.NODE_ENV === "production"
+            ? [{ key: "X-Frame-Options", value: "DENY" }]
+            : []),
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
@@ -160,6 +176,7 @@ const nextConfig = {
       // every ordinary page; this one path is still same-origin only and also has
       // a route-level CSP `frame-ancestors 'self'`.
       { source: "/integrations/embed", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] },
+      { source: "/api/v1/features/:id/asset/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/api/integrations/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       // Named brand/wallpaper assets are effectively immutable but, unlike
       // /_next chunks, are NOT content-hashed — rename or add ?v= if ever redrawn.

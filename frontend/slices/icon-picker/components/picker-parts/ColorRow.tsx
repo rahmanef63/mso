@@ -9,7 +9,7 @@ export function ColorRow({
   onPick: (hex: string) => void;
 }) {
   return (
-    <div className="mt-2 flex items-center gap-1.5">
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
       <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1">Color</span>
       {ICON_COLORS.map((c) => {
         const isSelected =

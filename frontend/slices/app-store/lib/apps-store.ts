@@ -38,15 +38,12 @@ function snap(): AppRow[] {
 }
 
 function commit(next: AppRow[]) {
-  rows = next;
   if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      /* quota / private mode */
-    }
+    try { localStorage.setItem(KEY, JSON.stringify(next)); }
+    catch { throw new Error("Browser storage could not save this change. Free some space or allow site storage, then try again."); }
   }
-  subs.forEach((f) => f());
+  rows = next;
+  subs.forEach((notify) => notify());
 }
 
 function subscribe(cb: () => void) {
@@ -88,6 +85,6 @@ export function createApp(p: {
   entry: string;
 }) {
   const cur = snap();
-  if (cur.some((a) => a.appId === p.appId)) throw new Error("App slug sudah dipakai");
+  if (cur.some((a) => a.appId === p.appId)) throw new Error("App slug is already in use");
   commit([...cur, { ...p, source: "custom", installed: true }]);
 }

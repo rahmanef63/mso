@@ -5,13 +5,14 @@
 
 import { useCallback, useRef, useState } from "react";
 import { type Composition, defaultComposition } from "./mock-timeline";
-import { loadDraft } from "./draft";
+import { readDraft } from "./draft";
 
 const LIMIT = 60;
 const COALESCE_MS = 400;
 
 export type HistoryApi = {
   comp: Composition;
+  draftBaseline: { snapshot: string | null; available: boolean };
   /** Apply a transform. Pass `commit:true` to force a fresh undo step. */
   apply: (fn: (c: Composition) => Composition, commit?: boolean) => void;
   /** Force the next `apply` to start a new undo step. */
@@ -24,7 +25,8 @@ export type HistoryApi = {
 
 export function useHistory(): HistoryApi {
   // Resume the auto-saved draft when one exists (client-only component).
-  const [comp, setComp] = useState<Composition>(() => loadDraft() ?? defaultComposition());
+  const [initial] = useState(readDraft);
+  const [comp, setComp] = useState<Composition>(() => initial.comp ?? defaultComposition());
   const [past, setPast] = useState<Composition[]>([]);
   const [future, setFuture] = useState<Composition[]>([]);
   const lastPush = useRef(0);
@@ -70,5 +72,5 @@ export function useHistory(): HistoryApi {
     });
   }, [comp]);
 
-  return { comp, apply, commit, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0 };
+  return { comp, draftBaseline: initial, apply, commit, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0 };
 }

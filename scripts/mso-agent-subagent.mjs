@@ -1,5 +1,6 @@
 import { persistSession } from "./mso-agent-session-ui.mjs";
 import { printSection } from "./mso-agent-layout.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 export const SUBAGENT_USAGE = "/spawn [--name <name>] [--scope read|write|exec] [--turns 1-12] <objective>";
 
@@ -35,5 +36,5 @@ export async function runForegroundSubagent({ rl, session, input, executeTool, c
     status: parsed?.status || "completed", text, createdAt: new Date().toISOString(),
   });
   await persistSession(session);
-  console.log(`${colors.c}${colors.bold}[subagent-${name}]${colors.reset} ${text || "completed"}`);
+  createPrinter({ session }).print(`${colors.c}${colors.bold}[subagent-${name}]${colors.reset} ${text || "completed"}`);
 }

@@ -1,0 +1,11 @@
+# OSV-Scanner configuration.
+#
+# There are currently no recorded entries. If one is added it must be a recorded
+# decision with an expiry date, not a blanket suppression: it names the single
+# advisory, the single ecosystem and the reason it cannot be fixed today. When the
+# fix lands, or the date passes, the scan fails again and the entry must be removed
+# rather than extended.
+#
+# Read the reason before extending a date. "The scanner was inconvenient" is not
+# one. AGENTS.md forbids scanner suppression to fake green; this file exists so a
+# genuine unfixed dependency is visible in review instead of silently dropped.

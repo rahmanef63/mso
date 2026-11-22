@@ -71,7 +71,7 @@ export function ResponsiveDialogShell({
     const mobileHeight = direction === "bottom" ? design.dialog.drawerHeightClass : "h-full";
     return (
       <ResponsiveDialogContext.Provider value={contextValue}>
-        <Drawer open={open} onOpenChange={onOpenChange} direction={direction} dismissible={dismissible}>
+        <Drawer autoFocus open={open} onOpenChange={onOpenChange} direction={direction} dismissible={dismissible}>
           <DrawerContent
             data-slot="shell-dialog-surface"
             data-shell-id={design.id}

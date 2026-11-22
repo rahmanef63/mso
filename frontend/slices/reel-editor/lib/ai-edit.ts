@@ -30,13 +30,13 @@ export function interpretAi(text: string, frame: number, sel: Clip | null): AiRe
     sel ? { reply, transform: build, usedSelection: true } : { reply: NEEDS_CLIP };
 
   if (/vertical|9:16|tiktok|reel|story/.test(t))
-    return { reply: "Switched to 9:16 vertical — perfect for TikTok/Reels.", transform: (c) => setRatio(c, 1080, 1920) };
+    return { reply: "Switched to 9:16 vertical. Perfect for TikTok/Reels.", transform: (c) => setRatio(c, 1080, 1920) };
   if (/square|1:1/.test(t)) return { reply: "Switched to 1:1 square.", transform: (c) => setRatio(c, 1080, 1080) };
   if (/4:5|portrait/.test(t)) return { reply: "Switched to 4:5 portrait.", transform: (c) => setRatio(c, 1080, 1350) };
   if (/wide|16:9|landscape|youtube/.test(t))
     return { reply: "Switched to 16:9 landscape.", transform: (c) => setRatio(c, 1920, 1080) };
   if (/split|cut|razor/.test(t))
-    return { reply: "Done — split at the playhead.", transform: (c) => splitAt(c, frame, sel?.id ?? null) };
+    return { reply: "Done: split at the playhead.", transform: (c) => splitAt(c, frame, sel?.id ?? null) };
   if (/duplicate|copy/.test(t))
     return needClip((c) => duplicateClip(c, sel!.id), "Duplicated the selected clip.");
   if (/delete|remove|trim out/.test(t))
@@ -63,5 +63,5 @@ export function interpretAi(text: string, frame: number, sel: Clip | null): AiRe
       reply:
         "I can: vertical / square / 4:5 / 16:9, split, duplicate, delete, fade in, fade out, punch in, spin, slide in, add title <text>.",
     };
-  return { reply: "Not sure yet — try “vertical”, “fade in”, “split”, “punch in”, “spin”, or “add title …”." };
+  return { reply: "Not sure yet. Try “vertical”, “fade in”, “split”, “punch in”, “spin”, or “add title …”." };
 }

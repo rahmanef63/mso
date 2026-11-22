@@ -9,6 +9,9 @@ export type ExternalIdentity = { toolkit?: string; connectedAccountId?: string; 
 export type IntegrationConnection = {
   id: string; uid: string; label: string; provider: string; source: ConnectionSource; authMethod: string;
   scope: string; revision: number; values: Record<string,string>; /** Read-only alias of another direct connection. */ sharedFrom?: { user: string; connection: string; provider: string }; external?: ExternalIdentity;
+  /** Projects (`lib/host/project-list.ts` ids) this deployment belongs to. Additive:
+   *  absent means "no project association yet", an old store file keeps parsing. */
+  projects?: string[];
   /** Private runtime authorization; never copied into metadata or portable bundles. */
   googleOAuth?: GoogleGrant; googlePending?: GooglePending;
   createdAt: number; updatedAt: number; verifiedAt?: number;

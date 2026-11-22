@@ -1,6 +1,6 @@
 export const INTEGRATION_BROWSER_SCRIPT=String.raw`
 (async()=>{
-  const root=document.getElementById("setup"),endpoint=location.origin+"/api/integrations/setup",params=new URLSearchParams(location.search);let cleanup=()=>{},state={...(params.get("user")?{user:params.get("user")}:{ }),...(params.get("provider")?{provider:params.get("provider")}:{ }),...(params.get("section")==="ai-providers"?{section:"ai-providers"}:{})},authController,wantsTransfer=params.get("transfer")==="1";
+  const root=document.getElementById("setup"),endpoint=location.origin+"/api/integrations/setup",params=new URLSearchParams(location.search);let cleanup=()=>{},state={...(params.get("user")?{user:params.get("user")}:{ }),...(params.get("provider")?{provider:params.get("provider")}:{ }),...(params.get("connection")?{connection:params.get("connection")}:{ }),...(params.get("section")==="ai-providers"?{section:"ai-providers"}:{})},authController,wantsTransfer=params.get("transfer")==="1";
   const error=data=>{const e=new Error(data.error||"integration_operation_failed");e.code=data.error;return e};
   async function json(url,init){const r=await fetch(url,{credentials:"same-origin",cache:"no-store",referrerPolicy:"no-referrer",...init});const data=await r.json();if(!r.ok)throw error(data);return data}
   const post=(mode,input)=>json("/api/v1/integrations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode,...input})});
@@ -15,7 +15,7 @@ export const INTEGRATION_BROWSER_SCRIPT=String.raw`
   async function loadManager(){
     cleanup();authController?.abort();authController=new AbortController();
     let owner=false,authenticated=false,role=null;try{const auth=await json("/api/auth/me",{signal:authController.signal});owner=auth.role==="owner";authenticated=auth.authenticated===true;role=auth.role}catch{}
-    const bridge={headingLevel:1,remember:s=>state=s,openLink:url=>window.open(url,"_blank","noopener,noreferrer")};
+    const bridge={headingLevel:1,remember:s=>{state=s;if(window.parent!==window)window.parent.postMessage({type:"mso:integrations-selection",user:s.user||null},location.origin)},openLink:url=>window.open(url,"_blank","noopener,noreferrer")};
     if(owner){
       bridge.openTransfer=openTransfer;bridge.mountTransfer=mountTransfer;
       bridge.projectMcp=args=>json("/api/v1/project-mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(args)});

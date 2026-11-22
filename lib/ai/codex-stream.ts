@@ -119,7 +119,7 @@ export async function streamCodex(opts: {
   tools?: OaTool[];
   system: string;
   signal: AbortSignal;
-  emit: (event: "delta" | "tool_use" | "done", data: unknown) => void;
+  emit: (event: "delta" | "reasoning" | "tool_use" | "done", data: unknown) => void;
 }): Promise<void> {
   const { bundle, model, messages, tools, system, signal, emit } = opts;
   if (signal.aborted) return;
@@ -192,6 +192,13 @@ export async function streamCodex(opts: {
       }
       if (ev.type === "response.output_text.delta" && typeof ev.delta === "string") {
         emit("delta", ev.delta);
+        continue;
+      }
+      if (
+        (ev.type === "response.reasoning_summary_text.delta" || ev.type === "response.reasoning_text.delta") &&
+        typeof ev.delta === "string"
+      ) {
+        emit("reasoning", ev.delta);
         continue;
       }
       // A completed function_call arrives as an output_item; `response.completed`

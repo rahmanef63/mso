@@ -16,8 +16,8 @@ import { appStoreApp } from "@/features/app-store";
 import { createAppApp } from "@/features/create-app";
 import { systemMonitorApp } from "@/features/system-monitor";
 import { assistantApp } from "@/features/assistant";
-import { hermesApp, nineRouterApp, openclawApp, orcaApp } from "@/features/managed-apps";
-import { osSettingsApp, updateShellBadgeFeature } from "@/features/os-settings";
+import { hermesApp, nineRouterApp, openclawApp, orcaApp, t3App } from "@/features/managed-apps";
+import { osSettingsApp } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
 import { integrationsApp } from "@/features/integrations";
@@ -29,6 +29,7 @@ import { organizationApp } from "@/features/organization";
 import { memoryGraphApp } from "@/features/memory-graph";
 import { agentVaultApp } from "@/features/agent-vault";
 import { cloudflareApp, dokployApp } from "@/features/infrastructure";
+import { botDesktopsApp } from "@/features/bot-desktops";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
 import { serverConnectionStatusFeature } from "./server-connection-status";
 import { APP_MARKS } from "./brand-marks";
@@ -91,6 +92,11 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(quicklinksApp), "links"),
   withSlug(withArtwork(createAppApp), "create"),
   withSlug(withArtwork(orcaApp), "orca"),
+  // Appended, never inserted: the mobile home page holds 24 icons and the test
+  // below pins Channels, Docs and Settings inside that page. A new built-in that
+  // lands mid-list pushes Settings to index 24 and silently breaks that promise.
+  withSlug(withArtwork(botDesktopsApp), "bot-desktops"),
+  withSlug(withArtwork(t3App), "t3"),
 ];
 
 // Shell features — the generic brand-free set now lives INSIDE the appshell
@@ -99,5 +105,6 @@ export const BUILTIN_APPS: AppDescriptor[] = [
 // mounts into a named slot (overlay/rightPanel/notifications/topPill/
 // controlCenter/today), so a feature absent from the array just doesn't render.
 // Settings stays the `os-settings` app (its own slice). mso adds one consumer
-// features: theme-preset switcher in the menu-bar status cluster + shell update badge (UX-10).
-export const TOPSIDE_FEATURES: FeatureDescriptor[] = [...DEFAULT_FEATURES, serverConnectionStatusFeature, themeQuickPickerFeature, updateShellBadgeFeature];
+// feature: the theme-preset switcher in the menu-bar status cluster. Update
+// notices are not a shell feature; they live only in Settings.
+export const TOPSIDE_FEATURES: FeatureDescriptor[] = [...DEFAULT_FEATURES, serverConnectionStatusFeature, themeQuickPickerFeature];

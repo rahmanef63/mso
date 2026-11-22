@@ -127,6 +127,7 @@ export function HttpAdapter(cfg: { url?: string; role?: Exclude<HostAccessRole, 
       }),
       servicePower: (scope, unit, action) => req("POST", "/sys/services", { body: { scope, unit, action } }),
       packageUpdates: () => req("GET", "/sys/packages"),
+      sliceResources: () => req("GET", "/sys/slice-resources"),
     },
     apps: {
       // UNWRAP, then TRANSLATE. Both managed-app routes answer in an envelope —

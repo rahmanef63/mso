@@ -12,7 +12,11 @@ export function permissionMode(value) {
 }
 
 export function nextPermissionMode(current) {
-  const index = Math.max(0, PERMISSION_MODES.findIndex((mode) => mode.id === current));
+  // An unrecognised mode falls back to the SAFEST one, not to the next one. `Math.max(0, findIndex(...))`
+  // made any unknown string resolve to index 0 and then advance to `auto`, so a typo or an old config
+  // escalated write approval instead of staying at ask.
+  const index = PERMISSION_MODES.findIndex((mode) => mode.id === permissionMode(current)?.id);
+  if (index < 0) return PERMISSION_MODES[0];
   return PERMISSION_MODES[(index + 1) % PERMISSION_MODES.length];
 }
 

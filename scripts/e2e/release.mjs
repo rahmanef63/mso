@@ -14,6 +14,7 @@ import { camoufoxConnectionJourney } from "./camoufox-connection.mjs";
 import { memoryBackupHistoryJourney } from "./memory-backup-history.mjs";
 import { aiProviderSwitchJourney } from "./ai-provider-switch.mjs";
 import { shellNoticesJourney } from "./shell-notices.mjs";
+import { settingsDraftJourney } from "./settings-draft.mjs";
 
 execFileSync(process.execPath, ["scripts/e2e/socket-authority.mjs"], { stdio: "inherit", timeout: 30000 });
 execFileSync(process.execPath, ["scripts/e2e/request-bodies.mjs"], { stdio: "inherit", timeout: 60000 });
@@ -36,9 +37,11 @@ try {
     page.on("pageerror", error => errors.push(error.message));
     await page.goto(fixture.base + "/integrations");
     await expect(page.locator("#mso-boot-splash")).toHaveCount(0);
-    await expect(page.getByRole("navigation", { name: "Integrations sections", exact: true })).toBeVisible();
+    const sections = page.getByRole("navigation", { name: "Integrations sections", exact: true });
+    if (viewport.width < 600) await expect(sections).not.toBeVisible();
+    else await expect(sections).toBeVisible();
     await expect(page.getByRole("heading", { name: "GitHub", exact: true, level: 2 })).toBeVisible();
-    if (viewport.width < 600) {await page.getByRole("button", { name: "Integrations sections", exact: true }).click();await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name:"GitHub", exact:true }).click();}
+    if (viewport.width < 600) {await page.getByRole("button", { name: "Integrations sections", exact: true }).click();await expect(sections).toBeVisible();await sections.getByRole("button", { name:"GitHub", exact:true }).click();await expect(sections).not.toBeVisible();}
     else {await page.getByLabel("Search integrations").fill("GitHub");await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name:"GitHub", exact:true }).click();}
     await expect(page.getByRole("heading", {name:"GitHub", exact:true})).toBeVisible();
     await page.getByText("Connection methods & setup guides", { exact: true }).click();
@@ -97,6 +100,7 @@ try {
   await page.locator('input[type="password"]').fill(fixture.password);
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
   await expect(page).toHaveURL(fixture.base + "/integrations");
+  await settingsDraftJourney(page, fixture);
   await agentVaultJourney(page, fixture);
   await page.goto(fixture.base + "/integrations");
   await shellNoticesJourney(page, fixture);
@@ -127,7 +131,7 @@ try {
   expect(rawDownload.suggestedFilename()).toMatch(/\.env$/);
   await expect(page.locator('.portable-transfer [role="status"]')).toContainText("one-time export grant is now invalid");
   await page.getByRole("button", { name: "← Connections", exact: true }).click();
-  await page.getByRole("button", { name: /^Self-hosted Convex(?: 1)?$/ }).click();
+  await page.getByRole("button", { name: /^Convex$/ }).click();
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   await expect(page.locator(".connection-state")).toHaveText("Verified");
   await expect(page.getByRole("status")).toContainText("Verified: authenticated");
@@ -135,7 +139,7 @@ try {
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   await expect(page.locator(".connection-state")).toHaveText("Access rejected");
   await page.reload();
-  await page.getByRole("button", { name: /^Self-hosted Convex(?: 1)?$/ }).click();
+  await page.getByRole("button", { name: /^Convex$/ }).click();
   await expect(page.locator(".connection-state")).toHaveText("Access rejected");
   const call = (route, body) => page.evaluate(async ([route, body]) => {
     const res = await fetch(route, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});

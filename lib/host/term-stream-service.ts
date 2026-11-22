@@ -1,0 +1,103 @@
+import { json } from "@/lib/api/route";
+import { verifyAuth } from "@/lib/agent/server";
+import { getSessionContext } from "@/lib/auth/require-session";
+import { liveSessionAuthorized } from "@/lib/auth/live-authorization";
+import { attachPty, closePty, hasPty } from "@/lib/host/terminal-api";
+
+const HEARTBEAT_MS = 15_000;
+
+export async function handleTermStream(req: Request): Promise<Response> {
+  if (!(await verifyAuth(req)))
+    return json({ error: "unauthorized" }, 401);
+
+  const context = await getSessionContext();
+  const actor = context?.session.device_id;
+  if (!actor) return json({ error: "unauthorized" }, 401);
+  const id = new URL(req.url).searchParams.get("id") ?? "";
+  if (!id || !hasPty(id, actor))
+    return json({ error: "Unknown terminal session" }, 400);
+  const last = req.headers.get("last-event-id");
+  const from = last ? parseInt(last, 10) || 0 : 0;
+
+  const enc = new TextEncoder();
+  let detach: (() => void) | null = null;
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+  let authorityTimer: ReturnType<typeof setInterval> | null = null;
+  let closed = false;
+  let pendingBytes = 0;
+  let delivery = Promise.resolve();
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const cleanup = () => {
+        closed = true;
+        if (heartbeat) clearInterval(heartbeat);
+        if (authorityTimer) clearInterval(authorityTimer);
+        detach?.();
+      };
+      const send = (s: string) => {
+        if (closed) return;
+        try {
+          controller.enqueue(enc.encode(s));
+        } catch {
+          cleanup();
+        }
+      };
+      const end = () => {
+        if (closed) return;
+        cleanup();
+        try {
+          controller.close();
+        } catch {
+          /* already closed */
+        }
+      };
+      const authorized = async () => {
+        const valid = await liveSessionAuthorized(context!.session, "owner").catch(() => false);
+        if (!valid && !closed) {
+          end();
+          try { closePty(id, actor); } catch { /* Already reaped. */ }
+        }
+        return valid && !closed;
+      };
+      const deliver = (frame: string, finish = false) => {
+        pendingBytes += Buffer.byteLength(frame);
+        if (pendingBytes > 256 * 1024) { end(); return; }
+        delivery = delivery.then(async () => {
+          if (await authorized()) { send(frame); if (finish) end(); }
+        }).finally(() => { pendingBytes -= Buffer.byteLength(frame); });
+      };
+      try {
+        detach = attachPty(id, actor, from, {
+          onData: (chunk, off) =>
+            deliver(`id: ${off}\nevent: data\ndata: ${Buffer.from(chunk, "utf8").toString("base64")}\n\n`),
+          onExit: (code) => {
+            deliver(`event: exit\ndata: ${code}\n\n`, true);
+          },
+        });
+      } catch {
+        send(`event: exit\ndata: -1\n\n`);
+        end();
+        return;
+      }
+      if (!closed) heartbeat = setInterval(() => send(`: ping\n\n`), HEARTBEAT_MS);
+      if (!closed) authorityTimer = setInterval(() => { void authorized(); }, 1000);
+      req.signal.addEventListener("abort", cleanup, { once: true });
+    },
+    cancel() {
+      closed = true;
+      if (heartbeat) clearInterval(heartbeat);
+      if (authorityTimer) clearInterval(authorityTimer);
+      detach?.();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+      connection: "keep-alive",
+    },
+  });
+}

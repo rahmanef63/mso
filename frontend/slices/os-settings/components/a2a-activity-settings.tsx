@@ -81,7 +81,7 @@ export function A2AActivitySettings({ state }: { state: A2ASettingsState }) {
                 </span>
               </div>
               <p className="mt-1 break-words text-[11px] text-muted-foreground">
-                {entry.detail ?? entry.target ?? "—"}
+                {entry.detail ?? entry.target ?? "-"}
               </p>
             </SettingsBlock>
           ))

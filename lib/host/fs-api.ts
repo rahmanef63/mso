@@ -1,4 +1,4 @@
-export { listDir, readFile, writeFile, makeDir, remove, move, copy, searchFs, usage, statReadable, statReadableMeta, mimeFor, fileStream } from "./fs";
+export { listDir, readFile, writeFile, makeDir, remove, move, copy, searchFs, usage, usageDefaultPath, statReadable, statReadableMeta, mimeFor, fileStream } from "./fs";
 export type { FsReadableMeta } from "./fs";
 export { uploadInto, resolveUploadDest, streamFileInto } from "./fs-upload";
 export { uploadOneGuarded } from "./fs-upload-guarded";

@@ -11,6 +11,7 @@ import { type ConnectedProvider } from "./provider-list";
 import { ProviderManage } from "./provider-manage";
 import { ModelCatalog } from "./model-catalog";
 import { AiProviderSelect } from "./ai-provider-select";
+import { AiModelSelect } from "./ai-model-select";
 import {
   FALLBACK_PROVIDER_OPTIONS,
   suggestedProviderModel,
@@ -122,7 +123,7 @@ export function AiSection() {
         }),
       });
       if (!r.ok) {
-        toast(r.status === 401 ? "Session expired — sign in again" : "Couldn’t save AI config", { tone: "error" });
+        toast(r.status === 401 ? "Session expired. Sign in again." : "Couldn’t save AI config", { tone: "error" });
         return;
       }
       setKey("");
@@ -178,7 +179,7 @@ export function AiSection() {
       </SettingsRow>
       {isOAuth ? (
         <SettingsRow label="Auth">
-          <span className="text-sm text-muted-foreground">Signed in via OAuth — no key needed</span>
+          <span className="text-sm text-muted-foreground">Signed in via OAuth, no key needed</span>
         </SettingsRow>
       ) : (
         <SettingsRow label={`${isCustom ? provider : providerLabel} key`}>
@@ -193,21 +194,23 @@ export function AiSection() {
       )}
       <SettingsRow label="Model">
         <div className="flex items-center gap-2">
-          <Input
-            list="ai-model-suggestions"
+          <AiModelSelect
+            provider={provider}
             value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder={(onSavedProvider && cfg?.model) || DEFAULT_MODELS[provider] || selectedProvider?.recommendedFreeModel || "model id"}
-            className="sm:w-64"
+            rows={catalog}
+            customModels={customModels}
+            onChange={(id) => { setModel(id); setTest(null); }}
+            placeholder={(onSavedProvider && cfg?.model) || DEFAULT_MODELS[provider] || selectedProvider?.recommendedFreeModel || "Choose model"}
           />
           <ModelCatalog provider={provider} value={model} onPick={setModel} />
         </div>
-        <datalist id="ai-model-suggestions">
-          {[...new Set([...customModels, ...catalog.map((m) => m.id)])].map((id) => (
-            <option key={id} value={id} />
-          ))}
-        </datalist>
+        {catalog.length === 0 && !customModels.length ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            No models listed for {providerLabel}. Add its model ids under Connected providers below.
+          </p>
+        ) : null}
       </SettingsRow>
+
       <SettingsBlock className="flex items-center justify-end gap-2">
         {test && (
           <span className={`text-xs ${test.ok ? "text-emerald-500" : "text-destructive"}`}>

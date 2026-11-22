@@ -14,7 +14,7 @@ const PROJECT_KEY = "mso:memory-graph:project";
 
 function stored(key: string): string {
   if (typeof window === "undefined") return "";
-  return localStorage.getItem(key) ?? "";
+  try { return localStorage.getItem(key) ?? ""; } catch { return ""; }
 }
 
 async function loadGraph(root: string, project: string): Promise<MemoryGraphDocument> {
@@ -67,13 +67,7 @@ export function MemoryGraphScreen({ initialRoot, initialProject }: { initialRoot
     if (!node.path) return;
     openWindow("code-editor", node.title, { w: 860, h: 600 }, { path: node.path });
   };
-  const selectNode = (id: string) => {
-    if (id === selected) {
-      const node = visible?.nodes.find((item) => item.id === id);
-      if (node) openNode(node);
-    }
-    setSelected(id);
-  };
+  const selectNode = (id: string) => setSelected(id);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -85,8 +79,7 @@ export function MemoryGraphScreen({ initialRoot, initialProject }: { initialRoot
         onGhosts={setShowGhosts} onTags={setShowTags} onOrphans={setShowOrphans}
         onToggleGroup={(group) => setHiddenGroups((currentGroups) => currentGroups.includes(group) ? currentGroups.filter((item) => item !== group) : [...currentGroups, group])}
         onReload={() => {
-          localStorage.setItem(ROOT_KEY, root);
-          localStorage.setItem(PROJECT_KEY, project);
+          try { localStorage.setItem(ROOT_KEY, root); localStorage.setItem(PROJECT_KEY, project); } catch { /* Preferences are optional. */ }
           setApplied({ root, project, nonce: applied.nonce + 1 });
         }}
       />
@@ -97,7 +90,7 @@ export function MemoryGraphScreen({ initialRoot, initialProject }: { initialRoot
       {error ? <p className="px-3 py-2 text-xs text-destructive">{error}</p> : null}
       {graph?.warnings.length ? <p className="px-3 py-1 text-xs text-muted-foreground">{graph.warnings.join(" · ")}</p> : null}
       {!error && graph && visible && visible.nodes.length === 0 ? (
-        <p className="px-3 py-2 text-xs text-muted-foreground">No notes yet. Set a markdown vault inside your read roots, or add project knowledge and agent memory. Optional default: OS_MEMORY_GRAPH_ROOT.</p>
+        graph.nodes.length === 0 ? <p className="px-3 py-2 text-xs text-muted-foreground">No notes yet. Set a markdown vault inside your read roots, or add project knowledge and agent memory. Optional default: OS_MEMORY_GRAPH_ROOT.</p> : <div className="px-3 py-2 text-xs">No notes match these filters. <button className="underline" onClick={() => { setQuery(""); setHiddenGroups([]); setLocal(false); setShowGhosts(true); setShowTags(true); setShowOrphans(true); }}>Reset filters</button></div>
       ) : null}
       <div className="flex min-h-0 flex-1 flex-col @min-[560px]:flex-row">
         <div className="min-h-0 min-w-0 flex-1">

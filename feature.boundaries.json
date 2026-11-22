@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "ratchets": {
+    "slicesMissingContract": 0,
+    "orphanContractEntries": 0,
+    "slicesWithoutBarrel": 0,
+    "slicesWithoutTests": 0,
+    "frameSlicesWithoutAppFrame": 2,
+    "rawConfirmCalls": 24,
+    "rawLocalStorageSlices": 12,
+    "minifiedProductionFiles": 97
+  },
+  "notes": {
+    "policy": "Feature governance ratchets may only stay equal or decrease. Never raise a ratchet to pass a PR; migrate legacy slices down toward zero.",
+    "goal": "Every feature slice declares a contract, uses AppFrame/ConfirmDialog/useFeatureState/featureFetch consistently, ships with colocated tests, and stays readable (no >400-char single-line minification)."
+  }
+}

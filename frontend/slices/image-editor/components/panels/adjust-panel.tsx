@@ -90,7 +90,7 @@ export function AdjustPanel() {
 
         {selected.kind === "adjustment" && (
           <p className="rounded-md bg-accent/50 px-2 py-1 text-[11px] text-muted-foreground">
-            Adjustment layer — affects every layer below it.
+            Adjustment layer: affects every layer below it.
           </p>
         )}
 

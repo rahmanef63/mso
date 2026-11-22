@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 const ROOT = path.join(__dirname, "../..");
 const INSTALL = path.join(ROOT, "scripts/managed-app-install");
 const ROUTER = path.join(ROOT, "scripts/managed-app-9router");
+const T3 = path.join(ROOT, "scripts/managed-app-t3");
+const N8N = path.join(ROOT, "scripts/managed-app-n8n");
 const LOCK = path.join(ROOT, "security/managed-app-artifacts.env");
 const source = (file: string) => fs.readFileSync(file, "utf8");
 
@@ -19,6 +21,11 @@ describe("managed-app immutable artifact contract", () => {
     expect(lock).toMatch(/OPENCLAW_VERSION='[^']+'/);
     expect(lock).toMatch(/OPENCLAW_TARBALL_SHA512='[0-9a-f]{128}'/);
     expect(lock).toMatch(/NINE_ROUTER_IMAGE_REF='[^']+@sha256:[0-9a-f]{64}'/);
+    expect(lock).toMatch(/T3_VERSION='[^']+'/);
+    expect(lock).toMatch(/T3_LINUX_X64_SHA256='[0-9a-f]{64}'/);
+    expect(lock).toMatch(/T3_LINUX_ARM64_SHA256='[0-9a-f]{64}'/);
+    expect(lock).toMatch(/N8N_VERSION='[^']+'/);
+    expect(lock).toMatch(/N8N_IMAGE_REF='docker\.n8n\.io\/n8nio\/n8n@sha256:[0-9a-f]{64}'/);
   });
 
   it("verifies Hermes installer bytes and pins the repository checkout", () => {
@@ -63,8 +70,30 @@ describe("managed-app immutable artifact contract", () => {
     expect(check).not.toContain("$BASE/api/version");
   });
 
-  it("keeps both lifecycle scripts syntactically valid", () => {
+  it("verifies pinned T3 Code tarballs by SHA-256 and binds loopback only", () => {
+    const script = source(T3);
+    expect(script).toContain("sha256sum -c -");
+    expect(script).toContain("--proto '=https'");
+    expect(script).toContain('BIND="127.0.0.1"');
+    expect(script).toContain("--host ${BIND} --port ${PORT}");
+    expect(script).not.toContain("releases/latest");
+  });
+
+  it("verifies pinned n8n Docker digest, loopback bind, and WebSocket push", () => {
+    const script = source(N8N);
+    expect(script).toContain("@sha256:");
+    expect(script).toContain("image_has_expected_digest");
+    expect(script).toContain("running_image_matches_lock");
+    expect(script).toContain("0) BIND=127.0.0.1 ;;");
+    expect(script).toContain("N8N_PUSH_BACKEND=websocket");
+    expect(script).not.toContain("n8nio/n8n:latest");
+    expect(script).not.toContain("n8nio/n8n:stable");
+  });
+
+  it("keeps all lifecycle scripts syntactically valid", () => {
     expect(() => execFileSync("bash", ["-n", INSTALL])).not.toThrow();
     expect(() => execFileSync("bash", ["-n", ROUTER])).not.toThrow();
+    expect(() => execFileSync("bash", ["-n", T3])).not.toThrow();
+    expect(() => execFileSync("bash", ["-n", N8N])).not.toThrow();
   });
 });

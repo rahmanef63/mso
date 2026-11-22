@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { syncIntegrationFrameTokens } from "./frame-theme";
-import { ComposioSessionPanel } from "./composio-session-panel";
 
 /** Preserve transfer/setup deep links without putting private capabilities in React state. */
 export function managerLocation(search: string, hash = "") {
@@ -11,6 +10,9 @@ export function managerLocation(search: string, hash = "") {
   return "/integrations/manager" + (transfer ? "?transfer=1" : "") + hash;
 }
 
+// The Composio session panel used to sit above this frame as a raw <details> block. It
+// duplicated the native manager (Composio is already a provider in its sidebar) and
+// pushed the real UI down. One surface, one place to change a connection.
 export default function IntegrationsApp() {
   const frame = useRef<HTMLIFrameElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -18,6 +20,13 @@ export default function IntegrationsApp() {
   useEffect(() => {
     const target = frame.current;
     if (!target) return;
+    const onReady = (event: MessageEvent) => {
+      if (event.source !== target.contentWindow || event.origin !== window.location.origin) return;
+      if (event.data?.type !== "mso:integrations-ready") return;
+      syncIntegrationFrameTokens(target);
+      setStatus("ready");
+    };
+    window.addEventListener("message", onReady);
     target.src = managerLocation(window.location.search, window.location.hash);
     if (window.location.hash) window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
     const timer = window.setTimeout(() => setStatus(current => current === "loading" ? "error" : current), 15000);
@@ -33,6 +42,7 @@ export default function IntegrationsApp() {
     scheme.addEventListener("change", sync);
     sync();
     return () => {
+      window.removeEventListener("message", onReady);
       window.clearTimeout(timer);
       window.cancelAnimationFrame(animation);
       observer.disconnect();
@@ -47,9 +57,8 @@ export default function IntegrationsApp() {
         </p>
         {status === "error" && <Button variant="secondary" onClick={() => { setStatus("loading"); setRetry(n => n + 1); }}>Retry</Button>}
       </div>}
-      <ComposioSessionPanel />
       <iframe ref={frame} title="MSO native Integrations manager" className="min-h-0 w-full flex-1 border-0"
-        referrerPolicy="no-referrer" onLoad={() => { if (frame.current?.getAttribute("src")) { syncIntegrationFrameTokens(frame.current); setStatus("ready"); } }}
+        referrerPolicy="no-referrer" onLoad={() => { if (frame.current?.contentDocument?.querySelector(".integration.manager")) { syncIntegrationFrameTokens(frame.current); setStatus("ready"); } }}
         onError={() => setStatus("error")} />
     </section>
   );

@@ -1,7 +1,45 @@
 #!/usr/bin/env node
 // GitHub's actual findings, not merely a completed analysis. Read-only API calls;
 // structured stdout is retained by Actions, without downloading remote content to files.
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 const { GITHUB_TOKEN, GITHUB_REPOSITORY } = process.env;
+// Reviewed OSV exceptions, parsed from the same osv-scanner.toml that
+// scripts/audit-exceptions.mjs verifies. Missing or unreadable is not this
+// script's failure: audit-exceptions.mjs owns recording correctness.
+const CONFIG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const CONFIG = path.join(CONFIG_ROOT, "osv-scanner.toml");
+function activeReviewedExceptions() {
+  let text;
+  try {
+    text = readFileSync(CONFIG, "utf8");
+  } catch {
+    return [];
+  }
+  const active = [];
+  for (const block of text.split(/\[\[IgnoredVulns\]\]/).slice(1)) {
+    const id = /^\s*id\s*=\s*"([^"]+)"/m.exec(block)?.[1];
+    const until = /^\s*ignoreUntil\s*=\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/m.exec(block)?.[1];
+    if (!id || !until) continue;
+    const expires = Date.parse(until);
+    if (Number.isFinite(expires) && expires > Date.now()) active.push({ id, until });
+  }
+  return active;
+}
+const reviewedExceptions = activeReviewedExceptions();
+// A reviewed advisory only silences the Scorecard alert that names it. CodeQL
+// findings and unknown tools stay open. Plain substring search, not a built
+// RegExp: advisory ids are literal text and CodeQL flags hand-built patterns.
+function reviewedException(alert) {
+  if (alert.tool !== "Scorecard") return null;
+  for (const instance of alert.instances ?? []) {
+    const message = typeof instance.message === "string" ? instance.message : instance.message?.text ?? "";
+    for (const entry of reviewedExceptions) if (message.includes(entry.id)) return entry;
+  }
+  return null;
+}
 const args = process.argv.slice(2);
 let selectedRef;
 let inventory = false;
@@ -92,12 +130,16 @@ try {
   const toolQuery = selectedTool ? `&tool_name=${encodeURIComponent(selectedTool)}` : "";
   const alerts = await pages(`/code-scanning/alerts?state=open&ref=${encodeURIComponent(ref)}${toolQuery}`);
   const rows = [];
+  const reviewed = [];
   for (const alert of alerts) {
     if (selectedTool && alert.tool?.name !== selectedTool) throw new Error("Unexpected tool in filtered security inventory");
     const row = descriptor(alert);
     const instances = await pages(`/code-scanning/alerts/${row.number}/instances?ref=${encodeURIComponent(ref)}`);
-    rows.push({ ...row, instances: instances.map(({ ref, analysis_key, category, state, message, location, classifications }) =>
-      ({ ref, analysis_key, category, state, message, location, classifications })) });
+    const detail = { ...row, instances: instances.map(({ ref, analysis_key, category, state, message, location, classifications }) =>
+      ({ ref, analysis_key, category, state, message, location, classifications })) };
+    const exception = reviewedException(detail);
+    if (exception) { reviewed.push({ number: row.number, ...exception }); continue; }
+    rows.push(detail);
   }
   const closed = includeClosed ? (await pages(`/code-scanning/alerts?state=closed&ref=${encodeURIComponent(ref)}${toolQuery}`)).map(descriptor) : [];
   // Detect a concurrent publication before reporting stale findings as current.
@@ -111,6 +153,7 @@ try {
   console.log(`CODE_SCANNING_HEAD ${report.head}`);
   console.log(`CODE_SCANNING_TOOL ${report.tool}`);
   console.log(`CODE_SCANNING_OPEN ${rows.length}`);
+  for (const alert of reviewed) console.log(`REVIEWED_EXCEPTION ${alert.number} ${alert.id} ${alert.until}`);
   for (const alert of rows) { console.log(`ALERT ${JSON.stringify(alert)}`); emitAnnotation(alert); }
   for (const alert of closed) console.log(`CLOSED_ALERT ${JSON.stringify(alert)}`);
   console.log(`CODE_SCANNING_REPORT ${JSON.stringify(report)}`);

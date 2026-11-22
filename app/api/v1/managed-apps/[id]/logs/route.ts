@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { json } from "@/lib/api/route";
 import { verifyAuth } from "@/lib/agent/server";
 import { isManagedAppId } from "@/lib/managed-apps/catalog";
 import { getManagedAppLogs } from "@/lib/managed-apps/manager";
@@ -6,8 +6,8 @@ import { getManagedAppLogs } from "@/lib/managed-apps/manager";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
-  if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await verifyAuth(req))) return json({ error: "unauthorized" }, 401);
   const { id } = await context.params;
-  if (!isManagedAppId(id)) return NextResponse.json({ error: "unknown managed application" }, { status: 404 });
-  return NextResponse.json(await getManagedAppLogs(id));
+  if (!isManagedAppId(id)) return json({ error: "unknown managed application" }, 404);
+  return json(await getManagedAppLogs(id));
 }

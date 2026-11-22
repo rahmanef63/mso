@@ -67,9 +67,10 @@ export async function startPty(opts: {
   const { id } = (await res.json()) as { id: string };
 
   let disposed = false;
+  let inputFailed = false;
   const es = new EventSource(`${BASE}/stream?id=${encodeURIComponent(id)}`);
   es.onopen = () => {
-    if (!disposed) onStatus({ kind: "live" });
+    if (!disposed && !inputFailed) onStatus({ kind: "live" });
   };
   es.addEventListener("data", (e) => {
     if (!disposed) onData(b64Bytes((e as MessageEvent<string>).data));
@@ -81,7 +82,7 @@ export async function startPty(opts: {
     onStatus({ kind: "exited", code: Number.isNaN(code) ? null : code });
   });
   es.onerror = () => {
-    if (disposed) return;
+    if (disposed || inputFailed) return;
     // CONNECTING = the browser is auto-retrying (resume makes it seamless);
     // CLOSED = fatal (session gone after a server restart, or auth lost).
     if (es.readyState === EventSource.CLOSED)
@@ -121,9 +122,13 @@ export async function startPty(opts: {
       const data = queue;
       queue = "";
       try {
-        await post("input", { id, data });
+        const response = await post("input", { id, data });
+        if (!response.ok) throw new Error("Input request failed");
       } catch {
-        /* transient network error — drop the batch, the shell stays coherent */
+        inputFailed = true;
+        queue = "";
+        onStatus({ kind: "error", message: "Input delivery uncertain. Reopen the terminal and check the command before typing again." });
+        break;
       }
     }
     flushing = false;
@@ -131,6 +136,7 @@ export async function startPty(opts: {
 
   return {
     write(data) {
+      if (inputFailed || disposed) return;
       queue += data;
       if (!flushing) void flush();
     },

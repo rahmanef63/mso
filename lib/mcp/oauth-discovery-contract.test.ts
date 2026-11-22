@@ -2,12 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+// Literal paths, not a helper: `path.join(__dirname, someVariable)` is dynamic
+// filesystem access, and Turbopack responds to that by tracing the whole project,
+// which fails the release gate as a build warning. When a route body moves to a
+// colocated handler.ts, point the literal at that file.
 const AUTHORIZATION_SERVER = fs.readFileSync(
-  path.join(__dirname, "../../app/.well-known/oauth-authorization-server/route.ts"),
+  path.join(__dirname, "../../app/.well-known/oauth-authorization-server/handler.ts"),
   "utf8",
 );
 const PROTECTED_RESOURCE = fs.readFileSync(
-  path.join(__dirname, "../../app/.well-known/oauth-protected-resource/route.ts"),
+  path.join(__dirname, "../../app/.well-known/oauth-protected-resource/handler.ts"),
   "utf8",
 );
 

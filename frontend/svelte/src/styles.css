@@ -1,0 +1,34 @@
+/* Preview tokens follow DESIGN.md's neutral chrome and functional accent.
+   Production appearance/preferences are not claimed as ported in this increment. */
+:root {
+  color-scheme: light dark;
+  --surface: #f7f7f8; --text: #1c1c1e; --panel: #fff;
+  --muted: #595961; --border: #d2d2d7; --accent: #1f6df0;
+  --feature-padding: 1.5rem; --feature-gap: 1rem; --ui-control-height: 2.75rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text); background: var(--surface); line-height: 1.5;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --surface: #171719; --text: #f5f5f7; --panel: #242426; --muted: #b4b4bd; --border: #535359; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.workspace { max-width: 72rem; margin: auto; padding: var(--feature-padding); }
+.workspace-header, .feature-header { display: flex; align-items: center; justify-content: space-between; gap: var(--feature-gap); flex-wrap: wrap; }
+h1, h2, h3 { margin: 0; font-size: 1.125rem; }
+h1 { font-size: 1.25rem; }
+.workspace-header span, footer, p { color: var(--muted); }
+main { margin-block: var(--feature-padding); min-width: 0; outline-offset: 4px; }
+section { background: var(--panel); border: 1px solid var(--border); border-radius: .625rem; padding: var(--feature-padding); container-type: inline-size; }
+button { min-height: var(--ui-control-height); padding: .5rem 1rem; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: .375rem; font: inherit; cursor: pointer; }
+button:disabled { cursor: wait; opacity: .65; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+dl { margin: 1rem 0; }
+dl > div { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--feature-gap); padding-block: .75rem; border-bottom: 1px solid var(--border); }
+dt { font-weight: 600; } dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+p, footer, .workspace-header span { overflow-wrap: anywhere; }
+.skip-link { position: absolute; top: -10rem; left: 1rem; padding: .75rem; background: var(--panel); color: var(--text); }
+.skip-link:focus { top: 1rem; }
+@container (max-width: 24rem) { dl > div { grid-template-columns: minmax(0, 1fr); gap: .25rem; } }
+@media (max-width: 30rem) { :root { --feature-padding: 1rem; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

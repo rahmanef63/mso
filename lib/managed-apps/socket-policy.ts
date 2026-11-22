@@ -1,4 +1,3 @@
-import type { NextRequest } from "next/server";
 import { liveSessionAuthorized } from "@/lib/auth/live-authorization";
 import { MANAGED_APP_SESSION_COOKIE, verifyManagedAppSession } from "./session";
 import { CAMOUFOX_VIEWER_COOKIE, verifyCamoufoxViewerCookie } from "@/lib/camoufox/viewer-auth";
@@ -30,7 +29,24 @@ async function defaultOrcaReadiness(): Promise<OrcaReadinessResult> {
   }
 }
 
-export async function socketPolicy(request: NextRequest, deps: SocketPolicyDeps = {}) {
+function cookieValues(request: Request, name: string): string[] {
+  const cookieHeader = request.headers.get("cookie");
+  if (cookieHeader) {
+    const values: string[] = [];
+    for (const part of cookieHeader.split(";")) {
+      const [k, ...rest] = part.trim().split("=");
+      if (k === name) values.push(rest.join("="));
+    }
+    if (values.length > 0) return values;
+  }
+  const reqWithCookies = request as { cookies?: { getAll?: (n: string) => Array<{ value: string }> } };
+  if (typeof reqWithCookies.cookies?.getAll === "function") {
+    return reqWithCookies.cookies.getAll(name).map((c) => c.value);
+  }
+  return [];
+}
+
+export async function socketPolicy(request: Request, deps: SocketPolicyDeps = {}) {
   if (IS_DEMO || request.method !== "GET") return null;
   const host = request.headers.get("host") ?? "", origin = request.headers.get("origin");
   if (origin) { try { if (new URL(origin).host !== host) return null; } catch { return null; } }
@@ -45,7 +61,7 @@ export async function socketPolicy(request: NextRequest, deps: SocketPolicyDeps 
   }
   const secret = process.env.OS_SESSION_SECRET ?? "";
   let identity: string | undefined;
-  for (const { value } of request.cookies.getAll(viewer ? CAMOUFOX_VIEWER_COOKIE : MANAGED_APP_SESSION_COOKIE)) {
+  for (const value of cookieValues(request, viewer ? CAMOUFOX_VIEWER_COOKIE : MANAGED_APP_SESSION_COOKIE)) {
     const session = viewer ? verifyCamoufoxViewerCookie(value, secret) : verifyManagedAppSession(app!, value, secret);
     if (!session?.device_id) continue;
     if (viewer) {
@@ -83,8 +99,9 @@ export async function socketPolicy(request: NextRequest, deps: SocketPolicyDeps 
   } catch {
     return null;
   }
-  const pathname = viewer ? camoufoxViewerUpstreamPath(request.nextUrl.pathname) : request.nextUrl.pathname;
+  const url = new URL(request.url);
+  const pathname = viewer ? camoufoxViewerUpstreamPath(url.pathname) : url.pathname;
   if (!pathname || pathname.startsWith("/_next")) return null;
-  const target = new URL(base); target.pathname = pathname; target.search = request.nextUrl.search;
+  const target = new URL(base); target.pathname = pathname; target.search = url.search;
   return { identity: socketIdentity, target: target.toString(), headers: Object.fromEntries(upstreamSocketHeaders(request.headers, app ?? undefined, base)) };
 }

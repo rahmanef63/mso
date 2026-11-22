@@ -142,8 +142,42 @@ describe("/api/config provider-auth vs model-selection contract", () => {
     expect(upsertCustomProvider).toHaveBeenCalledWith("my-hub", expect.objectContaining({ models: ["m1"] }));
     expect(setKey).toHaveBeenCalledWith(undefined, "my-hub", "secret");
     expect(writeConfig).not.toHaveBeenCalled();
+    expect(res).toBeDefined();
     expect(await res.json()).toMatchObject({ slug: "my-hub", selected: false });
   });
+
+  it("edits an existing custom provider's models without a key and without clearing them", async () => {
+    readConfig.mockResolvedValue({
+      provider: "9router-vps",
+      model: "deepseek-v4.1-flash-free",
+      customProviders: { "9router-vps": { baseUrl: "https://router.example.com/v1", protocol: "openai", models: ["a"] } },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(request({
+      customProvider: { name: "9router-vps", baseUrl: "https://router.example.com/v1", models: ["a", "b"] },
+      select: false,
+    }));
+    expect(res.status).toBe(200);
+    // No key in the body, and no key is touched — the stored credential is reused.
+    expect(setKey).not.toHaveBeenCalled();
+    expect(upsertCustomProvider).toHaveBeenCalledWith("9router-vps", expect.objectContaining({ models: ["a", "b"] }));
+  });
+
+  it("keeps a custom provider's stored models when the edit omits the field", async () => {
+    readConfig.mockResolvedValue({
+      provider: "anthropic",
+      model: "claude-active",
+      customProviders: { hub: { baseUrl: "https://ai.example.com/v1", protocol: "openai", models: ["kept"] } },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(request({
+      customProvider: { name: "hub", baseURL: "https://ai.example.com/v1" },
+      select: false,
+    }));
+    expect(res.status).toBe(200);
+    expect(upsertCustomProvider).toHaveBeenCalledWith("hub", expect.objectContaining({ models: ["kept"] }));
+  });
+
 
   it("keeps Google active and connected after Codex credentials are added", async () => {
     readConfig.mockResolvedValue({

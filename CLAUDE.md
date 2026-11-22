@@ -33,21 +33,23 @@ agent — it runs AS a host process and controls its own machine.
   reference docs (including `docs/ARCHITECTURE.md`) must track `main`; dated audits/plans
   are explicitly historical and may preserve obsolete implementation details only inside
   that historical context.
+- [`docs/FRONTEND-CONTRACT.md`](./docs/FRONTEND-CONTRACT.md) — required for every frontend,
+  state and responsive change, including native DOM surfaces; shell → feature → UI-kit ownership,
+  action semantics, accessibility, state lifetimes and per-feature evidence.
 - `frontend/slices/assistant/CONTRACT.md` — current, and authoritative for what an
   Agent / Tool / Skill / Playbook is and what reaches the model.
 - `docs/MCP-FEATURE-IMPLEMENTATION.md` — stepwise observe/map/bound/reverse-engineer/
   verify playbook for MCP tools, trusted skills and project capabilities.
 
 **The doc set, and the one rule.** `docs/README.md` is the map. `docs/PROGRESS.md` is
-the SSOT for historical WHY; current reference docs describe today's contracts; dated
-plans/audits are historical. Append to PROGRESS when you ship — do not start a second
-HAND-WRITTEN log. (`docs/CHANGELOG.md` was exactly that once and was merged
-back in; the root `progress.md` is gitignored local scratch and claims authority it
-does not have.) `docs/CHANGELOG.md` exists again as of 2026-08-11 but is **generated
-from git subjects** by `scripts/gen-changelog.mjs` and gated stale-by-`gates.sh`, so
-there is nothing to keep in sync and no way for it to disagree with history. PROGRESS
-is the WHY; CHANGELOG is the WHAT, and it is what Settings → Account → About renders as
-"What's new" so a shipped change is visible in the running app.
+the historical archive for WHY; **for new feature PRs, write a standalone file under
+`docs/progress/YYYY-MM-DD-<slug>.md`** so parallel PRs never conflict on line 1 of
+`docs/PROGRESS.md` (see [`docs/progress/README.md`](./docs/progress/README.md)). Current
+reference docs describe today's contracts; dated plans/audits are historical. Do not start a
+second hand-written changelog (`docs/CHANGELOG.md` is **generated from git subjects** by
+`scripts/gen-changelog.mjs`, deferred automatically on PR branches when untouched relative to
+`origin/main`, and regenerated on `main` by `bun run ship` so Settings → Account → About renders
+an accurate "What's new" without cross-PR merge conflicts).
 
 
 **Comparison is generated policy, not hand-written marketing.** Edit only
@@ -251,13 +253,19 @@ creation; a local green run cannot supersede them. Never bypass branch rules.
   `bun run ship` path after review. Conventional commits + Claude co-author.
 - **The gates live in `scripts/gates.sh`, which IS committed.** `.git/hooks/pre-push`
   is a one-line shim that execs it; reinstall with `bash scripts/gates.sh --install`.
-  They used to live in the untracked hook itself, which meant a fresh clone had NO
-  gates and an sc-git hook reinstall silently dropped the audit + build guards while
-  re-adding a `check-slices.mjs` line for a script deleted on 2026-08-03. Four guards
-  run the repository-owned `bun run verify`, cycle/docs/changelog checks, the local
-  strict high/critical audit, and `scripts/verify-build.sh`. There is no external sc-git runner
-  and no Convex auto-deploy tail. Hook installation resolves Git's hook path, including
-  linked worktrees. Build verification stays out-of-tree; never bypass gates.
+  On non-`main` feature branches, `scripts/gates.sh` runs change-aware `scripts/run-smart-gate.mjs --pr-fast`
+  (typecheck, changed-file lint, all static checks including `scripts/check-features.mjs`, and
+  affected Vitest targets) so iterative PR pushes finish in ~20-45s instead of ~12 min.
+  On `main` (`bun run ship`), in CI, or with `MSO_GATE_FULL=1` (`bun run pr:local`), it runs the
+  complete release gate: `bun run verify` (with path-gated `scripts/run-svelte-if-changed.mjs`
+  locally), `gen-changelog.mjs --check`, strict high/critical audit, and `scripts/verify-build.sh`
+  (with `--reflink=auto`, optional `MSO_E2E_JOBS` parallelism, and atomic `.next` promotion in
+  `scripts/self-update.sh` via `scripts/lib/promote-next-build.sh`). Hook installation resolves
+  Git's hook path, including linked worktrees. Build verification stays out-of-tree; never bypass gates.
+- **Modular feature packages (`~/.mso/features/`):** standalone features that should ship/update
+  without rebuilding Next.js core or restarting `mso.service` are packaged via `bun run feature:pack`
+  and served through `/api/v1/features` with `O_NOFOLLOW` fd reads, live `minRole` checks, SHA-256
+  entry integrity, and sandboxed same-origin framing. See [`docs/MODULAR-FEATURES.md`](./docs/MODULAR-FEATURES.md).
 - **`bun run audit` ≠ `bun audit`.** The script is `scripts/audit.mjs`, which wraps
   `bun audit --json` because raw `bun audit` fails CLOSED — offline it exits 1, the
   same code as a real advisory, which would turn every network blip into a fake
@@ -357,3 +365,28 @@ shebangs, which `bun run` honours, so every tool still executes under Node.
   binaries). Don't "fix" the `bun pm untrusted` warning. `sharp` used to be a third
   entry here; 0.35 dropped its install script, so it no longer appears at all.
 - `lib/host/cleanup.ts`'s pnpm-store card stays — other repos on this box still use it.
+
+<!-- antislop:start -->
+## antislop
+
+UI, copy, people, mobile layout, and code-comment work is filtered by antislop before it ships.
+
+- Core filter, read first: `antislop` skill
+- UI and visual: `antislop-ui`
+- Copy and text: `antislop-copywriting`
+- People, contrast, keyboard: `antislop-human`
+- Mobile and responsive: `antislop-layoutmobile`
+- Code comments: `antislop-code`
+
+Hard gates that already apply to this repo, so a review will reject a change that breaks them:
+
+- No em dash in user-visible strings. Comments and docs are out of scope.
+- No fabricated numbers, testimonials, or security claims.
+- Every interactive element has real behaviour; no dead controls.
+- Text meets WCAG AA contrast; the repo gate is `node scripts/check-contrast.mjs`.
+- Both shipped themes must work.
+
+Design direction lives in `DESIGN.md`. Read it before any UI work. If it is absent, say so and treat the result as a draft without direction.
+
+If a rule and a task conflict, name the rule and ask. Do not silently override either one.
+<!-- antislop:end -->

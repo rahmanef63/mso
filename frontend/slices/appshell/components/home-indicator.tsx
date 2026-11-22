@@ -75,7 +75,7 @@ export function HomeIndicator({
     >
       <button
         type="button"
-        aria-label="Home — swipe up for home, hold for app switcher"
+        aria-label="Home: swipe up for home, hold for app switcher"
         // min-h-6: the bar itself is 5px and py-1.5 left the control 17px tall, under
         // the WCAG 2.5.8 24×24 floor. Height only — the 134px bar and px-12 are
         // untouched, so the affordance looks identical.

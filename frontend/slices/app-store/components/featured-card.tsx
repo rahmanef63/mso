@@ -5,10 +5,13 @@ import { Check, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { glyphIcon } from "../lib/glyph";
 import type { CatalogApp } from "../lib/store-catalog";
+import { StoreGlyph } from "./store-tile";
 
 // Editor's-choice hero card. Highlights one catalog app with its glossy icon,
 // a tagline and a primary Get / Installed toggle wired to the same handler as
-// the grid cards.
+// the grid cards. Shares the glyph tile with the rows; it keeps its own hero
+// chrome (bigger type, no badge row) because a hero is a different layout, not
+// a row variant.
 export function FeaturedCard({
   app,
   onToggle,
@@ -23,10 +26,13 @@ export function FeaturedCard({
     >
       <span className="pointer-events-none absolute -right-6 -top-6 size-40 rounded-full bg-white/10" />
       <div className="relative flex items-start gap-4">
-        <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/15 shadow-sm">
+        <StoreGlyph
+          overlay="none"
+          className="size-14 rounded-2xl bg-white/15 shadow-sm"
+        >
           {/* createElement: dynamic stateless lookup, not a render-created component */}
           {createElement(glyphIcon(app.glyph), { className: "size-7" })}
-        </div>
+        </StoreGlyph>
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-bold uppercase tracking-[0.08em] opacity-80">
             Editor&rsquo;s Choice

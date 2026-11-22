@@ -3,12 +3,12 @@
 > **Current reference.** Counts are checked against the directory tree by
 > `scripts/check-docs.mjs`; the directory remains the final authority.
 
-<!-- slice-catalog: slices=32 appshell-features=10 -->
+<!-- slice-catalog: slices=33 appshell-features=10 -->
 
 Every application is a vertical slice under `frontend/slices/`. Host-facing slices use the
 shared API/host seam rather than reaching arbitrary Node host APIs from client code.
 
-## Slices (31)
+## Slices (33)
 
 | Slug | Purpose |
 |---|---|
@@ -18,6 +18,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `appshell` | Generic desktop/mobile shell framework |
 | `assistant` | Alfa assistant, agents/playbooks and tool activity |
 | `auth` | Authentication UI/helpers |
+| `bot-desktops` | Bot desktop containers created by grokbot: per-display live screenshots and the lifecycle verbs the desktop API exposes |
 | `camoufox-browser` | Remote Camoufox/noVNC Browser app |
 | `channels` | Provider-neutral Telegram/Discord channel configuration, status, send/test, inbound URLs and workflow binding |
 | `code-editor` | Code/text editor with integrated terminal |
@@ -42,7 +43,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `quicklinks` | Website shortcuts/favicons |
 | `reel-editor` | Video/reel timeline editor |
 | `shell-settings` | Shared shell settings UI primitives |
-| `system-monitor` | Live metrics/processes plus service inventory/logs/allowlisted lifecycle and cache-only package updates |
+| `system-monitor` | Live metrics/processes, service inventory/logs/allowlisted lifecycle, cache-only package updates, and per-slice budget vs measured resource use |
 | `workflows` | Server-native automation editor with schedule/webhook/channel triggers, channel send, flow control, private history/versions/variables and node-level logs |
 
 ## AppShell feature directories (10)
@@ -64,4 +65,8 @@ Not every directory is a user-visible slot contribution: `desktop-icons` and `fo
 are shell infrastructure used directly by the desktop runtime. `shell-settings` is a normal
 top-level slice, not an AppShell feature directory.
 
-See `docs/ARCHITECTURE.md` for the shell/manifest relationship.
+See [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) for the shell/manifest relationship,
+[`docs/FRONTEND-CONTRACT.md`](./FRONTEND-CONTRACT.md) and `frontend/slices/feature-contracts.ts`
+(enforced by `bun run check:features` against `feature.boundaries.json`) for automated slice
+contracts, and [`docs/MODULAR-FEATURES.md`](./MODULAR-FEATURES.md) for independently deployed
+modular feature packages under `~/.mso/features/`.

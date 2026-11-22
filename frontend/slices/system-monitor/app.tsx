@@ -12,20 +12,21 @@ import { Sparkline } from "./components/sparkline";
 import { ProcessTable } from "./components/process-table";
 import { ServicesPanel } from "./components/services-panel";
 import { PackageUpdatesPanel } from "./components/package-updates-panel";
+import { SliceResourcesPanel } from "./components/slice-resources-panel";
 import { useStatsHistory } from "./lib/use-stats-history";
 import { MONITOR_VARS, type MonitorVar } from "./lib/palette";
 import { fmtGiBPair, fmtMBs, fmtPct } from "./lib/format";
 
-type MonitorTab = "overview" | "services" | "updates";
+type MonitorTab = "overview" | "services" | "updates" | "slices";
 
 export default function SystemMonitor() {
   const api = useOsApi();
   const { isMobile } = useResponsive();
   const [tab, setTab] = useState<MonitorTab>("overview");
-  const { stats, procs, cpuSeries, netSeries, gpu, error, refresh } = useStatsHistory(tab === "overview");
+  const { stats, procs, cpuSeries, netSeries, gpu, error, processError, lastUpdated, refresh } = useStatsHistory(tab === "overview");
 
   usePublishInspector("system-monitor", {
-    subject: tab === "overview" ? "VPS host" : tab === "services" ? "systemd services" : "package updates",
+    subject: tab === "overview" ? "VPS host" : tab === "services" ? "systemd services" : tab === "updates" ? "package updates" : "slice resource budgets",
     props: [
       { label: "View", value: tab },
       { label: "Role", value: api.access.role },
@@ -36,7 +37,7 @@ export default function SystemMonitor() {
     ],
     actions: tab === "overview" ? [{ id: "refresh", label: "Refresh", run: refresh }] : [],
     context: `System Monitor ${tab}; role=${api.access.role}; mode=${api.mode}`,
-    suggestions: tab === "overview" ? ["Why is CPU high?", "What's using memory?"] : tab === "services" ? ["Which service is failing?"] : ["Summarize cached updates"],
+    suggestions: tab === "overview" ? ["Why is CPU high?", "What's using memory?"] : tab === "services" ? ["Which service is failing?"] : tab === "updates" ? ["Summarize cached updates"] : ["Which slice is over budget?"],
   }, [tab, stats, procs.length, api.mode, api.access.role, refresh]);
 
   const toolbarItems: ToolbarItem[] = tab === "overview"
@@ -55,7 +56,7 @@ export default function SystemMonitor() {
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           <Tabs className="min-w-0">
             <TabsList className="max-w-full overflow-x-auto">
-              {(["overview", "services", "updates"] as const).map((value) => (
+              {(["overview", "services", "updates", "slices"] as const).map((value) => (
                 <TabsTrigger key={value} active={tab === value} onClick={() => setTab(value)} className="capitalize">{value}</TabsTrigger>
               ))}
             </TabsList>
@@ -64,19 +65,22 @@ export default function SystemMonitor() {
         </div>
       </header>
     }>
-      {tab === "overview" ? <Overview stats={stats} procs={procs} cpuSeries={cpuSeries} netSeries={netSeries} gpu={gpu} error={error} refresh={refresh} /> : null}
+      {tab === "overview" ? <Overview stats={stats} procs={procs} cpuSeries={cpuSeries} netSeries={netSeries} gpu={api.mode === "mock" ? gpu : undefined} error={error} processError={processError} lastUpdated={lastUpdated} refresh={refresh} /> : null}
       {tab === "services" ? <ServicesPanel /> : null}
       {tab === "updates" ? <PackageUpdatesPanel /> : null}
+      {tab === "slices" ? <SliceResourcesPanel /> : null}
     </AppFrame>
   );
 }
 
-function Overview({ stats, procs, cpuSeries, netSeries, gpu, error, refresh }: ReturnType<typeof useStatsHistory>) {
+function Overview({ stats, procs, cpuSeries, netSeries, gpu, error, processError, lastUpdated, refresh }: Omit<ReturnType<typeof useStatsHistory>, "gpu"> & { gpu?: number }) {
   if (!stats && error) return <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"><AlertCircle className="size-6 text-destructive" /><p className="max-w-xs text-xs text-muted-foreground">{error}</p><Button variant="outline" size="sm" onClick={refresh}><RotateCw className="size-3.5" /> Retry</Button></div>;
   if (!stats) return <div className="flex h-full items-center justify-center gap-2 text-xs text-[color:var(--text-faint)]"><Loader2 className="size-4 animate-spin" /> Reading host telemetry…</div>;
   const lastNet = netSeries[netSeries.length - 1] ?? 0;
   return (
     <div className="space-y-3.5 p-4" style={MONITOR_VARS as React.CSSProperties}>
+      {error && <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/30 p-3 text-xs text-destructive-text"><span className="min-w-0 flex-1">Telemetry refresh failed. Showing the last sample{lastUpdated ? ` from ${new Date(lastUpdated).toLocaleTimeString()}` : ""}. {error}</span><Button size="sm" variant="outline" onClick={refresh}>Retry</Button></div>}
+      {processError && <p role="status" className="text-xs text-destructive-text">Process list may be out of date. {processError}</p>}
       <GaugeGrid stats={stats} gpu={gpu} />
       <div className="grid grid-cols-2 gap-3 @max-[440px]:grid-cols-1">
         <GlassPanel title="CPU load" right={fmtPct(stats.cpu.pct)}><Sparkline data={cpuSeries} accent={"--mon-cpu" as MonitorVar} max={100} /></GlassPanel>

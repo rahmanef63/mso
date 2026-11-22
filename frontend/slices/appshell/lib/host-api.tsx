@@ -15,6 +15,7 @@ export type {
   UploadFile, UploadResult, UploadProgress, ExecResult, Process, ServiceScope, ServiceAction,
   SystemService, ServiceInventory, ServiceLogs, PackageUpdate, PackageUpdateSummary, AppManifest,
   ManagedAppSummary, ManagedAppAction, BrowserState, OsApi,
+  SliceResourceReport, SliceResourceRow,
 } from "@/lib/contracts/os-api";
 import type { OsApi } from "@/lib/contracts/os-api";
 

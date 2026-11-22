@@ -14,7 +14,9 @@ it("checks published metadata limits separately from MSO's byte policy without i
     }
   }
   const descriptors = TOOLS.map(tool => toolDescriptor(tool, "chatgpt"));
-  // Internal project budgets, NOT an OpenAI/MCP token guarantee.
-  expect(Buffer.byteLength(JSON.stringify(descriptors))).toBeLessThan(96 * 1024);
+  // Internal project budgets, NOT an OpenAI/MCP token guarantee. Kept equal to the
+  // companion ceiling in chatgpt-profile.test.ts: two tests measuring the same payload
+  // with different numbers is how one of them silently becomes the real limit.
+  expect(Buffer.byteLength(JSON.stringify(descriptors))).toBeLessThan(100 * 1024);
   expect(Math.max(...descriptors.map(d => Buffer.byteLength(JSON.stringify(d))))).toBeLessThan(8 * 1024);
 });

@@ -48,10 +48,10 @@ export function PropertiesPanel() {
       )}
       {selected.kind === "paint" && <BrushBlock />}
       {selected.kind === "adjustment" && (
-        <Note>Adjustment layer — tune its sliders in the <b>Adjust</b> tab; it filters every layer below it.</Note>
+        <Note>Adjustment layer: tune its sliders in the <b>Adjust</b> tab; it filters every layer below it.</Note>
       )}
       {selected.kind === "image" && (
-        <Note>Image layer — colour in the <b>Adjust</b> tab, effects in <b>Style</b>. Geometry below.</Note>
+        <Note>Image layer: colour in the <b>Adjust</b> tab, effects in <b>Style</b>. Geometry below.</Note>
       )}
 
       <Separator />

@@ -59,9 +59,9 @@ export function WindowContent({ app, payload, winId }: { app: string; payload?: 
   if (!Comp && failed === app) {
     return (
       <div className="grid h-full place-items-center gap-3 p-6 text-center text-sm text-muted-foreground">
-        <p>Gagal memuat {descriptor.title}.</p>
+        <p>Could not load {descriptor.title}.</p>
         <Button size="sm" variant="secondary" onClick={() => location.reload()}>
-          Muat ulang
+          Reload
         </Button>
       </div>
     );

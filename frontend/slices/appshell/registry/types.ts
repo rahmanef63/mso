@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import type { AppDescriptor } from "../lib/types";
+import type { LayoutConfig } from "../design/layout";
 import type { ShellCapabilities } from "./capabilities";
 
 // Named regions a feature can mount into. The surfaces render <Slot region> at a
@@ -47,6 +48,7 @@ export type ShellManifest = {
   persistKey?: string;
   /** Consumer-injected capabilities (appearance/host) — keeps the shell generic. */
   capabilities?: ShellCapabilities;
+  layout?: LayoutConfig;
 };
 
 /** Identity helper — gives a feature its type + a stable authoring shape. */

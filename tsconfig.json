@@ -49,7 +49,11 @@
   ],
   "exclude": [
     "node_modules",
+    ".worktrees/**",
+    "**/.worktrees/**",
+    ".claude/worktrees/**",
     "frontend/slices/**/slice.contract.ts",
-    "**/zz-*"
+    "**/zz-*",
+    "frontend/svelte/**"
   ]
 }

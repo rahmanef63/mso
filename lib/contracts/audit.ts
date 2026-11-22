@@ -5,7 +5,9 @@ export type AuditAction =
   | "exec.job.start"
   | "exec.job.cancel"
   | "term.open"
+  | "term.write"
   | "term.close"
+  | "fs.read"
   | "fs.write"
   | "fs.delete"
   | "fs.move"
@@ -21,6 +23,8 @@ export type AuditAction =
   | "managed-app.action"
   | "infra.write"
   | "camoufox.power"
+  /** Bot desktop container lifecycle seen or changed from MSO (never a bot command). */
+  | "desktop.lifecycle"
   | "workflow.start"
   | "workflow.cancel"
   | "workflow.finish"
@@ -50,4 +54,6 @@ export type AuditAction =
   | "auth.device"
   | "auth.account"
   | "auth.password"
+  /** Keeping the self-hosted Nakama admin password equal to MSO's (#296). */
+  | "auth.nakama"
   | "framework.error";

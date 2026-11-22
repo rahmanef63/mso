@@ -68,7 +68,7 @@ export function SkillForm({
       <Field label="Color">
         <ColorPick value={color} onChange={setColor} options={SKILL_COLORS} />
       </Field>
-      <Field label="Instructions" hint="Your own note on how to use this playbook. NOT sent to the model — only the agent's persona reaches the system prompt.">
+      <Field label="Instructions" hint="Your own note on how to use this playbook. NOT sent to the model; only the agent's persona reaches the system prompt.">
         <Textarea
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
@@ -76,10 +76,10 @@ export function SkillForm({
           className="min-h-16"
         />
       </Field>
-      <Field label="Tools" hint="Your own note of what this playbook leans on. Not a grant — Alfa gets every tool on every turn.">
+      <Field label="Tools" hint="Your own note of what this playbook leans on. Not a grant: Alfa gets every tool on every turn.">
         <ToolPicker value={tools} onChange={setTools} />
       </Field>
-      <Field label="Starter prompts" hint="One per line — shown as quick chips.">
+      <Field label="Starter prompts" hint="One per line, shown as quick chips.">
         <Textarea
           value={starters}
           onChange={(e) => setStarters(e.target.value)}

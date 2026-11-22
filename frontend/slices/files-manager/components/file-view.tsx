@@ -14,7 +14,7 @@ import { useViewportWindow } from "@/features/appshell";
 const VIRTUALIZE_THRESHOLD = 200;
 // Matches `px-3 py-1.5 text-xs` (~28px). Constant — list rows never wrap, so the
 // height is uniform. If the row class changes, bump this in tandem.
-const LIST_ROW_HEIGHT = 28;
+const LIST_ROW_HEIGHT = 44;
 
 export function FileView({
   ios,

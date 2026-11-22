@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { planFor, verdict, exitFor } from './plan.mjs';
+import { anchorMounts, planFor, verdict, exitFor } from './plan.mjs';
 import { executeStep, childEnvironment } from './process.mjs';
 import { createRun, saveReport, acquireLocks } from './store.mjs';
 function git(cwd, ...args) {
@@ -35,23 +35,30 @@ export async function runPipeline({ repo, expectedSha, profile, stateRoot, signa
     release = await acquireLocks(stateRoot, target.identity, run.runId);
     target = await inspect(repo, expectedSha);
     report.commit = target.head;
+    // The docker lanes carry a `./:/src` placeholder; bind it to the verified root so the scan cannot
+    // mount a different tree than the one whose SHA was just checked.
+    steps.splice(0, steps.length, ...anchorMounts(steps, target.cwd));
     for (const step of steps) {
       if (step.blocked) { step.status = 'BLOCKED'; step.reason = step.blocked; }
     }
-    if (steps.some((step) => step.status === 'BLOCKED')) {
-      report.reason = 'Security migration incomplete. No selected commands executed; release remains blocked.';
-    } else {
-      for (const step of steps) {
-        if (signal?.aborted) { step.status = 'BLOCKED'; step.reason = 'Cancelled before execution'; break; }
-        await inspect(repo, expectedSha);
-        step.startedAt = new Date().toISOString();
-        await saveReport(run.path, report);
-        Object.assign(step, await execute(step, { cwd: target.cwd, logPath: join(run.path, `${step.id}.log`), signal }));
-        await saveReport(run.path, report);
-        if (step.status !== 'PASS') break;
-      }
-      await inspect(repo, expectedSha);
+    // Executable lanes run even when other lanes are still blocked, so a partially migrated profile
+    // produces real evidence instead of nothing. The verdict stays BLOCKED either way: a lane that
+    // never ran is not a pass, and the runner must not imply security parity it does not have.
+    const anyBlocked = steps.some((step) => step.status === 'BLOCKED');
+    if (anyBlocked) {
+      report.reason = 'Security migration incomplete; executable lanes ran, blocked lanes did not, release remains blocked.';
     }
+    for (const step of steps) {
+      if (step.blocked) continue;
+      if (signal?.aborted) { step.status = 'BLOCKED'; step.reason = 'Cancelled before execution'; break; }
+      await inspect(repo, expectedSha);
+      step.startedAt = new Date().toISOString();
+      await saveReport(run.path, report);
+      Object.assign(step, await execute(step, { cwd: target.cwd, logPath: join(run.path, `${step.id}.log`), signal }));
+      await saveReport(run.path, report);
+      if (step.status !== 'PASS') break;
+    }
+    await inspect(repo, expectedSha);
     report.status = verdict(steps);
   } catch (error) {
     report.status = 'BLOCKED';

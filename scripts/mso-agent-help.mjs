@@ -1,44 +1,22 @@
-export function printHelp() {
-  console.log(
-    [
-      "  /new [title]            create and switch to a fresh durable session",
-      "  /restart                soft-reload Agent runtime; keep this session",
-      "  /session [query]        open picker or resume latest/index/id/@name/title",
-      "  /resume [query]         alias-style resume command; bare opens same picker",
-      "  /rename <name>          rename the short @agent handle",
-      "  /title <text>           rename the session title/description",
-      "  /status                 model/auth/context/token/session details",
-      "  /permission [mode]      choose ask | auto-write | yolo",
-      "  /context                alias for /status",
-      "  /statusbar [on|off]     toggle compact dynamic status line",
-      "  /models [args]          configure AI providers/auth",
-      "  /model [ref]            select active model from connected providers",
-      "  /setup                  full MSO onboarding",
-      "  /integrations [args]    manage users, providers, connections, source/auth",
-      "  /doctor                 run mso doctor",
-      "  /tools                  list agent tools",
-      "  /agents                 list live local session agents + remote A2A peers",
-      "  @milo <prompt>           message an active local agent by its short @name",
-      "  /message <target> <msg> send notify-only local agent data",
-      "  /delegate <target> <job> correlated local task; else remote A2A peer",
-      "  /spawn [--name N] [--scope S] <job> run foreground isolated subagent in this session",
-      "  /inbox                  show native local agent messages for this session",
-      "  /skills [query]         browse available slash skills",
-      "  /skill <id> [prompt]    select exact skill id (ambiguity escape hatch)",
-      "  /<skill> [prompt]       select for next message, or run prompt now",
-      "  /clear                  clear this session conversation",
-      "  /exit, /quit            quit",
-      "",
-      "Keyboard",
-      "  Ctrl+C                  clear input; empty prompt exits; active turn interrupts",
-      "  Ctrl+D                  delete right; empty prompt exits",
-      "  Ctrl+L                  clear/repaint terminal",
-      "  Ctrl+W · Ctrl+U/K       delete word · delete to line start/end",
-      "  ↑/↓ or Ctrl+P/N         prompt history (durable after resume)",
-      "  Ctrl+A/E · Ctrl+B/F     line start/end · left/right",
-      "  Alt+B/F · Ctrl+←/→      move by word",
-      "  Tab (empty prompt)       cycle permission in place: ask → auto → yolo",
-    ].join("\n"),
-  );
-}
+import process from "node:process";
+// Derives help lines and formatted text directly from command and settings registries.
+// Commands like /find are declared in COMMAND_MANIFEST in mso-agent-commands.mjs.
+import { createPrinter } from "./mso-agent-print.mjs";
+import { helpLines } from "./mso-agent-help-lines.mjs";
+import { getKeybinds } from "./mso-agent-keybinds.mjs";
 
+export { helpLines };
+
+// Static exports for backward compatibility and test assertions.
+export const HELP_LINES = helpLines();
+export const HELP_TEXT = HELP_LINES.join("\n");
+
+export function printHelp(options = {}) {
+  const printer = createPrinter(options);
+  const colors = options.colors || options.session?.colors;
+  // Live terminal columns beat a stale session width, so a resize is respected the moment /help runs.
+  const width = options.width || process.stdout?.columns || options.session?.width;
+  // Effective keybinds, so a custom keymap is described instead of the shipped default.
+  const keybinds = options.keybinds || getKeybinds();
+  printer.printBlock(helpLines({ ...options, colors, width, keybinds }).join("\n"));
+}

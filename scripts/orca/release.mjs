@@ -101,7 +101,8 @@ export async function preparePinnedRelease({
   signal,
   timeoutMs = 300000,
   fetchImpl,
-  allowDownload = true
+  allowDownload = true,
+  onProgress = () => {}
 } = {}) {
   assertSupportedHostPlatform()
   if (typeof installRoot !== 'string' || !installRoot.startsWith('/')) {
@@ -113,6 +114,7 @@ export async function preparePinnedRelease({
   const releaseRoot = join(releasesDir, `${identity.version}+${identity.contentId}`)
 
   if (await lstatOrNull(releaseRoot)) {
+    onProgress(`verifying existing Orca ${identity.version} release`)
     try {
       return await verifyInstalledRelease({ releaseRoot, identity })
     } catch (err) {
@@ -121,6 +123,7 @@ export async function preparePinnedRelease({
   }
 
   const cacheDir = await ensurePrivateDir(installRoot, 'cache')
+  onProgress(`acquiring pinned Orca ${identity.version} package`)
   const debPath = await resolveDeb({
     cacheDir,
     verifiedDebCache,
@@ -130,6 +133,7 @@ export async function preparePinnedRelease({
     allowDownload
   })
   const runtimesDir = await ensurePrivateDir(cacheDir, 'runtimes')
+  onProgress(`acquiring pinned Node ${identity.node.version} runtime`)
   const nodeBinary = await fetchAndMaterializeNodeRuntime({
     target: SUPPORTED_TARGET,
     runtimesDir,
@@ -138,6 +142,7 @@ export async function preparePinnedRelease({
     timeoutMs,
     fetchImpl
   })
+  onProgress('acquiring pinned third-party notices')
   const noticesPath = await resolveNotices({
     cacheDir,
     verifiedSourceRoot,
@@ -148,6 +153,7 @@ export async function preparePinnedRelease({
 
   const workDir = await ensurePrivateDir(cacheDir, 'work')
   const extractDir = join(workDir, `deb-${identity.contentId}-${randomUUID()}`)
+  onProgress('extracting and materializing immutable release slot')
   const source = await acquireAndExtractDeb({ debPath, extractDir, signal, timeoutMs })
   const stagingRoot = join(releasesDir, `.staging-${identity.contentId}-${randomUUID()}`)
   await assertNoSymlinkAncestors(stagingRoot)

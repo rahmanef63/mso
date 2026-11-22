@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { FolderGit2, ShieldCheck, Sparkles } from "lucide-react";
+import { Brain, FolderGit2, ShieldCheck, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAlfaBusy, useAlfaMessages, sendToAlfa, alfaReady, stopAlfa, type AlfaContext } from "../lib/alfa";
@@ -11,20 +10,13 @@ import { ChatComposer } from "./chat-composer";
 import { AlfaRunProgress } from "./alfa-run-progress";
 import { AlfaApprovalGrants } from "./alfa-approval-grants";
 import { ApprovalCard } from "./approval-card";
+import { ChatMarkdown } from "./chat-markdown";
+import { ScrollToBottomButton, useChatAutoScroll } from "./use-chat-autoscroll";
 import type { ToolCard } from "./message-bubble";
 import { CopyButton } from "./copy-button";
 import { resolveAlfaApproval, useAlfaApprovalCount } from "../lib/alfa-approvals";
 import { useAlfaProjectContext } from "../lib/alfa-work-context";
 
-// The Alfa conversation, rendered wherever it is needed — the desktop right dock,
-// the mobile sheet, anywhere else later. It owns NO conversation state: everything
-// comes from the shared store, so the same exchange is on screen in every surface
-// that happens to be open, and switching apps no longer wipes it.
-//
-// The cross-feature trail is the point of the appId tag: when consecutive turns
-// happened in different apps a divider names the new one, so a long task Alfa
-// carried from Files to Terminal to the Browser reads as one story instead of
-// three disconnected chats.
 function legacyMessageTime(id: string): number | undefined {
   const match = /^m(\d+)-/.exec(id);
   return match ? Number(match[1]) : undefined;
@@ -34,31 +26,17 @@ export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder
   const messages = useAlfaMessages();
   const busy = useAlfaBusy();
   const apps = useApps();
-  const bottom = useRef<HTMLDivElement>(null);
+  const { containerRef, bottomRef, showScrollDown, scrollToBottom } = useChatAutoScroll(messages);
   const project = useAlfaProjectContext();
   const approvals = useAlfaApprovalCount();
 
-  useEffect(() => {
-    // Coalesce into one rAF and force instant: streaming appends a message per
-    // token, and a smooth scroll restarted every token both janks and forces a
-    // layout each frame. Matches the Assistant panel's own scroll effect.
-    const id = requestAnimationFrame(() => bottom.current?.scrollIntoView({ behavior: "auto", block: "end" }));
-    return () => cancelAnimationFrame(id);
-  }, [messages]);
-
   const titleOf = (id?: string) => apps.find((a) => a.id === id)?.title ?? id;
 
-  // The engine lives in the Assistant app (it owns the tool binding and the
-  // approval cards). If it is not mounted yet, open it and send once it registers
-  // — the user sees Alfa's own window appear and their message land in it, which
-  // is the same "watch it move between features" story, not an error.
   async function submit(text: string) {
     const body = text.trim();
     if (!body || busy) return;
     if (alfaReady()) { await sendToAlfa(body, ctx); return; }
     openWindow("assistant", "Alfa");
-    // The panel registers on mount; poll briefly rather than wiring a bespoke
-    // ready-event for a path that resolves in one or two frames.
     for (let i = 0; i < 40 && !alfaReady(); i++) await new Promise((r) => setTimeout(r, 50));
     await sendToAlfa(body, ctx);
   }
@@ -78,85 +56,104 @@ export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder
           {approvals ? <span className="flex items-center gap-1 text-warning"><ShieldCheck className="size-3.5" />{approvals} pending</span> : null}
         </button>
       ) : null}
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-2.5 p-3">
-          {messages.length === 0 ? (
-            <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
-              {ctx.subject ? (
-                <>
-                  Ask Alfa about <strong>{ctx.subject}</strong>. She sees this app&apos;s state — and
-                  this is the same conversation as the Assistant app.
-                </>
-              ) : (
-                "Ask Alfa anything about this machine."
-              )}
-            </p>
-          ) : null}
-
-          {messages.map((m, i) => {
-            // Only when the app actually changes between consecutive turns.
-            const prev = i > 0 ? messages[i - 1].appId : undefined;
-            const crossed = m.appId && m.appId !== prev;
-            const createdAt = m.createdAt || legacyMessageTime(m.id);
-            const dateLabel = createdAt ? new Date(createdAt).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : null;
-            const previousCreatedAt = i > 0 ? (messages[i - 1].createdAt || legacyMessageTime(messages[i - 1].id)) : undefined;
-            const newDay = Boolean(dateLabel && (!previousCreatedAt || new Date(createdAt!).toLocaleDateString() !== new Date(previousCreatedAt).toLocaleDateString()));
-            const time = createdAt ? new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : null;
-            return (
-              <div key={m.id} className="contents">
-                {newDay ? (
-                  <div className="flex items-center gap-1.5 py-1 text-[10px] text-muted-foreground">
-                    <span className="h-px flex-1 bg-border" />
-                    <span>{dateLabel}</span>
-                    <span className="h-px flex-1 bg-border" />
-                  </div>
-                ) : null}
-                {crossed ? (
-                  <div className="flex items-center gap-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    <span className="h-px flex-1 bg-border" />
-                    <Sparkles className="size-3" aria-hidden />
-                    <span>in {titleOf(m.appId)}</span>
-                    <span className="h-px flex-1 bg-border" />
-                  </div>
-                ) : null}
-                {m.role === "tool" && m.tool ? (
-                  // A parked mutate call renders its Approve/Deny here too — before
-                  // this the sheet showed a bare "…" and the agent loop hung with no
-                  // control anywhere on screen.
-                  <ApprovalCard
-                    message={{ id: m.id, role: "tool", tool: m.tool as ToolCard }}
-                    onResolve={resolveAlfaApproval}
-                  />
+      <div ref={containerRef} className="relative flex min-h-0 flex-1 flex-col">
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="flex flex-col gap-2.5 p-3">
+            {messages.length === 0 ? (
+              <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
+                {ctx.subject ? (
+                  <>
+                    Ask Alfa about <strong>{ctx.subject}</strong>. She sees this app&apos;s state, and
+                    this is the same conversation as the Assistant app.
+                  </>
                 ) : (
-                  <div className={cn("max-w-[92%]", m.role === "user" ? "self-end" : "self-start")}>
-                    <div
-                      onContextMenu={(e) => e.stopPropagation()}
-                      className={cn(
-                        "select-text [user-select:text] [-webkit-user-select:text] [-webkit-touch-callout:default] min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed",
-                        m.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-secondary-foreground",
-                      )}
-                    >
-                      {m.text || "…"}
-                    </div>
-                    {m.text ? (
-                      <div className={cn("mt-0.5 flex items-center gap-1.5", m.role === "user" ? "justify-end" : "justify-start")}>
-                        {time ? <span className="flex h-8 items-center [@media(pointer:coarse)]:h-11 text-[10px] leading-none text-muted-foreground">{time}</span> : null}
-                        <CopyButton value={m.text} label="message" />
-                      </div>
-                    ) : null}
-                  </div>
+                  "Ask Alfa anything about this machine."
                 )}
-              </div>
-            );
-          })}
-          <div ref={bottom} />
-        </div>
-      </ScrollArea>
+              </p>
+            ) : null}
 
-      {/* THE composer — the same component the Assistant app renders, so @ and /
-          and Enter-to-send behave identically in the dock, the sheet and the app. */}
+            {messages.map((m, i) => {
+              const prev = i > 0 ? messages[i - 1].appId : undefined;
+              const crossed = m.appId && m.appId !== prev;
+              const createdAt = m.createdAt || legacyMessageTime(m.id);
+              const dateLabel = createdAt ? new Date(createdAt).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : null;
+              const previousCreatedAt = i > 0 ? (messages[i - 1].createdAt || legacyMessageTime(messages[i - 1].id)) : undefined;
+              const newDay = Boolean(dateLabel && (!previousCreatedAt || new Date(createdAt!).toLocaleDateString() !== new Date(previousCreatedAt).toLocaleDateString()));
+              const time = createdAt ? new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : null;
+              const isLast = i === messages.length - 1;
+              return (
+                <div key={m.id} className="contents">
+                  {newDay ? (
+                    <div className="flex items-center gap-1.5 py-1 text-[10px] text-muted-foreground">
+                      <span className="h-px flex-1 bg-border" />
+                      <span>{dateLabel}</span>
+                      <span className="h-px flex-1 bg-border" />
+                    </div>
+                  ) : null}
+                  {crossed ? (
+                    <div className="flex items-center gap-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      <span className="h-px flex-1 bg-border" />
+                      <Sparkles className="size-3" aria-hidden />
+                      <span>in {titleOf(m.appId)}</span>
+                      <span className="h-px flex-1 bg-border" />
+                    </div>
+                  ) : null}
+                  {m.role === "tool" && m.tool ? (
+                    <ApprovalCard
+                      message={{ id: m.id, role: "tool", tool: m.tool as ToolCard }}
+                      onResolve={resolveAlfaApproval}
+                    />
+                  ) : (
+                    <div className={cn("min-w-0", m.role === "user" ? "max-w-[90%] self-end" : "w-full self-start")}>
+                      <div
+                        onContextMenu={(e) => e.stopPropagation()}
+                        className={cn(
+                          "select-text [user-select:text] [-webkit-user-select:text] [-webkit-touch-callout:default] min-w-0 break-words [overflow-wrap:anywhere] text-xs leading-relaxed",
+                          m.role === "user"
+                            ? "whitespace-pre-wrap rounded-xl bg-primary px-2.5 py-1.5 text-primary-foreground"
+                            : m.error
+                              ? "rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-foreground"
+                              : "rounded-lg bg-secondary/70 px-2.5 py-1.5 text-secondary-foreground",
+                        )}
+                      >
+                        {m.role === "assistant" && m.reasoning ? (
+                          <details className="mb-1.5 rounded border border-border/60 bg-background/50 px-2 py-1 text-[11px] text-muted-foreground">
+                            <summary className="flex cursor-pointer items-center gap-1 font-medium">
+                              <Brain className="size-3 shrink-0" aria-hidden />
+                              {busy && isLast && !m.text ? "Thinking..." : "Thought process"}
+                            </summary>
+                            <p className="mt-1 whitespace-pre-wrap">{m.reasoning}</p>
+                          </details>
+                        ) : null}
+                        {!m.text ? (
+                          <span className="inline-flex items-center gap-1 py-0.5 text-muted-foreground">
+                            <span className="size-1.5 rounded-full bg-current motion-safe:animate-pulse" />
+                            <span className="size-1.5 rounded-full bg-current motion-safe:animate-pulse [animation-delay:150ms]" />
+                            <span className="size-1.5 rounded-full bg-current motion-safe:animate-pulse [animation-delay:300ms]" />
+                          </span>
+                        ) : m.role === "user" ? (
+                          m.text
+                        ) : (
+                          <ChatMarkdown text={m.text} />
+                        )}
+                      </div>
+                      {m.text ? (
+                        <div className={cn("mt-0.5 flex items-center gap-1.5", m.role === "user" ? "justify-end" : "justify-start")}>
+                          {time ? <span className="flex h-7 items-center text-[10px] leading-none text-muted-foreground [@media(pointer:coarse)]:h-11">{time}</span> : null}
+                          <CopyButton value={m.text} label="message" className="size-7 [@media(pointer:coarse)]:size-11" />
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
+        </ScrollArea>
+        <ScrollToBottomButton visible={showScrollDown} onClick={scrollToBottom} />
+      </div>
+
       <ChatComposer
         onSend={(text) => void submit(text)}
         streaming={busy}

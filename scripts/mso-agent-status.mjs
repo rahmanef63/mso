@@ -2,6 +2,9 @@ import os from "node:os";
 import path from "node:path";
 import { projectHistoryForModel } from "./mso-agent-context.mjs";
 import { addProviderUsage } from "../lib/ai/provider-usage.mjs";
+import { todoStatusChip } from "./mso-agent-todos.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
+import { formatCompactionChip } from "./mso-agent-compaction.mjs";
 
 function compactNumber(value) {
   const n = Number(value || 0);
@@ -25,13 +28,19 @@ function historyContextEstimate(history) {
 export function contextStatus(history, modelMeta) {
   const limit = Number(modelMeta?.context || 0);
   const projected = projectHistoryForModel(history, limit);
+  const stored = historyContextEstimate(history);
+  const hasLimit = Number.isFinite(limit) && limit > 0;
   return {
     used: projected.estimatedTokens,
-    stored: historyContextEstimate(history),
+    stored,
     omittedRows: projected.omittedRows,
     budget: projected.budgetTokens,
-    limit: Number.isFinite(limit) && limit > 0 ? limit : null,
-    percent: limit > 0 ? Math.min(999, Math.round((projected.estimatedTokens / limit) * 100)) : null,
+    limit: hasLimit ? limit : null,
+    // Occupancy is measured against the WINDOW, not against the projection budget. The old formula divided
+    // by a budget capped at 120k, so a 200k window could never read above 55%: a session already past the
+    // window was told it was half full. Overflow above 100% is reported as 100%, since "more than full" is
+    // not a percentage. `used` still describes what will actually be sent.
+    percent: hasLimit ? Math.max(0, Math.min(100, Math.round((stored / limit) * 100))) : null,
   };
 }
 
@@ -58,7 +67,20 @@ function skillStatus(session) {
   return null;
 }
 
-export function statusParts(session, cwd = process.cwd()) {
+// Resolves status verbosity level: "low", "medium", or "high" (default).
+// Falls back to "high" for unknown values so footer rendering never breaks.
+export function resolveVerbosity(session, options = {}) {
+  const raw = options?.verbosity || session?.verbosity || session?.statusVerbosity;
+  const v = String(raw || "").toLowerCase().trim();
+  if (v === "low" || v === "medium") return v;
+  return "high";
+}
+
+export function statusParts(session, cwd = process.cwd(), options = {}) {
+  const opts = (typeof cwd === "object" && cwd !== null) ? cwd : options;
+  const fallbackCwd = typeof cwd === "string" ? cwd : process.cwd();
+  const targetCwd = (typeof cwd === "string" && cwd !== process.cwd()) ? cwd : (session?.cwd || fallbackCwd);
+  const verbosity = resolveVerbosity(session, opts);
   const provider = String(session?.state?.config?.provider || "—");
   const model = String(session?.state?.config?.model || "—");
   const ctx = contextStatus(session?.history, session?.state?.modelMeta);
@@ -69,19 +91,26 @@ export function statusParts(session, cwd = process.cwd()) {
   const elapsed = Number(session?.lastElapsedMs || 0);
   const skill = skillStatus(session);
   const routing = session?.lastRouting || null;
+  // Mid-conversation situational awareness prioritizes mode, context usage,
+  // and turn count. Working directory is static context that clutters narrow
+  // viewports, so "medium" drops cwd first. Model and provider are also static,
+  // so "low" drops provider/model and cwd while preserving live context and turns.
+  const showModel = verbosity !== "low";
+  const showCwd = verbosity === "high";
   return [
-    `${provider}/${model}`,
+    showModel ? `${provider}/${model}` : null,
     skill ? `skill ${skill.state === "invoked" ? "✓" : "◆"} /${skill.name}${skill.state === "queued" ? " queued" : skill.state === "invoking" ? " invoking" : ""}` : null,
     ctx.limit ? `ctx ~${compactNumber(ctx.used)}/${compactNumber(ctx.limit)} ${ctx.percent}%` : `ctx ~${compactNumber(ctx.used)}/?`,
-    session?.agentSession?.compactThresholdTokens ? `session ~${compactNumber(session.agentSession.estimatedTokens)}/${compactNumber(session.agentSession.compactThresholdTokens)}` : null,
+    formatCompactionChip(session, opts),
     (usage.totalTokens ?? 0) > 0 ? `tokens ${compactNumber(usage.totalTokens)}`
       : ((usage.inputTokens ?? 0) > 0 || (usage.outputTokens ?? 0) > 0) ? `tokens ${compactNumber(usage.inputTokens)}in/${compactNumber(usage.outputTokens)}out` : null,
     routing?.activeTools != null ? `route ${routing.routeIds?.join("+") || (routing.fallbackUsed ? "fallback" : "direct")} · tools ${routing.activeTools}/${routing.fullTools}` : null,
     `turns ${turns}`,
+    todoStatusChip(),
     elapsed > 0 ? `${(elapsed / 1000).toFixed(elapsed >= 10_000 ? 0 : 1)}s` : null,
     `@${sessionName}`,
     `session ${sessionTitle}`,
-    homeShort(cwd),
+    showCwd ? homeShort(targetCwd) : null,
   ].filter(Boolean);
 }
 
@@ -117,13 +146,14 @@ function detailedStatus(session, cwd = process.cwd()) {
   };
 }
 
-export function printDetailedStatus(session, C, cwd = process.cwd()) {
+export function printDetailedStatus(session, C, cwd = process.cwd(), options = {}) {
   const row = detailedStatus(session, cwd);
-  console.log(`${C.bold}MSO Agent status${C.reset}`);
-  console.log(`  model      ${row.provider}/${row.model}`);
-  console.log(`  auth       ${row.providerAuth}`);
-  console.log(`  context    ~${row.contextEstimatedTokens}${row.contextWindow ? ` / ${row.contextWindow} (${row.contextPercent}%)` : " / ?"}${row.contextOmittedRows ? ` · ${row.contextOmittedRows} older rows projected out` : ""}`);
-  if (row.sessionCompactThresholdTokens) console.log(`  session    ~${row.sessionEstimatedTokens} / ${row.sessionCompactThresholdTokens} stored · lifetime ~${row.sessionLifetimeEstimatedTokens} · ${row.sessionCompactionCount} compactions · ${row.sessionArchiveCount} archives`);
+  const { print } = createPrinter({ session, colors: C, write: options?.print });
+  print(`${C.bold}MSO Agent status${C.reset}`);
+  print(`  model      ${row.provider}/${row.model}`);
+  print(`  auth       ${row.providerAuth}`);
+  print(`  context    ~${row.contextEstimatedTokens}${row.contextWindow ? ` / ${row.contextWindow} (${row.contextPercent}%)` : " / ?"}${row.contextOmittedRows ? ` · ${row.contextOmittedRows} older rows projected out` : ""}`);
+  if (row.sessionCompactThresholdTokens) print(`  session    ~${row.sessionEstimatedTokens} / ${row.sessionCompactThresholdTokens} stored · lifetime ~${row.sessionLifetimeEstimatedTokens} · ${row.sessionCompactionCount} compactions · ${row.sessionArchiveCount} archives`);
   if ((row.providerReportedUsage.totalTokens ?? 0) > 0 || (row.providerReportedUsage.inputTokens ?? 0) > 0 || (row.providerReportedUsage.outputTokens ?? 0) > 0) {
     const u = row.providerReportedUsage;
     const parts = [
@@ -135,15 +165,15 @@ export function printDetailedStatus(session, C, cwd = process.cwd()) {
       u.reasoningTokens != null ? `${u.reasoningTokens} reasoning` : null,
       u.accountingMode ? `mode ${u.accountingMode}` : null,
     ].filter(Boolean);
-    console.log(`  tokens     ${parts.join(" · ")}`);
-  } else console.log("  tokens     provider has not reported usage in this process; context remains estimated");
-  if (row.skill) console.log(`  skill      ${row.skill.state} /${row.skill.name}`);
-  console.log(`  permission ${row.permission}`);
-  console.log(`  turns      ${row.turns}`);
-  console.log(`  session    ${row.session}`);
-  console.log(`  name       @${row.name || "agent"}`);
-  console.log(`  title      ${row.title || "MSO Agent session"}`);
-  console.log(`  cwd        ${row.cwd}`);
-  if (row.artifacts?.directory) console.log(`  temp       ${row.artifacts.directory}`);
-  if (row.artifacts?.manifestPath) console.log(`  artifacts  ${row.artifacts.manifestPath}`);
+    print(`  tokens     ${parts.join(" · ")}`);
+  } else print("  tokens     provider has not reported usage in this process; context remains estimated");
+  if (row.skill) print(`  skill      ${row.skill.state} /${row.skill.name}`);
+  print(`  permission ${row.permission}`);
+  print(`  turns      ${row.turns}`);
+  print(`  session    ${row.session}`);
+  print(`  name       @${row.name || "agent"}`);
+  print(`  title      ${row.title || "MSO Agent session"}`);
+  print(`  cwd        ${row.cwd}`);
+  if (row.artifacts?.directory) print(`  temp       ${row.artifacts.directory}`);
+  if (row.artifacts?.manifestPath) print(`  artifacts  ${row.artifacts.manifestPath}`);
 }

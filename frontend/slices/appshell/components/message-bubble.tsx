@@ -1,17 +1,17 @@
 "use client";
 
-import { memo } from "react";
-import { Sparkles, User } from "lucide-react";
+import { memo, useState } from "react";
+import { Brain, ChevronDown, ChevronRight, Pencil, RotateCcw, Sparkles, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { mdToHtml } from "../features/widgets/components/md";
+import { ChatMarkdown } from "./chat-markdown";
 import { CopyButton } from "./copy-button";
 
 export type ChatRole = "user" | "assistant" | "tool";
 
 export type ToolStatus = "pending" | "running" | "ok" | "error" | "denied";
 
-// A host tool call surfaced in the transcript (rendered by ApprovalCard, not
-// MessageBubble). `danger` is the advisory destructive-pattern reason (exec.run).
 export type ToolCard = {
   name: string;
   effect: "read" | "mutate";
@@ -27,91 +27,183 @@ export type ChatMessage = {
   createdAt?: number;
   role: ChatRole;
   text?: string;
-  /** Present only on `role: "tool"` rows. */
+  reasoning?: string;
+  error?: boolean;
   tool?: ToolCard;
 };
 
-// One chat row: user messages align right (primary bubble), assistant messages
-// align left with a Sparkles avatar. Tool rows are routed to ApprovalCard by the
-// chat panel, so this only renders user/assistant. All colour via theme tokens.
 function legacyMessageTime(id: string): number | undefined {
   const match = /^m(\d+)-/.exec(id);
   return match ? Number(match[1]) : undefined;
 }
 
-// memoised: the transcript re-renders on every streamed token, but only the last
-// assistant bubble actually changes — without this every prior row re-parsed its
-// markdown and recomputed its timestamp per token. Props are the message object
-// (stable unless that row was patched) + ios, so the default shallow compare holds.
-export const MessageBubble = memo(function MessageBubble({ message, ios }: { message: ChatMessage; ios?: boolean }) {
+function TypingDots() {
+  return (
+    <span className="inline-flex items-center gap-1 py-1 text-muted-foreground" aria-label="Generating response">
+      <span className="size-1.5 rounded-full bg-current motion-safe:animate-pulse" />
+      <span className="size-1.5 rounded-full bg-current motion-safe:animate-pulse [animation-delay:150ms]" />
+      <span className="size-1.5 rounded-full bg-current motion-safe:animate-pulse [animation-delay:300ms]" />
+    </span>
+  );
+}
+
+function ReasoningBlock({ reasoning, thinking }: { reasoning: string; thinking: boolean }) {
+  const [open, setOpen] = useState<boolean | null>(null);
+  const expanded = open ?? thinking;
+  return (
+    <div className="mb-2 rounded-lg border border-border/70 bg-muted/40 text-xs">
+      <button
+        type="button"
+        onClick={() => setOpen(!expanded)}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-muted-foreground hover:text-foreground [@media(pointer:coarse)]:min-h-10"
+      >
+        {expanded ? <ChevronDown className="size-3.5 shrink-0" aria-hidden /> : <ChevronRight className="size-3.5 shrink-0" aria-hidden />}
+        <Brain className={cn("size-3.5 shrink-0", thinking && "text-primary motion-safe:animate-pulse")} aria-hidden />
+        <span className="font-medium">{thinking ? "Thinking..." : "Thought process"}</span>
+      </button>
+      {expanded ? (
+        <div className="max-h-52 overflow-y-auto whitespace-pre-wrap break-words border-t border-border/60 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          {reasoning}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export const MessageBubble = memo(function MessageBubble({
+  message,
+  ios,
+  isStreaming,
+  isLastAssistant,
+  onRetry,
+  onEdit,
+}: {
+  message: ChatMessage;
+  ios?: boolean;
+  isStreaming?: boolean;
+  isLastAssistant?: boolean;
+  onRetry?: () => void;
+  onEdit?: (id: string, nextText: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   const createdAt = message.createdAt || legacyMessageTime(message.id);
-  const time = createdAt ? new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : null;
+  const time = createdAt
+    ? new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+    : null;
   const isUser = message.role === "user";
+  const thinking = Boolean(isStreaming && message.reasoning && !message.text);
+
+  function startEdit() {
+    setDraft(message.text ?? "");
+    setEditing(true);
+  }
+
+  function commitEdit() {
+    const clean = draft.trim();
+    if (!clean || !onEdit) return;
+    setEditing(false);
+    onEdit(message.id, clean);
+  }
+
   return (
     <div className="contents">
-      <div
-        className={cn(
-          "flex w-full min-w-0 items-start gap-2.5",
-          isUser ? "flex-row-reverse" : "flex-row",
+      <div className={cn("group flex w-full min-w-0 items-start gap-2.5", isUser ? "flex-row-reverse" : "flex-row")}>
+        {!ios && (
+          <span
+            className={cn(
+              "mt-0.5 grid size-7 flex-none place-items-center rounded-full",
+              isUser ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground",
+            )}
+          >
+            {isUser ? <User className="size-3.5" aria-hidden /> : <Sparkles className="size-3.5" aria-hidden />}
+          </span>
         )}
-    >
-      {/* iMessage shows no per-bubble avatar in the thread — keep it off on iOS. */}
-      {!ios && (
-        <span
-          className={cn(
-            "mt-0.5 grid size-7 flex-none place-items-center rounded-full",
-            isUser
-              ? "bg-secondary text-secondary-foreground"
-              : "bg-primary text-primary-foreground",
-          )}
-        >
-          {isUser ? <User className="size-3.5" /> : <Sparkles className="size-3.5" />}
-        </span>
-      )}
-      <div className={cn("min-w-0", ios ? "max-w-[74%]" : "max-w-[82%]")}>
-        <div
-          className={cn(
-            "select-text [user-select:text] [-webkit-user-select:text] [-webkit-touch-callout:default] min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-            // iOS = iMessage silhouette: 19px bubble with the tail at the BOTTOM
-            // corner (points down at the sender); received bubble = systemFill gray.
-            ios
-              ? cn(
-                  "rounded-[19px] px-[13px] py-2 text-[15px] leading-[1.35]",
-                  isUser ? "rounded-br-[6px] bg-primary text-primary-foreground" : "rounded-bl-[6px] bg-[var(--fill2)] text-foreground",
-                )
-              : cn(
-                  "rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
-                  isUser ? "rounded-tr-sm bg-primary text-primary-foreground" : "rounded-tl-sm bg-muted text-foreground",
-                ),
-          )}
-        >
-          {!message.text ? (
-            <span className="text-muted-foreground">…</span>
-          ) : isUser ? (
-            message.text
+        <div className={cn("min-w-0", isUser ? (ios ? "max-w-[78%]" : "max-w-[82%]") : ios ? "max-w-[82%]" : "flex-1")}>
+          {editing ? (
+            <div className="space-y-2 rounded-xl border border-border bg-card p-2.5">
+              <Textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setEditing(false);
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    commitEdit();
+                  }
+                }}
+                rows={2}
+                autoFocus
+                aria-label="Edit message"
+                className="min-h-14 resize-none text-sm"
+              />
+              <div className="flex justify-end gap-1.5">
+                <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+                <Button type="button" size="sm" disabled={!draft.trim()} onClick={commitEdit}>Save and send</Button>
+              </div>
+            </div>
           ) : (
-            // Assistant text is MARKDOWN. The model emits **bold**, `code`, bullets
-            // and fenced blocks on nearly every turn, and rendering it literally is
-            // why the thread read as unfinished — a wall of asterisks and backticks.
-            // mdToHtml escapes first and emits a fixed tag set (see md.test.ts),
-            // which is what makes dangerouslySetInnerHTML defensible on text that is
-            // model output, i.e. untrusted.
-            // USER text stays literal on purpose: someone typing ** means **.
-            // whitespace-normal because mdToHtml already turned newlines into <br/>;
-            // leaving the parent's pre-wrap on would double every line break.
-            <span
-              className="block min-w-0 whitespace-normal [overflow-wrap:anywhere] [&_code]:font-mono [&_pre]:break-words [&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] [&_strong]:font-semibold"
-              dangerouslySetInnerHTML={{ __html: mdToHtml(message.text) }}
-            />
+            <div
+              className={cn(
+                "select-text [user-select:text] [-webkit-user-select:text] [-webkit-touch-callout:default] min-w-0 break-words [overflow-wrap:anywhere]",
+                ios
+                  ? cn(
+                      "rounded-[19px] px-[13px] py-2 text-[15px] leading-[1.35]",
+                      isUser
+                        ? "whitespace-pre-wrap rounded-br-[6px] bg-primary text-primary-foreground"
+                        : message.error
+                          ? "rounded-bl-[6px] border border-destructive/40 bg-destructive/10 text-foreground"
+                          : "rounded-bl-[6px] bg-[var(--fill2)] text-foreground",
+                    )
+                  : isUser
+                    ? "whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2 text-sm leading-relaxed text-primary-foreground"
+                    : cn(
+                        "text-sm leading-relaxed text-foreground",
+                        message.error && "rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2.5",
+                      ),
+              )}
+            >
+              {!isUser && message.reasoning ? <ReasoningBlock reasoning={message.reasoning} thinking={thinking} /> : null}
+              {!message.text ? (
+                !thinking ? <TypingDots /> : null
+              ) : isUser ? (
+                message.text
+              ) : (
+                <ChatMarkdown text={message.text} />
+              )}
+            </div>
           )}
+
+          {!editing && message.text ? (
+            <div className={cn("mt-1 flex items-center gap-0.5", isUser ? "justify-end" : "justify-start")}>
+              {time ? <span className="flex h-7 items-center px-1 text-[10px] leading-none text-muted-foreground [@media(pointer:coarse)]:h-11">{time}</span> : null}
+              <CopyButton value={message.text} label="message" className="size-7 [@media(pointer:coarse)]:size-11" />
+              {isUser && onEdit && !isStreaming ? (
+                <Button type="button" variant="ghost" size="icon" onClick={startEdit} aria-label="Edit message" title="Edit and resend" className="size-7 shrink-0 text-muted-foreground hover:text-foreground [@media(pointer:coarse)]:size-11">
+                  <Pencil className="size-3.5" />
+                </Button>
+              ) : null}
+              {!isUser && (isLastAssistant || message.error) && onRetry && !isStreaming ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size={message.error ? "sm" : "icon"}
+                  onClick={onRetry}
+                  aria-label={message.error ? "Retry response" : "Regenerate response"}
+                  title={message.error ? "Retry" : "Regenerate"}
+                  className={cn(
+                    "shrink-0 text-muted-foreground hover:text-foreground [@media(pointer:coarse)]:min-h-11",
+                    message.error ? "h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive" : "size-7 [@media(pointer:coarse)]:size-11",
+                  )}
+                >
+                  <RotateCcw className="size-3.5" />
+                  {message.error ? <span>Retry</span> : null}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
-        {message.text ? (
-          <div className={cn("mt-0.5 flex", isUser ? "justify-end" : "justify-start")}>
-            {time ? <span className="flex h-8 items-center [@media(pointer:coarse)]:h-11 text-[10px] leading-none text-muted-foreground">{time}</span> : null}
-            <CopyButton value={message.text} label="message" />
-          </div>
-        ) : null}
-      </div>
       </div>
     </div>
   );

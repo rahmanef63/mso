@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { clearClips, listClips, recordClip, removeClip, togglePinClip } from "./clipboard";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearClips, copyClip, listClips, recordClip, removeClip, togglePinClip } from "./clipboard";
 import { getCommands } from "./commands";
 
 function reset() {
@@ -8,6 +8,18 @@ function reset() {
 
 describe("clipboard history", () => {
   beforeEach(reset);
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("records only successful clipboard writes", async () => {
+    const writeText = vi.fn().mockRejectedValueOnce(new Error("denied")).mockResolvedValueOnce(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    expect(await copyClip("hello")).toBe(false);
+    expect(listClips()).toEqual([]);
+    expect(await copyClip("hello")).toBe(true);
+    expect(listClips().map((c) => c.text)).toEqual(["hello"]);
+    vi.stubGlobal("navigator", {});
+    expect(await copyClip("other")).toBe(false);
+  });
 
   it("records newest-first, dedupes the top, ignores empties", () => {
     recordClip("one");

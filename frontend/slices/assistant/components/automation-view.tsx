@@ -28,7 +28,7 @@ export function AutomationView({
           <div>
             <div className="text-base font-bold tracking-tight">Automations</div>
             <div className="text-xs text-muted-foreground">
-              Saved flows — an ordered list of tool steps you can run in one click.
+              Saved flows: an ordered list of tool steps you can run in one click.
             </div>
           </div>
           <Button size="sm" className="ml-auto" onClick={onNew}>
@@ -55,7 +55,7 @@ export function AutomationView({
                       ) : null}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      {au.steps.length} steps · {agent?.name ?? "—"}
+                      {au.steps.length} steps · {agent?.name ?? "no agent"}
                     </div>
                   </div>
                 </div>

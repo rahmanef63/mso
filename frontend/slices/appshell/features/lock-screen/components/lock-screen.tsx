@@ -4,31 +4,15 @@ import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import { useActiveShell } from "../../../registry/shells";
 import { IosLockScreen } from "./ios-lock-screen";
-import { autoLockMinutes, lock, requestUnlock, useLocked } from "../../../lib/lock";
+import { requestUnlock, useLocked } from "../../../lib/lock";
 
 // Fullscreen privacy curtain: blurred backdrop, big clock, click/key unlocks
-// (through the consumer guard when one is injected). Owns the idle timer.
+// (through the consumer guard when one is injected). The idle timer is NOT here: it lives in
+// appshell/provider via useIdleAutoLock, so deferring this component cannot defer the auto-lock.
 // The curtain MOUNTS per lock, so the clock seeds in a lazy initializer
 // instead of an effect-driven setState (react-hooks v6).
 export function LockScreen() {
   const locked = useLocked();
-
-  // idle auto-lock — any pointer/key activity resets the countdown
-  useEffect(() => {
-    let timer: number | undefined;
-    const arm = () => {
-      const min = autoLockMinutes();
-      if (timer) window.clearTimeout(timer);
-      if (min) timer = window.setTimeout(lock, min * 60_000);
-    };
-    const events: (keyof WindowEventMap)[] = ["pointerdown", "pointermove", "keydown", "wheel"];
-    events.forEach((e) => window.addEventListener(e, arm, { passive: true }));
-    arm();
-    return () => {
-      if (timer) window.clearTimeout(timer);
-      events.forEach((e) => window.removeEventListener(e, arm));
-    };
-  }, []);
 
   const shell = useActiveShell();
   if (!locked) return null;

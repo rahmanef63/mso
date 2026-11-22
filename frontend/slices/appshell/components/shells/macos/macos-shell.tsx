@@ -62,6 +62,13 @@ export function DesktopChrome() {
     <>
       <MenuBar />
       <section
+        // The skip link targets the desktop, not #main-content: that wrapper also contains the
+        // menu bar, so skipping to it skipped nothing. tabIndex -1 makes it focusable
+        // programmatically without adding a tab stop; role="main" is what tells assistive tech
+        // this is the primary content region.
+        id="shell-main"
+        role="main"
+        tabIndex={-1}
         style={{ top: TOPBAR }}
         className={cn("absolute inset-x-0 bottom-0 z-[10]", interactive && "pointer-events-none [&>*]:pointer-events-auto")}
         // Open the desktop menu for any right-click NOT inside a window. Icons +

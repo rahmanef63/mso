@@ -6,6 +6,8 @@ mso_cmd_runtime() {
   local cmd="$1"; shift || true
 case "$cmd" in
   agent|chat) run_agent "$@" ;;
+  run) run_agent_run "$@" ;;
+  session) run_agent_session "$@" ;;
   model) run_model_setup "$@" ;;
   setup) run_onboard "${1-}" ;;
   onboard) run_onboard "${1-}" ;;
@@ -32,6 +34,41 @@ case "$cmd" in
       *) die "usage: mso $U_camoufox" ;;
     esac ;;
 
+  # ── bot desktop containers (owned by grokbot; MSO only observes + powers) ─
+  # Every subcommand is one fixed call with a fixed body. There is no `exec` verb
+  # and no passthrough: MSO never relays a bot command. The container id is checked
+  # locally as well as server-side; the check assigns rather than echoes because
+  # `die` inside `$( )` would only kill the subshell and leave an empty argument.
+  desktop)
+    sub="${1:-status}"; shift || true
+    case "$sub" in
+      containers) jget "/api/v1/desktop/containers" ;;
+      status)
+        jget "/api/v1/desktop/containers" | jq -r '
+          if (.containers | length) == 0 then "no bot desktop containers (label grokbot.desktop=1)"
+          else
+            (["ID", "NAME", "STATE", "USER", "BOT", "PORTS"] | @tsv),
+            (.containers[] | [
+              .id, .name, .state, (.labels.user // "-"), (.labels.bot // "-"), (.ports // "-")
+            ] | @tsv)
+          end' | column -t -s "$(printf '\t')" ;;
+      screenshot)
+        c="${1-}"; [ -n "$c" ] || die "usage: mso $U_desktop"
+        [[ $c =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] || die "invalid container id: $c"
+        reqraw "$B/api/v1/desktop/screenshot?container=$(enc "$c")&screen=$(enc "${2:-99}")"; exit 0 ;;
+      start|stop|restart)
+        c="${1-}"; [ -n "$c" ] || die "usage: mso $U_desktop"
+        [[ $c =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] || die "invalid container id: $c"
+        jpost "/api/v1/desktop/lifecycle" "$(jq -nc --arg c "$c" --arg a "$sub" '{container:$c,action:$a}')" ;;
+      logs)
+        c="${1-}"; [ -n "$c" ] || die "usage: mso $U_desktop"
+        [[ $c =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] || die "invalid container id: $c"
+        jpost "/api/v1/desktop/lifecycle" \
+          "$(jq -nc --arg c "$c" --argjson n "${2:-80}" '{container:$c,action:"logs",lines:$n}')" \
+          | jq -r '.logs[]?' ;;
+      *) die "usage: mso $U_desktop" ;;
+    esac ;;
+
   # ── managed apps (hermes, openclaw…) ─────────────────────────────────────
   apps) jget "/api/v1/apps" ;;
   mapp)
@@ -39,11 +76,17 @@ case "$cmd" in
     sub="${1:-list}"; shift || true
     case "$sub" in
       catalog) jget "/api/v1/app-catalog" ;;
+      features) jget "/api/v1/features" ;;
+      feature-asset) reqraw "$B/api/v1/features/$(enc "${1:?id}")/asset/${2:?path}"; exit 0 ;;
       shell-list) jget "/api/v1/shell-apps" ;;
       shell-save) shell_input="${1:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/shell-apps" "$shell_input" ;;
       shell-domain) jget "/api/v1/shell-apps/$(enc "${1:?id}")/domain" ;;
       shell-domain-save) shell_input="${2:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/shell-apps/$(enc "${1:?id}")/domain" "$shell_input" ;;
       list)    jget "/api/v1/managed-apps" ;;
+      discover) jget "/api/v1/managed-apps/discover" ;;
+      probe)   shell_input="${1:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/managed-apps/probe" "$shell_input" ;;
+      tunnels) jget "/api/v1/managed-apps/tunnels" ;;
+      tunnel-save) shell_input="${1:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/managed-apps/tunnels" "$shell_input" ;;
       show)    jget "/api/v1/managed-apps/$(enc "${1:?id}")" ;;
       logs)    jget "/api/v1/managed-apps/$(enc "${1:?id}")/logs" ;;
       backups) jget "/api/v1/managed-apps/$(enc "${1:?id}")/backups" ;;

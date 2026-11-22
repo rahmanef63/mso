@@ -8,10 +8,10 @@ import { TerminalSession, type TerminalSessionProps } from "./terminal-session";
 type Tab = TerminalSessionProps & { id: number; title: string };
 const MAX_TABS = 8;
 
-export function TerminalTabs({ initialCommand, initialCwd }: TerminalSessionProps) {
+export function TerminalTabs({ initialCommand, initialCwd, actions, notice }: TerminalSessionProps & { actions?: React.ReactNode }) {
   const nextId = useRef(2);
   const [tabs, setTabs] = useState<Tab[]>(() => [
-    { id: 1, title: "Terminal 1", initialCommand, initialCwd },
+    { id: 1, title: "Terminal 1", initialCommand, initialCwd, notice },
   ]);
   const [active, setActive] = useState(1);
 
@@ -83,6 +83,7 @@ export function TerminalTabs({ initialCommand, initialCwd }: TerminalSessionProp
         >
           <Plus className="size-4" />
         </button>
+        {actions ? <div className="ml-auto flex shrink-0 items-center gap-1 pr-1">{actions}</div> : null}
       </div>
 
       <div className="relative min-h-0 flex-1">
@@ -96,7 +97,7 @@ export function TerminalTabs({ initialCommand, initialCwd }: TerminalSessionProp
               tab.id === active ? "visible" : "invisible pointer-events-none",
             )}
           >
-            <TerminalSession initialCommand={tab.initialCommand} initialCwd={tab.initialCwd} />
+            <TerminalSession initialCommand={tab.initialCommand} initialCwd={tab.initialCwd} notice={tab.notice} />
           </div>
         ))}
       </div>

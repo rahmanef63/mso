@@ -111,13 +111,18 @@ export async function consumeIntegrationSetup(token: string, raw: unknown) {
     await fs.writeFile(file, JSON.stringify(grant), { mode: 0o600 });
     // Probe candidate values before mutating the real store. Only safe enums/status
     // escape this boundary, never provider response text or credential values.
-    const configurationOnly = grant.provider === GOOGLE_APP_PROVIDER;
-    const result = configurationOnly ? { ok: true } : await doctorInfraProvider(grant.provider, candidate);
+    //
+    // `mso-password` is local-only: it records what another installation's login
+    // password is, and there is no endpoint to check it against without signing in to
+    // that host and burning its login rate limit. Google's app id is the same shape of
+    // fact. Both are saved without live verification, and the summary says so.
+    const localOnly = grant.provider === GOOGLE_APP_PROVIDER || grant.provider === "mso-password";
+    const result = localOnly ? { ok: true } : await doctorInfraProvider(grant.provider, candidate);
     if (result.ok !== true) throw new SetupError(result.ok === null ? "live_validation_unavailable" : "credential_validation_failed", 422, result.ok === null ? undefined : "detail" in result ? result.detail : undefined);
     if (grant.expiresAt <= Date.now()) throw invalid();
     grant.used = true;
     await fs.writeFile(file, JSON.stringify(grant), { mode: 0o600 });
-    await saveConnectionValues(grant.provider,{user:grant.user,connection:grant.connection},updates,{uid:grant.uid,revision:grant.revision},!configurationOnly);
-    return { ok: true, verified: !configurationOnly, configurationOnly, provider: grant.provider,user:grant.user,connection:grant.connection,principal: grant.principal };
+    await saveConnectionValues(grant.provider,{user:grant.user,connection:grant.connection},updates,{uid:grant.uid,revision:grant.revision},!localOnly);
+    return { ok: true, verified: !localOnly, configurationOnly: localOnly, provider: grant.provider,user:grant.user,connection:grant.connection,principal: grant.principal };
   });
 }

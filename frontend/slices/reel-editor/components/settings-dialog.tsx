@@ -22,7 +22,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
       <FormDrawer.Body className="flex flex-col gap-4">
 
-        <Field label={`Default image duration — ${s.imageDur.toFixed(1)}s`}>
+        <Field label={`Default image duration: ${s.imageDur.toFixed(1)}s`}>
           <Slider min={1} max={10} step={0.5} value={s.imageDur} onChange={(e) => set({ imageDur: Number(e.target.value) })} />
         </Field>
 
@@ -46,12 +46,12 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               s.autosave ? "bg-primary text-primary-foreground hover:bg-primary" : "bg-secondary text-foreground hover:bg-secondary",
             )}
           >
-            {s.autosave ? "On — restores after reload" : "Off"}
+            {s.autosave ? "On (restores after reload)" : "Off"}
           </Button>
         </Field>
 
         <p className="rounded-lg bg-secondary p-2.5 text-[11px] leading-relaxed text-muted-foreground">
-          Drafts live in this browser. Uploaded files reference temporary URLs and won’t survive a reload — media from
+          Drafts live in this browser. Uploaded files reference temporary URLs and won’t survive a reload. Media from
           the file panel or samples restores fully.
         </p>
       </FormDrawer.Body>

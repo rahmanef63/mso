@@ -59,6 +59,8 @@ export interface AgentSession {
   conversationHash?: string;
   createdAt: string;
   updatedAt: string;
+  /** ISO timestamp when an active turn began; cleared to null or omitted on turn completion. */
+  turnStartedAt?: string | null;
   resumedFrom?: string;
   cwd?: string;
   parentSessionId?: string;
@@ -87,6 +89,8 @@ export interface AgentSessionSummary {
   titleSource: AgentSessionTitleSource;
   createdAt: string;
   updatedAt: string;
+  /** True when a turn is currently in progress. */
+  turnActive: boolean;
   resumedFrom?: string;
   cwd?: string;
   parentSessionId?: string;

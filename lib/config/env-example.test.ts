@@ -23,6 +23,12 @@ const NOT_A_KNOB: Record<string, string> = {
   NODE_ENV: "standard Node/Next process mode; artifact maintenance starts only in production",
   NEXT_PUBLIC_BUILD_ID: "injected by next.config.mjs at build time",
   MSO_RUNTIME_INSTANCE_ID: "injected by the installer-managed service to prove restart readiness",
+  // Set by scripts/verify-build.sh in the out-of-tree archive it just built, so the
+  // bundle budget knows those bytes describe that source rather than a stale .next.
+  MSO_BUNDLE_BUILD_IS_CURRENT: "set by scripts/verify-build.sh for its own out-of-tree build; never user configuration",
+  MSO_VERIFY_FULL: "local gate override to force full Svelte and repository checks; tooling only",
+  MSO_CHANGELOG_STRICT: "local gate override to force strict changelog staleness check on non-main branches; tooling only",
+  GITHUB_EVENT_NAME: "injected by GitHub Actions; used by scripts/gen-changelog.mjs to defer changelog staleness checks on pull requests",
   // Private launcher-to-agent handoff. scripts/mso-cli-agent.sh owns these; users
   // should configure the public CLI knobs instead of persisting these in .env.local.
   MSO_AGENT_BASE: "internal mso-cli-agent launcher handoff for the selected loopback API base",
@@ -37,10 +43,17 @@ const NOT_A_KNOB: Record<string, string> = {
   // Standard terminal convention inherited from the invoking shell, not MSO config.
   NO_COLOR: "standard terminal color convention inherited from the caller",
   VITEST: "set by the test runner",
+  // Read by scripts/integrations-ui-evidence.mjs, the browser evidence harness.
+  MSO_EVIDENCE_DIR: "output directory for the integrations UI evidence harness; local diagnostics only",
   // The OS gives these to every process.
   SHELL: "the OS's",
   PATH: "standard executable search path inherited by the lifecycle test harness",
   HOME: "the OS's",
+  // Standard OS temp-root variables. vitest.setup.ts repoints them at a harmless
+  // directory on shared hosts; they are never MSO configuration.
+  TMPDIR: "standard OS temp root; vitest.setup.ts repoints it per test worker, never MSO config",
+  TMP: "standard OS temp root; vitest.setup.ts repoints it per test worker, never MSO config",
+  TEMP: "standard OS temp root; vitest.setup.ts repoints it per test worker, never MSO config",
   XDG_RUNTIME_DIR: "set by logind, or by the unit — see lib/managed-apps/user-bus.ts",
   // Standard XDG base directory. Read only as the default parent of the update timer
   // units; MSO_SYSTEMD_USER_DIR is the documented override.
@@ -86,6 +99,8 @@ const NOT_A_KNOB: Record<string, string> = {
   MSO_RUNTIME_PROC_ROOT: "test-only fake /proc root for live-runtime ownership tests",
   OS_MEDIA_BASE: "scripts/gen-readme-media.mjs only",
   OS_MEDIA_DEVICE: "scripts/gen-readme-media.mjs only",
+  MSO_RUST_SHELL_BIN: "frontend/svelte/tests/rust-host-smoke.mjs smoke harness override; not production config",
+  MSO_SVELTE_BUILD_DIR: "frontend/svelte/tests/rust-host-smoke.mjs smoke harness override; not production config",
 };
 
 function usedEnvNames(): string[] {

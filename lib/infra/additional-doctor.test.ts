@@ -14,6 +14,7 @@ describe("additional native credential providers", () => {
       expect(m.fields.length).toBeGreaterThan(0); expect(m.guidance.steps.length).toBeGreaterThan(1);
       expect(m.guidance.url).toMatch(/^https:\/\//); expect(m.guidance.reference).toMatch(/^https:\/\//);
     }
+    expect(setupFields("convex-cloud", "team").map(f => f.key)).toEqual(["teamToken"]);
     expect(setupFields("convex-cloud", "personal").map(f => f.key)).toEqual(["personalToken"]);
     expect(setupFields("convex-cloud", "deployment").map(f => f.key)).toEqual(["deployKey", "deploymentName"]);
     expect(() => setupFields("convex-cloud", "organization")).toThrow();
@@ -99,12 +100,79 @@ describe("additional native credential providers", () => {
     await expect(result).rejects.toThrow("Convex HTTP 403");
     await expect(result).rejects.not.toThrow(KEY);
   });
+  it("distinguishes an unreachable self-hosted deployment from a rejected admin key", async () => {
+    // curl exit 35: the TCP/TLS connection produced no HTTP response at all.
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    const unreachable = doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210", adminKey: KEY });
+    await expect(unreachable).rejects.toThrow(/unreachable.*no HTTP response/i);
+    await expect(unreachable).rejects.not.toThrow(KEY);
+    // Reachable, but the deployment rejected the key.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 401 })));
+    const rejected = doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210", adminKey: KEY });
+    await expect(rejected).rejects.toThrow(/admin key rejected/i);
+    await expect(rejected).rejects.toThrow("Convex HTTP 401");
+    await expect(rejected).rejects.not.toThrow(KEY);
+    // The two operator actions must not collapse into one message.
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    const first = await doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210", adminKey: KEY }).catch((error: Error) => error.message);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 403 })));
+    const second = await doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210", adminKey: KEY }).catch((error: Error) => error.message);
+    expect(first).not.toBe(second);
+  });
   it("rejects arbitrary Convex targets before sending any key", async () => {
-    const mock = vi.fn(); vi.stubGlobal("fetch", mock);
+    const mock = vi.fn(async (input: RequestInfo | URL) => {
+      // Only the fixed deploy-key resolver may answer: any other URL means a key
+      // was sent somewhere it should never go.
+      if (String(input).endsWith("/api/deployment/url_for_key"))
+        return new Response(JSON.stringify("https://test.example.com.ap-southeast-2.convex.cloud"), { status: 200 });
+      throw new Error("unexpected request to " + String(input));
+    });
+    vi.stubGlobal("fetch", mock);
     for (const apiUrl of ["http://169.254.169.254/", "https://owner:password@evil.invalid", "https://example.com/?credential=x"])
       await expect(doctorAdditionalProvider("convex", { apiUrl, adminKey: KEY })).rejects.toThrow("invalid deployment URL");
-    await expect(doctorAdditionalProvider("convex-cloud", { deployKey: KEY, deploymentName: "test.example.com/" })).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
+  });
+  it("probes a regional Convex deployment through the origin the deploy key resolves to", async () => {
+    // Regression: the deployment does not answer at `<name>.convex.cloud` unless it
+    // was created in the default region, so a hardcoded host made a valid key look
+    // like a 404 and the Integrations form refused to save it.
+    const seen: string[] = [];
+    const mock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input), request = new Request(input, init);
+      seen.push(url);
+      if (url === "https://api.convex.dev/api/deployment/url_for_key") {
+        expect(request.method).toBe("POST");
+        expect(JSON.parse(await request.text())).toEqual({ deployKey: KEY });
+        return new Response(JSON.stringify("https://happy-otter-123.ap-southeast-2.convex.cloud"), { status: 200 });
+      }
+      if (url === "https://happy-otter-123.ap-southeast-2.convex.cloud/api/v1/deployment_info") {
+        expect(new Headers(request.headers).get("authorization")).toBe(`Convex ${KEY}`);
+        return new Response(JSON.stringify({ kind: "cloud", deploymentType: "prod" }), { status: 200 });
+      }
+      throw new Error("unexpected request to " + url);
+    });
+    vi.stubGlobal("fetch", mock);
+    await expect(doctorAdditionalProvider("convex", { deployKey: KEY, deploymentName: "happy-otter-123" })).resolves.toBe("authenticated; deployment access verified");
+    expect(seen[0]).toBe("https://api.convex.dev/api/deployment/url_for_key");
+    expect(seen).toHaveLength(2);
+  });
+  it("refuses a resolved origin that is not this deployment's own Convex Cloud host", async () => {
+    for (const resolved of [
+      "https://evil.invalid",
+      "https://happy-otter-999.ap-southeast-2.convex.cloud",
+      "http://happy-otter-123.ap-southeast-2.convex.cloud",
+      "https://user:pass@happy-otter-123.ap-southeast-2.convex.cloud",
+      "https://happy-otter-123.convex.cloud.evil.invalid",
+    ]) {
+      const mock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/url_for_key")
+        ? new Response(JSON.stringify(resolved), { status: 200 })
+        : new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", mock);
+      await expect(doctorAdditionalProvider("convex", { deployKey: KEY, deploymentName: "happy-otter-123" }))
+        .rejects.toThrow(/invalid_convex_deployment_url_response|Unauthorized|invalid/i);
+      // The deployment API is never reached with the key when the origin is rejected.
+      expect(mock.mock.calls.every(([input]) => String(input).endsWith("/url_for_key"))).toBe(true);
+    }
   });
   it("derives redaction from the field schema for every secret key name", () => {
     expect(JSON.stringify(summarizeInfraProvider("convex-cloud", { personalToken: KEY }))).not.toContain(KEY);

@@ -61,7 +61,7 @@ export function VariantPills<T extends string>({
   options: ReadonlyArray<{ value: T; label: string; hint?: string }>;
 }) {
   return (
-    <div className="flex h-7 w-full items-center gap-0.5 rounded-md border border-border bg-muted/30 p-0.5">
+    <div className="flex min-h-7 w-full items-center gap-0.5 rounded-md border border-border bg-muted/30 p-0.5">
       {options.map((opt) => {
         const active = opt.value === value;
         return (

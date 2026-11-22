@@ -13,6 +13,7 @@ import { useShellAppearance, useShellSearch, type SearchHit } from "../../../reg
 import { matches, type Command } from "../lib";
 import { loadRecents, pushRecent } from "../history";
 import { ResultList } from "./spotlight-results";
+import { ResponsiveDialog } from "../../../primitives/responsive-dialog";
 
 export function Spotlight() {
   const open = useSpotlightOpen();
@@ -128,10 +129,6 @@ function SpotlightPanel() {
   const selIdx = Math.min(sel, Math.max(0, results.length - 1));
 
   const close = () => setSpotlightOpen(false);
-  const onBackdrop = () => {
-    if (!dismissReady.current) return;
-    close();
-  };
   const runAt = (i: number) => {
     const cmd = results[i];
     if (!cmd) return;
@@ -162,13 +159,9 @@ function SpotlightPanel() {
       : `No matches for “${q}”.`;
 
   return (
-    <div
-      className={cn(
-        "absolute inset-0 z-[var(--z-spotlight)] flex items-start justify-center bg-black/20",
-        ios ? "pt-[calc(var(--sai-top)_+_0.5rem)]" : "pt-[18vh]",
-      )}
-      onClick={onBackdrop}
-    >
+    <ResponsiveDialog open onOpenChange={(next) => { if (!next && dismissReady.current) close(); }} showCloseButton={false}>
+      <ResponsiveDialog.Header className="sr-only"><ResponsiveDialog.Title>Spotlight search</ResponsiveDialog.Title></ResponsiveDialog.Header>
+      <ResponsiveDialog.Body className="p-0">
       <div
         className={cn(
           "glass w-full overflow-hidden rounded-2xl border border-border text-foreground shadow-2xl",
@@ -182,6 +175,7 @@ function SpotlightPanel() {
           {ios && <Search className="size-[15px] shrink-0 text-muted-foreground" />}
           <input
             ref={inputRef}
+            autoFocus
             role="combobox"
             aria-label="Spotlight search"
             aria-expanded={results.length > 0}
@@ -214,6 +208,7 @@ function SpotlightPanel() {
           </p>
         )}
       </div>
-    </div>
+      </ResponsiveDialog.Body>
+    </ResponsiveDialog>
   );
 }

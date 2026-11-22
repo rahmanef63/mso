@@ -30,7 +30,7 @@ export function setFocusMode(v: boolean): void {
   subs.forEach((f) => f());
   // feedback: when turning ON this lands log-only by design — the menu-bar
   // moon/CC toggle is the visible state; turning OFF pops normally.
-  toast(v ? "Focus mode on — notifications go to the center silently" : "Focus mode off");
+  toast(v ? "Focus mode on: notifications go to the center silently" : "Focus mode off");
 }
 
 export function toggleFocusMode(): void {

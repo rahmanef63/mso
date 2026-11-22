@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, FolderGit2, Gauge, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAlfaApprovalCount, useAlfaBusy } from "@/features/appshell";
+import { useAlfaApprovalCount, useAlfaBusy } from "@/features/appshell/alfa";
 import { useAlfaCockpit } from "./use-alfa-cockpit";
 import { AlfaCockpitDialog } from "./alfa-cockpit-dialog";
 

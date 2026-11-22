@@ -1,8 +1,26 @@
 import { defineConfig } from "vitest/config";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+
+// AGENTS.md tells an operator on a busy shared host to bound concurrency with
+// `VITEST_MAX_WORKERS=2` before touching coverage or timeouts. Nothing read that
+// variable, so the advice was inert: the gate still ran every suite at maximum
+// parallelism and unrelated 15s suites (gateway, store-security, tenant routes) timed
+// out while a build shared the box. A documented knob that no code reads is worse than
+// no knob, because the operator believes they applied the mitigation. Honour the same
+// variable Vitest's own CLI uses for maxForks/maxThreads.
+//
+// The default is bounded too, not "maximum parallelism": leaving maxWorkers undefined
+// spawned ~1052 workers on an 8-core box, so those same 15s suites timed out in the
+// full gate while passing in isolation. Size it to the machine instead.
+const boundedWorkers = Number.parseInt(process.env.VITEST_MAX_WORKERS ?? "", 10);
+const maxWorkers =
+  Number.isInteger(boundedWorkers) && boundedWorkers > 0
+    ? boundedWorkers
+    : Math.max(2, Math.min(8, os.availableParallelism?.() ?? os.cpus().length));
 
 export default defineConfig({
   resolve: {
@@ -19,6 +37,10 @@ export default defineConfig({
   test: {
     // Shell/systemd lifecycle fixtures can exceed Vitest's 5s default under the full parallel gate.
     testTimeout: 15_000,
+    maxWorkers,
+    // Runs in every worker before test modules load, so a host TMPDIR inside a
+    // protected control-plane root cannot poison fixture paths.
+    setupFiles: [path.join(root, "vitest.setup.ts")],
     // Cache transformed modules INSIDE THIS CHECKOUT, not in the shared
     // `node_modules/.vitest-cache`.
     //
@@ -51,8 +73,10 @@ export default defineConfig({
       // globbed — a root test file that is not listed here is silently never run,
       // which is worse than having no test at all, because the suite still says green.
       "proxy.test.ts",
+      "proxy-framing.test.ts",
       "proxy-websocket.test.ts",
       "proxy-machine-protocol.test.ts",
+      "proxy-font-csp.test.ts",
     ],
     environment: "node",
     // `bun run coverage`, and it IS in `verify`, so these are gates.

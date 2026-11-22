@@ -34,7 +34,7 @@ describe("update automation panel", () => {
   });
 
   it("reports the last unattended attempt and surfaces the two-failure pause", () => {
-    expect(describeLastAttempt(last())).toBe("Last attempt 2026-10-21 04:31:09 UTC — failed.");
+    expect(describeLastAttempt(last())).toBe("Last attempt 2026-10-21 04:31:09 UTC: failed.");
     expect(describeLastAttempt(last({ consecutiveFailures: 2 }))).toContain("Paused after 2 failed builds");
     expect(describeLastAttempt(last({ lastResult: "ok", consecutiveFailures: 0 }))).toContain("succeeded");
     expect(describeLastAttempt(last({ lastAttemptAt: null }))).toBe("No automatic attempt yet.");

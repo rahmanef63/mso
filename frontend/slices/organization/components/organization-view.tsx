@@ -110,8 +110,8 @@ export function OrganizationView() {
             </div>
           </div>
           <div className="flex shrink-0 gap-1">
-            {currentUnit ? <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => setDraft({ kind: "unit", item: currentUnit })}><Pencil className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Unit</span></Button> : <ModeSwitch value={overviewMode} onChange={setOverviewMode}/>}
-            {currentUnit ? <Button size="sm" className="h-8 px-2" onClick={() => setDraft({ kind: "seat", unitId: currentUnit.id })}><Users className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Seat</span></Button> : null}
+            {currentUnit ? <Button size="sm" variant="outline" className="h-8 px-2 [@media(pointer:coarse)]:min-h-[44px]" aria-label={`Edit unit ${currentUnit.name}`} title={`Edit unit ${currentUnit.name}`} onClick={() => setDraft({ kind: "unit", item: currentUnit })}><Pencil className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Unit</span></Button> : <ModeSwitch value={overviewMode} onChange={setOverviewMode}/>}
+            {currentUnit ? <Button size="sm" className="h-8 px-2 [@media(pointer:coarse)]:min-h-[44px]" aria-label={`Add seat to ${currentUnit.name}`} title={`Add seat to ${currentUnit.name}`} onClick={() => setDraft({ kind: "seat", unitId: currentUnit.id })}><Users className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Seat</span></Button> : null}
           </div>
         </div>
 

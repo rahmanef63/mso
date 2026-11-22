@@ -145,7 +145,7 @@ export function ModelQuickControl({ provider, model, onSaved }: { provider: stri
       const found = body.models ?? [];
       setResult({ key: requestKey, load: { state: "ok" }, rows: found });
       setTest(found.length
-        ? { ok: true, text: `Found ${found.length} model${found.length === 1 ? "" : "s"} — pick one to save` }
+        ? { ok: true, text: `Found ${found.length} model${found.length === 1 ? "" : "s"}. Pick one to save` }
         : { ok: false, text: "Endpoint reachable but listed no models" });
     } catch (e) { setTest({ ok: false, text: (e as Error).message || "Discovery failed" }); }
     finally { setDiscovering(false); }
@@ -204,7 +204,7 @@ export function ModelQuickControl({ provider, model, onSaved }: { provider: stri
           saving={saving} discovering={discovering} onReload={() => setReloadKey((k) => k + 1)}
           onDiscover={() => void discover()} onSelect={(next) => void selectModel(next)} />
       </div>
-      {stale ? <p className="text-[10px] text-warning" role="status">Saved model “{activeModel}” is not in the current list — pick another to switch, or Discover to refresh.</p> : null}
+      {stale ? <p className="text-[10px] text-warning" role="status">Saved model “{activeModel}” is not in the current list. Pick another to switch, or Discover to refresh.</p> : null}
       <Button size="sm" variant="outline" className="h-9" onClick={testSelected} disabled={saving}>
         {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Test active"}
       </Button>
