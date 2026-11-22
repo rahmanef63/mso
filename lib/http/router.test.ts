@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { NextRequest, NextResponse, parseRelativeURL } from "./next-server-shim";
 import { compileRoutePattern, dispatchMsoRequest } from "./router";
 
@@ -64,6 +66,13 @@ describe("zero-Next Web HTTP shim & router", () => {
     const hookMatch = catchAll.regex.exec("/api/v1/workflows/webhook/run/123");
     expect(hookMatch).not.toBeNull();
     expect(catchAll.extract(hookMatch!)).toEqual({ hook: ["run", "123"] });
+  });
+
+  it("imports compiled route modules through a file: URL so Windows absolute paths work", () => {
+    const nativePath = path.join(process.cwd(), "app", "api", "health", "route.ts");
+    const url = new URL(pathToFileURL(nativePath).href);
+    expect(url.protocol).toBe("file:");
+    expect(url.href).not.toMatch(/^[a-z]:/i);
   });
 
   it("dispatches /api/health directly through proxy.ts and app/api/health/route.ts", async () => {
