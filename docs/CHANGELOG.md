@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `e2e` isolate release fixture from host Docker and widen the n8n journey timeout
 - `managed-apps` annotate operator-supplied fs paths so the build trace stays static
 
 **Chores**
