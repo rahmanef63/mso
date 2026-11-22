@@ -121,23 +121,23 @@ export function UpdateTab({ appId, centre }: { appId: ManagedAppId; centre: Upda
 
       <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        Every update takes a snapshot of {support.stateDir} first, in the same operation. If that backup
-        fails the update is abandoned before anything is touched.
+        AppDeck pauses {appId} safely, saves a backup of {support.stateDir}, applies the verified update,
+        and restarts it automatically. If anything fails, your previous service is restored.
       </p>
 
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
         title={`Update ${appId}?`}
-        intro="This runs the app's own updater on the host and restarts its service."
-        confirmLabel="Back up, then update"
+        intro="AppDeck handles the full update safely in the background."
+        confirmLabel="Back up and update"
         onConfirm={() => void centre.run("update", () => applyUpdate(appId))}
       >
         <ul className="list-disc space-y-1 pl-4">
-          <li>A backup of {support.stateDir} runs first; a failed backup aborts the update.</li>
-          <li>The service restarts, so open sessions in that app drop.</li>
-          <li>It can run for up to an hour. Closing this window does not stop it.</li>
-          {canDryRun ? <li>Dry run rehearses the same command without changing anything.</li> : null}
+          <li>AppDeck pauses {appId} and saves a backup of {support.stateDir} first.</li>
+          <li>Only reviewed, checksum-verified releases are installed.</li>
+          <li>If anything fails, AppDeck restarts your previous setup automatically.</li>
+          {canDryRun ? <li>Dry run rehearses the update without changing anything.</li> : null}
         </ul>
       </ConfirmDialog>
 

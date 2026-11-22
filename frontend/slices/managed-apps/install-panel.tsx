@@ -8,26 +8,12 @@ import { Label } from "@/components/ui/label";
 import { CopyButton, copyClip, openWindow, toast } from "@/features/appshell";
 import { providersFor } from "@/lib/managed-apps/providers";
 import type { ManagedAppId } from "@/lib/managed-apps/types";
+import { AppDeckPreflightCard } from "./appdeck-preflight-card";
 import { supportFor } from "./app-support";
 import { installApp } from "./update-api";
 import { isActive } from "./update-machine";
 import type { UpdateCentre } from "./use-update-center";
 
-// Install used to be a command to copy, because both upstream installers asked
-// questions. They stopped: `hermes setup --non-interactive` reads its answers
-// from the environment, and `openclaw onboard --non-interactive` exists behind
-// an `--accept-risk` acknowledgement. So this is a real button now, running
-// scripts/managed-app-install through the same job machinery as update — the
-// transcript streams into the panel the update flow already renders.
-//
-// The API key is OPTIONAL and that is the point: an install that demands a
-// credential before it will start is not one click, and a gateway with no
-// provider still installs, still starts, and still says what it is missing.
-// It is held in component state only until the request resolves, then dropped —
-// never put in a URL, never echoed back by the route, never in the job argv.
-//
-// The command stays on screen. A button that fails on someone's machine and
-// leaves them with nothing is worse than the copy-paste it replaced.
 export function InstallPanel({
   appId,
   command,
@@ -42,12 +28,13 @@ export function InstallPanel({
   const [provider, setProvider] = useState(providers[0]?.id ?? "");
   const [apiKey, setApiKey] = useState("");
   const [open, setOpen] = useState(false);
+  const [preflightReady, setPreflightReady] = useState(true);
   const install = command ?? support.installCommand;
   const busy = isActive(centre.job.phase);
 
   const start = () => {
     const key = apiKey.trim();
-    setApiKey(""); // out of React state the moment it is handed over
+    setApiKey("");
     void centre.run("install", () => installApp(appId, key ? { provider, apiKey: key } : {}));
   };
 
@@ -60,15 +47,15 @@ export function InstallPanel({
 
   return (
     <div className="space-y-3">
-      {/* One line, not a paragraph. The surface around this already names the app and says
-          it is absent; what the operator needs here is the button and how long it takes. */}
-      <Button type="button" size="lg" className="w-full" disabled={busy} onClick={start}>
+      <AppDeckPreflightCard appId={appId} onReadyChange={setPreflightReady} />
+
+      <Button type="button" size="lg" className="w-full" disabled={busy || !preflightReady} onClick={start}>
         <Download aria-hidden />
-        {busy ? `Installing ${appId}…` : `Install ${appId}`}
+        {busy ? `Installing ${appId}...` : `Install ${appId} with AppDeck`}
       </Button>
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Runs the upstream installer on the server and starts the service. Progress appears below;{" "}
-        {appId === "hermes" ? "Hermes fetches a Python toolchain first, so give it several minutes" : "usually under a minute"}.
+        AppDeck downloads the verified release, configures it safely on your server, and waits until it is healthy.{" "}
+        {appId === "hermes" ? "Hermes prepares its runtime first, so give it several minutes." : "Usually ready in under a minute."}
       </p>
 
       {providers.length > 0 && (
@@ -86,8 +73,7 @@ export function InstallPanel({
           {open && (
             <div className="space-y-2 pt-1">
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                Skip this and it installs without one. The app comes up and tells you it needs a provider,
-                and you can add one from its own settings. Supplying it here just saves that round trip.
+                You can skip this and add a provider later inside the app. Adding one here just saves a step.
               </p>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="space-y-1">
@@ -118,15 +104,14 @@ export function InstallPanel({
                     onChange={(event) => setApiKey(event.target.value)}
                     autoComplete="off"
                     spellCheck={false}
-                    placeholder="sk-…"
+                    placeholder="sk-..."
                     aria-describedby={`install-key-${appId}-hint`}
                     className="h-8 font-mono text-xs"
                   />
                 </div>
               </div>
               <p id={`install-key-${appId}-hint`} className="text-[11px] leading-relaxed text-muted-foreground">
-                Sent once, in the request body, and handed to the installer through its environment. It is
-                not stored by MSO and never appears in the install transcript or the audit log.
+                Passed directly to the installer environment once. Not stored by MSO and never written to logs.
               </p>
             </div>
           )}
@@ -134,7 +119,7 @@ export function InstallPanel({
       )}
 
       <details className="group">
-        <summary className="cursor-pointer text-[11px] text-muted-foreground">Or install it by hand</summary>
+        <summary className="cursor-pointer text-[11px] text-muted-foreground">Advanced: install from terminal</summary>
         <div className="space-y-2 pt-2">
           <p className="text-[11px] leading-relaxed text-muted-foreground">{support.installNote}</p>
           <div className="flex items-start gap-2 rounded-md border border-border bg-secondary p-2">
@@ -145,10 +130,6 @@ export function InstallPanel({
             <SquareTerminal aria-hidden />
             Open in Terminal
           </Button>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Once it is installed and its service is up, this card picks it up on the next refresh. Detection
-            reads systemd, then docker, then the CLI on PATH.
-          </p>
         </div>
       </details>
     </div>

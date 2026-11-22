@@ -88,7 +88,7 @@ export function UpdateCentrePanel({ app, onChanged }: { app: ManagedAppView; onC
     <section className="mt-4 rounded-lg border border-border p-3">
       <h4 className="mb-3 flex items-center gap-1.5 text-xs font-semibold">
         <PackagePlus className="size-3.5" aria-hidden />
-        Update centre
+        AppDeck lifecycle
       </h4>
       <Centre app={app} onChanged={onChanged} />
     </section>

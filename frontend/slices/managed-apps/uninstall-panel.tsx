@@ -12,8 +12,6 @@ import { uninstallApp } from "./update-api";
 import { isActive } from "./update-machine";
 import type { UpdateCentre } from "./use-update-center";
 
-/** Shown when the flow is available as a button AND when it is not — a command
- *  with a copy button beats a button that cannot work. */
 function CommandRow({ command }: { command: string }) {
   return (
     <div className="flex items-start gap-2 rounded-md border border-border bg-secondary p-2">
@@ -27,8 +25,6 @@ export function UninstallPanel({ appId, centre }: { appId: ManagedAppId; centre:
   const support = supportFor(appId);
   const [typed, setTyped] = useState("");
   const caps = centre.status?.capabilities ?? null;
-  // Both CLIs do have a non-interactive uninstall (verified from `--help`), so
-  // the default is a working button; a server that says otherwise wins.
   const runnable = caps?.uninstall ?? true;
   const command = caps?.uninstallCommand ?? support.uninstallCommand;
   const busy = isActive(centre.job.phase);
@@ -42,17 +38,14 @@ export function UninstallPanel({ appId, centre }: { appId: ManagedAppId; centre:
       </div>
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        A snapshot of {support.stateDir} is taken first, in the same operation. If that backup fails,
-        nothing is removed. MSO can reinstall the app afterwards, but a fresh install is a fresh install:
-        the snapshot is the only thing that brings back this one&apos;s credentials, pairings and history.
+        AppDeck pauses {appId} safely and backs up {support.stateDir} before removing anything. If the backup
+        fails, nothing is removed and your app keeps running.
       </p>
-
-      <CommandRow command={command} />
 
       {runnable ? (
         <div className="space-y-2">
           <Label htmlFor={`uninstall-${appId}`} className="text-xs">
-            Type <span className="font-mono font-semibold">{appId}</span> to confirm
+            Type <span className="font-mono font-semibold">{appId}</span> to confirm removal
           </Label>
           <Input
             id={`uninstall-${appId}`}
@@ -64,12 +57,9 @@ export function UninstallPanel({ appId, centre }: { appId: ManagedAppId; centre:
             className="h-8 font-mono text-xs"
           />
           <p id={`uninstall-${appId}-hint`} className="text-[11px] text-muted-foreground">
-            The route requires the same word in the request body, so a mistyped confirmation is refused
-            server-side too.
+            Typing the app name prevents accidental removal. You can preview first without changing anything.
           </p>
           <div className="flex flex-wrap gap-2">
-            {/* A preview writes nothing, so it is not behind the typing gate —
-                the gate exists to stop an accidental removal, not a listing. */}
             <Button
               type="button"
               variant="outline"
@@ -91,16 +81,24 @@ export function UninstallPanel({ appId, centre }: { appId: ManagedAppId; centre:
               }}
             >
               <Trash2 aria-hidden />
-              Back up, then uninstall {appId}
+              Back up and uninstall {appId}
             </Button>
           </div>
         </div>
       ) : (
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          This build will not run the uninstall for you; it needs answers MSO cannot give. Run the
-          command above in a terminal on the host.
+          Automatic uninstall is unavailable for this build. Use the terminal command below.
         </p>
       )}
+
+      {command ? (
+        <details className="group">
+          <summary className="cursor-pointer text-[11px] text-muted-foreground">Advanced: terminal command</summary>
+          <div className="pt-2">
+            <CommandRow command={command} />
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

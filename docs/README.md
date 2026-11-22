@@ -79,7 +79,8 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup, diagrams, scopes and file bridge |
 | [`PLUGIN-REFERENCE-MATRIX.md`](./PLUGIN-REFERENCE-MATRIX.md) | Living cross-plugin architecture matrix, audit decisions and candidate generic primitives |
 | [`CONNECTED-APPS.md`](./CONNECTED-APPS.md) | Server-persisted external app connections, dynamic shell windows and lifecycle boundaries |
-| [`MANAGED-APPS.md`](./MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, backup/restore and dashboard access boundary |
+| [`MANAGED-APPS.md`](./MANAGED-APPS.md) | Hermes/OpenClaw/9Router/Orca/T3/n8n lifecycle, jobs, backup/restore and dashboard access boundary |
+| [`APPDECK.md`](./APPDECK.md) | AppDeck unified transactional lifecycle engine (preflight, auto-quiesce, backup, pinned updates, auto-recovery) for all external OSS apps |
 | [`MANAGED-DOMAINS.md`](./MANAGED-DOMAINS.md) | Automatic app DNS/tunnel routes, named Integrations, HTTPS verification and durable setup recovery |
 | [`HERMES-INTEGRATION.md`](./HERMES-INTEGRATION.md) | Hermes-specific integration behaviour |
 | [`OPENCLAW-INTEGRATION.md`](./OPENCLAW-INTEGRATION.md) | OpenClaw-specific integration behaviour |

@@ -25,15 +25,15 @@ describe("Orca UI state and installer availability", () => {
     expect(html).toContain("Detecting Orca");
   });
 
-  it("exposes the real verified installer adapter while update/uninstall stay unsupported", () => {
+  it("exposes the real verified AppDeck installer and uninstall adapter", () => {
     const def = getManagedAppDefinition("orca");
     expect(def.installBackends).toEqual(["user-systemd"]);
     const support = supportFor("orca");
     expect(support.installCommand).toContain("scripts/managed-app-install orca");
     expect(support.installNote).toMatch(/mso-orca\.service/);
     expect(support.stateDir).toBe("~/.local/share/mso/orca");
-    expect(support.uninstallCommand).toBe("");
-    expect(support.uninstallEffect).toMatch(/not available/i);
+    expect(support.uninstallCommand).toContain("scripts/managed-app-orca uninstall --yes");
+    expect(support.uninstallEffect).toMatch(/mso-orca\.service/i);
   });
 });
 

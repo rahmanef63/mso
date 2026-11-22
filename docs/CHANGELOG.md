@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `appdeck` unified transactional install/update/uninstall lifecycle for all external OSS apps
 - `hybrid` complete Rust Stage R4 100%, add Inc. 5 cutover drill, iOS PWA & runbook
 - `hybrid` complete Inc. 4 100%, add Inc. 5 cutover/bench harness, Rust R3G/R4 native FS, and R1 desktop profiles
 - `hybrid` complete Inc. 2 onboarding, Inc. 4F deep parity, Rust R4 native endpoints, and R1 Tauri v2 scaffold

@@ -57,14 +57,14 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     dryRun: true,
     rollbackPin: true,
     pinLabel: "Version",
-    pinHint: "Rollback accepts an exact reviewed OpenClaw version. Moving channels or mutable dist-tags is an explicit update action, not the install default.",
+    pinHint: "AppDeck updates OpenClaw from the verified SHA-512 tarball lock in security/managed-app-artifacts.env; rollback restores ~/.openclaw snapshots safely.",
     pinPlaceholder: "2026.7.1-2",
     installCommand: "bash scripts/managed-app-install openclaw install",
     installNote:
-      "MSO downloads the exact OpenClaw tarball named in security/managed-app-artifacts.env, verifies SHA-512 before npm can run lifecycle hooks, and confirms the installed version before onboarding it on loopback.",
+      "AppDeck downloads the exact OpenClaw tarball named in security/managed-app-artifacts.env, verifies SHA-512 before npm can run lifecycle hooks, and confirms the installed version before onboarding it on loopback.",
     uninstallCommand: "openclaw uninstall --non-interactive --yes --service --state",
     uninstallEffect:
-      "Removes the gateway service and local state; the `openclaw` CLI itself stays on PATH. `--dry-run` prints the actions, `--all` also removes the workspace.",
+      "Stops and removes the OpenClaw gateway service and local state after saving a backup snapshot in MSO.",
     stateDir: "~/.openclaw",
   },
   "9router": {
@@ -86,13 +86,14 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     dryRun: false,
     rollbackPin: false,
     pinLabel: "Version",
-    pinHint: "Orca update and rollback are not available yet; only the pinned 1.4.230 web runtime installs.",
-    pinPlaceholder: "",
+    pinHint: "AppDeck reconciles Orca to the reviewed release digest in scripts/orca/constants.mjs and restores ~/.local/share/mso/orca snapshots on rollback.",
+    pinPlaceholder: "1.4.230",
     installCommand: "MSO_INSTALL_APP_ORIGIN=https://orca.mso.example.com bash scripts/managed-app-install orca",
     installNote:
-      "MSO verifies and installs the pinned Orca 1.4.230 web/Node release into ~/.local/share/mso/orca and starts the MSO-owned mso-orca.service user unit on loopback. Replace the origin above with your configured Orca split app host (NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE).",
-    uninstallCommand: "",
-    uninstallEffect: "Orca uninstall is not available yet.",
+      "AppDeck verifies and installs the pinned Orca 1.4.230 web/Node release into ~/.local/share/mso/orca and starts the MSO-owned mso-orca.service user unit on loopback. Replace the origin above with your configured Orca split app host (NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE).",
+    uninstallCommand: "bash scripts/managed-app-orca uninstall --yes",
+    uninstallEffect:
+      "Stops and removes mso-orca.service and MSO-managed Orca runtime files under ~/.local/share/mso/orca. Your MSO backup snapshots stay safe.",
     stateDir: "~/.local/share/mso/orca",
   },
   t3: {

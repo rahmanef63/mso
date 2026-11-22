@@ -99,12 +99,12 @@ describe("Orca checkpoint 1 identity and presentation", () => {
     expect(proven.backend).toBe("user-systemd");
 
     const adapter = updateAdapter("orca" as any);
-    expect(adapter.capabilities.check).toBe(false);
-    expect(adapter.capabilities.apply).toBe(false);
-    expect(adapter.capabilities.uninstall).toBe(false);
-    expect(adapter.capabilities.rollback).toBe(false);
-    expect(() => adapter.updateArgv("orca-ide", {})).toThrow(/not supported for orca/);
-    expect(() => adapter.uninstallArgv("orca-ide", false)).toThrow(/not supported for orca/);
+    expect(adapter.capabilities.check).toBe(true);
+    expect(adapter.capabilities.apply).toBe(true);
+    expect(adapter.capabilities.uninstall).toBe(true);
+    expect(adapter.capabilities.rollback).toBe(true);
+    expect(adapter.updateArgv("/opt/mso/scripts/managed-app-orca", {})).toEqual(["/opt/mso/scripts/managed-app-orca", "update", "--yes"]);
+    expect(adapter.uninstallArgv("/opt/mso/scripts/managed-app-orca", false)).toEqual(["/opt/mso/scripts/managed-app-orca", "uninstall", "--yes"]);
   });
 
   it("exports OrcaApp component and renders initial loading presentation", () => {

@@ -97,7 +97,7 @@ describe("checkUpdate normalises two CLIs that agree on nothing", () => {
     // carrying a commit count dressed up as one.
     expect(status.latestVersion).toBeNull();
     expect(status.channel).toMatchObject({ value: "main", kind: "branch", switchable: false, available: [] });
-    expect(status.capabilities).toMatchObject({ channel: false, dryRun: false, apply: false });
+    expect(status.capabilities).toMatchObject({ channel: false, dryRun: false, apply: true });
   });
 
   it("reads OpenClaw's JSON into the same shape", async () => {
@@ -109,7 +109,7 @@ describe("checkUpdate normalises two CLIs that agree on nothing", () => {
     expect(status.updateAvailable).toBe(true);
     expect(status.channel).toMatchObject({ value: "stable", kind: "channel", switchable: true });
     expect(status.channel.available).toEqual(["stable", "extended-stable", "beta", "dev"]);
-    expect(status.capabilities).toMatchObject({ channel: false, dryRun: false, apply: false });
+    expect(status.capabilities).toMatchObject({ channel: false, dryRun: false, apply: true });
   });
 
   it("answers 'not installed' with the command to run, and offers nothing to click", async () => {
@@ -123,10 +123,12 @@ describe("checkUpdate normalises two CLIs that agree on nothing", () => {
   });
 });
 
-describe("mutable upstream updates fail closed", () => {
-  it.each(["hermes", "openclaw"] as const)("refuses %s apply before any job or backup exists", async (id) => {
+describe("AppDeck verified pinned updates and mutable-option fail-closed", () => {
+  it.each(["hermes", "openclaw"] as const)("refuses mutable %s channel/branch/tag options before any job or backup exists", async (id) => {
     await recorder(id);
-    await expect(startUpdate(id)).rejects.toThrow(/immutable artifact target and digest/);
+    await expect(startUpdate(id, { channel: "beta" })).rejects.toThrow(/immutable artifact target and digest/);
+    await expect(startUpdate(id, { branch: "main" })).rejects.toThrow(/immutable artifact target and digest/);
+    await expect(startUpdate(id, { tag: "latest" })).rejects.toThrow(/immutable artifact target and digest/);
     expect(await recorded(id)).toEqual([]);
     expect(await listManagedAppJobs(id)).toEqual([]);
     expect(await listBackups(id)).toEqual([]);
@@ -143,8 +145,16 @@ describe("mutable upstream updates fail closed", () => {
     expect(await recorded("9router")).toEqual(["update", "--yes"]);
   });
 
-  it("refuses orca update before any reviewed immutable target is committed", async () => {
-    await expect(startUpdate("orca")).rejects.toThrow("orca automated update is disabled until a reviewed immutable artifact target and digest are committed");
+  it("permits the reviewed Orca update path via its AppDeck adapter", async () => {
+    await recorder("orca");
+    const catalog = await import("./catalog");
+    const definition = catalog.getManagedAppDefinition("orca");
+    const orcaState = path.join(home, "orca-state");
+    await fs.mkdir(orcaState, { recursive: true });
+    vi.spyOn(catalog, "getManagedAppDefinition").mockReturnValue({ ...definition, command: path.join(bin, "orca"), homeDir: orcaState });
+    const job = await settle(await startUpdate("orca"));
+    expect(job.status).toBe("succeeded");
+    expect(await recorded("orca")).toEqual(["update", "--yes"]);
   });
 });
 
@@ -274,7 +284,7 @@ describe("reading the status never probes", () => {
     expect(cold.checkedAt).toBeNull(); // "nobody has asked yet" — not a version
     expect(cold.currentVersion).toBeNull();
     // What the app supports is still declared, so the panel can render controls.
-    expect(cold.capabilities).toMatchObject({ check: true, apply: false, channel: false, dryRun: false, uninstall: true });
+    expect(cold.capabilities).toMatchObject({ check: true, apply: true, channel: false, dryRun: false, uninstall: true });
     // THE point: a read spawns nothing. `hermes update --check` git-fetches the
     // operator's own checkout twice, and this verb sits outside the CSRF gate,
     // reachable from every sibling origin that shares the session cookie.

@@ -139,6 +139,12 @@ export interface StartManagedAppJobOptions {
    *  job ends `failed` and argv never runs — which is how a mandatory
    *  pre-update backup gates the update it is protecting. */
   prepare?: (append: (text: string) => void) => Promise<void>;
+  /** Optional AppDeck hook invoked after a successful prepare+child run before
+   *  the job transitions to `succeeded` (e.g. resume a quiesced app after restore). */
+  onSuccess?: (append: (text: string) => void) => Promise<void>;
+  /** Optional AppDeck recovery hook invoked when prepare or child execution fails
+   *  so a previously running app can be restarted automatically. */
+  onFailure?: (append: (text: string) => void) => Promise<void>;
   cwd?: string;
   /** Merged over the scrubbed child env (`childEnv()`). Non-interactive
    *  switches only — the log is user-visible, so never a credential. */

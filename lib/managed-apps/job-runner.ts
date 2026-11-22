@@ -9,23 +9,9 @@ import type { ManagedAppId, ManagedAppJob, ManagedAppJobStatus, StartManagedAppJ
 
 // Execution half of the job layer: the record, its transcript, and keeping both
 // honest while the work runs. jobs.ts owns the API and the lock; job-child.ts
-// owns the process (and why waiting on `close` alone wedged the lock).
-//
-// THE CHILD IS IN-PROCESS — spawned by this server and killed with it. Detaching
-// would not change that, and believing otherwise is the dangerous mistake here:
-// `systemctl show mso.service -p KillMode -p Delegate` says `control-group`
-// and `no`, so stopping or restarting the unit SIGTERMs every pid in
-// /system.slice/mso.service, and `detached: true` makes a new process GROUP,
-// never a new cgroup. (It is still passed — see job-child.ts: a timeout has to
-// signal git/pip/npm, not just the CLI that started them.) Surviving a
-// deploy for real would take `systemd-run --scope`, i.e. a second supervisor
-// whose output nothing here could stream and whose exit nothing here could reap.
-//
-// So deploying mid-update KILLS the update. The record is the durable part: a
-// job whose owner process is gone reconciles to `interrupted` (job-store.ts)
-// rather than sitting at `running` forever, and the transcript up to the moment
-// it died is kept. That is also why a successful backup is part of the same
-// operation — a half-applied update is survivable, an invisible one is not.
+// owns the process. The child runs in this process's cgroup (surviving a deploy
+// is not possible under mso.service KillMode=control-group); a job whose owner
+// process dies reconciles to `interrupted` in job-store.ts.
 
 export const MANAGED_APP_JOB_LOG_CAP = 256 * 1024;
 const FLUSH_TICK_MS = 2_000;
@@ -151,31 +137,49 @@ export function cancelJob(jobId: string, applicationId: ManagedAppId): boolean {
   return true;
 }
 
+async function runFailureHook(rt: Runtime, options: StartManagedAppJobOptions): Promise<void> {
+  if (!options.onFailure) return;
+  try {
+    await options.onFailure((text) => append(rt, text));
+  } catch (err) {
+    append(rt, `[appdeck] recovery warning: ${err instanceof Error ? err.message : String(err)}\n`);
+  }
+}
+
 async function run(rt: Runtime, options: StartManagedAppJobOptions): Promise<void> {
   try {
     rt.record.status = "running";
     rt.dirty = true;
     if (options.prepare) await options.prepare((text) => append(rt, text));
     if (rt.record.argv.length) {
-      let succeeded = false;
-      let childExit: number | null = null;
+      let outcome: { status: ManagedAppJobStatus; exitCode: number | null; error: string | null } | null = null;
       await spawnJobChild(rt.record.argv, options, {
         append: (text) => append(rt, text),
         finish: (status, exitCode, error) => {
-          if (status === "succeeded" && ["install", "update"].includes(rt.record.kind)) { succeeded = true; childExit = exitCode; }
-          else finish(rt, status, exitCode, error);
+          outcome = { status, exitCode, error };
         },
         register: (terminate) => {
           rt.terminate = terminate;
         },
       });
-      if (succeeded) {
-        rt.terminate = undefined;
-        await appendDomainProvisioning(rt.record.applicationId, text => append(rt, text));
-        finish(rt, "succeeded", childExit, null);
+      rt.terminate = undefined;
+      const done = outcome as { status: ManagedAppJobStatus; exitCode: number | null; error: string | null } | null;
+      if (done?.status === "succeeded") {
+        if (["install", "update"].includes(rt.record.kind)) {
+          await appendDomainProvisioning(rt.record.applicationId, (text) => append(rt, text));
+        }
+        if (options.onSuccess) await options.onSuccess((text) => append(rt, text));
+        finish(rt, "succeeded", done.exitCode, null);
+      } else {
+        await runFailureHook(rt, options);
+        finish(rt, done?.status ?? "failed", done?.exitCode ?? null, done?.error ?? "managed app command failed");
       }
-    } else finish(rt, "succeeded", null, null); // prepare-only job (an in-process restore)
+    } else {
+      if (options.onSuccess) await options.onSuccess((text) => append(rt, text));
+      finish(rt, "succeeded", null, null);
+    }
   } catch (error) {
+    await runFailureHook(rt, options);
     finish(rt, "failed", null, error instanceof Error ? error.message : String(error));
   } finally {
     // finish() already freed the lock (see there). This is the idempotent

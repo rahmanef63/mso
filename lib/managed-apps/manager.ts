@@ -160,6 +160,18 @@ export async function assertManagedAppStopped(id: ManagedAppId): Promise<void> {
   if (await running(await detect(getManagedAppDefinition(id), true), true)) throw new Error("Cannot confirm app is stopped; stop all app services before backup or restore");
 }
 
+async function toggleMaintenance(id: ManagedAppId, action: "start" | "stop"): Promise<boolean> {
+  const installation = action === "stop" && id === "orca" ? await detectOwnedOrcaForStop() : await detect(getManagedAppDefinition(id));
+  if ((installation.type !== "systemd" && installation.type !== "docker") || (action === "stop" && !(await running(installation)))) return false;
+  await runLifecycle(installation, action);
+  forgetAppVersion(id);
+  if (id === "orca") invalidateOrcaIntegrityCache();
+  return true;
+}
+
+export const stopManagedAppForMaintenance = (id: ManagedAppId): Promise<boolean> => toggleMaintenance(id, "stop");
+export const startManagedAppForRecovery = (id: ManagedAppId): Promise<boolean> => toggleMaintenance(id, "start").catch(() => false);
+
 async function runLifecycle(installation: ManagedInstallation, action: "start" | "stop" | "restart"): Promise<void> {
   // Owned Orca runs as a USER unit under MSO's control. Act on exactly that unit
   // and never fall through to a same-name system unit.

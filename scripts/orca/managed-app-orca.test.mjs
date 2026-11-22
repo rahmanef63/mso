@@ -79,20 +79,37 @@ describe('managed-app-orca adapter grammar', () => {
     }
   })
 
-  it('fails update and uninstall closed, but keeps uninstall --help', async () => {
+  it('supports uninstall --help, dry-run preview, real uninstall cleanup, and strict --yes guards', async () => {
     const d = await makeDirs()
     try {
-      const update = adapter(['update', '--yes'], d.env)
-      assert.equal(update.status, 1)
-      assert.match(update.stderr, /not implemented/)
+      const badUpdate = adapter(['update'], d.env)
+      assert.equal(badUpdate.status, 2)
+      assert.match(badUpdate.stderr, /update requires --yes/)
 
-      const uninstall = adapter(['uninstall', '--yes'], d.env)
-      assert.equal(uninstall.status, 1)
-      assert.match(uninstall.stderr, /not implemented/)
+      const badUninstall = adapter(['uninstall'], d.env)
+      assert.equal(badUninstall.status, 2)
+      assert.match(badUninstall.stderr, /uninstall requires --yes/)
 
       const help = adapter(['uninstall', '--help'], d.env)
       assert.equal(help.status, 0)
-      assert.match(help.stdout, /uninstall/)
+      assert.match(help.stdout, /--dry-run/)
+
+      const preview = adapter(['uninstall', '--yes', '--dry-run'], d.env)
+      assert.equal(preview.status, 0, preview.stderr)
+      assert.match(preview.stdout, /would remove managed runtime files/)
+
+      await writePrivateFile(installReceiptPath(d.root), {
+        schemaVersion: 1,
+        applicationId: 'orca',
+        version: '1.4.230',
+        releaseRoot: join(d.root, 'releases', 'r'),
+        releaseContentId: getReleaseContentId(),
+        runtimeId: 'rt'
+      }, { root: d.root })
+      const removed = adapter(['uninstall', '--yes'], d.env)
+      assert.equal(removed.status, 0, removed.stderr)
+      assert.match(removed.stdout, /Removed mso-orca\.service/)
+      assert.equal((await readInstalledOrcaRelease({ managedRoot: d.root })).reason, 'not_installed')
 
       const usage = adapter([], d.env)
       assert.equal(usage.status, 2)

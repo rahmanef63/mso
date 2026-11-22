@@ -1,7 +1,9 @@
 # Managed applications
 
-> **Current reference.** MSO currently manages three independent applications:
-> **Hermes**, **OpenClaw**, and **9Router**.
+> **Current reference.** MSO manages independent external open-source applications
+> (**Hermes**, **OpenClaw**, **9Router**, **Orca**, **T3 Code**, and **n8n**) through
+> [**AppDeck**](./APPDECK.md) — MSO's unified transactional lifecycle engine (preflight,
+> auto-quiesce, backup, pinned updates, auto-recovery, and safe uninstall).
 
 Managed applications are separate runtimes with their own install, config, data and
 privileges. MSO does not turn them into MSO slices. It provides a management layer around

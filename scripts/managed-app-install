@@ -42,6 +42,12 @@ validate_artifact_lock() {
 validate_artifact_lock || { echo "invalid managed-app artifact lock" >&2; exit 2; }
 
 APP="${1:-}"
+ACTION="${2:-install}"
+if [ "$#" -ge 2 ]; then
+  shift 2
+else
+  shift "$#"
+fi
 # loopback by default, deliberately. This runs on machines that are not mine: a
 # gateway bound to the LAN on someone's first install is an exposure they never
 # asked for. This host overrides it because Traefik has to reach the gateway.
@@ -57,7 +63,15 @@ log() { printf '\n=== %s\n' "$*"; }
 case "$APP" in
 hermes | openclaw | 9router | orca | t3 | n8n) ;;
 *)
-  echo "usage: managed-app-install <hermes|openclaw|9router|orca|t3|n8n>" >&2
+  echo "usage: managed-app-install <hermes|openclaw|9router|orca|t3|n8n> [install|update|uninstall]" >&2
+  exit 2
+  ;;
+esac
+
+case "$ACTION" in
+install | update | uninstall) ;;
+*)
+  echo "unsupported action '$ACTION' (expected install, update, or uninstall)" >&2
   exit 2
   ;;
 esac
@@ -67,13 +81,13 @@ esac
 # the user-bus preflight below would only create a false install dependency. Hand
 # off to the Docker adapter and stop here.
 if [ "$APP" = "9router" ]; then
-  exec "$(dirname "$0")/managed-app-9router" install
+  exec "$(dirname "$0")/managed-app-9router" "$ACTION" "$@"
 fi
 
 # Self-hosted n8n uses the pinned upstream Docker image bound to loopback 5678
 # with persistent state in ~/.n8n. Hand off before the systemd user-bus check.
 if [ "$APP" = "n8n" ]; then
-  exec "$(dirname "$0")/managed-app-n8n" install
+  exec "$(dirname "$0")/managed-app-n8n" "$ACTION" "$@"
 fi
 
 # Orca is the MSO-owned web/Node runtime installed as `mso-orca.service`. Its
@@ -82,14 +96,19 @@ fi
 # origin itself, so it must NOT run through the Hermes/OpenClaw preflight below
 # (which calls `loginctl enable-linger`). Dispatch before it and stop here.
 if [ "$APP" = "orca" ]; then
-  exec "$(dirname "$0")/managed-app-orca" install
+  exec "$(dirname "$0")/managed-app-orca" "$ACTION" "$@"
 fi
 
 # T3 Code is installed from its pinned standalone Linux release tarball and runs
 # as the loopback-only user unit `t3-code.service`. Its adapter verifies the user
 # bus and SHA-256 lock directly without changing linger or host access policy.
 if [ "$APP" = "t3" ]; then
-  exec "$(dirname "$0")/managed-app-t3" install
+  exec "$(dirname "$0")/managed-app-t3" "$ACTION" "$@"
+fi
+
+if [ "$ACTION" = "uninstall" ] && [ "${1:-}" = "--help" ]; then
+  echo "usage: managed-app-install $APP uninstall --yes [--dry-run]"
+  exit 0
 fi
 
 # Both apps are installed as systemd USER units, and `systemctl --user` finds the
@@ -388,10 +407,11 @@ install_hermes() {
   #
   # Tested by running the launcher, not by stat-ing the venv: a half-built venv
   # has an executable python and imports nothing.
-  if hermes_cmd 2>/dev/null && "${HERMES_CMD[@]}" --version >/dev/null 2>&1; then
+  if [ "$ACTION" != "update" ] && hermes_cmd 2>/dev/null && "${HERMES_CMD[@]}" --version >/dev/null 2>&1; then
     log "hermes is already installed and runnable — skipping the upstream installer"
     printf 'found: %s\n' "$("${HERMES_CMD[@]}" --version 2>/dev/null | head -1)"
   else
+    echo "[appdeck] step=apply Applying pinned Hermes release ($HERMES_INSTALLER_TAG)"
     log "running the installer (non-interactive)"
     # --non-interactive makes it skip every stage that would ask (install.sh:3211).
     # It pulls uv, Python, Node and ffmpeg itself; sudo is used only to apt-get git
@@ -616,9 +636,82 @@ openclaw_bin() {
   fi
 }
 
-case "$APP" in
-hermes) install_hermes ;;
-openclaw) install_openclaw ;;
+update_openclaw() {
+  local tmp tarball actual openclaw installed_version
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
+
+  echo "[appdeck] step=download Downloading pinned OpenClaw release ($OPENCLAW_VERSION)"
+  log "reconciling the pinned OpenClaw CLI ($OPENCLAW_VERSION)"
+  tarball="$(cd "$tmp" && npm pack "openclaw@$OPENCLAW_VERSION" --silent)"
+  [ -n "$tarball" ] && [ -f "$tmp/$tarball" ] || { echo "OpenClaw package download failed" >&2; return 1; }
+  actual="$(sha512sum "$tmp/$tarball" | awk '{print $1}')"
+  [ "$actual" = "$OPENCLAW_TARBALL_SHA512" ] || {
+    echo "OpenClaw tarball integrity check failed" >&2
+    return 1
+  }
+  echo "[appdeck] step=apply Installing verified OpenClaw tarball"
+  npm install -g "$tmp/$tarball"
+
+  openclaw="$(openclaw_bin)"
+  installed_version="$("$openclaw" --version 2>/dev/null | head -1)"
+  printf '%s' "$installed_version" | grep -Fq "$OPENCLAW_VERSION" || {
+    echo "installed OpenClaw version does not match lock: $installed_version" >&2
+    return 1
+  }
+
+  echo "[appdeck] step=health Restarting OpenClaw service"
+  if command -v systemctl >/dev/null 2>&1 && ensure_user_bus; then
+    systemctl --user restart openclaw-gateway.service 2>/dev/null || "$openclaw" gateway restart >/dev/null 2>&1 || true
+  else
+    "$openclaw" gateway restart >/dev/null 2>&1 || true
+  fi
+  echo "[appdeck] step=ready OpenClaw $OPENCLAW_VERSION is ready"
+}
+
+uninstall_fallback() {
+  local dry=0
+  [ "${1:-}" = "--yes" ] || { echo "uninstall requires --yes" >&2; exit 2; }
+  if [ "${2:-}" = "--dry-run" ]; then dry=1; fi
+  if [ "$APP" = "hermes" ]; then
+    if [ "$dry" = 1 ]; then
+      echo "would stop and remove MSO-managed Hermes services/container (keeping ~/.hermes data)"
+      return 0
+    fi
+    echo "[appdeck] step=apply Removing Hermes services and runtime (keeping ~/.hermes data)"
+    if command -v systemctl >/dev/null 2>&1 && ensure_user_bus; then
+      for unit in hermes-dashboard.service hermes-gateway.service; do
+        systemctl --user disable --now "$unit" >/dev/null 2>&1 || true
+        rm -f "$HOME/.config/systemd/user/$unit"
+      done
+      systemctl --user daemon-reload >/dev/null 2>&1 || true
+    fi
+    if docker_cli; then
+      "${DOCKER[@]}" rm -f hermes >/dev/null 2>&1 || true
+    fi
+    rm -f "$HOME/.local/bin/hermes"
+    echo "[appdeck] step=ready Hermes runtime removed (kept ~/.hermes)"
+    return 0
+  fi
+  if [ "$dry" = 1 ]; then
+    echo "would stop and disable openclaw-gateway.service (keeping ~/.openclaw data)"
+    return 0
+  fi
+  echo "[appdeck] step=apply Stopping and removing OpenClaw service (keeping ~/.openclaw data)"
+  if command -v systemctl >/dev/null 2>&1 && ensure_user_bus; then
+    systemctl --user disable --now openclaw-gateway.service >/dev/null 2>&1 || true
+    rm -f "$HOME/.config/systemd/user/openclaw-gateway.service"
+    systemctl --user daemon-reload >/dev/null 2>&1 || true
+  fi
+  echo "[appdeck] step=ready OpenClaw service removed (kept ~/.openclaw)"
+}
+
+case "${APP}:${ACTION}" in
+hermes:install | hermes:update) install_hermes ;;
+openclaw:install) install_openclaw ;;
+openclaw:update) update_openclaw ;;
+hermes:uninstall | openclaw:uninstall) uninstall_fallback "$@" ;;
 esac
 
-log "$APP install finished"
+echo "[appdeck] step=ready $APP $ACTION finished"
+log "$APP $ACTION finished"

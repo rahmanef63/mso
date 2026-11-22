@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, PlugZap, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AppDeckStepper } from "./appdeck-stepper";
 import { fmtStamp } from "./app-support";
 import { isTerminal, statusLine, type JobState } from "./update-machine";
 
@@ -13,17 +14,14 @@ const TONE: Record<string, string> = {
 };
 
 function PhaseIcon({ phase }: { phase: JobState["phase"] }) {
-  if (phase === "succeeded") return <CheckCircle2 className="size-4" aria-hidden />;
+  if (phase === "succeeded") return <CheckCircle2 className="size-4 text-emerald-500" aria-hidden />;
   if (phase === "failed") return <XCircle className="size-4 text-destructive" aria-hidden />;
-  // An interrupted job is not a failure the app reported and not a spinner: the
-  // watcher died, and the plug icon says the connection was lost, not the run.
   if (phase === "interrupted") return <PlugZap className="size-4" aria-hidden />;
   return <Loader2 className="size-4 animate-spin" aria-hidden />;
 }
 
-/** The live view of one job: one aria-live line, then the raw log tail. The log
- *  itself is NOT live — a screen reader announcing 30 minutes of npm output is
- *  unusable, so only the status sentence speaks. */
+/** Live AppDeck job progress: human-readable stepper, aria-live status line,
+ *  and technical logs tucked inside a collapsible disclosure. */
 export function JobPanel({ job, onDismiss, onCancel }: { job: JobState; onDismiss: () => void; onCancel?: (() => void) | null }) {
   const tail = useRef<HTMLPreElement>(null);
   const done = isTerminal(job.phase);
@@ -37,6 +35,7 @@ export function JobPanel({ job, onDismiss, onCancel }: { job: JobState; onDismis
 
   return (
     <section className={`mt-3 rounded-lg border p-3 ${TONE[job.phase] ?? "border-border bg-muted/40"}`}>
+      <AppDeckStepper job={job} />
       <div className="flex items-start gap-2">
         <PhaseIcon phase={job.phase} />
         <p role="status" aria-live="polite" className="min-w-0 flex-1 text-xs leading-relaxed">
@@ -47,11 +46,6 @@ export function JobPanel({ job, onDismiss, onCancel }: { job: JobState; onDismis
             Dismiss
           </Button>
         ) : onCancel ? (
-          // A job holds the app's lock until it ends, so one that stops ending —
-          // an updater that leaks a background process, a CLI that hangs below
-          // its timeout — leaves every later action on this app answering "busy".
-          // The alternative escape is restarting mso, which is the one thing
-          // not to do mid-update.
           <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
             Cancel
           </Button>
@@ -93,14 +87,19 @@ export function JobPanel({ job, onDismiss, onCancel }: { job: JobState; onDismis
       </dl>
 
       {job.log ? (
-        <pre
-          ref={tail}
-          tabIndex={0}
-          aria-label="Job output"
-          className="mt-2 max-h-56 overflow-auto rounded-md bg-secondary p-2 text-[10px] leading-relaxed whitespace-pre-wrap break-words text-secondary-foreground"
-        >
-          {job.log}
-        </pre>
+        <details open={job.phase === "failed" || job.phase === "interrupted"} className="mt-2">
+          <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground hover:text-foreground">
+            Technical output
+          </summary>
+          <pre
+            ref={tail}
+            tabIndex={0}
+            aria-label="Job output"
+            className="mt-1.5 max-h-56 overflow-auto rounded-md bg-secondary p-2 text-[10px] leading-relaxed whitespace-pre-wrap break-words text-secondary-foreground"
+          >
+            {job.log}
+          </pre>
+        </details>
       ) : null}
     </section>
   );

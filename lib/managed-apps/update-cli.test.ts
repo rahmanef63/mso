@@ -178,17 +178,22 @@ describe("the 9Router wrapper argv", () => {
   });
 });
 
-describe("the Orca unverified adapter scaffolding", () => {
-  it("rejects update, uninstall and probe until verified adapter exists", async () => {
+describe("the Orca AppDeck wrapper argv", () => {
+  const ORCA = "/home/operator/projects/mso/scripts/managed-app-orca";
+
+  it("builds update and uninstall in the shared pinned AppDeck grammar", () => {
     const adapter = updateAdapter("orca");
-    expect(adapter.capabilities.check).toBe(false);
-    expect(adapter.capabilities.apply).toBe(false);
-    expect(adapter.capabilities.uninstall).toBe(false);
-    expect(adapter.capabilities.rollback).toBe(false);
+    expect(adapter.capabilities).toMatchObject({ check: true, apply: true, rollback: true, uninstall: true, dryRun: false, channel: false });
     expect(adapter.pin).toBeNull();
-    expect(() => adapter.updateArgv("orca-ide", {})).toThrow("update is not supported for orca");
-    expect(() => adapter.uninstallArgv("orca-ide", false)).toThrow("uninstall is not supported for orca");
-    await expect(adapter.probe("orca-ide")).rejects.toThrow("update probing is not supported for orca");
+    expect(adapter.updateArgv(ORCA, {})).toEqual([ORCA, "update", "--yes"]);
+    expect(adapter.uninstallArgv(ORCA, false)).toEqual([ORCA, "uninstall", "--yes"]);
+    expect(adapter.uninstallArgv(ORCA, true)).toEqual([ORCA, "uninstall", "--yes", UNINSTALL_PREVIEW_FLAG]);
+  });
+
+  it("refuses unsupported mutable options for the pinned Orca adapter", () => {
+    for (const options of [{ dryRun: true }, { channel: "beta" }, { tag: "latest" }, { branch: "main" }, { noRestart: true }]) {
+      expect(() => updateAdapter("orca").updateArgv(ORCA, options)).toThrow("not supported for orca");
+    }
   });
 });
 

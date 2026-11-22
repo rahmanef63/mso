@@ -88,6 +88,7 @@ case "$cmd" in
       tunnels) jget "/api/v1/managed-apps/tunnels" ;;
       tunnel-save) shell_input="${1:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/managed-apps/tunnels" "$shell_input" ;;
       show)    jget "/api/v1/managed-apps/$(enc "${1:?id}")" ;;
+      preflight) jget "/api/v1/managed-apps/$(enc "${1:?id}")/preflight" ;;
       logs)    jget "/api/v1/managed-apps/$(enc "${1:?id}")/logs" ;;
       backups) jget "/api/v1/managed-apps/$(enc "${1:?id}")/backups" ;;
       jobs)    jget "/api/v1/managed-apps/$(enc "${1:?id}")/jobs" ;;

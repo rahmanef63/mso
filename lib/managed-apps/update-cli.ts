@@ -1,6 +1,6 @@
 import "server-only";
 import type { ManagedAppId } from "./types";
-import { probe9Router, probeHermes, probeN8n, probeOpenclaw, probeT3, type ProbeResult } from "./update-probe";
+import { probe9Router, probeHermes, probeN8n, probeOpenclaw, probeOrca, probeT3, type ProbeResult } from "./update-probe";
 import { MANAGED_APP_UPDATE_CHANNELS } from "./update-types";
 import type { ManagedAppUpdateCapabilities, ManagedAppUpdateOptions } from "./update-types";
 
@@ -191,22 +191,7 @@ const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
   // security/managed-app-artifacts.env; update reconciles to that pin while
   // rollback restores data snapshots without switching mutable tags.
   "9router": pinnedAdapter("9router", "bash scripts/managed-app-9router install", probe9Router),
-  orca: {
-    capabilities: {
-      check: false,
-      apply: false,
-      dryRun: false,
-      channel: false,
-      rollback: false,
-      uninstall: false,
-      installCommand: null,
-      uninstallCommand: null,
-    },
-    pin: null,
-    updateArgv: () => reject("update", "orca"),
-    uninstallArgv: () => reject("uninstall", "orca"),
-    probe: async () => reject("update probing", "orca"),
-  },
+  orca: pinnedAdapter("orca", "MSO_INSTALL_APP_ORIGIN=https://orca.mso.example.com bash scripts/managed-app-install orca", probeOrca),
   t3: pinnedAdapter("t3", "bash scripts/managed-app-t3 install", probeT3),
   n8n: pinnedAdapter("n8n", "bash scripts/managed-app-n8n install", probeN8n),
 };
