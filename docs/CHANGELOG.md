@@ -4,10 +4,22 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-22
+
+**Fixed**
+
+- `managed-apps` annotate operator-supplied fs paths so the build trace stays static
+
+**Chores**
+
+- `t3` pin nightly 0.1.12 and widen the MSO Web pairing window
+
 ## 2026-11-21
 
 **Added**
 
+- `n8n,app-store` add n8n managed app, local host discovery, and low-code remote/SSH connect (#344)
+- `rust-shell` add Stage R0 hybrid static host, Svelte shell bridge, and updated plan (#345)
 - `modular` add change-aware gates, modular feature packages, and … (#342)
 - `managed-apps` fix Orca audit findings and add T3 Code managed app (#340)
 - `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll (#339)
@@ -1307,22 +1319,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `mcp` add README quickstart and practical how-to
 - `progress` record native scrollbar verification
-
-## 2026-09-11
-
-**Added**
-
-- `install` enable MCP exec + document stable Cloudflare tunnel defaults
-
-**Fixed**
-
-- `ci` resolve synthetic history findings and await exact CodeQL evidence
-
-**Tests**
-
-- `forge` use node fixture commands under Bun runner
-
-**Docs**
-
-- `termux` add one-pass Android installer
-- `security` document fresh-install MCP exec exposure
