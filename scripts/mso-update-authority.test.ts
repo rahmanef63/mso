@@ -38,6 +38,7 @@ describe("origin/main deployment authority", () => {
   it("reports local-ahead main instead of calling it up to date", () => {
     const f = fixture(); const out = execFileSync(UPDATE, ["status"], { env: f.env, encoding: "utf8" });
     expect(out).toContain("ahead of origin/main by 1 commit"); expect(out).toContain("refusing to deploy unpushed code");
+    expect(out).toContain("git push origin main"); expect(out).toContain("mso update reconcile");
     expect(out).not.toContain("is up to date");
   });
 

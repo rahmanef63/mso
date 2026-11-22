@@ -2,7 +2,7 @@
 <p align="center"><strong>A self-hosted control plane for AI agents.</strong></p>
 <p align="center">Let agents work across your projects, tools, workflows and infrastructure while keeping context, permissions and execution evidence under your control.</p>
 <p align="center"><a href="https://manef.dev/mso/demo">Interactive Demo</a> · <a href="https://mso.manef.dev/">Full Demo</a> · <a href="./docs/QUICKSTART.md">First 10 minutes</a> · <a href="#install-or-update-mso-from-this-repo">Install</a> · <a href="./docs/LAUNCH-READINESS.md">Launch readiness</a> · <a href="./docs/README.md">Docs</a></p>
-<p align="center"><a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="Tests and build" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a> <a href="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml"><img alt="Actual open security findings" src="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml/badge.svg" /></a></p>
+<p align="center"><a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="Tests and build" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a> <a href="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml"><img alt="Actual open security findings" src="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml/badge.svg" /></a> <a href="./LICENSE"><img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-blue" /></a></p>
 
 ## See it work
 
@@ -114,4 +114,4 @@ Successful analysis jobs are not proof of zero open alerts; the security badge a
 [Product comparison, evidence and limitations](docs/COMPARISON.md) · reviewed 2026-09-17.
 <!-- comparison:end -->
 
-[PolyForm Noncommercial 1.0.0](./LICENSE) · [Commercial exception available](./LICENSE-EXCEPTION.md) · [Third-party notices](./LICENSES/THIRD-PARTY-NOTICES.md) · [Detailed workspace guide](./docs/reference/WORKSPACE-GUIDE.md)
+**License ([PolyForm Noncommercial 1.0.0](./LICENSE)):** Free to use, modify, and self-host for personal, educational, and noncommercial use. **Commercial use, resale, or paid hosting is prohibited** without a written [commercial license](./LICENSE-EXCEPTION.md). · [Third-party notices](./LICENSES/THIRD-PARTY-NOTICES.md) · [Code of Conduct](./CODE_OF_CONDUCT.md) · [Workspace guide](./docs/reference/WORKSPACE-GUIDE.md)

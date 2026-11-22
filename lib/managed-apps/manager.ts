@@ -16,6 +16,7 @@ import { userBusEnv, userBusUnavailable } from "./user-bus";
 import type { ManagedAppAction, ManagedAppDefinition, ManagedAppId, ManagedAppLogs, ManagedAppView } from "./types";
 
 async function detect(definition: ManagedAppDefinition, strict = false): Promise<ManagedInstallation> {
+  if (process.env.MSO_MANAGED_APPS_ISOLATE === "1") return { type: "not-installed" };
   // Orca is MSO-owned state: only the exact owned USER unit plus a verified
   // install receipt counts, in a single scope. The generic path below cannot
   // prove either, so it must never run for Orca.

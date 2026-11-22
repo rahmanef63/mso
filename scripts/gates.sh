@@ -48,6 +48,24 @@ if [ "${MSO_GATE_FULL:-0}" != "1" ] && [ "${CI:-}" != "true" ] && [ -n "$CURRENT
   exit 0
 fi
 
+# Reuse a passing full-gate receipt ONLY for the exact clean HEAD SHA + unchanged gate scripts
+# (prevents losing a 10-minute gate pass when an idle SSH socket drops before push transfer).
+GATE_RECEIPT="$(git rev-parse --git-path mso-gate-verified 2>/dev/null || true)"
+GATE_KEY=""
+if [ "${CI:-}" != "true" ] && [ "${MSO_GATE_NO_CACHE:-0}" != "1" ] && [ -n "$GATE_RECEIPT" ] && [ -z "$(git status --porcelain 2>/dev/null)" ]; then
+  HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+  GATE_HASH="$(sha256sum scripts/gates.sh scripts/verify-build.sh 2>/dev/null | sha256sum | cut -d' ' -f1 || true)"
+  if [ -n "$HEAD_SHA" ] && [ -n "$GATE_HASH" ]; then
+    GATE_KEY="${HEAD_SHA}:${GATE_HASH}"
+    if [ -f "$GATE_RECEIPT" ] && [ "$(cat "$GATE_RECEIPT" 2>/dev/null || true)" = "$GATE_KEY" ]; then
+      echo "audit: clean at high/critical."
+      echo "build: HEAD compiles (out-of-tree)."
+      echo "gate: reused verified full-gate receipt for unchanged clean HEAD ${HEAD_SHA:0:7} (set MSO_GATE_NO_CACHE=1 to force rerun)."
+      exit 0
+    fi
+  fi
+fi
+
 # ── Guard 1 — typecheck + lint + test + architecture/docs/features/contrast checks.
 # MSO is self-contained: a fresh clone must never depend on a sibling/private repo
 # to decide whether it is safe to push. `bun run verify` is the canonical in-repo gate.
@@ -74,6 +92,9 @@ if bash scripts/verify-build.sh >"$MSO_GATE_BUILD_LOG" 2>&1; then
   rm -f "$MSO_GATE_BUILD_LOG"
   echo "build: HEAD compiles (out-of-tree)."
   echo "browser: required release journeys passed (synthetic stores)."
+  if [ -n "$GATE_KEY" ] && [ -n "$GATE_RECEIPT" ]; then
+    (umask 077 && printf '%s\n' "$GATE_KEY" > "$GATE_RECEIPT") || true
+  fi
 else
   tail -n 60 "$MSO_GATE_BUILD_LOG" >&2
   rm -f "$MSO_GATE_BUILD_LOG"

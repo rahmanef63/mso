@@ -179,7 +179,7 @@ if (process.argv.includes("--check")) {
   }
   const current = safeRead(OUT);
   if (normalized(current) !== normalized(text)) {
-    console.error("docs/CHANGELOG.md is stale — run: node scripts/gen-changelog.mjs");
+    console.error("docs/CHANGELOG.md is stale — commit changes first, then run: node scripts/gen-changelog.mjs && git add docs/CHANGELOG.md && git commit --amend --no-edit (or use `bun run ship`)");
     process.exit(1);
   }
   console.log("changelog: current.");

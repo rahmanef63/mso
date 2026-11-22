@@ -3,6 +3,15 @@
 MSO is licensed under [PolyForm Noncommercial 1.0.0](./LICENSE). That license does not
 permit commercial use.
 
+## At a glance
+
+- **Allowed (free, no separate permission needed):** Personal use, study, hobby projects,
+  research, self-hosting for yourself, and qualifying noncommercial organizations.
+- **Not allowed without a written commercial license:** Selling MSO, reselling or bundling
+  MSO in a commercial product, offering MSO as a paid hosted/SaaS service, or commercial
+  organizational use outside PolyForm Noncommercial 1.0.0.
+- **Commercial license available:** Contact the licensor below for a written grant.
+
 This file records a separate, discretionary exception offered by the licensor.
 
 ## Grant

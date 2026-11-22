@@ -181,6 +181,18 @@ async function inspectOne(
 }
 
 export async function discoverLocalApps(): Promise<LocalDiscoverySnapshot> {
+  if (process.env.MSO_MANAGED_APPS_ISOLATE === "1") {
+    return {
+      schemaVersion: 1,
+      checkedAt: new Date().toISOString(),
+      dockerAvailable: false,
+      apps: listManagedAppDefinitions().map((def) => ({
+        id: def.id, name: def.name, description: def.description, managedAppId: def.id,
+        ownership: "not-found", running: false, source: "none", recommendedAction: "install",
+        hint: `Not installed on this computer yet. Install with one click or connect a remote ${def.name} server.`,
+      })),
+    };
+  }
   const [managedViews, docker] = await Promise.all([listManagedApps(), listDockerRows()]);
   const byId = new Map(managedViews.map((v) => [v.id, v]));
   const apps: DiscoveredLocalApp[] = [];

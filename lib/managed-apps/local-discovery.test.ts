@@ -66,4 +66,18 @@ describe("discoverLocalApps", () => {
     const t3 = snapshot.apps.find((a) => a.id === "t3");
     expect(t3).toMatchObject({ ownership: "mso-managed", recommendedAction: "start" });
   });
+
+  it("returns hermetic not-found results without probing Docker, manager, or HOME when MSO_MANAGED_APPS_ISOLATE=1", async () => {
+    vi.stubEnv("MSO_MANAGED_APPS_ISOLATE", "1");
+    try {
+      const snapshot = await discoverLocalApps();
+      expect(snapshot.dockerAvailable).toBe(false);
+      expect(snapshot.apps.length).toBeGreaterThan(0);
+      expect(snapshot.apps.every((a) => a.ownership === "not-found" && a.source === "none")).toBe(true);
+      expect(listManagedApps).not.toHaveBeenCalled();
+      expect(dockerUsable).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

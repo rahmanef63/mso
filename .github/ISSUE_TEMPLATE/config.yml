@@ -3,3 +3,9 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/rahmanef63/mso/security/advisories/new
     about: Please report vulnerabilities privately through GitHub Security Advisories.
+  - name: Interactive live demo
+    url: https://manef.dev/mso/demo
+    about: Try MSO in Desktop, Tablet, or Phone preview mode (or full demo at https://mso.manef.dev/).
+  - name: Commercial licensing inquiry
+    url: https://github.com/rahmanef63/mso/blob/main/LICENSE-EXCEPTION.md
+    about: MSO is free for personal and noncommercial use (PolyForm Noncommercial 1.0.0); request a written license for commercial use or resale.

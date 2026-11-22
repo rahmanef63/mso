@@ -157,6 +157,13 @@ bun run ship "feat(scope): describe the verified change"
 
 A Git push by itself is not deployment. See [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md).
 
+## License & Code of Conduct
+
+Participation in this repository is governed by [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md).
+MSO is licensed under [PolyForm Noncommercial 1.0.0](./LICENSE) (free for personal, educational,
+and noncommercial use; commercial use or resale requires a written license per
+[`LICENSE-EXCEPTION.md`](./LICENSE-EXCEPTION.md)).
+
 ## Security issues
 
 Do not open a public issue containing exploit details or secrets. Follow

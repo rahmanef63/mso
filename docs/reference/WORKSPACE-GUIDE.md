@@ -19,7 +19,7 @@ Detailed usage and installation context moved from the main README. For the shor
   <a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://github.com/rahmanef63/mso/actions/workflows/security-core.yml"><img alt="Security checks" src="https://github.com/rahmanef63/mso/actions/workflows/security-core.yml/badge.svg" /></a>
   <img alt="App version" src="https://img.shields.io/github/package-json/v/rahmanef63/mso?label=app" />
-  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue" />
+  <a href="../../LICENSE"><img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/license-PolyForm_Noncommercial_1.0.0-blue" /></a>
   <img alt="Public Alpha — Developer Preview" src="https://img.shields.io/badge/status-Public_Alpha-orange" />
 </p>
 
@@ -559,4 +559,4 @@ unless its owner explicitly publishes it; never enable demo mode on an owner dep
 ## Status and license
 
 **Public Alpha / Developer Preview** — expect rough edges and breaking changes.
-MIT licensed; see [LICENSE](../../LICENSE).
+Licensed under [PolyForm Noncommercial 1.0.0](../../LICENSE): free to use, modify, and self-host for personal, educational, and noncommercial use; commercial use, resale, or paid hosting is prohibited without a written [commercial license](../../LICENSE-EXCEPTION.md).

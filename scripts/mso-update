@@ -128,6 +128,8 @@ print_status() {
   printf 'channel: %s%s\n' "$channel" "$target_note"
   if [ "$relation" = ahead ]; then
     printf 'local main is ahead of %s by %s commit%s; refusing to deploy unpushed code.\n' "$target" "$ahead" "$([ "$ahead" = 1 ] || printf s)"
+    git -C "$ROOT" log --format='  %h  %s' -5 "$target..HEAD" 2>/dev/null || true
+    printf 'next: git push origin main    # publish local commits, or\n'
     printf 'run: mso update reconcile  # preserves current HEAD on a rescue branch first\n'
     return
   fi
@@ -268,7 +270,9 @@ offline_build_locked() {
         git -C "$ROOT" merge-base --is-ancestor HEAD "$target" \
           || fail "HEAD is not an ancestor of $target; run: mso update reconcile"
         git -C "$ROOT" merge --ff-only "$target" || fail "cannot fast-forward to $target" ;;
-      ahead) fail "local main is ahead of $target by $ahead commit(s); run: mso update reconcile" ;;
+      ahead)
+        git -C "$ROOT" log --format='  %h  %s' -5 "$target..HEAD" >&2 2>/dev/null || true
+        fail "local main is ahead of $target by $ahead commit(s); next: git push origin main (publish) or mso update reconcile (rescue & sync)" ;;
       diverged) fail "local main has diverged from $target (ahead $ahead, behind $n); run: mso update reconcile" ;;
       *) fail "unknown Git authority state" ;;
     esac

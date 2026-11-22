@@ -37,7 +37,7 @@ cp -a --reflink=auto "$REPO/node_modules/." "$TMP/node_modules/" 2>/dev/null \
 cd "$TMP"
 MSO_VERIFY_BUILD_LOG="$TMP/build-output.log"
 E2E_FILTER="${MSO_VERIFY_E2E_FILTER:-}"
-E2E_JOBS="${MSO_E2E_JOBS:-1}"
+E2E_JOBS="${MSO_E2E_JOBS:-2}"
 
 journey_selected() {
   local id="$1"

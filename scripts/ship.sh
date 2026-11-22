@@ -64,7 +64,9 @@ if ! git diff --quiet -- docs/CHANGELOG.md; then
 fi
 
 echo "▶ 3/5 push (gates run here, ~70s)"
-git push origin main
+GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=60}" \
+  MSO_E2E_JOBS="${MSO_E2E_JOBS:-2}" \
+  git push origin main
 
 inside_mso_service() {
   [ "${MSO_SHIP_FORCE_HANDOFF:-0}" = "1" ] && return 0

@@ -107,7 +107,9 @@ if [ "$REBUILD_ONLY" -eq 0 ]; then
     || die "could not compare checkout with $TARGET"
   case "$RELATION" in
     exact) ;;
-    ahead) die "local main is ahead of $TARGET by $AHEAD_COUNT commit(s); refusing to deploy unpushed code" ;;
+    ahead)
+      git log --format='  %h  %s' -5 "$TARGET..HEAD" || true
+      die "local main is ahead of $TARGET by $AHEAD_COUNT commit(s); refusing to deploy unpushed code. Next: run \`git push origin main\` (publish) or \`mso update reconcile\` (archive to rescue/* and fast-forward)" ;;
     diverged)
       # A tag that is not an ancestor of HEAD is a release line the checkout left
       # behind. Deploying it would mean force-moving history, which an unattended

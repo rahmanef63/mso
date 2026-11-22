@@ -51,6 +51,7 @@ describe("changelog staleness gate", () => {
     const stale = spawnSync(process.execPath, ["scripts/gen-changelog.mjs", "--check"], { cwd: root, encoding: "utf8" });
     expect(stale.status, "a changelog that omits a commit must fail the gate").toBe(1);
     expect(stale.stderr).toMatch(/stale/i);
+    expect(stale.stderr).toContain("commit changes first");
 
     // Regenerating must make it current, and stay current on a second check — that is
     // what stops the "regenerate, then stale again" loop.
