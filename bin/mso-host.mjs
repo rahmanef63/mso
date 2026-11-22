@@ -7,8 +7,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const next = path.join(root, "node_modules", "next", "dist", "bin", "next");
 const envFile = path.join(root, ".env.local");
+const appBuild = path.join(root, "frontend", "svelte", "build", "index.html");
 const port = Number(process.env.MSO_PORT || 4005);
 const command = process.argv[2] || "help";
 
@@ -26,7 +26,7 @@ function ready() {
     fail("MSO_PORT must be a local TCP port from 1024 to 65535");
     return false;
   }
-  if (!fs.existsSync(envFile) || !fs.existsSync(next) || !fs.existsSync(path.join(root, ".next"))) {
+  if (!fs.existsSync(envFile) || !fs.existsSync(appBuild)) {
     fail("run node scripts/install-native.mjs from a clean checkout first");
     return false;
   }
@@ -50,7 +50,7 @@ if (command === "version" || command === "--version") {
 } else if (command === "start") {
   if (ready()) {
     process.stdout.write(`Starting MSO at http://127.0.0.1:${port} (Ctrl+C to stop)\n`);
-    const child = spawn(process.execPath, [next, "start", "--hostname", "127.0.0.1", "--port", String(port)], {
+    const child = spawn(process.execPath, ["scripts/server.mjs", "--hostname", "127.0.0.1", "--port", String(port)], {
       cwd: root, env: process.env, stdio: "inherit", windowsHide: true,
     });
     child.on("error", (error) => fail(error.message));
