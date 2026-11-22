@@ -5,6 +5,8 @@
 #[cfg(target_os = "linux")]
 use std::fs;
 #[cfg(target_os = "linux")]
+use std::process::Command;
+#[cfg(target_os = "linux")]
 use std::sync::Mutex;
 #[cfg(target_os = "linux")]
 use std::thread;
@@ -23,6 +25,10 @@ pub struct NativeSysSnapshot {
     pub cpu_cores: usize,
     pub mem_used: u64,
     pub mem_total: u64,
+    pub disk_used: u64,
+    pub disk_total: u64,
+    pub net_rx: u64,
+    pub net_tx: u64,
     pub uptime_ms: u64,
 }
 
@@ -36,10 +42,56 @@ impl NativeSysSnapshot {
         };
         let pct_rounded = (pct * 10.0).round() / 10.0;
         format!(
-            r#"{{"cpu":{{"pct":{pct_rounded:.1},"cores":{}}},"mem":{{"used":{},"total":{}}},"disk":{{"used":0,"total":0}},"net":{{"rx":0,"tx":0}},"uptime":{}}}"#,
-            self.cpu_cores, self.mem_used, self.mem_total, self.uptime_ms,
+            r#"{{"cpu":{{"pct":{pct_rounded:.1},"cores":{}}},"mem":{{"used":{},"total":{}}},"disk":{{"used":{},"total":{}}},"net":{{"rx":{},"tx":{}}},"uptime":{}}}"#,
+            self.cpu_cores,
+            self.mem_used,
+            self.mem_total,
+            self.disk_used,
+            self.disk_total,
+            self.net_rx,
+            self.net_tx,
+            self.uptime_ms,
         )
     }
+}
+
+/// Parses POSIX `df -B1 -P /` output into `(used_bytes, total_bytes)`.
+pub fn parse_df_root_bytes(raw: &str) -> Option<(u64, u64)> {
+    let data_line = raw.lines().skip(1).find(|l| !l.trim().is_empty())?;
+    let cols: Vec<&str> = data_line.split_whitespace().collect();
+    if cols.len() < 4 {
+        return None;
+    }
+    let total = cols[1].parse::<u64>().ok()?;
+    let used = cols[2].parse::<u64>().ok()?;
+    if total == 0 {
+        return None;
+    }
+    Some((used.min(total), total))
+}
+
+/// Parses Linux `/proc/net/dev` into aggregate non-loopback `(rx_bytes, tx_bytes)`.
+pub fn parse_proc_net_dev(raw: &str) -> (u64, u64) {
+    let mut rx: u64 = 0;
+    let mut tx: u64 = 0;
+    for line in raw.lines().skip(2) {
+        let Some((iface, rest)) = line.split_once(':') else {
+            continue;
+        };
+        if iface.trim() == "lo" {
+            continue;
+        }
+        let nums: Vec<&str> = rest.split_whitespace().collect();
+        if nums.len() >= 9 {
+            if let Ok(r) = nums[0].parse::<u64>() {
+                rx = rx.saturating_add(r);
+            }
+            if let Ok(t) = nums[8].parse::<u64>() {
+                tx = tx.saturating_add(t);
+            }
+        }
+    }
+    (rx, tx)
 }
 
 fn parse_meminfo_bytes(value_part: &str) -> Option<u64> {
@@ -154,6 +206,35 @@ const CPU_SAMPLE_DELAY: Duration = Duration::from_millis(50);
 
 #[cfg(target_os = "linux")]
 static LAST_CPU_SAMPLE: Mutex<Option<(Instant, (u64, u64))>> = Mutex::new(None);
+#[cfg(target_os = "linux")]
+static LAST_DISK_SAMPLE: Mutex<Option<(Instant, (u64, u64))>> = Mutex::new(None);
+#[cfg(target_os = "linux")]
+const DISK_CACHE_TTL: Duration = Duration::from_secs(30);
+
+#[cfg(target_os = "linux")]
+fn read_root_disk_bytes() -> (u64, u64) {
+    {
+        let guard = LAST_DISK_SAMPLE.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((at, reading)) = *guard {
+            if at.elapsed() < DISK_CACHE_TTL {
+                return reading;
+            }
+        }
+    }
+    let reading = Command::new("df")
+        .args(["-B1", "-P", "/"])
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .and_then(|out| String::from_utf8(out.stdout).ok())
+        .and_then(|text| parse_df_root_bytes(&text))
+        .unwrap_or((0, 0));
+    {
+        let mut guard = LAST_DISK_SAMPLE.lock().unwrap_or_else(|e| e.into_inner());
+        *guard = Some((Instant::now(), reading));
+    }
+    reading
+}
 
 /// Reads a live host metrics snapshot from Linux `/proc` filesystems.
 #[cfg(target_os = "linux")]
@@ -211,11 +292,20 @@ pub fn read_linux_snapshot() -> Result<NativeSysSnapshot, String> {
     let uptime_ms = parse_proc_uptime(&uptime_raw)
         .ok_or_else(|| "failed to parse /proc/uptime".to_string())?;
 
+    let (disk_used, disk_total) = read_root_disk_bytes();
+    let (net_rx, net_tx) = fs::read_to_string("/proc/net/dev")
+        .map(|raw| parse_proc_net_dev(&raw))
+        .unwrap_or((0, 0));
+
     Ok(NativeSysSnapshot {
         cpu_pct,
         cpu_cores,
         mem_used: mem.used_bytes,
         mem_total: mem.total_bytes,
+        disk_used,
+        disk_total,
+        net_rx,
+        net_tx,
         uptime_ms,
     })
 }
@@ -322,17 +412,44 @@ cpu1 75 5 60 360 50 0 0 0 0 0
     }
 
     #[test]
+    fn parses_df_root_bytes_and_proc_net_dev() {
+        let df_out = "\
+Filesystem     1-blocks        Used   Available Capacity Mounted on
+/dev/sda1  107374182400 42949672960 64424509440      40% /
+";
+        assert_eq!(
+            parse_df_root_bytes(df_out),
+            Some((42_949_672_960, 107_374_182_400))
+        );
+        assert!(parse_df_root_bytes("").is_none());
+        assert!(parse_df_root_bytes("Header only\n").is_none());
+
+        let net_raw = "\
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+    lo: 999999   100    0    0    0     0          0         0   888888   100    0    0    0     0       0          0
+  eth0: 120000    50    0    0    0     0          0         0    45000    25    0    0    0     0       0          0
+ wlan0:   5000    10    0    0    0     0          0         0     2500     5    0    0    0     0       0          0
+";
+        assert_eq!(parse_proc_net_dev(net_raw), (125_000, 47_500));
+    }
+
+    #[test]
     fn formats_native_sys_snapshot_json_matching_sys_stats_schema() {
         let snap = NativeSysSnapshot {
             cpu_pct: 37.54,
             cpu_cores: 8,
             mem_used: 4_294_967_296,
             mem_total: 17_179_869_184,
+            disk_used: 42_949_672_960,
+            disk_total: 107_374_182_400,
+            net_rx: 125_000,
+            net_tx: 47_500,
             uptime_ms: 86_400_000,
         };
         assert_eq!(
             snap.to_json(),
-            r#"{"cpu":{"pct":37.5,"cores":8},"mem":{"used":4294967296,"total":17179869184},"disk":{"used":0,"total":0},"net":{"rx":0,"tx":0},"uptime":86400000}"#
+            r#"{"cpu":{"pct":37.5,"cores":8},"mem":{"used":4294967296,"total":17179869184},"disk":{"used":42949672960,"total":107374182400},"net":{"rx":125000,"tx":47500},"uptime":86400000}"#
         );
 
         let clamped = NativeSysSnapshot {
@@ -340,6 +457,10 @@ cpu1 75 5 60 360 50 0 0 0 0 0
             cpu_cores: 4,
             mem_used: 0,
             mem_total: 1024,
+            disk_used: 0,
+            disk_total: 0,
+            net_rx: 0,
+            net_tx: 0,
             uptime_ms: 0,
         };
         assert_eq!(
@@ -352,6 +473,10 @@ cpu1 75 5 60 360 50 0 0 0 0 0
             cpu_cores: 2,
             mem_used: 512,
             mem_total: 1024,
+            disk_used: 10,
+            disk_total: 100,
+            net_rx: 1,
+            net_tx: 2,
             uptime_ms: 500,
         };
         assert!(high.to_json().contains(r#""pct":100.0"#));
@@ -369,6 +494,8 @@ cpu1 75 5 60 360 50 0 0 0 0 0
             snap.mem_used,
             snap.mem_total
         );
+        assert!(snap.disk_total > 0, "expected non-zero root disk total");
+        assert!(snap.disk_used <= snap.disk_total);
         assert!(snap.uptime_ms > 0, "expected positive Linux uptime");
         assert!(
             snap.cpu_pct.is_finite() && (0.0..=100.0).contains(&snap.cpu_pct),
@@ -379,8 +506,8 @@ cpu1 75 5 60 360 50 0 0 0 0 0
         let json = snap.to_json();
         assert!(json.starts_with(r#"{"cpu":{"pct":"#));
         assert!(json.contains(r#""mem":{"used":"#));
-        assert!(json.contains(r#""disk":{"used":0,"total":0}"#));
-        assert!(json.contains(r#""net":{"rx":0,"tx":0}"#));
+        assert!(json.contains(r#""disk":{"used":"#));
+        assert!(json.contains(r#""net":{"rx":"#));
         assert!(json.contains(r#""uptime":"#));
         assert!(json.ends_with('}'));
     }
