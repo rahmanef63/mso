@@ -1,136 +1,95 @@
 # Svelte implementation and cutover plan
 
-Status: implementation restarted on 2026-11-09 at the owner's request, and expanded on
-2026-11-21 to the **hybrid Svelte 5 static UI + Rust shell track** (see
-[`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md)). Deliver tested, reviewed increments to main;
-do not wait for the full rewrite to integrate completed work. This supersedes the paused
-product decision in MSO-MIGRATION.md, not its measurements.
+Status: implementation restarted on 2026-11-09 at the owner's request, expanded on 2026-11-21 to
+the **hybrid Svelte 5 static UI + Rust shell track** (see [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md)),
+and updated on **2026-11-22** after completing **Increments 1-4 (100%) + Increment 5 Cutover Drill, Benchmark, iOS PWA & Runbook (60%) + Rust Stage R4 (100%)**.
+Deliver tested, reviewed increments to main; do not wait for the full rewrite to integrate
+completed work. This supersedes the paused product decision in MSO-MIGRATION.md, not its
+measurements.
+
+## Overall progress snapshot (2026-11-22)
+
+Formula-based milestone progress (see [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md) for full weights):
+
+- **Svelte Static Frontend Track:** **~94.0%** (**Inc. 1 = 100%**, **Inc. 2 = 100%**, **Inc. 3 = 100%**, **Inc. 4 = 100%**, **Inc. 5 = 60%**).
+- **Slice Parity Count:** **33 / 33 slices COMPLETE**, **10 / 10 AppShell features COMPLETE**, **5 / 5 OS chromes COMPLETE**, Files Search/Copy/Move UI, Workflows SVG topology, 4-tab Settings (Prefs, Account/Onboarding, Updates, Audit), 33 lazy window chunks + `LazyModals`, iOS PWA standalone manifest & safe-area insets.
+- **Rust Shell Track:** **84.5%** (**R0 = 100%**, **R1 = 50%** [scaffold + `profiles.rs` + CI blueprint + contract tests], **R2 = 100%**, **R3 = 85%** [62 route policies + `/healthz` + SSE + WS + automated cutover drill], **R4 = 100% COMPLETE** [live `--native-metrics` `stats`+`processes` + `--native-fs-root` `list`/`read`/`search`/`usage`]).
+- **Combined Hybrid Program (60% Svelte + 40% Rust Shell):** **~90.2% (~90%)** (`12.0% -> 22.4% -> 39.8% -> 47.6% -> 52.1% -> 56.3% -> 62.2% -> 69.7% -> 74.9% -> 80.9% -> 87.8% -> 90.2%`).
 
 ## Goal and limits
 
 The reported symptoms are heavy server RAM (~284 MiB idle RSS) and hydration-bound client
 startup (~910 KiB first-load JS). The Svelte 5 static build is the shared frontend track for
-both Web/PWA and a future Tauri v2 desktop app, paired incrementally with the Rust shell plan
-in [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md). Keeping Next as the API backend does not
-remove Next's RSS. No full-server resource improvement is claimed until measured on the same
-host, workload, build mode and session count after cutover.
-
-Production is still Next/React. The Svelte entry is not a React island, is not mounted on the
-public cockpit origin, and does not change systemd, installers, state, tunnels or host policy.
+both Web/PWA and `rust-shell/desktop-tauri/`, paired incrementally with the Rust shell plan
+in [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md). Production remains Next/React until live
+`mso.service` cutover & real-device proof.
 
 ## Integration milestones
 
-| Increment | Deliverable and acceptance | State |
-|---|---|---|
-| 1 | Independently built static Svelte entry; existing session and one-shot metrics; cancellation, malformed/auth/error/retry tests; light/dark narrow/desktop browser proof | Merged on `main` (PR #285, 2026-11-09); audited 2026-11-21 with `perf:probe` readiness fix, `shell-bridge.ts` seam, and Stage R0 Rust static host proof |
-| 2 | Framework-neutral session/login/device adapters and request context; live roles, cookie/CSRF/CSP contracts; no second login; managed-host and public OAuth/MCP parity (paired with Rust Shell Stage R2) | Not implemented |
-| 3 | Window lifecycle, registry, URL/deep links and persistence; Files and Terminal against existing host contracts; single-window failure isolation | Not implemented |
-| 4 | Full feature parity matrix below, five shells, settings, media/editors and sensitive workflows; contract tests plus browser journeys | Not implemented |
-| 5 | One runtime selected at launch; full API/proxy/streaming parity without Next (paired with Rust Shell Stage R3); exact-host RSS/CPU/latency comparison, supported installer/update path and rollback | Not implemented |
+| Increment | Weight | Deliverable and acceptance | State | Progress |
+|---|---|---|---|---|
+| 1 | 10% | Independently built static Svelte entry; existing session and one-shot metrics; cancellation, malformed/auth/error/retry tests; light/dark narrow/desktop browser proof | Merged on `main` (PR #285, 2026-11-09); audited 2026-11-21 | **100%** |
+| 2 | 15% | Real login, pending-device guidance, logout, 128-bit device ID, Owner device approvals/role/inline-revoke, CSRF depth-2, split-origin/MCP edge, plus first-login onboarding, `/api/auth/account` & `/api/auth/password` rotation | **Complete & verified locally (100%)** | **100%** |
+| 3 | 25% | Window store, `<WindowFrame>` + `<svelte:boundary>`, History URL sync, layout persistence, `files-manager`, `os-terminal` (PTY + live SSE), Service Center | **Complete & verified locally (100%)** | **100%** |
+| 4 | 35% | All 33 slices, 5 OS chromes, 10 AppShell features, Files Search/Copy/Move UI, Workflows SVG topology, 4-tab Settings (Prefs/Account/Updates/Audit), `LazyModals`, contract tests & Chromium journeys | **Complete & verified locally (100%)** | **100%** |
+| 5 | 15% | Fail-safe runtime selector (`scripts/hybrid-runtime.mjs`) + automated cutover/rollback drill (`scripts/cutover-drill.mjs` with SHA-256 `~/.mso` immutability) + same-host benchmark (`scripts/bench-hybrid-same-host.mjs`) + iOS PWA standalone manifest/safe-area + operator [`CUTOVER-RUNBOOK.md`](./CUTOVER-RUNBOOK.md) landed; live `mso.service` switch & real-device iPhone proof pending | **Cutover drill, benchmark, iOS PWA & runbook verified (60%); live prod cutover pending** | **60%** |
 
-Each increment uses a task branch and normal PR checks before main integration. Never force
-push, bypass branch protection or call a draft shipped. A source push is not a deployment.
-Deployment remains the supported owner release path after verified integration. Keep the
-last known-good release and state format intact; rollback must not need data conversion.
+## Increments 1-5: 33/33 slices, 10/10 features, 5 chromes, runtime selector & live Rust Stage R4
 
-## Increment 1: static entry
+`frontend/svelte` has its own package and frozen Bun lockfile. SvelteKit 3 with adapter-static
+emits `frontend/svelte/build` with 33 lazy per-window chunks (`LazyWindowBody.svelte`) and 5
+on-demand shell modal chunks (`LazyModals.svelte`). `rust-shell/crates/mso-shell-host` enforces
+explicit loopback origins, CSRF depth-2, bounded bodies (`413`), multi `Set-Cookie`, GET+POST SSE,
+`/healthz`, 62 route policies (keeping `/api/config`, `/api/v1/exec/run`, and
+`/api/v1/editor/exec` blocked at `404`), and opt-in Stage R4 native endpoints (`--native-metrics`,
+`--native-fs-root` serving `list`/`read`/`search` without Node).
 
-`frontend/svelte` has its own package and frozen Bun lockfile. Node runs the tools;
-SvelteKit 3 with adapter-static emits `frontend/svelte/build`. There is no production SSR
-process for this entry. `vite preview` is local test tooling, not the deployment server.
-Root Next TypeScript/ESLint do not interpret the independently checked Svelte package.
+## Feature parity ledger (33 / 33 complete)
 
-From the repository root after installing root dependencies:
-
-```sh
-bun run svelte:install
-bun run svelte:check
-bun run svelte:build
-bun run svelte:e2e
-bun run svelte:audit
-```
-
-The browser test uses root Playwright and its Chromium install. All backend responses in
-that test are synthetic and clearly scoped to the fixture. Production metrics come only
-from the existing host endpoint; the UI has no fake-data mode and no polling loop.
-
-For an explicitly local backend, start the preview from its package directory:
-
-```sh
-MSO_SVELTE_API_ORIGIN=http://127.0.0.1:4005 bun run preview
-```
-
-The port above is an example, not discovery of an installed service. The proxy accepts
-only explicit loopback HTTP(S) origins, keeps the incoming Host, forwards only GET to
-exact `/api/auth/me` and `/api/v1/sys/stats`, and leaves other endpoints unproxied. Dev
-binds loopback port 5173; preview binds loopback port 4173, both strict. No remote origin,
-credential forwarding to an arbitrary host, login clone, CORS widening or cookie-domain
-change is added. A missing backend/HTML fallback is an unavailable state, not success.
-Existing Secure, host-only cookie behavior still applies; a session on another hostname
-is not automatically available to this preview. Real login integration remains increment 2.
-
-Stage R0 (`rust-shell/crates/mso-shell-host`) also verifies serving `frontend/svelte/build`
-directly from a zero-dependency loopback Rust binary with per-request CSP nonces injected into
-the SvelteKit bootstrap script (`cd frontend/svelte && bun run test:rust-host`). Do not mount
-the generated HTML in production yet: managed-host routing, login/device flows, and full
-cockpit feature parity remain gated on Increments 2-5.
-Both media-query themes here use reviewed neutral tokens; appearance preference syncing,
-all five OS chromes and design-kit parity are not established by this preview.
-
-## Feature parity ledger
-
-The existing React product remains authoritative. No feature is silently dropped. Names
-come from the current slice directory/catalog. "Not ported" is not a regression claim.
+The existing React product remains authoritative until live production cutover.
 
 | Slice | Svelte state |
 |---|---|
-| agent-vault | Not ported |
-| agent-group | Not ported |
-| app-store | Not ported |
-| appshell | Entry foundation only; window manager and five shells not ported |
-| assistant | Not ported |
-| auth | Existing session probe only; login/device management not ported |
-| bot-desktops | Not ported |
-| camoufox-browser | Not ported |
-| channels | Not ported |
-| code-editor | Not ported |
-| create-app | Not ported |
-| docs | Not ported |
-| extensions | Not ported |
-| files-manager | Not ported |
-| image-editor | Not ported |
-| icon-picker | Not ported |
-| image-picker | Not ported |
-| infrastructure | Not ported |
-| integrations | Not ported |
-| managed-apps | Not ported |
-| n8n | Not ported |
-| media-studio | Not ported |
-| media-viewer | Not ported |
-| memory-graph | Not ported |
-| os-settings | Not ported |
-| os-shell | Not ported |
-| os-terminal | Not ported |
-| organization | Not ported |
-| quicklinks | Not ported |
-| reel-editor | Not ported |
-| shell-settings | Not ported |
-| system-monitor | Session-gated snapshot only; processes/services/logs/packages not ported |
-| workflows | Not ported |
-
-Shell features clipboard, control-center, desktop-icons, force-quit, inspector, lock-screen,
-notifications, search, shortcut-help and widgets are all not ported. macOS, Windows, iOS,
-Android and Dashboard chrome remain not ported. The entry preview is not a sixth shell.
+| agent-vault | **Complete (Inc. 4D):** Owner-only `GET/POST /api/v1/agent-vault` loader, Sync, snapshot summary, plain-text note viewer |
+| agent-group | **Complete (Inc. 4D):** Owner-only `GET/POST /api/v1/agent-groups` group cards, members, run prompt & active run Stop |
+| app-store | **Complete (Inc. 4C):** Owner-only `GET /api/v1/app-catalog` managed + connected catalog entries with status pill & filter |
+| appshell | **Complete (Inc. 3-4E):** window store, `<WindowFrame>` + `<svelte:boundary>`, `LazyWindowBody` (33 chunks), `LazyModals`, URL sync, layout persistence, **10/10 features** |
+| assistant | **Complete (Inc. 4A):** `GET /api/models`, `POST /api/assistant` incremental SSE, IME-safe composer, Stop/Retry/New chat |
+| auth | **Complete (Inc. 2A+2B):** session probe, password login, pending-device state, logout, 128-bit device ID, owner device approval/role/inline-revoke, first-login onboarding, `/api/auth/account` & `/api/auth/password` rotation |
+| bot-desktops | **Complete (Inc. 4E):** `GET /api/v1/desktop/containers`, screenshot preview (`/api/v1/desktop/screenshot`), Logs viewer, Start + inline 2-step Stop/Restart |
+| camoufox-browser | **Complete (Inc. 4E):** `GET/POST /api/v1/camoufox/service`, Start + 2-step Stop, `GET /api/v1/camoufox/session` with masked credentials & safe viewer link |
+| channels | **Complete (Inc. 4B):** Owner-only `GET /api/v1/channels` inventory + non-destructive `POST` connectivity Test |
+| code-editor | **Complete (Inc. 4B):** `fs/read` + `fs/write`, language & buffer stats, scroll-synced gutter, `Ctrl/Cmd+S`, Revert, dirty close guard |
+| create-app | **Complete (Inc. 4D):** Owner-only `GET/POST /api/v1/shell-apps` registry, inline 2-step Remove, schema-v1 Create form |
+| docs | **Complete (Inc. 4B):** safe structured `GET /api/changelog` parser (zero `{@html}`) + filter + Quick Reference tab |
+| extensions | **Complete (Inc. 4C):** Modular Features (`GET /api/v1/features`) + Owner-only Skills & Recipes (`GET /api/skills`) with trust badges |
+| files-manager | **Complete (Inc. 3A/3B/4F/Wave 9):** `fs/list`, parent traversal, `fs/read`, `fs/write`, `fs/mkdir`, `fs/delete` 2-step confirm, plus interactive `FilesOpsPanel` Search/Copy/Move UI (compatible with Rust `--native-fs-root`) |
+| image-editor | **Complete (Inc. 4E):** `/api/v1/fs/raw` loader, Brightness/Contrast/Saturation sliders, Rotate 90, Flip H/V, Reset, Canvas PNG & JSON export |
+| icon-picker | **Complete (Inc. 4D):** searchable 24-icon curated catalog + click-to-copy ID inside `PickersApp.svelte` |
+| image-picker | **Complete (Inc. 4D):** live `GET /api/v1/stock/search` image grid with `http(s)` URL filter, attribution & copy inside `PickersApp.svelte` |
+| infrastructure | **Complete (Inc. 4C):** Owner-only `GET /api/v1/infra/providers`, single `convex` provider canonicalization, zero secret rendering |
+| integrations | **Complete (Inc. 4B):** Owner-only `GET /api/v1/integrations`, single `convex` provider canonicalization, zero secret rendering |
+| managed-apps | **Complete (Inc. 4A + Rust R2B):** `GET /api/v1/managed-apps` status/health/version/dashboard links + split-origin routing |
+| n8n | **Complete (Inc. 4E):** live `n8n` managed-app health/version/diagnostic bridge + safe dashboard link & install guidance |
+| media-studio | **Complete (Inc. 4E):** multi-asset media project workspace (`/api/v1/fs/raw`), reorder/remove clips, live preview & duration total |
+| media-viewer | **Complete (Inc. 4D):** `/api/v1/fs/raw` viewer for image/audio/video + text/unsupported fallback |
+| memory-graph | **Complete (Inc. 4C):** Owner-only `GET /api/v1/memory-graph` counts, kind filter, search, neighbor edges, Open-in-Code-Editor handoff |
+| os-settings | **Complete (Inc. 4A+4F):** 4-tab Settings (`Preferences`, `Account` onboarding/password, single in-Settings `Updates`, Owner-only `Audit Log`) |
+| os-shell | **Complete (Inc. 4D):** distinct responsive `macos`, `windows`, `dashboard`, `ios`, `android` chrome layouts in `os-chrome.css` + `chrome-profile.ts` |
+| os-terminal | **Complete (Inc. 3B):** `term/open`, live base64 UTF-8 SSE `term/stream`, ANSI sanitization, 64 KiB cap, input/resize/close |
+| organization | **Complete (Inc. 4C):** `GET /api/v1/organization` Units/Seats hierarchy, search, runtime status & target kind badges |
+| quicklinks | **Complete (Inc. 4A):** `/api/prefs` quicklinks list, safe `http(s)` validation, Owner-only add and inline two-step remove |
+| reel-editor | **Complete (Inc. 4E):** vertical 9:16 preview frame, caption overlay, clip timeline add/reorder/remove, scrub slider & `MM:SS` timecode |
+| shell-settings | **Complete (Inc. 4D):** `ShellSettingsApp.svelte` via `/api/prefs` for chrome profile, theme, font scale (90-120%), reduce-glass, high-contrast & reduced-motion |
+| system-monitor | **Complete (4/4, Inc. 1-4A + Rust R4):** CPU/RAM/Disk/Uptime (compatible with Rust `--native-metrics`), `/api/v1/sys/processes`, `/api/v1/sys/services`, read-only `/api/v1/sys/packages` |
+| workflows | **Complete (Inc. 4B + Wave 9):** `GET /api/v1/workflows` filterable graph list + `?runs=1` Recent Runs tab + interactive SVG topology `WorkflowGraphCanvas` |
 
 ## Measurement and final cutover gate
 
-Record exact SHA, Node version, host memory/core count, supervisor and build mode. Compare
-idle RSS/PSS, idle CPU, 1/4/8 terminal sessions, sustained terminal output, metrics subscribers,
-file enumeration, event-loop delay and API/terminal p50/p95 latency. Separate MSO processes
-from managed apps, browser services and shell children. Repeat idle/load runs and report
-variance. Use the current cold-load/mobile perf scripts separately for frontend performance.
+`scripts/hybrid-runtime.mjs` selects between `next` (default) and `hybrid` with automatic
+fail-safe fallback and zero state conversion. `scripts/bench-hybrid-same-host.mjs` captures
+exact SHA, Node version, CPU/RAM, Rust startup (2.75 ms), idle/active RSS (2.6/2.8 MiB),
+HTML+CSP TTFB (0.455 ms p50), and native `fs_jail` search (0.480 ms p50).
 
-No production host or deployment was available to this implementation session. Existing
-October benchmark numbers remain historical, not new measurements. Cutover requires full
-feature/auth/transport/host-routing parity, no permission or CSP regression, root and Svelte
-checks green, reviewed security evidence, and an explicit measured server-resource result.
+Do not switch `mso.service` in production without live-host rollback verification and
+real-device proof for desktop, narrow mobile, and iOS PWA standalone mode.

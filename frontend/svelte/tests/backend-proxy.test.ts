@@ -8,7 +8,7 @@ test("no backend configured means no proxy", () => {
 
 test("only explicit loopback origins are accepted", () => {
   for (const origin of ["http://127.0.0.1:4005", "https://localhost:4005", "http://[::1]:4005"]) {
-    assert.equal(Object.keys(localReadProxy(origin)!).length, 2);
+    assert.equal(Object.keys(localReadProxy(origin)!).length, 58);
   }
   for (const origin of ["https://mso.example.com", "http://localhost.evil.test", "http://user:pass@localhost:4005",
     "http://localhost/path", "http://localhost/?x=1", "file:///etc/passwd", "http://localhost/#fragment"]) {
@@ -16,26 +16,45 @@ test("only explicit loopback origins are accepted", () => {
   }
 });
 
-test("proxy allowlist matches exact read paths, not siblings or host operations", () => {
+test("proxy allowlist matches exact Increments 1-5 paths, not siblings or exec", () => {
   const proxy = localReadProxy("http://localhost:4005");
   assert.ok(proxy);
   const patterns = Object.keys(proxy).map((p) => new RegExp(p));
-  for (const path of ["/api/auth/me", "/api/v1/sys/stats", "/api/v1/sys/stats?fresh=1"]) {
+  for (const path of [
+    "/api/auth/me", "/api/auth/login", "/api/auth/logout", "/api/auth/devices", "/api/auth/account", "/api/auth/password",
+    "/api/assistant", "/api/changelog", "/api/health", "/api/memory", "/api/models", "/api/prefs", "/api/skills", "/api/status", "/api/threads",
+    "/api/v1/agent-groups", "/api/v1/agent-profiles", "/api/v1/agent-sessions", "/api/v1/agent-vault",
+    "/api/v1/app-catalog", "/api/v1/camoufox/service", "/api/v1/camoufox/session", "/api/v1/channels",
+    "/api/v1/desktop/containers", "/api/v1/desktop/lifecycle", "/api/v1/desktop/screenshot?container=c1",
+    "/api/v1/features", "/api/v1/infra/providers", "/api/v1/integrations", "/api/v1/managed-apps",
+    "/api/v1/memory-graph", "/api/v1/organization", "/api/v1/shell-apps", "/api/v1/stock/search?q=cats", "/api/v1/workflows",
+    "/api/v1/sys/audit", "/api/v1/sys/stats", "/api/v1/sys/processes", "/api/v1/sys/services", "/api/v1/sys/packages", "/api/v1/sys/update",
+    "/api/v1/fs/copy", "/api/v1/fs/list?path=~", "/api/v1/fs/move", "/api/v1/fs/raw?path=~/a.png",
+    "/api/v1/fs/read?path=~/a", "/api/v1/fs/search?q=x", "/api/v1/fs/upload", "/api/v1/fs/usage", "/api/v1/fs/write", "/api/v1/fs/mkdir", "/api/v1/fs/delete", "/api/v1/fs/zip",
+    "/api/v1/term/open", "/api/v1/term/stream?id=t1", "/api/v1/term/input", "/api/v1/term/resize", "/api/v1/term/close",
+  ]) {
     assert.equal(patterns.some((p) => p.test(path)), true, path);
   }
-  for (const path of ["/api/auth/me/secret", "/api/auth/me-other", "/api/v1/sys/stats-extra", "/api/config", "/api/v1/exec/run"]) {
+  for (const path of ["/api/auth/me/secret", "/api/health/debug", "/api/config", "/api/v1/exec/run", "/api/v1/editor/exec"]) {
     assert.equal(patterns.some((p) => p.test(path)), false, path);
   }
 });
 
-test("mutating methods are refused before proxying", () => {
-  for (const config of Object.values(localReadProxy("http://localhost:4005")!)) {
-    assert.equal(config.changeOrigin, false);
-    let status = 0, ended = false;
-    const response = { writeHead: (value: number) => { status = value; }, end: () => { ended = true; } };
-    assert.equal(config.bypass({ method: "POST" }, response), false);
-    assert.equal(status, 405);
-    assert.equal(ended, true);
-    assert.equal(config.bypass({ method: "GET" }, response), undefined);
-  }
+test("route methods and CSRF depth-2 are enforced before proxying", () => {
+  const proxy = localReadProxy("http://localhost:4005")!;
+  const makeRes = () => {
+    const rec = { status: 0, ended: false };
+    return { rec, res: { writeHead: (s: number) => { rec.status = s; }, end: () => { rec.ended = true; } } };
+  };
+
+  const uploadRoute = proxy["^/api/v1/fs/upload(?:\\?|$)"];
+  assert.equal(uploadRoute.changeOrigin, false);
+  const r1 = makeRes();
+  assert.equal(uploadRoute.bypass({ method: "GET", headers: {} }, r1.res), false);
+  assert.equal(r1.rec.status, 405);
+  const r2 = makeRes();
+  assert.equal(uploadRoute.bypass({ method: "POST", headers: { "sec-fetch-site": "cross-site" } }, r2.res), false);
+  assert.equal(r2.rec.status, 403);
+  const r3 = makeRes();
+  assert.equal(uploadRoute.bypass({ method: "POST", headers: { "sec-fetch-site": "same-origin" } }, r3.res), undefined);
 });

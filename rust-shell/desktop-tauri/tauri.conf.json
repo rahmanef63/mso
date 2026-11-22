@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MSO",
+  "version": "0.1.0",
+  "identifier": "dev.manef.mso.desktop",
+  "build": {
+    "frontendDist": "../../frontend/svelte/build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "MSO",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 360,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "create": false
+      }
+    ],
+    "security": {
+      "capabilities": [
+        "default"
+      ],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* http://localhost:* http://[::1]:* ws://127.0.0.1:* ws://localhost:* ws://[::1]:* https: wss:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "MSO native desktop client",
+    "longDescription": "Native desktop client shell for MSO connecting to a local loopback or remote HTTPS MSO host."
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "mso"
+        ]
+      }
+    }
+  }
+}

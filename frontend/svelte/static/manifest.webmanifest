@@ -1,0 +1,9 @@
+{
+  "name": "MSO Cockpit",
+  "short_name": "MSO",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212"
+}

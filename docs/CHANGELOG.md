@@ -6,6 +6,20 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-22
 
+**Added**
+
+- `hybrid` complete Rust Stage R4 100%, add Inc. 5 cutover drill, iOS PWA & runbook
+- `hybrid` complete Inc. 4 100%, add Inc. 5 cutover/bench harness, Rust R3G/R4 native FS, and R1 desktop profiles
+- `hybrid` complete Inc. 2 onboarding, Inc. 4F deep parity, Rust R4 native endpoints, and R1 Tauri v2 scaffold
+- `hybrid` complete 33/33 Svelte slices + LazyModals and Rust Stage R3F + R4 fs_jail
+- `hybrid` land Increment 4D (27/33 slices, 10/10 AppShell features, 5 chromes) and Rust R3E+R4
+- `hybrid` land Increment 4C slices, 8/10 AppShell features, and Rust Stage R3D + desktop contract
+- `hybrid` land Increment 4B lazy slices, shell features, and Rust Stage R3C
+- `hybrid` land Increment 4A slices and Rust Stage R3B POST SSE
+- `hybrid` complete Increment 3B (Terminal SSE, Files mutations, Service Center) and Rust SSE proxy
+- `hybrid` complete Rust Stage R2B (split-origin, MCP, WS tunnel) and Svelte Inc. 3A (windows, Files, Processes)
+- `hybrid` implement Increment 2A auth/devices in Svelte and Stage R2A CSRF/proxy in Rust shell
+
 **Fixed**
 
 - `e2e` isolate release fixture from host Docker and widen the n8n journey timeout
@@ -20,19 +34,25 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Added**
 
 - `n8n,app-store` add n8n managed app, local host discovery, and low-code remote/SSH connect (#344)
-- `rust-shell` add Stage R0 hybrid static host, Svelte shell bridge, and updated plan (#345)
+- `rust-shell` add Stage R0 hybrid static host, Svelte shell bridge, and updated plan
 - `modular` add change-aware gates, modular feature packages, and … (#342)
 - `managed-apps` fix Orca audit findings and add T3 Code managed app (#340)
 - `assistant` upgrade AI chat UX with rich markdown, reasoning streams, retry/edit, and smart autoscroll (#339)
 
 **Fixed**
 
+- `ci` classify Rust smoke env overrides in env-example contract and keep README under 120 lines
+- `gates` skip isolated frontend/svelte tests from root vitest target list
 - `t3` forward T3 app cookies on WebSocket upgrades, protocol header, and auto-pairing (#343)
 - `n8n` dedicated single-bar iframe workspace, N8N_PUBLIC_URL support, and portability guard (#341)
 
 **Docs**
 
 - `modular` sync agent rules, guides, and changelog for modular gates and feature contracts
+
+**CI**
+
+- `changelog` repair main's changelog after a UI merge, not only via ship
 
 ## 2026-11-20
 
