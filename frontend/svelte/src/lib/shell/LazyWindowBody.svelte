@@ -1,27 +1,22 @@
 <script lang="ts">
   import type { Component } from "svelte";
   import type { Session } from "../host-api";
-  import type { ChromeProfile } from "./chrome-profile";
+  import type { ChromeChoice, ChromeProfile } from "./chrome-profile";
   import type { ShellLayoutState, WindowState } from "./window-store";
 
   let {
-    win,
-    session,
-    layout,
-    resolvedChrome,
-    viewportWidth,
-    onFilesPathChange,
-    onThemeChange,
-    onEditorDirtyChange,
-    onOpenInEditor,
+    win, session, layout, chromeChoice, resolvedChrome, viewportWidth,
+    onFilesPathChange, onThemeChange, onChromeChange, onEditorDirtyChange, onOpenInEditor,
   }: {
     win: WindowState;
     session: Session;
     layout: ShellLayoutState;
+    chromeChoice: ChromeChoice;
     resolvedChrome: ChromeProfile;
     viewportWidth: number;
     onFilesPathChange: (path: string) => void;
     onThemeChange: (theme: string) => void;
+    onChromeChange: (c: ChromeChoice) => void;
     onEditorDirtyChange: (winId: string, dirty: boolean) => void;
     onOpenInEditor: (path: string) => void;
   } = $props();
@@ -37,6 +32,7 @@
     packages: () => import("../managed-apps/PackagesView.svelte"),
     apps: () => import("../managed-apps/ManagedAppsView.svelte"),
     settings: () => import("../settings/SettingsApp.svelte"),
+    "shell-settings": () => import("./ShellSettingsApp.svelte"),
     terminal: () => import("../terminal/TerminalApp.svelte"),
     devices: () => import("../DevicesPanel.svelte"),
     editor: () => import("../editor/CodeEditorApp.svelte"),
@@ -51,9 +47,15 @@
     infra: () => import("../infra/InfrastructureView.svelte"),
     clipboard: () => import("./ClipboardPanel.svelte"),
     inspector: () => import("./InspectorPanel.svelte"),
+    "agent-vault": () => import("../agent-vault/AgentVaultApp.svelte"),
+    "agent-group": () => import("../agent-group/AgentGroupApp.svelte"),
+    media: () => import("../media/MediaViewerApp.svelte"),
+    pickers: () => import("../media/PickersApp.svelte"),
+    "create-app": () => import("../create-app/CreateAppView.svelte"),
   };
 
   const cache = new Map<string, Promise<AnySliceComponent>>();
+  const ROLE_PROPS = new Set(["integrations", "channels", "store", "extensions", "infra", "agent-vault", "agent-group", "create-app"]);
 
   function getSlice(app: string): Promise<AnySliceComponent> | null {
     const loader = LOADERS[app];
@@ -67,22 +69,20 @@
   }
 
   function sliceProps(): Record<string, unknown> {
-    if (win.app === "files") {
-      return { initialPath: typeof win.payload === "string" ? win.payload : "~", onPathChange: onFilesPathChange };
-    }
+    if (win.app === "files") return { initialPath: typeof win.payload === "string" ? win.payload : "~", onPathChange: onFilesPathChange };
     if (win.app === "editor") {
       return {
         initialPath: typeof win.payload === "string" ? win.payload : undefined,
         onDirtyChange: (dirty: boolean) => onEditorDirtyChange(win.id, dirty),
       };
     }
+    if (win.app === "media") return { initialPath: typeof win.payload === "string" ? win.payload : undefined };
     if (win.app === "settings") return { role: session.role, onThemeChange };
+    if (win.app === "shell-settings") return { role: session.role, chromeChoice, onChromeChange, onThemeChange };
     if (win.app === "devices") return { currentDeviceId: session.deviceId };
     if (win.app === "memory") return { role: session.role, onOpenFile: onOpenInEditor };
     if (win.app === "inspector") return { layout, resolvedChrome, viewportWidth, role: session.role };
-    if (["integrations", "channels", "store", "extensions", "infra"].includes(win.app)) {
-      return { role: session.role };
-    }
+    if (ROLE_PROPS.has(win.app)) return { role: session.role };
     return {};
   }
 

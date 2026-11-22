@@ -1434,4 +1434,159 @@ mod tests {
         srv.stop();
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn enforces_stage_r3e_routes_methods_csrf_limits_and_unlisted_guards() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r3e-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+        let up_thread = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            let cases: &[(&str, &str)] = &[
+                ("GET /api/v1/shell-apps HTTP/1.1", r#"{"apps":[]}"#),
+                ("POST /api/v1/shell-apps HTTP/1.1", r#"{"installed":true}"#),
+                ("GET /api/v1/camoufox/service HTTP/1.1", r#"{"running":false}"#),
+                ("POST /api/v1/camoufox/service HTTP/1.1", r#"{"started":true}"#),
+                ("GET /api/v1/camoufox/session HTTP/1.1", r#"{"sessions":[]}"#),
+                ("POST /api/v1/camoufox/session HTTP/1.1", r#"{"sessionId":"cf-1"}"#),
+                ("DELETE /api/v1/camoufox/session?id=cf-1 HTTP/1.1", r#"{"closed":true}"#),
+                ("GET /api/v1/desktop/containers HTTP/1.1", r#"{"containers":[]}"#),
+                ("POST /api/v1/desktop/containers HTTP/1.1", r#"{"containerId":"dc-1"}"#),
+                ("POST /api/v1/desktop/lifecycle HTTP/1.1", r#"{"state":"started"}"#),
+                ("GET /api/v1/fs/raw?path=notes.txt HTTP/1.1", r#"{"content":"hi"}"#),
+                ("GET /api/v1/fs/search?q=readme HTTP/1.1", r#"{"hits":[]}"#),
+                ("GET /api/v1/fs/usage?path=/ HTTP/1.1", r#"{"used":1,"total":2}"#),
+                ("GET /api/v1/stock/search?q=desk HTTP/1.1", r#"{"results":[]}"#),
+                ("GET /api/v1/sys/update HTTP/1.1", r#"{"available":false}"#),
+            ];
+            for (expected_line, resp_body) in cases {
+                let (mut s, _) = up_listener.accept().unwrap();
+                let n = s.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+                assert!(req.starts_with(expected_line), "expected {expected_line}, got: {req}");
+                assert!(req.contains("Host: mso.example.com\r\n"), "Host not preserved: {req}");
+                assert!(req.contains("Cookie: session=r3e-tok\r\n"), "Cookie not preserved: {req}");
+                assert!(!req.contains("Authorization:"), "Authorization must not be forwarded: {req}");
+                let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{resp_body}");
+                s.write_all(resp.as_bytes()).unwrap();
+            }
+        });
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // Unlisted routes and subpaths MUST return 404 without contacting upstream
+        for unlisted in [
+            "/api/config",
+            "/api/v1/exec/run",
+            "/api/v1/editor/exec",
+            "/api/v1/shell-apps/extra",
+            "/api/v1/camoufox/session/extra",
+            "/api/v1/desktop/lifecycle/extra",
+            "/api/v1/fs/raw/extra",
+            "/api/v1/sys/update/extra",
+        ] {
+            let r_get = send(&format!("GET {unlisted} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\n\r\n"));
+            assert!(r_get.starts_with("HTTP/1.1 404 Not Found") && r_get.contains("not_found"), "GET {unlisted}: {r_get}");
+            let r_post = send(&format!("POST {unlisted} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{{}}"));
+            assert!(r_post.starts_with("HTTP/1.1 404 Not Found") && r_post.contains("not_found"), "POST {unlisted}: {r_post}");
+        }
+
+        // /api/v1/shell-apps: GET + POST (<=65,536 bytes, CSRF depth-2)
+        let r = send("GET /api/v1/shell-apps HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nAuthorization: Bearer strip\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"apps":[]}"#));
+        assert!(send("POST /api/v1/shell-apps HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let sa_del = send("DELETE /api/v1/shell-apps HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(sa_del.starts_with("HTTP/1.1 405 Method Not Allowed") && sa_del.contains("Allow: GET, POST\r\n"));
+        assert!(send("POST /api/v1/shell-apps HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r = send("POST /api/v1/shell-apps HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"installed":true}"#));
+
+        // /api/v1/camoufox/service: GET + POST (<=65,536 bytes, CSRF depth-2)
+        let r = send("GET /api/v1/camoufox/service HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"running":false}"#));
+        assert!(send("POST /api/v1/camoufox/service HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let cs_del = send("DELETE /api/v1/camoufox/service HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(cs_del.starts_with("HTTP/1.1 405 Method Not Allowed") && cs_del.contains("Allow: GET, POST\r\n"));
+        assert!(send("POST /api/v1/camoufox/service HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r = send("POST /api/v1/camoufox/service HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"started":true}"#));
+
+        // /api/v1/camoufox/session: GET + POST + DELETE (<=65,536 bytes, CSRF depth-2 on POST & DELETE)
+        let r = send("GET /api/v1/camoufox/session HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"sessions":[]}"#));
+        assert!(send("POST /api/v1/camoufox/session HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("DELETE /api/v1/camoufox/session?id=cf-1 HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\n\r\n").starts_with("HTTP/1.1 403 Forbidden"));
+        let cf_patch = send("PATCH /api/v1/camoufox/session HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(cf_patch.starts_with("HTTP/1.1 405 Method Not Allowed") && cf_patch.contains("Allow: GET, POST, DELETE\r\n"));
+        assert!(send("POST /api/v1/camoufox/session HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        assert!(send("DELETE /api/v1/camoufox/session HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r_post = send("POST /api/v1/camoufox/session HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r_post.starts_with("HTTP/1.1 200 OK") && r_post.contains(r#"{"sessionId":"cf-1"}"#));
+        let r_del = send("DELETE /api/v1/camoufox/session?id=cf-1 HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(r_del.starts_with("HTTP/1.1 200 OK") && r_del.contains(r#"{"closed":true}"#));
+
+        // /api/v1/desktop/containers: GET + POST (<=65,536 bytes, CSRF depth-2)
+        let r = send("GET /api/v1/desktop/containers HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"containers":[]}"#));
+        assert!(send("POST /api/v1/desktop/containers HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let dc_del = send("DELETE /api/v1/desktop/containers HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(dc_del.starts_with("HTTP/1.1 405 Method Not Allowed") && dc_del.contains("Allow: GET, POST\r\n"));
+        assert!(send("POST /api/v1/desktop/containers HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r = send("POST /api/v1/desktop/containers HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"containerId":"dc-1"}"#));
+
+        // /api/v1/desktop/lifecycle: POST only (<=65,536 bytes, 405 on GET, CSRF depth-2)
+        let lc_get = send("GET /api/v1/desktop/lifecycle HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\n\r\n");
+        assert!(lc_get.starts_with("HTTP/1.1 405 Method Not Allowed") && lc_get.contains("Allow: POST\r\n"));
+        assert!(send("POST /api/v1/desktop/lifecycle HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("POST /api/v1/desktop/lifecycle HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r = send("POST /api/v1/desktop/lifecycle HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"state":"started"}"#));
+
+        // GET-only Stage R3E routes: /api/v1/fs/raw, /api/v1/fs/search, /api/v1/fs/usage, /api/v1/stock/search, /api/v1/sys/update
+        for (target, body_fragment) in [
+            ("/api/v1/fs/raw?path=notes.txt", r#"{"content":"hi"}"#),
+            ("/api/v1/fs/search?q=readme", r#"{"hits":[]}"#),
+            ("/api/v1/fs/usage?path=/", r#"{"used":1,"total":2}"#),
+            ("/api/v1/stock/search?q=desk", r#"{"results":[]}"#),
+            ("/api/v1/sys/update", r#"{"available":false}"#),
+        ] {
+            let r = send(&format!(
+                "GET {target} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nAuthorization: Bearer strip\r\n\r\n"
+            ));
+            assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(body_fragment), "GET {target}: {r}");
+            let path_only = target.split_once('?').map_or(target, |(p, _)| p);
+            assert!(send(&format!(
+                "POST {path_only} HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{{}}"
+            )).starts_with("HTTP/1.1 403 Forbidden"));
+            let r_post = send(&format!(
+                "POST {path_only} HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{{}}"
+            ));
+            assert!(r_post.starts_with("HTTP/1.1 405 Method Not Allowed") && r_post.contains("Allow: GET\r\n"), "POST {path_only}: {r_post}");
+        }
+
+        up_thread.join().unwrap();
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

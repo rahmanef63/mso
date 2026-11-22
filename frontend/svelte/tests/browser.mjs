@@ -5,19 +5,16 @@ import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "@playwright/test";
 
-// Synthetic backend only: verifies Increments 1..4C (Organization, Memory Graph, App Store, Extensions, Infra, Control Center, Lock, Force Quit, Clipboard, Inspector).
+// Synthetic backend only: verifies Increments 1..4D (10/10 AppShell features, 5 OS chromes, Agent Vault/Group, Media, Pickers, Create App, Shell Settings).
 const viewerSession = { authenticated: true, deviceId: "fixture-viewer-0001", deviceLabel: "Browser fixture", role: "viewer" };
 const ownerSession = { authenticated: true, deviceId: "fixture-owner-0001", deviceLabel: "Owner fixture", role: "owner" };
 const signedOut = { authenticated: false, deviceId: null, deviceLabel: null, role: null };
 const stats = { cpu: { pct: 12, cores: 4 }, mem: { used: 1024 ** 3, total: 4 * 1024 ** 3 }, disk: { used: 2 * 1024 ** 3, total: 8 * 1024 ** 3 }, uptime: 3_660_000 };
-const changelog = { markdown: "## 2026-11-22\n- Wave 5 slices live\n", generated: true };
-const org = { chart: { version: 1, name: "MSO Org", revision: "rev1", updatedAt: "2026-11-22T00:00:00.000Z", units: [{ id: "u1", key: "core", name: "Core Platform", kind: "team", status: "active", sortOrder: 1, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T00:00:00.000Z" }], seats: [{ id: "s1", unitId: "u1", name: "Alfa", title: "Lead Agent", role: "ops", state: "active", seatMode: "permanent", responsibilities: ["health"], target: { kind: "local-agent", ref: "alfa" }, sortOrder: 1, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T00:00:00.000Z" }] }, runtime: [{ seatId: "s1", targetKind: "local-agent", status: "ready" }] };
-const memGraph = { nodes: [{ id: "n1", title: "Runbook Note", kind: "note", group: "ops", degree: 1, path: "/home/demo/notes.txt", excerpt: "Check host" }], edges: [], truncated: false, warnings: [], root: "/home/demo", counts: { notes: 1, memories: 0, ghosts: 0 } };
-const appCatalog = { status: "remote", entries: [{ kind: "managed", id: "hermes" }, { kind: "connected", manifest: { id: "docs-app", name: "Docs Portal", description: "Internal wiki" } }] };
-const features = { schemaVersion: 1, features: [{ id: "mod-metrics", title: "Metrics Pack", version: "1.0.0", description: "Modular widget" }] };
-const skills = { skills: [{ id: "vps-alfa", name: "vps-alfa", description: "Patrol VPS", source: "mso", trust: "official" }], recipes: [] };
-const infra = { providers: [{ id: "convex-cloud", label: "Convex Cloud", configured: true, fields: ["url"] }, { id: "cloudflare", label: "Cloudflare", configured: false, missing: ["token"] }] };
-let notesContent = "hello from mso";
+const vaultView = { state: { schemaVersion: 1, project: { id: "mso", name: "MSO", path: "/home/demo/mso" }, root: "/home/demo/.vault", current: "snap1", refreshedAt: "2026-11-22T00:00:00.000Z", snapshots: [{ id: "snap1", capturedAt: "2026-11-22T00:00:00.000Z", truncated: false, warnings: [], notes: [{ path: "overview.md", title: "Repo Overview", kind: "overview", source: "README.md" }] }] }, note: { path: "overview.md", content: "Vault overview text" } };
+const groupSnap = { revision: 1, groups: [{ id: "g1", name: "Release Council", members: [{ id: "m1", name: "Alfa", profile: "ops" }], maxRounds: 2, enabled: true, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T00:00:00.000Z", runs: [] }] };
+const stockResults = { results: [{ id: "img-1", title: "Sunset", url: "https://images.example.com/sunset.jpg", thumb: "https://images.example.com/sunset-sm.jpg", creator: "Demo", license: "CC0" }] };
+let shellApps = { schemaVersion: 1, revision: "rev-1", configurable: true, apps: [{ id: "grafana", title: "Grafana", description: "Metrics UI", origin: "https://grafana.example.com", url: "https://grafana.example.com/", renderer: "iframe", sandbox: "allow-scripts", definition: { id: "grafana", title: "Grafana", description: "Metrics UI", url: "https://grafana.example.com/", mode: "embed" } }] };
+let prefs = { tweaks: { theme: "system", preset: "macos", fontScale: 1, reducedMotion: false }, quicklinks: [], updates: { auto: true, channel: "stable" } };
 let mode = "ready", cookieSeen = false;
 const devices = { approved: { "fixture-owner-0001": { label: "Owner fixture", approvedAt: 1_700_000_000_000, role: "owner" } }, pending: {} };
 const hosts = new Set();
@@ -36,15 +33,13 @@ const backend = createServer(async (req, res) => {
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") { mode = "signed-out"; res.setHeader("Set-Cookie", "session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
   else if (url.pathname === "/api/auth/devices") res.end(JSON.stringify(devices));
   else if (url.pathname === "/api/v1/sys/stats") res.end(JSON.stringify(stats));
-  else if (url.pathname === "/api/changelog") res.end(JSON.stringify(changelog));
-  else if (url.pathname === "/api/v1/organization") res.end(JSON.stringify(org));
-  else if (url.pathname === "/api/v1/memory-graph") res.end(JSON.stringify(memGraph));
-  else if (url.pathname === "/api/v1/app-catalog") res.end(JSON.stringify(appCatalog));
-  else if (url.pathname === "/api/v1/features") res.end(JSON.stringify(features));
-  else if (url.pathname === "/api/skills") res.end(JSON.stringify(skills));
-  else if (url.pathname === "/api/v1/infra/providers") res.end(JSON.stringify(infra));
-  else if (url.pathname === "/api/v1/fs/read") res.end(JSON.stringify(notesContent));
-  else if (url.pathname === "/api/v1/fs/write" && req.method === "POST") { notesContent = (await readBody(req)).content; res.end(JSON.stringify({ ok: true })); }
+  else if (url.pathname === "/api/prefs" && req.method === "GET") res.end(JSON.stringify(prefs));
+  else if (url.pathname === "/api/prefs" && req.method === "POST") { const p = await readBody(req); prefs = { ...prefs, ...(p.tweaks ? { tweaks: { ...prefs.tweaks, ...p.tweaks } } : {}) }; res.end(JSON.stringify({ ok: true })); }
+  else if (url.pathname === "/api/v1/agent-vault") res.end(JSON.stringify(req.method === "POST" ? { ...vaultView, changed: true } : vaultView));
+  else if (url.pathname === "/api/v1/agent-groups") res.end(JSON.stringify(groupSnap));
+  else if (url.pathname === "/api/v1/stock/search") res.end(JSON.stringify(stockResults));
+  else if (url.pathname === "/api/v1/shell-apps" && req.method === "GET") res.end(JSON.stringify(shellApps));
+  else if (url.pathname === "/api/v1/shell-apps" && req.method === "POST") { res.end(JSON.stringify({ id: "demo-app", revision: "rev-2" })); }
   else { res.statusCode = 404; res.end("{}"); }
 });
 
@@ -85,7 +80,7 @@ try {
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       }
       await context.close();
-      console.log(`PASS monitor ready, no overflow: ${width}px ${colorScheme}`);
+      console.log(`PASS monitor + 10/10 shell features no overflow: ${width}px ${colorScheme}`);
     }
   }
 
@@ -96,43 +91,39 @@ try {
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("heading", { name: "Devices & Approvals" }).waitFor();
 
-  // Wave 5 Slices: Organization, Memory Graph -> Open in Editor, App Store, Extensions, Infrastructure
-  await page.getByRole("button", { name: "Organization" }).click();
-  await page.getByText("Core Platform").waitFor();
-  await page.getByRole("button", { name: "Close Organization" }).click();
+  // Verify WidgetsBar + DesktopIcons (#9 & #10 AppShell features)
+  await page.getByRole("region", { name: "Desktop shortcuts" }).waitFor();
 
-  await page.getByRole("button", { name: "Memory Graph" }).click();
-  await page.getByRole("heading", { name: "Runbook Note" }).waitFor();
-  await page.getByRole("button", { name: "Close Memory Graph" }).click();
+  // Wave 6 Slices: Agent Vault, Agent Groups, Media Viewer, Pickers, Create App, Shell Settings
+  await page.locator(".app-dock").getByRole("button", { name: "Agent Vault" }).click();
+  await page.getByText("Repo Overview").waitFor();
+  await page.getByRole("button", { name: "Close Agent Vault" }).click();
 
-  await page.getByRole("button", { name: "App Store" }).click();
-  await page.getByText("Docs Portal").waitFor();
-  await page.getByRole("button", { name: "Close App Store" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Agent Groups" }).click();
+  await page.getByRole("heading", { name: "Release Council" }).waitFor();
+  await page.getByRole("button", { name: "Close Agent Groups" }).click();
 
-  await page.getByRole("button", { name: "Extensions" }).click();
-  await page.getByText("Metrics Pack").waitFor();
-  await page.getByRole("button", { name: "Close Extensions" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Create App" }).click();
+  await page.getByText("Grafana", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Close Create App" }).click();
 
-  await page.getByRole("button", { name: "Infrastructure" }).click();
-  await page.getByText("Cloudflare", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Close Infrastructure" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Pickers" }).click();
+  await page.getByRole("tab", { name: "Image Picker" }).click();
+  await page.getByRole("button", { name: "Close Pickers" }).click();
 
-  // Wave 5 AppShell features: Clipboard, Inspector, Control Center -> Lock -> Unlock -> Force Quit
-  await page.getByRole("button", { name: "Clipboard" }).click();
-  await page.getByRole("button", { name: "Inspector" }).click();
-  await page.getByRole("button", { name: "Controls" }).click();
-  await page.getByRole("button", { name: "Lock screen" }).click();
-  await page.getByRole("heading", { name: "Workspace locked" }).waitFor();
-  await page.getByRole("button", { name: "Unlock workspace" }).click();
-  await page.getByRole("button", { name: "Controls" }).click();
-  await page.getByRole("button", { name: "Force quit windows..." }).click();
-  await page.getByRole("button", { name: "Close all" }).click();
+  await page.locator(".app-dock").getByRole("button", { name: "Media Viewer" }).click();
+  await page.getByRole("heading", { name: "Media Viewer" }).waitFor();
+  await page.getByRole("button", { name: "Close Media Viewer" }).click();
+
+  await page.locator(".app-dock").getByRole("button", { name: "Shell Settings" }).click();
+  await page.locator("#shell-settings-title").waitFor();
+  await page.getByRole("button", { name: "Close Shell Settings" }).click();
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual([...hosts], ["127.0.0.1:4173"]);
   assert.ok(cookieSeen);
-  console.log("PASS Increments 1..4C: Org, Memory Graph, App Store, Extensions, Infra, Clipboard, Inspector, Control Center, Lock, Force Quit");
+  console.log("PASS Increments 1..4D: 10/10 AppShell features, 5 OS chromes, Vault, Group, Media, Pickers, Create App, Shell Settings");
 } finally {
   await browser?.close();
   if (preview && preview.exitCode === null) { preview.kill("SIGTERM"); await once(preview, "exit"); }

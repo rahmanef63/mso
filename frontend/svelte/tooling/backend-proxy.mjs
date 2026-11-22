@@ -1,4 +1,4 @@
-// Development/preview only. Mirrors Rust Stage R3D route allowlist + CSRF depth-2.
+// Development/preview only. Mirrors Rust Stage R3E 49-route allowlist + CSRF depth-2.
 // No public server or production trust policy is changed.
 
 const ROUTES = {
@@ -18,21 +18,31 @@ const ROUTES = {
   "/api/v1/agent-sessions": ["GET", "POST"],
   "/api/v1/agent-vault": ["GET", "POST"],
   "/api/v1/app-catalog": ["GET"],
+  "/api/v1/camoufox/service": ["GET", "POST"],
+  "/api/v1/camoufox/session": ["GET", "POST", "DELETE"],
   "/api/v1/channels": ["GET", "POST"],
+  "/api/v1/desktop/containers": ["GET", "POST"],
+  "/api/v1/desktop/lifecycle": ["POST"],
   "/api/v1/features": ["GET"],
   "/api/v1/infra/providers": ["GET", "POST", "DELETE"],
   "/api/v1/integrations": ["GET", "POST"],
   "/api/v1/managed-apps": ["GET"],
   "/api/v1/memory-graph": ["GET"],
   "/api/v1/organization": ["GET", "POST"],
+  "/api/v1/shell-apps": ["GET", "POST"],
+  "/api/v1/stock/search": ["GET"],
   "/api/v1/workflows": ["GET", "POST"],
   "/api/v1/sys/audit": ["GET"],
   "/api/v1/sys/stats": ["GET"],
   "/api/v1/sys/processes": ["GET"],
   "/api/v1/sys/services": ["GET", "POST"],
   "/api/v1/sys/packages": ["GET"],
+  "/api/v1/sys/update": ["GET"],
   "/api/v1/fs/list": ["GET"],
+  "/api/v1/fs/raw": ["GET"],
   "/api/v1/fs/read": ["GET"],
+  "/api/v1/fs/search": ["GET"],
+  "/api/v1/fs/usage": ["GET"],
   "/api/v1/fs/write": ["POST"],
   "/api/v1/fs/mkdir": ["POST"],
   "/api/v1/fs/delete": ["DELETE"],

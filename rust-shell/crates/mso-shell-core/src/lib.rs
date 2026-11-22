@@ -8,4 +8,5 @@ pub mod origin;
 pub mod proxy;
 pub mod server;
 pub mod sse;
+pub mod sys_metrics;
 pub mod ws;

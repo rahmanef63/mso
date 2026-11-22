@@ -62,6 +62,17 @@ const ROUTE_POLICIES: &[RoutePolicy] = &[
     RoutePolicy { path: "/api/v1/agent-groups", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/v1/agent-profiles", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/v1/agent-sessions", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    // Wave 3 / Stage R3E cockpit routes
+    RoutePolicy { path: "/api/v1/shell-apps", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/camoufox/service", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/camoufox/session", prefix: false, methods: &["GET", "POST", "DELETE"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/desktop/containers", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/desktop/lifecycle", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/fs/raw", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/fs/search", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/fs/usage", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/stock/search", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/sys/update", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
     // Stage R2B machine protocol routes (CSRF-exempt, bearer-authenticated)
     RoutePolicy { path: "/mcp", prefix: false, methods: &["GET", "POST", "DELETE"], max_body_bytes: 1024 * 1024, forward_authorization: true },
     RoutePolicy { path: "/oauth/token", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: true },
@@ -737,6 +748,149 @@ mod tests {
         });
         assert_eq!(r_sess.status, 200);
         assert_eq!(r_sess.body, br#"{"sessionId":"s-1"}"#);
+
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn matches_stage_r3e_routes_with_exact_limits_and_unlisted_guards() {
+        let expected: &[(&str, &[&str], usize)] = &[
+            ("/api/v1/shell-apps", &["GET", "POST"], 65_536),
+            ("/api/v1/camoufox/service", &["GET", "POST"], 65_536),
+            ("/api/v1/camoufox/session", &["GET", "POST", "DELETE"], 65_536),
+            ("/api/v1/desktop/containers", &["GET", "POST"], 65_536),
+            ("/api/v1/desktop/lifecycle", &["POST"], 65_536),
+            ("/api/v1/fs/raw", &["GET"], 0),
+            ("/api/v1/fs/search", &["GET"], 0),
+            ("/api/v1/fs/usage", &["GET"], 0),
+            ("/api/v1/stock/search", &["GET"], 0),
+            ("/api/v1/sys/update", &["GET"], 0),
+        ];
+
+        for &(path, methods, max_body) in expected {
+            let p = match_route_policy(path).expect(path);
+            assert!(!p.prefix, "expected exact match policy for {path}");
+            assert_eq!(p.methods, methods, "methods mismatch for {path}");
+            assert_eq!(p.max_body_bytes, max_body, "max_body_bytes mismatch for {path}");
+            assert!(!p.forward_authorization, "must not forward Authorization on {path}");
+
+            // Query strings still resolve the exact policy
+            let with_q = format!("{path}?q=test&id=1");
+            assert_eq!(match_route_policy(&with_q).unwrap().path, path);
+
+            // Subpaths must NOT match (exact-path matching only)
+            let extra = format!("{path}/extra");
+            assert!(match_route_policy(&extra).is_none(), "subpath should be unlisted: {extra}");
+        }
+
+        // Unlisted privileged routes must stay absent
+        for unlisted in ["/api/config", "/api/v1/exec/run", "/api/v1/editor/exec"] {
+            assert!(match_route_policy(unlisted).is_none(), "route must remain unlisted: {unlisted}");
+            assert!(match_route_policy(&format!("{unlisted}?x=1")).is_none());
+        }
+    }
+
+    #[test]
+    fn forwards_stage_r3e_routes_and_enforces_method_limit_and_404_guards() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            let cases: &[(&str, &str)] = &[
+                ("DELETE /api/v1/camoufox/session?id=cf-1 HTTP/1.1", r#"{"closed":true}"#),
+                ("POST /api/v1/desktop/lifecycle HTTP/1.1", r#"{"state":"started"}"#),
+                ("GET /api/v1/fs/raw?path=notes.txt HTTP/1.1", r#"{"raw":"ok"}"#),
+                ("GET /api/v1/sys/update HTTP/1.1", r#"{"upToDate":true}"#),
+            ];
+            for (expected_line, body) in cases {
+                let (mut conn, _) = listener.accept().unwrap();
+                let n = conn.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+                assert!(req.starts_with(expected_line), "expected {expected_line}, got: {req}");
+                assert!(req.contains("Host: mso.example.com\r\n"));
+                assert!(req.contains("Cookie: session=r3e\r\n"));
+                assert!(!req.contains("Authorization:"));
+                let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{body}");
+                conn.write_all(resp.as_bytes()).unwrap();
+            }
+        });
+
+        let origin = parse_loopback_origin(&format!("http://127.0.0.1:{port}")).unwrap();
+
+        // Disallowed methods return 405 without contacting upstream
+        for (method, target, allow) in [
+            ("DELETE", "/api/v1/shell-apps", "GET, POST"),
+            ("DELETE", "/api/v1/camoufox/service", "GET, POST"),
+            ("PATCH", "/api/v1/camoufox/session", "GET, POST, DELETE"),
+            ("DELETE", "/api/v1/desktop/containers", "GET, POST"),
+            ("GET", "/api/v1/desktop/lifecycle", "POST"),
+            ("DELETE", "/api/v1/desktop/lifecycle", "POST"),
+            ("POST", "/api/v1/fs/raw", "GET"),
+            ("POST", "/api/v1/fs/search", "GET"),
+            ("POST", "/api/v1/fs/usage", "GET"),
+            ("POST", "/api/v1/stock/search", "GET"),
+            ("POST", "/api/v1/sys/update", "GET"),
+        ] {
+            let r = forward_api_request(&origin, &ForwardRequest {
+                method, target, host: Some("mso.example.com"), cookie: None, authorization: None,
+                content_type: None, accept: None, origin: None, sec_fetch_site: Some("same-origin"), body: &[],
+            });
+            assert_eq!(r.status, 405, "expected 405 for {method} {target}");
+            assert!(r.extra_headers.iter().any(|(k, v)| k == "Allow" && v == allow));
+        }
+
+        // Body limit enforcement (413) without contacting upstream
+        let over_64k = vec![b'x'; 65_537];
+        for (method, target) in [
+            ("POST", "/api/v1/shell-apps"),
+            ("POST", "/api/v1/camoufox/service"),
+            ("POST", "/api/v1/camoufox/session"),
+            ("DELETE", "/api/v1/camoufox/session"),
+            ("POST", "/api/v1/desktop/containers"),
+            ("POST", "/api/v1/desktop/lifecycle"),
+        ] {
+            let r = forward_api_request(&origin, &ForwardRequest {
+                method, target, host: Some("mso.example.com"), cookie: None, authorization: None,
+                content_type: Some("application/json"), accept: None, origin: None,
+                sec_fetch_site: Some("same-origin"), body: &over_64k,
+            });
+            assert_eq!(r.status, 413, "expected 413 for {method} {target}");
+        }
+
+        // Allowed requests forward query strings, Host, Cookie and strip Authorization
+        let r_cf = forward_api_request(&origin, &ForwardRequest {
+            method: "DELETE", target: "/api/v1/camoufox/session?id=cf-1", host: Some("mso.example.com"),
+            cookie: Some("session=r3e"), authorization: Some("Bearer strip-me"),
+            content_type: Some("application/json"), accept: None, origin: Some("http://mso.example.com"),
+            sec_fetch_site: Some("same-origin"), body: br#"{"id":"cf-1"}"#,
+        });
+        assert_eq!(r_cf.status, 200);
+        assert_eq!(r_cf.body, br#"{"closed":true}"#);
+
+        let r_lc = forward_api_request(&origin, &ForwardRequest {
+            method: "POST", target: "/api/v1/desktop/lifecycle", host: Some("mso.example.com"),
+            cookie: Some("session=r3e"), authorization: Some("Bearer strip-me"),
+            content_type: Some("application/json"), accept: None, origin: Some("http://mso.example.com"),
+            sec_fetch_site: Some("same-origin"), body: br#"{"action":"start"}"#,
+        });
+        assert_eq!(r_lc.status, 200);
+        assert_eq!(r_lc.body, br#"{"state":"started"}"#);
+
+        let r_raw = forward_api_request(&origin, &ForwardRequest {
+            method: "GET", target: "/api/v1/fs/raw?path=notes.txt", host: Some("mso.example.com"),
+            cookie: Some("session=r3e"), authorization: Some("Bearer strip-me"),
+            content_type: None, accept: None, origin: None, sec_fetch_site: None, body: &[],
+        });
+        assert_eq!(r_raw.status, 200);
+        assert_eq!(r_raw.body, br#"{"raw":"ok"}"#);
+
+        let r_upd = forward_api_request(&origin, &ForwardRequest {
+            method: "GET", target: "/api/v1/sys/update", host: Some("mso.example.com"),
+            cookie: Some("session=r3e"), authorization: Some("Bearer strip-me"),
+            content_type: None, accept: None, origin: None, sec_fetch_site: None, body: &[],
+        });
+        assert_eq!(r_upd.status, 200);
+        assert_eq!(r_upd.body, br#"{"upToDate":true}"#);
 
         handle.join().unwrap();
     }
