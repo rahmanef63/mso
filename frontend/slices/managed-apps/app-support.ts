@@ -110,6 +110,21 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
       "Stops and removes t3-code.service and MSO-managed T3 binaries under ~/.local/share/mso/t3. Existing T3 Code data and sessions in ~/.t3 stay intact.",
     stateDir: "~/.t3",
   },
+  n8n: {
+    dryRun: false,
+    rollbackPin: false,
+    pinLabel: "Version",
+    pinHint:
+      "MSO installs one reviewed multi-architecture n8n Docker image digest from security/managed-app-artifacts.env. Update reconciles the container; rollback restores ~/.n8n snapshots.",
+    pinPlaceholder: "2.48.7",
+    installCommand: "bash scripts/managed-app-n8n install",
+    installNote:
+      "MSO pulls and verifies the pinned official n8n Docker image on this host, binds port 5678 to loopback by default, enables WebSocket push, and stores workflows in ~/.n8n.",
+    uninstallCommand: "bash scripts/managed-app-n8n uninstall --yes",
+    uninstallEffect:
+      "Stops and removes the n8n container. Your workflows, credentials, and SQLite data in ~/.n8n stay intact so a reinstall picks up where you left off.",
+    stateDir: "~/.n8n",
+  },
 };
 
 export const supportFor = (id: ManagedAppId): AppSupport => SUPPORT[id];

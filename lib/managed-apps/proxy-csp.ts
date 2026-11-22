@@ -75,7 +75,7 @@ function frameAncestors(mount: PolicyMount): string[] {
 const socketOrigin = (url: string): string => url.replace(/^https:/i, "wss:").replace(/^http:/i, "ws:");
 
 function ourPolicy(prefixUrl: string, mount: PolicyMount): Policy {
-  const needsWasmAndWorkers = mount.appId === "orca" || mount.appId === "t3";
+  const needsWasmAndWorkers = mount.appId === "orca" || mount.appId === "t3" || mount.appId === "n8n";
   return new Map([
     ["default-src", [prefixUrl]],
     ["script-src", needsWasmAndWorkers ? [prefixUrl, "'unsafe-inline'", "blob:", "'wasm-unsafe-eval'"] : [prefixUrl, "'unsafe-inline'", "blob:"]],

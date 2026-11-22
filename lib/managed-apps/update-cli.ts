@@ -1,6 +1,6 @@
 import "server-only";
 import type { ManagedAppId } from "./types";
-import { probe9Router, probeHermes, probeOpenclaw, probeT3, type ProbeResult } from "./update-probe";
+import { probe9Router, probeHermes, probeN8n, probeOpenclaw, probeT3, type ProbeResult } from "./update-probe";
 import { MANAGED_APP_UPDATE_CHANNELS } from "./update-types";
 import type { ManagedAppUpdateCapabilities, ManagedAppUpdateOptions } from "./update-types";
 
@@ -208,6 +208,7 @@ const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
     probe: async () => reject("update probing", "orca"),
   },
   t3: pinnedAdapter("t3", "bash scripts/managed-app-t3 install", probeT3),
+  n8n: pinnedAdapter("n8n", "bash scripts/managed-app-n8n install", probeN8n),
 };
 
 export function updateAdapter(id: ManagedAppId): UpdateAdapter {

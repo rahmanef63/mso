@@ -83,6 +83,10 @@ case "$cmd" in
       shell-domain) jget "/api/v1/shell-apps/$(enc "${1:?id}")/domain" ;;
       shell-domain-save) shell_input="${2:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/shell-apps/$(enc "${1:?id}")/domain" "$shell_input" ;;
       list)    jget "/api/v1/managed-apps" ;;
+      discover) jget "/api/v1/managed-apps/discover" ;;
+      probe)   shell_input="${1:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/managed-apps/probe" "$shell_input" ;;
+      tunnels) jget "/api/v1/managed-apps/tunnels" ;;
+      tunnel-save) shell_input="${1:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/managed-apps/tunnels" "$shell_input" ;;
       show)    jget "/api/v1/managed-apps/$(enc "${1:?id}")" ;;
       logs)    jget "/api/v1/managed-apps/$(enc "${1:?id}")/logs" ;;
       backups) jget "/api/v1/managed-apps/$(enc "${1:?id}")/backups" ;;

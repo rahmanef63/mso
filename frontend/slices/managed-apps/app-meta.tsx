@@ -15,7 +15,7 @@ export const NineRouterIcon: AppIconComponent = ({ className }) =>
 export interface ManagedAppMeta {
   title: string;
   gradient: string;
-  loader: "HermesApp" | "OpenClawApp" | "NineRouterApp" | "OrcaApp" | "T3CodeApp";
+  loader: "HermesApp" | "OpenClawApp" | "NineRouterApp" | "OrcaApp" | "T3CodeApp" | "N8nManagedApp";
   icon: LucideIcon | AppIconComponent;
   artwork?: string;
   artworkBackground?: string;
@@ -63,6 +63,14 @@ export const MANAGED_APP_META: Record<ManagedAppId, ManagedAppMeta> = {
     artwork: "/brand/official/t3.webp",
     tone: "text-indigo-400",
   },
+  n8n: {
+    title: "n8n",
+    gradient: "linear-gradient(160deg,#ea4b71,#ff6d5a)",
+    loader: "N8nManagedApp",
+    icon: Workflow,
+    artwork: "/brand/official/n8n.webp",
+    tone: "text-rose-400",
+  },
 };
 
 export const MANAGED_APP_NAMES: Record<ManagedAppId, string> = {
@@ -71,6 +79,7 @@ export const MANAGED_APP_NAMES: Record<ManagedAppId, string> = {
   "9router": MANAGED_APP_META["9router"].title,
   orca: MANAGED_APP_META.orca.title,
   t3: MANAGED_APP_META.t3.title,
+  n8n: MANAGED_APP_META.n8n.title,
 };
 
 export function AppMark({ id, className }: { id: ManagedAppId; className?: string }) {
@@ -97,4 +106,5 @@ export const MANAGED_APP_ICONS: Record<ManagedAppId, React.ReactNode> = {
   "9router": <AppMark id="9router" />,
   orca: <AppMark id="orca" />,
   t3: <AppMark id="t3" />,
+  n8n: <AppMark id="n8n" />,
 };

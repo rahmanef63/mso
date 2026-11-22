@@ -17,8 +17,8 @@ const HELP = `mso domain: persistent managed-application DNS and tunnel routes
       [--origin https://mso.example.com] [--template '{id}.mso.example.com']
       [--zone <zone-name-or-id>] [--tunnel <UUID>] [--local http://127.0.0.1:4005]
       [--manual] [--apply]
-  mso domain ensure <hermes|openclaw|9router|orca|t3> [--apply]
-  mso domain doctor <hermes|openclaw|9router|orca|t3>
+  mso domain ensure <hermes|openclaw|9router|orca|t3|n8n> [--apply]
+  mso domain doctor <hermes|openclaw|9router|orca|t3|n8n>
   mso domain repair-env [--apply]
   mso domain restore [--apply]
 

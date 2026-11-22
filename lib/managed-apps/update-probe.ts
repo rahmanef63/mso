@@ -149,6 +149,28 @@ export async function probeT3(program: string): Promise<ProbeResult> {
   };
 }
 
+export const N8N_CHANNEL_NOTE =
+  "n8n is pinned to the reviewed Docker digest in security/managed-app-artifacts.env; update reconciles the container while keeping ~/.n8n data intact.";
+
+export async function probeN8n(program: string): Promise<ProbeResult> {
+  const channel: ManagedAppChannel = { value: null, kind: null, available: [], switchable: false, reason: N8N_CHANNEL_NOTE };
+  const check = await runProgram(program, ["check", "--json"], 60_000);
+  const parsed = parseJson(clean(check.stdout));
+  if (check.code !== 0 || !parsed) {
+    const why = clean(check.stderr).split(/\r?\n/).find(Boolean) ?? "n8n check --json returned no JSON";
+    return { currentVersion: null, latestVersion: null, updateAvailable: null, detail: null, channel, installKind: "docker", error: redact(why) };
+  }
+  return {
+    currentVersion: asString(parsed.currentVersion),
+    latestVersion: asString(parsed.latestVersion),
+    updateAvailable: typeof parsed.hasUpdate === "boolean" ? parsed.hasUpdate : null,
+    detail: asString(parsed.detail),
+    channel,
+    installKind: "docker",
+    error: null,
+  };
+}
+
 export async function probeOpenclaw(program: string): Promise<ProbeResult> {
   const version = await runProgram(program, ["--version"], 20_000);
   const currentVersion = version.code === 0 ? clean(version.stdout).split(/\r?\n/)[0]?.trim().slice(0, 160) || null : null;

@@ -44,7 +44,7 @@ describe("createT3PairingClientUrl", () => {
       "--base-dir",
       "/home/owner/.t3",
       "--ttl",
-      "2m",
+      "10m",
       "--label",
       "MSO Web",
       "--base-url",
