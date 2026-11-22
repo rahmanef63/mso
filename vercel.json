@@ -7,9 +7,31 @@
     {
       "src": "/(.*)",
       "headers": {
-        "Content-Security-Policy": "connect-src 'self'; frame-src 'self' blob:; object-src 'none'; form-action 'none'; base-uri 'self'"
+        "Content-Security-Policy": "connect-src 'self'; frame-src 'self' blob:; object-src 'none'; form-action 'none'; base-uri 'self'; frame-ancestors https://manef.dev https://www.manef.dev",
+        "X-Robots-Tag": "noindex"
       },
       "continue": true
+    },
+    {
+      "src": "/(?:demo|mso/demo)/?",
+      "status": 308,
+      "headers": {
+        "Location": "/"
+      }
+    },
+    {
+      "src": "/install/?",
+      "status": 308,
+      "headers": {
+        "Location": "https://manef.dev/mso/install"
+      }
+    },
+    {
+      "src": "/docs/(.+)",
+      "status": 308,
+      "headers": {
+        "Location": "https://manef.dev/mso/docs/$1"
+      }
     },
     {
       "handle": "filesystem"
