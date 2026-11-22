@@ -10,4 +10,5 @@ pub mod proxy;
 pub mod server;
 pub mod sse;
 pub mod sys_metrics;
+pub mod sys_procs;
 pub mod ws;

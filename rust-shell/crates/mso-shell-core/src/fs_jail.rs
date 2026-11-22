@@ -6,8 +6,19 @@ use std::time::UNIX_EPOCH;
 
 pub const MAX_SEARCH_DEPTH: usize = 10;
 pub const MAX_LIST_ENTRIES: usize = 500;
+pub const MAX_USAGE_DEPTH: usize = 12;
+pub const MAX_USAGE_ENTRIES: usize = 10_000;
 pub const DEFAULT_MAX_READ_BYTES: usize = 512 * 1024;
 const MAX_VISITED_ENTRIES: usize = 100_000;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JailedUsage {
+    pub path: String,
+    pub bytes: u64,
+    pub files: u64,
+    pub dirs: u64,
+    pub truncated: bool,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JailedDirEntry {
@@ -422,6 +433,133 @@ pub fn read_jailed_text(
     }
 
     String::from_utf8(buf).map_err(|_| FsJailError::InvalidUtf8)
+}
+
+struct UsageAccumulator {
+    bytes: u64,
+    files: u64,
+    dirs: u64,
+    visited: usize,
+    truncated: bool,
+}
+
+fn walk_usage_dir(
+    dir: &Path,
+    rel_prefix: &str,
+    depth: usize,
+    max_depth: usize,
+    max_entries: usize,
+    acc: &mut UsageAccumulator,
+) {
+    if acc.visited >= max_entries {
+        acc.truncated = true;
+        return;
+    }
+
+    let Ok(read_dir) = fs::read_dir(dir) else {
+        return;
+    };
+
+    let take_limit = max_entries.saturating_sub(acc.visited).saturating_add(1);
+    let mut entries: Vec<(String, fs::DirEntry)> = Vec::new();
+    for entry in read_dir.flatten() {
+        if entries.len() >= take_limit {
+            break;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        entries.push((name, entry));
+    }
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (name, entry) in entries {
+        if acc.visited >= max_entries {
+            acc.truncated = true;
+            return;
+        }
+        acc.visited += 1;
+
+        if name.is_empty() || is_sensitive_path(Path::new(&name)) {
+            continue;
+        }
+        let rel_path = if rel_prefix.is_empty() {
+            name
+        } else {
+            format!("{rel_prefix}/{name}")
+        };
+        if is_sensitive_path(Path::new(&rel_path)) {
+            continue;
+        }
+
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        if file_type.is_dir() {
+            acc.dirs = acc.dirs.saturating_add(1);
+            if depth < max_depth {
+                walk_usage_dir(&entry.path(), &rel_path, depth + 1, max_depth, max_entries, acc);
+            } else {
+                acc.truncated = true;
+            }
+        } else if file_type.is_file() {
+            if let Ok(meta) = entry.metadata() {
+                acc.files = acc.files.saturating_add(1);
+                acc.bytes = acc.bytes.saturating_add(meta.len());
+            }
+        }
+    }
+}
+
+fn compute_jailed_usage_with_limits(
+    root: &Path,
+    relative: &str,
+    max_depth: usize,
+    max_entries: usize,
+) -> Result<JailedUsage, FsJailError> {
+    let (canonical_root, target_dir) = resolve_jailed_dir_paths(root, relative)?;
+    let rel_dir = target_dir
+        .strip_prefix(&canonical_root)
+        .map_err(|_| FsJailError::TraversalBlocked)?;
+    let segments: Vec<String> = rel_dir
+        .components()
+        .filter_map(|c| match c {
+            Component::Normal(s) => Some(s.to_string_lossy().into_owned()),
+            _ => None,
+        })
+        .collect();
+    let (path, rel_prefix) = if segments.is_empty() {
+        (".".to_string(), String::new())
+    } else {
+        let joined = segments.join("/");
+        (joined.clone(), joined)
+    };
+
+    // Ensure the target directory itself is readable before walking.
+    let _ = fs::read_dir(&target_dir).map_err(|e| FsJailError::Io(e.to_string()))?;
+
+    let mut acc = UsageAccumulator {
+        bytes: 0,
+        files: 0,
+        dirs: 0,
+        visited: 0,
+        truncated: false,
+    };
+    walk_usage_dir(&target_dir, &rel_prefix, 0, max_depth, max_entries, &mut acc);
+
+    Ok(JailedUsage {
+        path,
+        bytes: acc.bytes,
+        files: acc.files,
+        dirs: acc.dirs,
+        truncated: acc.truncated,
+    })
+}
+
+pub fn compute_jailed_usage(root: &Path, relative: &str) -> Result<JailedUsage, FsJailError> {
+    compute_jailed_usage_with_limits(root, relative, MAX_USAGE_DEPTH, MAX_USAGE_ENTRIES)
 }
 
 #[cfg(test)]
@@ -848,5 +986,161 @@ mod tests {
 
         let _ = fs::remove_dir_all(&root);
         let _ = fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn compute_jailed_usage_sums_bytes_files_dirs_skips_symlinks_and_sensitive_paths() {
+        let root = temp_dir("usage");
+        let outside = temp_dir("usage-outside");
+        fs::write(outside.join("big.bin"), vec![b'x'; 2048]).unwrap();
+
+        fs::create_dir_all(root.join("notes/sub")).unwrap();
+        fs::create_dir_all(root.join("empty")).unwrap();
+        fs::create_dir_all(root.join(".ssh")).unwrap();
+        fs::create_dir_all(root.join(".mso")).unwrap();
+        fs::create_dir_all(root.join("certs")).unwrap();
+
+        fs::write(root.join("top.txt"), "12345").unwrap(); // 5 bytes
+        fs::write(root.join("notes/a.txt"), "abc").unwrap(); // 3 bytes
+        fs::write(root.join("notes/sub/b.txt"), "abcdef").unwrap(); // 6 bytes
+        // Sensitive files and directories must be excluded from bytes, files, and dirs.
+        fs::write(root.join(".env"), "SECRET=1234567890").unwrap();
+        fs::write(root.join(".env.local"), "SECRET=2").unwrap();
+        fs::write(root.join(".ssh/id_rsa"), "private-key-material").unwrap();
+        fs::write(root.join(".mso/vault.json"), r#"{"token":"x"}"#).unwrap();
+        fs::write(root.join("certs/server.pem"), "pem-data").unwrap();
+        fs::write(root.join("certs/tls.key"), "key-data").unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            symlink(outside.join("big.bin"), root.join("escape-link.bin")).unwrap();
+            symlink(root.join("top.txt"), root.join("internal-link.txt")).unwrap();
+            symlink(root.join("notes"), root.join("notes-loop")).unwrap();
+            symlink(&root, root.join("notes/self-loop")).unwrap();
+        }
+
+        // "", ".", and "~" all resolve root identically.
+        let root_empty = compute_jailed_usage(&root, "").unwrap();
+        let root_dot = compute_jailed_usage(&root, ".").unwrap();
+        let root_tilde = compute_jailed_usage(&root, "~").unwrap();
+        assert_eq!(root_empty, root_dot);
+        assert_eq!(root_empty, root_tilde);
+        assert_eq!(
+            root_empty,
+            JailedUsage {
+                path: ".".to_string(),
+                bytes: 5 + 3 + 6,
+                files: 3,
+                // Dirs: certs, empty, notes, notes/sub (excluding .ssh and .mso)
+                dirs: 4,
+                truncated: false,
+            }
+        );
+
+        // Subdirectory usage via relative path and ~/ prefix.
+        let notes_usage = compute_jailed_usage(&root, "notes").unwrap();
+        assert_eq!(
+            notes_usage,
+            JailedUsage {
+                path: "notes".to_string(),
+                bytes: 3 + 6,
+                files: 2,
+                dirs: 1,
+                truncated: false,
+            }
+        );
+        assert_eq!(compute_jailed_usage(&root, "~/notes").unwrap(), notes_usage);
+
+        // Guards: traversal, sensitive path, absolute path, non-dir file.
+        assert_eq!(
+            compute_jailed_usage(&root, ".."),
+            Err(FsJailError::TraversalBlocked)
+        );
+        assert_eq!(
+            compute_jailed_usage(&root, "../etc"),
+            Err(FsJailError::TraversalBlocked)
+        );
+        assert_eq!(
+            compute_jailed_usage(&root, ".ssh"),
+            Err(FsJailError::SensitivePathDenied)
+        );
+        assert_eq!(
+            compute_jailed_usage(&root, ".mso"),
+            Err(FsJailError::SensitivePathDenied)
+        );
+        assert_eq!(
+            compute_jailed_usage(&root, ".env"),
+            Err(FsJailError::SensitivePathDenied)
+        );
+        assert_eq!(
+            compute_jailed_usage(&root, "/etc"),
+            Err(FsJailError::InvalidPath)
+        );
+        assert_eq!(
+            compute_jailed_usage(&root, "top.txt"),
+            Err(FsJailError::NotADirectory)
+        );
+
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn compute_jailed_usage_enforces_depth_12_and_entry_caps_with_truncated_flag() {
+        let root = temp_dir("usage-caps");
+
+        // Build nested directories d1..d12 and place a file at depth 12.
+        let mut depth12 = root.clone();
+        for i in 1..=MAX_USAGE_DEPTH {
+            depth12.push(format!("d{i}"));
+        }
+        fs::create_dir_all(&depth12).unwrap();
+        fs::write(depth12.join("ok12.txt"), "1234").unwrap();
+
+        let within = compute_jailed_usage(&root, "").unwrap();
+        assert_eq!(within.path, ".");
+        assert_eq!(within.bytes, 4);
+        assert_eq!(within.files, 1);
+        assert_eq!(within.dirs, MAX_USAGE_DEPTH as u64);
+        assert!(!within.truncated);
+
+        // Adding d13 beyond MAX_USAGE_DEPTH (12) sets truncated = true and skips d13's contents.
+        let depth13 = depth12.join("d13");
+        fs::create_dir_all(&depth13).unwrap();
+        fs::write(depth13.join("too-deep.txt"), "999999999").unwrap();
+
+        let too_deep = compute_jailed_usage(&root, "").unwrap();
+        assert_eq!(too_deep.bytes, 4);
+        assert_eq!(too_deep.files, 1);
+        assert_eq!(too_deep.dirs, (MAX_USAGE_DEPTH + 1) as u64);
+        assert!(too_deep.truncated);
+
+        // Entry cap truncation boundary check.
+        let flat = root.join("flat");
+        fs::create_dir_all(&flat).unwrap();
+        for i in 0..5 {
+            fs::write(flat.join(format!("f-{i}.txt")), "ab").unwrap();
+        }
+        let exact = compute_jailed_usage_with_limits(&root, "flat", MAX_USAGE_DEPTH, 5).unwrap();
+        assert_eq!(
+            exact,
+            JailedUsage {
+                path: "flat".to_string(),
+                bytes: 10,
+                files: 5,
+                dirs: 0,
+                truncated: false,
+            }
+        );
+
+        fs::write(flat.join("f-5.txt"), "ab").unwrap();
+        let capped = compute_jailed_usage_with_limits(&root, "flat", MAX_USAGE_DEPTH, 5).unwrap();
+        assert_eq!(capped.bytes, 10);
+        assert_eq!(capped.files, 5);
+        assert_eq!(capped.dirs, 0);
+        assert!(capped.truncated);
+
+        let _ = fs::remove_dir_all(&root);
     }
 }

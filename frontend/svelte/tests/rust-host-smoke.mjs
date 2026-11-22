@@ -78,11 +78,17 @@ try {
   const hostPort = Number(new URL(ready).port), expectedHost = new URL(ready).host;
   const idleRssKiB = readVmRssKiB(hostProc.pid);
 
-  // Verify /healthz + Stage R4 native endpoints directly in Rust (zero upstream Node calls!)
+  // Verify /healthz + PWA manifest + Stage R4 native endpoints directly in Rust (zero upstream Node calls!)
   const beforeNative = calls.length;
   const healthz = await fetch(`${ready}/healthz`);
   assert.equal(healthz.status, 200);
   assert.equal((await healthz.json()).runtime, "mso-shell-host");
+  const manifestRes = await fetch(`${ready}/manifest.webmanifest`);
+  assert.equal(manifestRes.status, 200);
+  assert.equal((await manifestRes.json()).display, "standalone");
+  const usageRes = await rawHttp(hostPort, `GET /api/v1/fs/usage?path=. HTTP/1.1\r\nHost: ${expectedHost}\r\nCookie: session=rust-r4-fs-owner\r\nConnection: close\r\n\r\n`);
+  assert.equal(usageRes.status, 200);
+  assert.ok(usageRes.raw.includes("X-MSO-Native-Handler: fs_jail") && usageRes.raw.includes('"files":1') && usageRes.raw.includes('"bytes":24'));
   assert.equal((await rawHttp(hostPort, `GET /api/v1/fs/read?path=.env HTTP/1.1\r\nHost: ${expectedHost}\r\nCookie: session=rust-r4-fs-owner\r\nConnection: close\r\n\r\n`)).status, 403);
   assert.equal((await rawHttp(hostPort, `GET /api/v1/fs/read?path=../etc/passwd HTTP/1.1\r\nHost: ${expectedHost}\r\nCookie: session=rust-r4-fs-owner\r\nConnection: close\r\n\r\n`)).status, 400);
   assert.equal((await rawHttp(hostPort, `POST /api/v1/fs/upload HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 403);
@@ -99,6 +105,11 @@ try {
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForSelector("[data-monitor-state='ready']", { timeout: 10_000 });
 
+  // Open Processes window -> loads live Linux /proc processes straight from Rust --native-metrics (zero Node calls!)
+  await page.locator(".app-dock").getByRole("button", { name: "Open Processes" }).click();
+  await page.waitForSelector("[data-processes-state='ready']", { timeout: 10_000 });
+  await page.getByRole("button", { name: "Close Processes" }).click();
+
   // Open FilesManager -> lists & reads public-note.txt straight from Rust --native-fs-root (zero Node fs calls!)
   await page.locator(".app-dock").getByRole("button", { name: "Open Files" }).click();
   await page.locator("button[data-entry-open='public-note.txt']").click();
@@ -106,7 +117,7 @@ try {
   assert.equal(await page.evaluate(() => document.body.innerText.includes(".env")), false);
   await page.getByRole("button", { name: "Close Files" }).click();
 
-  assert.equal(calls.some((c) => c.includes("/api/v1/sys/stats") || c.includes("/api/v1/fs/")), false);
+  assert.equal(calls.some((c) => c.includes("/api/v1/sys/") || c.includes("/api/v1/fs/")), false);
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual(errors, [], `unexpected browser/CSP errors: ${errors.join("; ")}`);
@@ -114,8 +125,9 @@ try {
 
   const activeRssKiB = readVmRssKiB(hostProc.pid);
   console.log(JSON.stringify({
-    pass: true, stage: "R3G+R4-FullNative+Inc4-100%", origin: ready, idleRssKiB, activeRssKiB, apiCalls: calls.length,
-    routePolicies: 62, healthzVerified: true, nativeMetricsVerified: true, nativeFsListReadVerified: true, envSecretHidden: true,
+    pass: true, stage: "R4-100%+Inc4-100%+PWA", origin: ready, idleRssKiB, activeRssKiB, apiCalls: calls.length,
+    routePolicies: 62, healthzVerified: true, pwaManifestVerified: true,
+    nativeMetricsAndProcsVerified: true, nativeFsListReadSearchUsageVerified: true, envSecretHidden: true,
   }, null, 2));
 } finally {
   await browser?.close();

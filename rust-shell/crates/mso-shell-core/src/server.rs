@@ -19,6 +19,7 @@ use crate::sse::{
     ASSISTANT_MAX_BODY_BYTES,
 };
 use crate::sys_metrics;
+use crate::sys_procs;
 use crate::ws::{is_websocket_upgrade, tunnel_websocket, WsUpgradeRequest};
 use std::fs;
 use std::io;
@@ -32,6 +33,7 @@ use std::time::Duration;
 const MAX_CONCURRENT_CONNS: usize = 64;
 const DEFAULT_UNKNOWN_ROUTE_BODY_LIMIT: usize = 16 * 1024;
 const NATIVE_FS_SEARCH_MAX_RESULTS: usize = 50;
+const NATIVE_SYS_PROCS_DEFAULT_LIMIT: usize = 100;
 
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -296,6 +298,17 @@ fn encode_json_string(value: &str) -> String {
     out
 }
 
+fn encode_fs_usage_json(usage: &fs_jail::JailedUsage) -> String {
+    format!(
+        r#"{{"path":"{}","bytes":{},"files":{},"dirs":{},"truncated":{}}}"#,
+        escape_json_str(&usage.path),
+        usage.bytes,
+        usage.files,
+        usage.dirs,
+        usage.truncated,
+    )
+}
+
 fn is_not_found_io_message(msg: &str) -> bool {
     let lower = msg.to_ascii_lowercase();
     lower.contains("no such file")
@@ -380,6 +393,65 @@ fn try_handle_native_api(stream: &mut TcpStream, cfg: &ServerConfig, req: &Parse
                         ("Cache-Control".into(), "no-store".into()),
                     ],
                     br#"{"error":"native_metrics_unavailable"}"#,
+                );
+            }
+        }
+        return true;
+    }
+
+    if cfg.native_metrics && path == "/api/v1/sys/processes" {
+        if req.method != "GET" {
+            let _ = write_response(
+                stream,
+                405,
+                "application/json; charset=utf-8",
+                &[
+                    ("Allow".into(), "GET".into()),
+                    ("Cache-Control".into(), "no-store".into()),
+                ],
+                br#"{"error":"method_not_allowed"}"#,
+            );
+            return true;
+        }
+        if !has_session_cookie(req.cookie.as_deref()) {
+            let _ = write_response(
+                stream,
+                401,
+                "application/json; charset=utf-8",
+                &[("Cache-Control".into(), "no-store".into())],
+                br#"{"error":"unauthorized"}"#,
+            );
+            return true;
+        }
+        let limit = extract_query_param(query_str, "limit")
+            .and_then(|v| v.parse::<usize>().ok())
+            .filter(|v| *v > 0)
+            .map(|v| v.min(sys_procs::MAX_PROCESS_LIMIT))
+            .unwrap_or(NATIVE_SYS_PROCS_DEFAULT_LIMIT);
+        match sys_procs::read_linux_processes(limit) {
+            Ok(procs) => {
+                let body = sys_procs::processes_to_json(&procs);
+                let _ = write_response(
+                    stream,
+                    200,
+                    "application/json; charset=utf-8",
+                    &[
+                        ("X-MSO-Native-Handler".into(), "sys_procs".into()),
+                        ("Cache-Control".into(), "no-store".into()),
+                    ],
+                    body.as_bytes(),
+                );
+            }
+            Err(_) => {
+                let _ = write_response(
+                    stream,
+                    503,
+                    "application/json; charset=utf-8",
+                    &[
+                        ("X-MSO-Native-Handler".into(), "sys_procs".into()),
+                        ("Cache-Control".into(), "no-store".into()),
+                    ],
+                    br#"{"error":"native_processes_unavailable"}"#,
                 );
             }
         }
@@ -539,6 +611,50 @@ fn try_handle_native_api(stream: &mut TcpStream, cfg: &ServerConfig, req: &Parse
                     );
                 }
                 Err(err) => write_native_fs_error(stream, err, "native_fs_read_failed"),
+            }
+            return true;
+        }
+
+        if path == "/api/v1/fs/usage" {
+            if req.method != "GET" {
+                let _ = write_response(
+                    stream,
+                    405,
+                    "application/json; charset=utf-8",
+                    &[
+                        ("Allow".into(), "GET".into()),
+                        ("Cache-Control".into(), "no-store".into()),
+                    ],
+                    br#"{"error":"method_not_allowed"}"#,
+                );
+                return true;
+            }
+            if !has_session_cookie(req.cookie.as_deref()) {
+                let _ = write_response(
+                    stream,
+                    401,
+                    "application/json; charset=utf-8",
+                    &[("Cache-Control".into(), "no-store".into())],
+                    br#"{"error":"unauthorized"}"#,
+                );
+                return true;
+            }
+            let rel = extract_query_param(query_str, "path").unwrap_or_default();
+            match fs_jail::compute_jailed_usage(root, &rel) {
+                Ok(usage) => {
+                    let body = encode_fs_usage_json(&usage);
+                    let _ = write_response(
+                        stream,
+                        200,
+                        "application/json; charset=utf-8",
+                        &[
+                            ("X-MSO-Native-Handler".into(), "fs_jail".into()),
+                            ("Cache-Control".into(), "no-store".into()),
+                        ],
+                        body.as_bytes(),
+                    );
+                }
+                Err(err) => write_native_fs_error(stream, err, "native_fs_usage_failed"),
             }
             return true;
         }
@@ -2629,5 +2745,77 @@ mod tests {
         up_thread.join().unwrap();
         srv.stop();
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn handles_native_sys_processes_and_fs_usage_with_auth_and_jail_guards() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r4-final-{nanos}"));
+        let jail = std::env::temp_dir().join(format!("mso-rust-jail-r4-final-{nanos}"));
+        let outside = std::env::temp_dir().join(format!("mso-rust-out-r4-final-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(jail.join("docs")).unwrap();
+        fs::create_dir_all(jail.join(".ssh")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+        fs::write(jail.join("hello.txt"), "hello").unwrap(); // 5 bytes
+        fs::write(jail.join("docs/note.md"), "0123456789").unwrap(); // 10 bytes
+        fs::write(jail.join(".env"), "SECRET=12345678901234567890").unwrap(); // excluded
+        fs::write(jail.join(".ssh/id_rsa"), "PRIVATE").unwrap(); // excluded
+        fs::write(outside.join("secret.txt"), "OUTSIDE").unwrap();
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin: None,
+            managed_hosts: ManagedHostConfig::default(),
+            native_metrics: true,
+            native_fs_root: Some(jail.clone()),
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // /api/v1/sys/processes: auth + method + live native response
+        assert!(send("GET /api/v1/sys/processes HTTP/1.1\r\nHost: mso.example.com\r\n\r\n")
+            .starts_with("HTTP/1.1 401 Unauthorized"));
+        let proc_post = send("POST /api/v1/sys/processes HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=ok\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(proc_post.starts_with("HTTP/1.1 405 Method Not Allowed") && proc_post.contains("Allow: GET\r\n"));
+        let proc_ok = send("GET /api/v1/sys/processes?limit=5 HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=ok\r\n\r\n");
+        assert!(proc_ok.starts_with("HTTP/1.1 200 OK"), "procs: {proc_ok}");
+        assert!(proc_ok.contains("X-MSO-Native-Handler: sys_procs\r\n"));
+        assert!(proc_ok.contains("\"pid\":") && proc_ok.contains("\"mem\":"));
+
+        // /api/v1/fs/usage: auth + method + jailed usage excluding sensitive files + traversal/denylist guards
+        assert!(send("GET /api/v1/fs/usage?path=. HTTP/1.1\r\nHost: mso.example.com\r\n\r\n")
+            .starts_with("HTTP/1.1 401 Unauthorized"));
+        let usage_post = send("POST /api/v1/fs/usage HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=ok\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(usage_post.starts_with("HTTP/1.1 405 Method Not Allowed") && usage_post.contains("Allow: GET\r\n"));
+
+        let usage_root = send("GET /api/v1/fs/usage?path=. HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=ok\r\n\r\n");
+        assert!(usage_root.starts_with("HTTP/1.1 200 OK"), "usage root: {usage_root}");
+        assert!(usage_root.contains("X-MSO-Native-Handler: fs_jail\r\n"));
+        assert!(
+            usage_root.contains(r#"{"path":".","bytes":15,"files":2,"dirs":1,"truncated":false}"#),
+            "expected sensitive files excluded (15 bytes, 2 files, 1 dir): {usage_root}"
+        );
+
+        let usage_trav = send("GET /api/v1/fs/usage?path=../outside HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=ok\r\n\r\n");
+        assert!(usage_trav.starts_with("HTTP/1.1 400 Bad Request") && usage_trav.contains("traversal_blocked"));
+
+        let usage_ssh = send("GET /api/v1/fs/usage?path=.ssh HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=ok\r\n\r\n");
+        assert!(usage_ssh.starts_with("HTTP/1.1 403 Forbidden") && usage_ssh.contains("sensitive_path_denied"));
+
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&jail);
+        let _ = fs::remove_dir_all(&outside);
     }
 }

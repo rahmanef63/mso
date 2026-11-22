@@ -2,7 +2,7 @@
 
 Status: implementation restarted on 2026-11-09 at the owner's request, expanded on 2026-11-21 to
 the **hybrid Svelte 5 static UI + Rust shell track** (see [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md)),
-and updated on **2026-11-22** after completing **Increments 1-4 (100%) + Increment 5 Cutover/Benchmark Harness (40%) + Rust Stage R3G/R4 Full Native FS**.
+and updated on **2026-11-22** after completing **Increments 1-4 (100%) + Increment 5 Cutover Drill, Benchmark, iOS PWA & Runbook (60%) + Rust Stage R4 (100%)**.
 Deliver tested, reviewed increments to main; do not wait for the full rewrite to integrate
 completed work. This supersedes the paused product decision in MSO-MIGRATION.md, not its
 measurements.
@@ -11,10 +11,10 @@ measurements.
 
 Formula-based milestone progress (see [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md) for full weights):
 
-- **Svelte Static Frontend Track:** **~91.0%** (**Inc. 1 = 100%**, **Inc. 2 = 100%**, **Inc. 3 = 100%**, **Inc. 4 = 100%**, **Inc. 5 = 40%**).
-- **Slice Parity Count:** **33 / 33 slices COMPLETE**, **10 / 10 AppShell features COMPLETE**, **5 / 5 OS chromes COMPLETE**, Files Search/Copy/Move UI, Workflows SVG topology, 4-tab Settings (Prefs, Account/Onboarding, Updates, Audit), 33 lazy window chunks + `LazyModals`.
-- **Rust Shell Track:** **83.0%** (R0 = 100%, **R1 = 50%** [scaffold + `profiles.rs` + CI blueprint + contract tests], R2 = 100%, **R3 = 85%** [62 route policies + `/healthz` + SSE + WS], **R4 = 90%** [live `--native-metrics` + `--native-fs-root` `list`/`read`/`search`]).
-- **Combined Hybrid Program (60% Svelte + 40% Rust Shell):** **~87.8% (~88%)** (`12.0% -> 22.4% -> 39.8% -> 47.6% -> 52.1% -> 56.3% -> 62.2% -> 69.7% -> 74.9% -> 80.9% -> 87.8%`).
+- **Svelte Static Frontend Track:** **~94.0%** (**Inc. 1 = 100%**, **Inc. 2 = 100%**, **Inc. 3 = 100%**, **Inc. 4 = 100%**, **Inc. 5 = 60%**).
+- **Slice Parity Count:** **33 / 33 slices COMPLETE**, **10 / 10 AppShell features COMPLETE**, **5 / 5 OS chromes COMPLETE**, Files Search/Copy/Move UI, Workflows SVG topology, 4-tab Settings (Prefs, Account/Onboarding, Updates, Audit), 33 lazy window chunks + `LazyModals`, iOS PWA standalone manifest & safe-area insets.
+- **Rust Shell Track:** **84.5%** (**R0 = 100%**, **R1 = 50%** [scaffold + `profiles.rs` + CI blueprint + contract tests], **R2 = 100%**, **R3 = 85%** [62 route policies + `/healthz` + SSE + WS + automated cutover drill], **R4 = 100% COMPLETE** [live `--native-metrics` `stats`+`processes` + `--native-fs-root` `list`/`read`/`search`/`usage`]).
+- **Combined Hybrid Program (60% Svelte + 40% Rust Shell):** **~90.2% (~90%)** (`12.0% -> 22.4% -> 39.8% -> 47.6% -> 52.1% -> 56.3% -> 62.2% -> 69.7% -> 74.9% -> 80.9% -> 87.8% -> 90.2%`).
 
 ## Goal and limits
 
@@ -32,7 +32,7 @@ in [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md). Production remains Next/React u
 | 2 | 15% | Real login, pending-device guidance, logout, 128-bit device ID, Owner device approvals/role/inline-revoke, CSRF depth-2, split-origin/MCP edge, plus first-login onboarding, `/api/auth/account` & `/api/auth/password` rotation | **Complete & verified locally (100%)** | **100%** |
 | 3 | 25% | Window store, `<WindowFrame>` + `<svelte:boundary>`, History URL sync, layout persistence, `files-manager`, `os-terminal` (PTY + live SSE), Service Center | **Complete & verified locally (100%)** | **100%** |
 | 4 | 35% | All 33 slices, 5 OS chromes, 10 AppShell features, Files Search/Copy/Move UI, Workflows SVG topology, 4-tab Settings (Prefs/Account/Updates/Audit), `LazyModals`, contract tests & Chromium journeys | **Complete & verified locally (100%)** | **100%** |
-| 5 | 15% | Fail-safe runtime selector (`scripts/hybrid-runtime.mjs`) + zero-conversion rollback plan + same-host benchmark (`scripts/bench-hybrid-same-host.mjs`) landed; live `mso.service` switch & real-device iOS PWA proof pending | **Harness & benchmark verified (40%); live prod cutover pending** | **40%** |
+| 5 | 15% | Fail-safe runtime selector (`scripts/hybrid-runtime.mjs`) + automated cutover/rollback drill (`scripts/cutover-drill.mjs` with SHA-256 `~/.mso` immutability) + same-host benchmark (`scripts/bench-hybrid-same-host.mjs`) + iOS PWA standalone manifest/safe-area + operator [`CUTOVER-RUNBOOK.md`](./CUTOVER-RUNBOOK.md) landed; live `mso.service` switch & real-device iPhone proof pending | **Cutover drill, benchmark, iOS PWA & runbook verified (60%); live prod cutover pending** | **60%** |
 
 ## Increments 1-5: 33/33 slices, 10/10 features, 5 chromes, runtime selector & live Rust Stage R4
 

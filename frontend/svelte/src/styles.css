@@ -35,7 +35,11 @@ html, body {
   background: var(--accent); color: var(--accent-text); text-decoration: none; border-radius: 0.25rem;
 }
 .skip-link:focus { top: 0.75rem; }
-.workspace { max-width: 68rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.workspace {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(3rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+}
 .workspace[data-chrome="windows"] .app-dock { border-radius: 0.25rem; }
 .workspace[data-chrome="dashboard"] .window-area { grid-template-columns: repeat(auto-fit, minmax(min(28rem, 100%), 1fr)); }
 .workspace[data-chrome="ios"] .app-dock, .workspace[data-chrome="android"] .app-dock { border-radius: 0.75rem; }

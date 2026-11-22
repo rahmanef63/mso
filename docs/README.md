@@ -27,6 +27,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`AGENT-SECURITY.md`](./AGENT-SECURITY.md) | Agent-specific threat model, tool risk classes, abuse cases and memory-admission security contract |
 | [`DISASTER-RECOVERY.md`](./DISASTER-RECOVERY.md) | 3-2-1 target, RPO/RTO objectives, backup classes and restore-drill acceptance |
 | [`RELIABILITY.md`](./RELIABILITY.md) | Initial SLIs/SLO targets, error-budget policy, disk thresholds and release reliability contract |
+| [`CUTOVER-RUNBOOK.md`](./CUTOVER-RUNBOOK.md) | Opt-in hybrid Svelte + Rust shell preflight, automated cutover/rollback drill, Stage R4 native flags, real-device PWA checklist and zero-data-loss rollback to Next.js |
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Current runtime, shell, role, host, Agent/Local Agent/subagent, MCP and deployment architecture |
 | [`GATEWAY.md`](./GATEWAY.md) | Provider-neutral gateway state, health, ownership, supervisor and deployment contract |
 | [`COGNITIVE-RUNTIME.md`](./COGNITIVE-RUNTIME.md) | Provider-neutral MCP/session/context/tool-routing runtime and benchmark contract |
@@ -166,5 +167,8 @@ the current-reference doc.
   execution plan, preview boundary, 33-slice parity ledger and measured cutover requirements.
 - [RUST-SHELL-PLAN.md](./RUST-SHELL-PLAN.md) records the hybrid Svelte + Rust shell roadmap
   (Stages R0-R4, Tauri v2 desktop client plan, Stage R0 static host evidence and OS boundaries).
+- [CUTOVER-RUNBOOK.md](./CUTOVER-RUNBOOK.md) records the opt-in hybrid preflight checks, automated
+  cutover/rollback drill, Stage R4 native flags, real-device iOS PWA checklist and zero-data-loss
+  rollback procedure.
 
 Production remains Next/React until the cutover gate is met.
