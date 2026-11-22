@@ -1,72 +1,38 @@
-# MSO slice catalog
+# MSO feature module catalog (Svelte 5)
 
 > **Current reference.** Counts are checked against the directory tree by
-> `scripts/check-docs.mjs`; the directory remains the final authority.
+> `scripts/check-docs.mjs`; `frontend/svelte/src/lib/` remains the final authority.
 
-<!-- slice-catalog: slices=33 appshell-features=10 -->
+<!-- slice-catalog: svelte-modules=22 -->
 
-Every application is a vertical slice under `frontend/slices/`. Host-facing slices use the
-shared API/host seam rather than reaching arbitrary Node host APIs from client code.
+Every cockpit application lives under `frontend/svelte/src/lib/` and talks to the MSO
+backend (`lib/` + `app/api/**`) or native Rust shell (`rust-shell/`). The legacy Next.js /
+React `frontend/slices/` tree was archived to the private `mso-nextjs-checkpoint` repo and
+removed during the Svelte 5 + Rust Shell full cutover.
 
-## Slices (33)
+## Svelte 5 Feature Modules (22)
 
-| Slug | Purpose |
+| Module | Purpose |
 |---|---|
+| `agent-group` | Multi-agent discussion groups: several profiles take turns on one topic |
 | `agent-vault` | Separate private repository agent-progress snapshots in an Obsidian-compatible Markdown vault |
-| `agent-group` | Multi-agent discussion groups: several Hermes profiles take turns on one topic and mirror replies into a Telegram group |
-| `app-store` | App Store / app discovery surface |
-| `appshell` | Generic desktop/mobile shell framework |
-| `assistant` | Alfa assistant, agents/playbooks and tool activity |
-| `auth` | Authentication UI/helpers |
-| `bot-desktops` | Bot desktop containers created by grokbot: per-display live screenshots and the lifecycle verbs the desktop API exposes |
-| `camoufox-browser` | Remote Camoufox/noVNC Browser app |
-| `channels` | Provider-neutral Telegram/Discord channel configuration, status, send/test, inbound URLs and workflow binding |
-| `code-editor` | Code/text editor with integrated terminal |
+| `assistant` | Alfa assistant chat, agent sessions, playbooks, and tool activity |
+| `auth` | Login, session state, and device approval helpers |
+| `catalog` | App Store and Extensions (MCP + Skills) catalog |
 | `create-app` | Create App manifest authoring surface |
+| `creative` | Image Editor, Media Studio, and Reel Editor |
 | `docs` | In-app documentation browser |
-| `extensions` | Shared VPS-backed MCP and Skills Store / Settings installation panels |
-| `files-manager` | VPS Files manager |
-| `image-editor` | Layered raster image editor |
-| `icon-picker` | Emoji/Lucide/Phosphor icon chooser with lazy catalogs and `<DynamicIcon>` |
-| `image-picker` | Reusable image/wallpaper picker |
-| `infrastructure` | Dokploy/Cloudflare provider configuration and live inventory apps |
-| `integrations` | Native connection manager shell window using the existing Integrations service |
-| `managed-apps` | Hermes/OpenClaw install/lifecycle/update/backup/proxy |
-| `n8n` | Dedicated reviewed n8n workspace, isolated from native Workflows and MSO credentials |
-| `media-studio` | Image/media studio surface |
-| `media-viewer` | Preview/Quick Look-style media viewer |
-| `memory-graph` | Interactive knowledge and memory graph (vault notes, project knowledge, agent memory) |
-| `os-settings` | MSO Settings |
-| `os-shell` | MSO consumer manifest/capabilities for AppShell |
-| `os-terminal` | Interactive PTY Terminal / Claude Code surface |
-| `organization` | Owner-private organization chart, reporting lines, seat state, and execution bindings |
-| `quicklinks` | Website shortcuts/favicons |
-| `reel-editor` | Video/reel timeline editor |
-| `shell-settings` | Shared shell settings UI primitives |
-| `system-monitor` | Live metrics/processes, service inventory/logs/allowlisted lifecycle, cache-only package updates, and per-slice budget vs measured resource use |
-| `workflows` | Server-native automation editor with schedule/webhook/channel triggers, channel send, flow control, private history/versions/variables and node-level logs |
-
-## AppShell feature directories (10)
-
-`frontend/slices/appshell/features/` currently contains:
-
-- `clipboard`
-- `control-center`
-- `desktop-icons`
-- `force-quit`
-- `inspector`
-- `lock-screen`
-- `notifications`
-- `search`
-- `shortcut-help`
-- `widgets`
-
-Not every directory is a user-visible slot contribution: `desktop-icons` and `force-quit`
-are shell infrastructure used directly by the desktop runtime. `shell-settings` is a normal
-top-level slice, not an AppShell feature directory.
-
-See [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) for the shell/manifest relationship,
-[`docs/FRONTEND-CONTRACT.md`](./FRONTEND-CONTRACT.md) and `frontend/slices/feature-contracts.ts`
-(enforced by `bun run check:features` against `feature.boundaries.json`) for automated slice
-contracts, and [`docs/MODULAR-FEATURES.md`](./MODULAR-FEATURES.md) for independently deployed
-modular feature packages under `~/.mso/features/`.
+| `editor` | Code/text editor |
+| `files` | VPS Files manager |
+| `infra` | Dokploy/Cloudflare provider configuration and live inventory |
+| `integrations` | Integrations and Telegram/Discord Channels workspace |
+| `managed-apps` | AppDeck managed OSS app install/lifecycle/update/backup/proxy |
+| `media` | Media viewer and reusable icon/image pickers |
+| `memory-graph` | Interactive knowledge and memory graph |
+| `monitor` | System Monitor, Processes, Services, and Packages |
+| `organization` | Owner-private organization chart and execution bindings |
+| `runtime-apps` | Camoufox Browser, Bot Desktops, and n8n workspace |
+| `settings` | MSO Settings, security, memory backup, and Software Update |
+| `shell` | Desktop/mobile window manager, dock, command palette, lock screen, and notifications |
+| `terminal` | Interactive PTY terminal |
+| `workflows` | Native SVG workflow graph editor, triggers, and execution history |

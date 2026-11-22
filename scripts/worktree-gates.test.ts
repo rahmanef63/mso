@@ -65,8 +65,19 @@ function fixture(script: string) {
     writeFileSync(path.join(repo, file),
       `import fs from 'node:fs'; if (!fs.existsSync('.build-verified') || fs.existsSync('.env.local')) throw Error('unsafe bundle fixture'); console.log('isolated ${label} fixture passed');`);
   }
+  writeFileSync(
+    path.join(repo, "package.json"),
+    JSON.stringify({
+      name: "fixture",
+      scripts: {
+        "svelte:check": "node -e \"const fs=require('node:fs'); if(fs.lstatSync('node_modules').isSymbolicLink()) throw Error('outside-root symlink'); if(fs.existsSync('.env.local')) throw Error('secret copied'); console.log('isolated check fixture passed');\"",
+        "svelte:build": "node -e \"const fs=require('node:fs'); fs.writeFileSync('.build-verified','ok'); console.log('isolated build fixture passed');\"",
+        "svelte:e2e": "node -e \"const fs=require('node:fs'); if(!fs.existsSync('.build-verified') || fs.existsSync('.env.local')) throw Error('unsafe E2E fixture'); console.log('isolated E2E fixture passed');\"",
+      },
+    }),
+  );
   git("init", "-q");
-  git("add", "scripts");
+  git("add", "scripts", "package.json");
   git(
     "-c",
     "user.name=Test",
@@ -130,18 +141,10 @@ describe("isolated worktree release guards", () => {
       timeout: 10_000,
     });
     expect(run.status, run.stderr).toBe(0);
+    expect(run.stdout).toContain("isolated check fixture passed");
     expect(run.stdout).toContain("isolated build fixture passed");
     expect(run.stdout).toContain("Playwright Chromium ready");
     expect(run.stdout).toContain("isolated E2E fixture passed");
-    expect(run.stdout).toContain("isolated shell fixture passed");
-    expect(run.stdout).toContain("isolated shell status fixture passed");
-    expect(run.stdout).toContain("isolated bundle budget fixture passed");
-    expect(run.stdout).toContain("isolated deferred performance fixture passed");
-    expect(run.stdout).toContain("isolated native Google UI fixture passed");
-    expect(run.stdout).toContain("isolated credential actions fixture passed");
-    expect(run.stdout).toContain("isolated Assistant chat UX fixture passed");
-    expect(run.stdout).toContain("isolated macOS chrome fixture passed");
-    expect(run.stdout).toContain("isolated iOS lock fixture passed");
     expect(readFileSync(path.join(repo, ".next/keep"), "utf8")).toBe(
       "live marker",
     );

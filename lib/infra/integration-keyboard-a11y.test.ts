@@ -18,22 +18,10 @@ import { CONNECTION_MANAGER_SCRIPT } from "./connection-ui";
 const read = (p: string) => readFileSync(p, "utf8");
 
 describe("skip link reaches the primary content", () => {
-  it("targets a focusable element that is not the whole-shell wrapper", () => {
-    const osRoot = read("app/os-root.tsx");
-    expect(osRoot, "the old target wrapped the menu bar, so it skipped nothing").not.toContain('href="#main-content"');
-    expect(osRoot).toContain('href="#shell-main"');
-  });
-
-  it.each([
-    ["frontend/slices/appshell/components/shells/macos/macos-shell.tsx", "macos"],
-    ["frontend/slices/appshell/components/shells/windows/windows-shell.tsx", "windows"],
-    ["frontend/slices/appshell/components/mobile-shell.tsx", "mobile"],
-  ])("%s provides the target and a main landmark", (file) => {
-    const src = read(file);
-    expect(src, `${file} must carry the skip target`).toContain('id="shell-main"');
-    expect(src, `${file} must declare the primary region`).toContain('role="main"');
-    // tabIndex -1 makes it focusable by the hash jump without adding a tab stop of its own.
-    expect(src).toMatch(/tabIndex=\{-1\}/);
+  it("targets a focusable main landmark in the Svelte 5 shell", () => {
+    const page = read("frontend/svelte/src/routes/+page.svelte");
+    expect(page).toContain('href="#main-content"');
+    expect(page).toContain('<main id="main-content" tabindex="-1"');
   });
 });
 

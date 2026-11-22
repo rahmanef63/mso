@@ -5,7 +5,7 @@ import {
   formatTurnUsage,
   formatThreadUsage,
   formatUsageSummary,
-} from "../../frontend/slices/assistant/components/turn-usage";
+} from "./turn-usage";
 
 vi.mock("./stream", () => ({ streamAgentTurn: vi.fn() }));
 

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Safe default for `bun run build`.
-# A Next production server reads manifests/chunks from .next for its whole life.
-# `next build` starts by deleting/replacing that tree, so running it in the same
-# checkout as a live Next runtime creates a deterministic chunk/manifest outage.
+# Builds the Svelte 5 static bundle (`frontend/svelte/build`) under the checkout-wide
+# runtime exclusion lock so a live MSO server never sees a partially written bundle.
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)"
@@ -24,19 +23,19 @@ set -e
 case "$LIVE_RC" in
   0)
     PID="$(printf '%s' "$LIVE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).pid||"?"))}catch{process.stdout.write("?")}})')"
-    echo "mso build: refusing in-place Next build; live runtime pid $PID is serving this checkout" >&2
+    echo "mso build: refusing in-place build; live runtime pid $PID is serving this checkout" >&2
     echo "mso build: use 'mso build' to verify HEAD out-of-tree, or 'mso deploy' for a safe production rebuild" >&2
     exit 73
     ;;
   1) ;;
   *)
-    echo "mso build: could not inspect live runtime ownership; refusing to mutate .next" >&2
+    echo "mso build: could not inspect live runtime ownership; refusing to mutate build output" >&2
     exit 74
     ;;
 esac
 
-NEXT="$ROOT/node_modules/next/dist/bin/next"
-[ -f "$NEXT" ] || { echo "mso build: Next is not installed; run bun install" >&2; exit 69; }
 cd "$ROOT"
-# Keep the checkout-wide exclusion FD inherited by Node for the entire mutation.
-node "$NEXT" build
+bun run svelte:build
+if command -v cargo >/dev/null 2>&1 && [ -f "$ROOT/rust-shell/Cargo.toml" ]; then
+  (cd "$ROOT/rust-shell" && cargo build --release --bin mso-shell-host)
+fi

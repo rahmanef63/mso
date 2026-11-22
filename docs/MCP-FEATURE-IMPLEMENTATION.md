@@ -4,7 +4,7 @@
 > tools, trusted skills, project function capabilities, OAuth/scope behavior, and client
 > action definitions without guessing. Protocol and security authority remains
 > [`MCP.md`](./MCP.md); Alfa/Tool/Skill/Playbook semantics remain
-> [`frontend/slices/assistant/CONTRACT.md`](../frontend/slices/assistant/CONTRACT.md).
+> [`lib/agent/host-tools/registry.ts`](../lib/agent/host-tools/registry.ts).
 
 ## 1. Default loop: observe → map → bound → reverse-engineer → change → prove
 

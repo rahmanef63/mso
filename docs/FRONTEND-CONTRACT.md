@@ -10,7 +10,7 @@
 1. Read root `AGENTS.md` and `CLAUDE.md` for source, host, permissions and release rules.
 2. Read [`DESIGN.md`](../DESIGN.md) for the established product direction and semantic tokens.
 3. Read this contract and [`UI-UX-FOUNDATION.md`](./UI-UX-FOUNDATION.md) for shared layout/state.
-4. Read [`Shell UI architecture`](../frontend/slices/appshell/design/README.md) and the
+4. Read [`Svelte 5 shell registry`](../frontend/svelte/src/lib/shell/shell-registry.ts) and the
    affected shell's local `design.md`; preserve all five shell identities.
 5. Read the feature's own contract and find a working sibling implementation.
    [`SLICE-CATALOG.md`](./SLICE-CATALOG.md) is the feature inventory SSOT.

@@ -1,0 +1,7 @@
+# 2026-11-23 — Full Next.js Removal & Svelte 5 + Rust Shell Cutover
+
+- Archived full pre-removal Next.js/React repository (`main` at `f3159e30` + all 8 historical tags) to private GitHub checkpoint repository `rahmanef63/mso-nextjs-checkpoint`.
+- Removed 1,101+ legacy Next.js and React files (`frontend/slices/`, `components/`, `hooks/`, `app/[[...slug]]/`, `app/login/`, `app/install/`, `next.config.mjs`, `postcss.config.mjs`, `instrumentation.ts`) and stripped `next`, `react`, `react-dom`, `@radix-ui/*`, `eslint-config-next`, and Tailwind/PostCSS from root `package.json` (`node_modules` shrunk from ~1.5 GiB to 289 MiB).
+- Preserved pure-TS backend modules (`lib/image-editor/`, `lib/agent/host-tools/`, `lib/ai/turn-usage.ts`) and converted `/oauth/authorize` to a standard Web Fetch route handler (`app/oauth/authorize/route.ts`).
+- Replaced Next.js HTTP runtime with zero-Next Web Fetch router and shims (`lib/http/next-server-shim.ts`, `lib/http/next-headers-shim.ts`, `lib/http/server-only-shim.ts`, `lib/http/server-bootstrap.ts`, `lib/http/router.ts`, `scripts/lib/ts-alias-loader.mjs`, `scripts/server.mjs`) serving all 128 `app/**/route.ts` API/MCP/OAuth/A2A handlers and `frontend/svelte/build`.
+- Updated governance and build scripts (`scripts/build-safe.sh`, `scripts/verify-build.sh`, `scripts/check-features.mjs`, `scripts/check-docs.mjs`, `lib/resources/*`, `docs/SLICE-CATALOG.md`, `docs/comparison-data.json`, `docs/parity/nakama-implementation.json`) to Svelte 5 (`frontend/svelte/src/lib/`).

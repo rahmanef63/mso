@@ -1,6 +1,7 @@
-import type { CSSProperties } from "react";
 import type { ImageValue } from "@/lib/contracts/image";
 import type { LiveWallpaper, Wallpaper } from "./wallpapers";
+
+type CSSProperties = Record<string, string | number | undefined>;
 
 export type Theme = "light" | "dark";
 // Wallpaper keys + the .wp-* classes are the wallpapers.ts registry (SSOT).

@@ -11,12 +11,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const ALL_CHECKS = ["architecture", "cycles", "features", "docs", "changelog", "contrast", "instance-literals"];
 const ALL_E2E = RELEASE_E2E_JOURNEYS.map((j) => j.id);
 const CORE_PREFIXES = [
-  "app/", "components/", "frontend/slices/appshell/", "frontend/slices/os-shell/",
+  "app/", "frontend/svelte/src/lib/shell/", "lib/http/",
   "lib/auth/", "lib/host/", "lib/api/", "lib/contracts/", "lib/security/",
   "lib/mcp/", "lib/capabilities/", "scripts/", "bin/",
 ];
 const CORE_FILES = new Set([
-  "package.json", "bun.lock", "next.config.mjs", "proxy.ts", "instrumentation.ts",
+  "package.json", "bun.lock", "proxy.ts",
   "tsconfig.json", "vitest.config.mts", "eslint.config.mjs",
   "architecture.boundaries.json", "feature.boundaries.json",
 ]);

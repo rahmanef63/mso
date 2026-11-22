@@ -3,7 +3,7 @@ import { MCP_ONLY } from "./mcp-only-reasons";
 vi.mock("server-only", () => ({}));
 
 const { TOOLS } = await import("./tools");
-const { HOST_TOOLS } = await import("@/frontend/slices/assistant/host-tools/catalog");
+const { HOST_TOOLS } = await import("@/lib/agent/host-tools/catalog");
 
 // Every capability must be available through both MCP and Alfa, or explicitly
 // justify the deliberate identity/transport boundary below. Different adapters

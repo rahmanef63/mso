@@ -17,42 +17,40 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "baseUrl": ".",
     "paths": {
+      "next/server": [
+        "./lib/http/next-server-shim.ts"
+      ],
+      "next/headers": [
+        "./lib/http/next-headers-shim.ts"
+      ],
+      "server-only": [
+        "./lib/http/server-only-shim.ts"
+      ],
+      "next/dist/shared/lib/router/utils/relativize-url": [
+        "./lib/http/next-server-shim.ts"
+      ],
       "@/*": [
         "./*"
       ],
       "@/shared/*": [
-        "./components/shared/*",
         "./lib/shared/*"
-      ],
-      "@/features/*": [
-        "./frontend/slices/*"
       ]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
   "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    "**/*.ts"
   ],
   "exclude": [
     "node_modules",
+    ".next/**",
     ".worktrees/**",
     "**/.worktrees/**",
     ".claude/worktrees/**",
-    "frontend/slices/**/slice.contract.ts",
     "**/zz-*",
     "frontend/svelte/**"
   ]

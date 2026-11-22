@@ -22,7 +22,7 @@ describe("one supported Node runtime contract", () => {
     expect(pkg.engines.node).toBe(NODE_RUNTIME_RANGE);
     expect(readFileSync("scripts/cli/commands-host.sh", "utf8")).toContain("scripts/check-node-runtime.mjs");
     expect(readFileSync("scripts/check-test-toolchain.mjs", "utf8")).toContain("assertNodeRuntime()");
-    for (const file of ["docs/INSTALL.md", "app/install/page.tsx", "docs/reference/WORKSPACE-GUIDE.md"])
+    for (const file of ["docs/INSTALL.md", "docs/reference/WORKSPACE-GUIDE.md"])
       expect(readFileSync(file, "utf8")).not.toContain("20.9");
   });
 });

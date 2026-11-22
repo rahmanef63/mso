@@ -2,20 +2,14 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * The authoritative slice list: the real directories under frontend/slices.
- *
- * Deliberately read from disk rather than declared here. A second hard-coded copy of
- * the list is a list that goes stale, and the registry-completeness test exists
- * precisely to catch a slice that appears on disk without a budget entry.
+ * The authoritative UI module list: the real directories under frontend/svelte/src/lib.
  */
-export const SLICES_ROOT = join(process.cwd(), "frontend", "slices");
+export const SLICES_ROOT = join(process.cwd(), "frontend", "svelte", "src", "lib");
 
-/** Directory names under frontend/slices, sorted. Empty when the root is missing. */
+/** Directory names under frontend/svelte/src/lib, sorted. Empty when the root is missing. */
 export function knownSliceDirectories(root: string = SLICES_ROOT): string[] {
   try {
-    // `turbopackIgnore` is load-bearing: without it the tracer follows this readdir
-    // and pulls the whole project (source + public/) into the server bundle.
-    return readdirSync(/* turbopackIgnore: true */ root, { withFileTypes: true })
+    return readdirSync(root, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort();

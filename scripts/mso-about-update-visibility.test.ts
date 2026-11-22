@@ -1,43 +1,29 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-const read = (name: string) => readFileSync(`frontend/slices/os-settings/components/${name}.tsx`, "utf8");
-describe("software update visibility contract", () => {
-  it("promotes software update to the final top-level Settings section", () => {
-    const sections = readFileSync("frontend/slices/os-settings/lib/sections.ts", "utf8");
-    const body = read("sections");
-    expect(sections).toContain('label: "Update MSO"');
-    expect(sections).toMatch(/"backup",\s*"updates",\s*\];/);
-    expect(body).toContain('case "updates"');
-    expect(body).toContain("return <UpdateSection />");
-    expect(read("about-overview")).not.toContain('label="Check software updates"');
-    expect(read("version-section")).not.toContain('label="Check software updates"');
-    expect(read("about-section")).toContain('page === "updates"');
-    expect(read("update-nav-badge")).toContain('aria-label="New MSO version available"');
-    expect(read("nav")).toContain('data-slot="settings-update-footer"');
+
+const readSettings = (name: string) => readFileSync(`frontend/svelte/src/lib/settings/${name}`, "utf8");
+
+describe("software update visibility contract (Svelte 5 Settings)", () => {
+  it("exposes Software update as a top-level Settings tab", () => {
+    const app = readSettings("SettingsApp.svelte");
+    expect(app).toContain('type SettingsTab = "prefs" | "account" | "updates" | "audit"');
+    expect(app).toContain('tab === "updates"');
+    expect(app).toContain("SoftwareUpdateCard");
   });
-  it("does not disappear on authentication/network failure", () => {
-    const source = read("update-section");
-    expect(source).not.toContain('IS_DEMO || (!info && !checking)');
-    expect(read("update-status-card")).toContain('role="alert"');
-    expect(read("update-status-card")).toContain('>Try again</Button>');
-    // 401 is an auth problem and 403 is a same-origin problem. They must stay
-    // distinct sentences: the old single message told a loopback visitor to sign
-    // in as an Owner, which was not their problem and not something they could fix.
-    const client = readFileSync("frontend/slices/os-settings/components/update-status-client.ts", "utf8");
-    expect(client).toContain("res.status === 401");
-    expect(client).toContain("res.status === 403");
-    expect(client).toContain("Sign in as an Owner");
-    expect(client).toContain("not same-origin");
+
+  it("handles owner authorization and failure states visibly", () => {
+    const card = readSettings("SoftwareUpdateCard.svelte");
+    const api = readSettings("host-ops-api.ts");
+    expect(card).toContain("Software update");
+    expect(card).toContain("Owner role is required to inspect software updates");
+    expect(api).toContain("status === 403");
+    expect(api).toContain("/api/v1/sys/update");
   });
-  it("keeps version checks available even without a restart manager", () => {
-    expect(read("update-section")).toContain('{!running && (');
-    expect(read("update-section")).not.toContain('{info.supported !== false && !running && (');
-  });
-  it("distinguishes running/checkout/upstream identity and unknown freshness", () => {
-    const source = read("update-status-card");
-    expect(source).toContain('!info.remoteChecked || error');
-    expect(source).toContain('Update status not verified');
-    expect(source).toContain('Checkout {info.current');
-    expect(source).toContain('info.latest || "not checked"');
+
+  it("distinguishes remote check status and unsupported deployments", () => {
+    const card = readSettings("SoftwareUpdateCard.svelte");
+    expect(card).toContain("info.remoteChecked");
+    expect(card).toContain("!info.supported");
+    expect(card).toContain("update-available");
   });
 });

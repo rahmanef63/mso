@@ -52,7 +52,7 @@ describe("live checkout runtime detector", () => {
       env: { ...process.env, HOME: home, MSO_RUNTIME_PROC_ROOT: proc, MSO_RUNTIME_EXCLUSION_DIR: path.join(home, "locks") },
     });
     expect(out.status).toBe(73);
-    expect(out.stderr).toContain("refusing in-place Next build");
+    expect(out.stderr).toContain("refusing in-place build");
     expect(out.stderr).toContain("mso deploy");
   });
 });
