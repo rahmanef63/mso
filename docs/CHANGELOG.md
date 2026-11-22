@@ -22,6 +22,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `e2e` isolate release fixture from host systemd and HOME
 - `gate,update,docs` hermetic managed-app E2E isolation, resilient push/update UX, and noncommercial license polish
 - `security` remove Scorecard-flagged write permissions workflow and allowlist RFC 6455 test key
 - `e2e` isolate release fixture from host Docker and widen the n8n journey timeout

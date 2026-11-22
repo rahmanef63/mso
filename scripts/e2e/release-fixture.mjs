@@ -12,6 +12,14 @@ export const releaseExpect = playwrightExpect.configure({ timeout: 15_000 });
 
 export async function releaseFixture({ live = false, surfaceApps = [], publicOrigin, onLog } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), "mso-release-e2e-"));
+  const stubBin = path.join(dir, "stub-bin");
+  const fakeHome = path.join(dir, "home");
+  await mkdir(stubBin, { recursive: true });
+  await mkdir(fakeHome, { recursive: true });
+  // A `systemctl` that answers nothing exists, so managed-app detection reads "not installed"
+  // instead of the operator's own units. runProgram() treats a non-zero exit as "ask the next
+  // scope", so exit 1 makes both the --user and the system scope answer "missing".
+  await writeFile(path.join(stubBin, "systemctl"), "#!/bin/sh\nexit 1\n", { mode: 0o700 });
   let providerStatus = 200;
   const provider = createServer((req, res) => {
     res.writeHead(req.url === "/api/check_admin_key" ? providerStatus : 404, { "content-type": "application/json" });
@@ -61,6 +69,11 @@ export async function releaseFixture({ live = false, surfaceApps = [], publicOri
     // $HOME state-dir probes so release E2E gets identical verdicts on workstations and CI.
     MSO_MANAGED_APPS_ISOLATE: "1",
     DOCKER_HOST: `unix://${path.join(dir, "no-docker.sock")}`,
+    // HOME decides os.homedir(), which managed-app discovery lstat's for ~/.hermes, ~/.t3 and
+    // friends; PATH decides which systemctl it finds. Both are pinned to the fixture so a
+    // workstation with real apps installed gives the same verdict as a bare CI runner.
+    HOME: fakeHome,
+    PATH: `${stubBin}${path.delimiter}${process.env.PATH ?? ""}`,
     OS_DEVICE_STORE: deviceFile, OS_INFRA_STORE: path.join(dir, "infra.json"),
     OS_CONFIG_STORE: path.join(dir, "config.json"), OS_PREFS_PATH: path.join(dir, "prefs.json"),
     OS_AUDIT_LOG: path.join(dir, "audit.jsonl"), OS_LOGIN_PASSWORD: password,
