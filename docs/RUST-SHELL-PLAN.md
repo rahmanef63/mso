@@ -1,12 +1,12 @@
 # Hybrid Svelte + Rust Shell Plan
 
-> **Implementation contract & Increment 4F + Inc. 2 Complete / Rust Stage R4 Native & R1 Tauri Scaffold record (2026-11-22).**
-> **Stage R0 (100%)**, **Stage R1 Tauri v2 scaffold + `desktop.rs` contract (35%)**, **Stage R2 (100%)**,
-> **Stage R3 (58 route policies + GET/POST SSE + WS, 80%)**, **Stage R4 opt-in native Rust endpoints
-> (`--native-metrics` + `--native-fs-root` verified live in Chromium, 80%)**, and **Svelte Increments 1 (100%),
-> 2 (100%), 3 (100%), and 4 (96%)** — covering **33 / 33 slices**, **10 / 10 AppShell features**,
-> **5 / 5 OS chromes**, **Onboarding/Account/Password**, **single in-Settings Updates**, and **Audit Log** —
-> are implemented and verified on this branch. Production remains Next.js/React until Increment 5 cutover.
+> **Implementation contract & Wave 9 record (2026-11-22) — 87.8% (~88%) combined.**
+> **Svelte Increments 1, 2, 3, and 4 are 100% complete** (**33 / 33 slices**, **10 / 10 AppShell features**,
+> **5 / 5 OS chromes**, Files search/copy/move UI, Workflows SVG topology, Onboarding/Account/Updates/Audit),
+> **Increment 5 runtime selector & same-host benchmark harness landed (40%)**, **Rust Stage R0 & R2 (100%)**,
+> **Stage R1 Tauri v2 scaffold + `profiles.rs` + cross-layer contract (50%)**, **Stage R3 (62 route policies +
+> `/healthz`, 85%)**, and **Stage R4 live native `--native-metrics` + `--native-fs-root` (`list`/`read`/`search`,
+> 90%)** are implemented and verified on this branch. Production remains Next.js/React until live cutover.
 
 ## 1. Progress percentage tracker (formula-based, 2026-11-22)
 
@@ -17,31 +17,31 @@ Progress is computed strictly from weighted milestone gates (never guessed from 
 | Milestone | Weight | Status | Completion | Weighted |
 |---|---|---|---|---|
 | Increment 1: Static entry + monitor probe + `shell-bridge` | 10% | Merged on `main` (PR #285) + audited | 100% | 10.0% |
-| Increment 2: Auth/devices/CSRF (2A) + managed-host/OAuth/MCP edge + Onboarding/Account/Password (2B) | 15% | **Done (100%):** login, pending-device, logout, 128-bit device ID, owner approvals, split-origin/MCP edge, and `AccountOnboardingCard` (`/api/auth/account` + `/api/auth/password`) | 100% | 15.0% |
-| Increment 3: AppShell window manager + URL sync + crash isolation + Files + Terminal | 25% | **Done (100%):** window store, `<WindowFrame>` + `<svelte:boundary>`, URL sync, `files-manager`, `os-terminal` | 100% | 25.0% |
-| Increment 4: Remaining slices + 5 OS chromes + 10 AppShell features | 35% | **4F landed (96%):** **33 / 33 slices**, **10 / 10 AppShell features**, **5 / 5 OS chromes**, `LazyWindowBody` (33 chunks) + `LazyModals`, Files copy/move/search, single in-Settings Updates & Audit Log; deep secondary mutations (drag canvas, binary upload/zip) remain | 96% | 33.6% |
-| Increment 5: Full Next cutover + same-host RSS/CPU/latency proof + rollback | 15% | Not started (production remains Next.js/React) | 0% | 0.0% |
-| **Total Svelte Track** | **100%** | **Inc. 1-3 (100%) + Inc. 4 (96%): 33/33 slices, 10/10 features, 5/5 chromes** | **83.6%** | **83.6%** |
+| Increment 2: Auth/devices/CSRF (2A) + managed-host/OAuth/MCP edge + Onboarding/Account/Password (2B) | 15% | **Done (100%)** | 100% | 15.0% |
+| Increment 3: AppShell window manager + URL sync + crash isolation + Files + Terminal | 25% | **Done (100%)** | 100% | 25.0% |
+| Increment 4: All 33 slices + 5 OS chromes + 10 AppShell features + deep UI parity | 35% | **Done (100%):** **33 / 33 slices**, **10 / 10 AppShell features**, **5 / 5 OS chromes**, `LazyWindowBody` + `LazyModals`, Files search/copy/move UI, Workflows SVG topology, 4-tab Settings | 100% | 35.0% |
+| Increment 5: Runtime selector + same-host benchmark + live Next cutover + rollback | 15% | **Harness landed (40%):** `scripts/hybrid-runtime.mjs` (fail-safe rollback to Next) + `scripts/bench-hybrid-same-host.mjs` verified; live `mso.service` cutover & real-device iOS PWA proof pending | 40% | 6.0% |
+| **Total Svelte Track** | **100%** | **Inc. 1-4 (100%) + Inc. 5 cutover/benchmark harness (40%)** | **91.0%** | **91.0%** |
 
 ### B. Rust Shell & Native Desktop Track (weight in hybrid program: 40%)
 
 | Stage | Weight | Status | Completion | Weighted |
 |---|---|---|---|---|
 | **R0:** `mso-shell-core` + loopback static host + asset jail + nonce CSP | 15% | **Done** | 100% | 15.0% |
-| **R1:** Tauri v2 native desktop client (`rust-shell/desktop-tauri/` + `mso-shell-core::desktop`) | 25% | **Scaffold + contract landed (35%):** `desktop.rs`, `tauri.conf.json`, `capabilities/default.json`, `src/main.rs`, `README.md`; native binary gated on host `webkit2gtk-4.1` / `gtk3` / `pkg-config` & crates.io | 35% | 8.8% |
+| **R1:** Tauri v2 native desktop client (`rust-shell/desktop-tauri/` + `mso-shell-core::desktop`) | 25% | **Scaffold + profiles + CI blueprint + contract tests landed (50%):** `desktop.rs`, `profiles.rs` (4/4 `rustc --test`), `tauri.conf.json`, `capabilities/default.json`, `build-desktop.workflow.yml.example`, `desktop-contract.test.ts`; native binary builds gated on OS WebKitGTK/GTK3 packages & crates.io | 50% | 12.5% |
 | **R2:** Auth/CSRF/body/cookie (R2A) + managed-app split-origin, OAuth/MCP/A2A, & WebSocket tunnel (R2B) | 25% | **Done** | 100% | 25.0% |
-| **R3:** Retire `next-server` + `scripts/server.mjs` in production (58 route policies + GET/POST SSE + WS) | 20% | **In progress (80% - 58 route policies + streaming ready; full cutover gated on Svelte Inc. 5)** | 80% | 16.0% |
-| **R4:** Selective native host primitives (aligned with [`NATIVE-HOST-RELAY.md`](./NATIVE-HOST-RELAY.md)) | 15% | **Wired & live-verified (80%):** opt-in `--native-metrics` (`/api/v1/sys/stats` via Linux `/proc` without Node) and `--native-fs-root` (`/api/v1/fs/search` via `fs_jail` blocking `.env`/`.ssh`/`.mso`) proved live in Chromium | 80% | 12.0% |
-| **Total Rust Shell Track** | **100%** | **R0 + R2 complete; R1 scaffold, R3 58-route host & R4 live native endpoints verified** | **76.8%** | **76.8%** |
+| **R3:** Retire `next-server` + `scripts/server.mjs` in production (62 route policies + `/healthz` + SSE + WS) | 20% | **In progress (85% - full proxy & readiness verified; live production retirement pending)** | 85% | 17.0% |
+| **R4:** Selective native host primitives (aligned with [`NATIVE-HOST-RELAY.md`](./NATIVE-HOST-RELAY.md)) | 15% | **Live-verified (90%):** opt-in `--native-metrics` (`/api/v1/sys/stats`) and `--native-fs-root` (`/api/v1/fs/{list,read,search}` via `fs_jail` blocking `.env`/`.ssh`/`.mso` and symlinks) verified live in Chromium without Node | 90% | 13.5% |
+| **Total Rust Shell Track** | **100%** | **R0 + R2 complete; R1 50%, R3 85%, R4 90% live-verified** | **83.0%** | **83.0%** |
 
 ### C. Combined Hybrid Program
 
-- **Progression:** `12.0%` -> `22.4%` -> `39.8%` -> `47.6%` -> `52.1%` -> `56.3%` -> `62.2%` -> `69.7%` -> `74.9%` -> **80.9% (~81%)** (2026-11-22).
-- **Formula:** `0.60 * 83.6% + 0.40 * 76.8%` = **80.9%**.
-- **Remaining 19.1% to 100% (all external/host-gated):**
-  - **Stage R1 Tauri v2 native desktop build & cross-OS proof (+6.5% combined):** install `pkg-config`, `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev` + crates.io, build & smoke test `rust-shell/desktop-tauri/` on Linux, macOS, and Windows.
-  - **Increment 5 + Stage R3 production cutover (+10.6% combined):** retire `next-server` + `scripts/server.mjs`, run live same-host RSS/CPU/latency proof, and verify rollback.
-  - **Remaining 4% deep slice mutations + 20% R4 `portable-pty` evaluation (+2.0% combined).**
+- **Progression:** `12.0%` -> `22.4%` -> `39.8%` -> `47.6%` -> `52.1%` -> `56.3%` -> `62.2%` -> `69.7%` -> `74.9%` -> `80.9%` -> **87.8% (~88%)** (2026-11-22).
+- **Formula:** `0.60 * 91.0% + 0.40 * 83.0%` = **87.8%**.
+- **Remaining 12.2% (all require external OS packages or live host cutover):**
+  - **Stage R1 Tauri v2 real binary builds & cross-OS smoke (+5.0% combined):** requires `pkg-config`, `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev` + crates.io on Linux, plus macOS/Windows runners (`rust-shell/desktop-tauri/build-desktop.workflow.yml.example`).
+  - **Increment 5 + Stage R3 live production cutover (+6.6% combined):** switching live `mso.service` from `next` to `hybrid`, live-host RSS/CPU/latency proof, real-device mobile/iOS PWA verification, and live rollback drill.
+  - **Optional Stage R4 `portable-pty` evaluation (+0.6% combined).**
 
 ## 2. Why hybrid instead of a full Rust rewrite
 
@@ -50,13 +50,13 @@ Measured MSO baselines in [`MSO-MIGRATION.md`](./MSO-MIGRATION.md) and
 
 1. **Client UI latency is hydration-bound, not server-bound.** Live API TTFB is 4-8 ms and HTML
    TTFB is 10-14 ms, while cold Slow 4G + 4x CPU desktop LCP is 3.0-3.2 s because of ~910 KiB
-   raw (270.8 KiB gzip) first-load JS (47.9% Next+React). **Svelte 5 static output** with 33 lazy
-   slice chunks and `LazyModals` cuts first-load JS to **139.6 KiB raw (-84.7%)**.
+   raw (270.8 KiB gzip) first-load JS (47.9% Next+React). **Svelte 5 static output** cuts
+   first-load JS to **139.6 KiB raw (-84.7%)**.
 2. **Server footprint is runtime-bound.** The live Next cockpit uses ~284 MiB idle RSS
    (`next-server` 110 MiB + `scripts/server.mjs` 174 MiB) and ~1.4-1.6 GiB `node_modules`. The
-   compiled zero-dependency Rust host `mso-shell-host` measures **509 KiB** binary and **2.5 MiB
-   idle / 3.0 MiB active RSS** serving the full 33-slice Svelte build plus native Linux `/proc`
-   metrics and `fs_jail` search without invoking Node.
+   compiled zero-dependency Rust host `mso-shell-host` measures **536 KiB** binary, **2.75 ms**
+   startup ready, **0.46 ms** HTML+CSP TTFB (p50), **0.48 ms** jailed FS search (p50), and
+   **2.6 MiB idle / 2.8-3.0 MiB active RSS** (**~99% RSS reduction** vs Next.js).
 
 ## 3. Target hybrid architecture (one UI -> Web/PWA + Native Desktop)
 
@@ -64,8 +64,8 @@ Measured MSO baselines in [`MSO-MIGRATION.md`](./MSO-MIGRATION.md) and
 flowchart LR
   UI["Shared Static UI (frontend/svelte/build, 33 lazy chunks + LazyModals)"]
   Web["Browser / iOS PWA (HTTPS)"]
-  Desktop["Native Desktop App (rust-shell/desktop-tauri + mso-shell-core::desktop)"]
-  Core["rust-shell/crates/mso-shell-core (Origin, Asset Jail, CSP Nonce, CSRF, Managed Hosts, WS+SSE, --native-metrics, --native-fs-root)"]
+  Desktop["Native Desktop App (rust-shell/desktop-tauri + profiles.rs + mso-shell-core::desktop)"]
+  Core["rust-shell/crates/mso-shell-core (Origin, Asset Jail, CSP Nonce, CSRF, Managed Hosts, WS+SSE, /healthz, --native-metrics, --native-fs-root)"]
   Host["MSO Host Runtime (Linux / WSL2 / Lima / VPS)"]
 
   UI --> Web
@@ -75,44 +75,37 @@ flowchart LR
   Core -->|"Loopback HTTP/WS/SSE or Remote HTTPS"| Host
 ```
 
-- **One frontend codebase:** `frontend/svelte/build` serves both Web/PWA and `rust-shell/desktop-tauri/`.
-- **Explicit host boundary:** Per [`PLATFORMS.md`](./PLATFORMS.md) and
-  [`NATIVE-HOST-RELAY.md`](./NATIVE-HOST-RELAY.md), a Tauri desktop app on macOS or Windows
-  operates first as a **native desktop client** connected to a verified Linux/WSL2/Lima/VPS MSO
-  host.
-
 ## 4. Phased Rust shell roadmap
 
 | Stage | Scope | Status | Prerequisites & acceptance gates |
 |---|---|---|---|
-| **R0** | **Rust shell core & loopback static host** (`mso-shell-core` + `mso-shell-host`, zero external crates): origin guard parity, canonicalized asset path-jail, per-request CSP nonce injection on SvelteKit HTML, plus `shell-bridge.ts`. | **Done (100%)** | `RUSTFLAGS="-D warnings" cargo test --workspace`, `cargo build --release`, `bun run test:rust-host`. |
-| **R1** | **Tauri v2 native desktop client shell** (`rust-shell/desktop-tauri/` + `mso-shell-core::desktop`): standalone scaffold (`Cargo.toml`, `tauri.conf.json`, least-privilege `capabilities/default.json`, `src/main.rs`, `README.md`) isolated from offline workspace; ready to compile once OS WebKitGTK/GTK3 packages are installed. | **In progress (35%)** | Linux build packages (`pkg-config`, `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`), crates.io access, plus real-machine smoke proofs on Linux, macOS, and Windows. |
-| **R2** | **R2A:** CSRF depth-2 (`csrf.rs`), bounded HTTP body parser (`413`), multi `Set-Cookie`, auth/devices allowlist. **R2B:** Managed-app split-origin host classification (`managed.rs`), CSRF-exempt OAuth/MCP/A2A passthrough with `Authorization`, Increment 3A routes, and bounded WebSocket upgrade tunnel (`ws.rs`). | **Done (100%)** | 21+ Rust unit tests + live Chromium R2B smoke test. |
-| **R3** | **Streaming SSE & production cutover without `next-server`:** GET+POST SSE (`sse.rs`) + WebSocket tunnel (`ws.rs`) + **58 route policies** (52 cockpit API + 6 machine protocol); full retirement of `next-server` + `scripts/server.mjs` gated on Svelte Inc. 5. | **In progress (80%)** | 55/55 Rust tests + live Chromium R4+Inc4F smoke test; full cutover requires same-host RSS/CPU/latency proof & rollback test. |
-| **R4** | **Selective native host primitives** (`sys_metrics.rs` + `fs_jail.rs` wired via opt-in `--native-metrics` & `--native-fs-root`): live Chromium verification proved `/api/v1/sys/stats` served straight from Rust `/proc` and `/api/v1/fs/search` served straight from Rust `fs_jail` blocking `.env` with zero Node backend calls. | **In progress (80%)** | Live opt-in Chromium proof PASS; remaining 20% evaluates optional `portable-pty` & same-host production benchmark. |
+| **R0** | **Rust shell core & loopback static host** (`mso-shell-core` + `mso-shell-host`, zero external crates). | **Done (100%)** | `RUSTFLAGS="-D warnings" cargo test --workspace`, `cargo build --release`. |
+| **R1** | **Tauri v2 native desktop client shell** (`rust-shell/desktop-tauri/` + `mso-shell-core::desktop`): multi-profile `profiles.rs`, `tauri.conf.json`, least-privilege `capabilities/default.json`, `build-desktop.workflow.yml.example`, cross-layer `desktop-contract.test.ts`. | **50% (scaffold & contracts verified)** | Linux OS packages (`pkg-config`, `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`) + crates.io + real Linux/macOS/Windows smoke builds. |
+| **R2** | **CSRF depth-2, bounded bodies (`413`), multi `Set-Cookie`, split-origin managed hosts, OAuth/MCP/A2A passthrough, WebSocket tunnel.** | **Done (100%)** | Rust unit/loopback tests + live Chromium smoke. |
+| **R3** | **62 route policies + `/healthz` + GET/POST SSE + WS + `scripts/hybrid-runtime.mjs` fail-safe selector & zero-conversion rollback plan.** | **85% (ready for live cutover)** | Same-host live cutover & rollback drill on production host. |
+| **R4** | **Opt-in native host primitives** (`--native-metrics` for `/api/v1/sys/stats` + `--native-fs-root` for `/api/v1/fs/{list,read,search}` via `fs_jail` with credential denylist & symlink escape guard). | **90% (live Chromium & benchmark verified)** | Live Chromium & `bench-hybrid-same-host.mjs` PASS with `upstreamCallsDuringNative: 0`. |
 
-## 5. Measured evidence progression (2026-11-21 to 2026-11-22)
+## 5. Same-host measured benchmark & progression (2026-11-22)
 
-Captured on Linux x86_64 (`rustc 1.99.1`, `node v24.22.2`, `bun 1.4.2`, Chromium headless) against
-synthetic fixtures on `feat/hybrid-svelte-rust-shell`. Production remains Next.js/React until
-Increment 5 cutover proof on a live host.
+Captured on Linux x86_64 (`16 CPUs`, `20,000 MiB RAM`, `rustc 1.99.1`, `node v24.22.2`, `bun 1.4.2`)
+via `node scripts/bench-hybrid-same-host.mjs` and `bun run test:rust-host` against synthetic fixtures:
 
-| Measurement | Next.js baseline | R0 (11-21) | R3C / 4B | R3F+R4 / 4E | R4-Native / 4F (11-22) |
-|---|---|---|---|---|---|
-| `mso-shell-host` release binary | n/a (~1.5 GiB `node_modules`) | 375 KiB | 420 KiB | 422 KiB | **509 KiB** (stripped, LTO, 0 external crates, incl. native R4) |
-| `mso-shell-host` idle / active `VmRSS` | ~284 MiB idle | 2,416 / 2,860 KiB | 2,448 / 2,824 KiB | 2,492 / 2,896 KiB | **2,592 KiB (~2.5 MiB)** / **3,024 KiB (~3.0 MiB)** |
-| Rust unit & loopback tests (`-D warnings`) | n/a | 10 / 10 | 29 / 29 | 51 / 51 | **55 / 55 PASS** (58 route policies + live native R4) |
-| First-load JS (cold `perf:probe`) | ~910 KiB raw | 109.7 KiB raw | 127.2 KiB raw | 139.6 KiB raw | **139.6 KiB raw (-84.7% vs Next) / 75.8 KiB transfer** |
-| Svelte unit & Chromium E2E | n/a | 20 unit | 89 unit | 149 unit | **159 / 159 unit tests** + **33/33 slices + native R4 E2E PASS** |
+| Measurement | Next.js baseline | Hybrid Svelte + Rust Shell (Wave 9, 2026-11-22) |
+|---|---|---|
+| Server binary / runtime footprint | ~1.5 GiB `node_modules` | **536 KiB** stripped Rust binary (`0` external crates) |
+| Idle / active host `VmRSS` | ~284 MiB idle | **2.5-2.6 MiB idle / 2.8-3.0 MiB active** (**-99% RSS**) |
+| Cold startup ready time | ~2,000-4,000 ms | **2.75 ms** |
+| HTML + CSP Nonce TTFB (p50 / p95) | 10-14 ms | **0.455 ms / 0.943 ms** (**~22x faster**) |
+| Native Rust `fs_jail` search (p50 / p95) | Node fs walk | **0.480 ms / 0.753 ms** (`0` Node calls, `.env` blocked) |
+| Native Rust `sys_metrics` (100 samples) | Node `/proc` | **51.18 ms p50** (50 ms `/proc/stat` CPU delta + ~1.2 ms overhead, `0` Node calls) |
+| First-load JS (cold `perf:probe`) | ~910 KiB raw | **139.6 KiB raw** (**-84.7%**) across 33 lazy slice chunks + `LazyModals` |
+| Automated test suite | n/a | **62 / 62 Rust** (`+ 4/4 profiles.rs`) + **172 / 172 Svelte** + Chromium E2E + live Rust native FS smoke **PASS** |
 
 ## 6. Explicit boundaries and non-goals
 
-- Production remains Next.js/React (`mso.service`, installers, state, tunnels, and host policy are
-  untouched).
-- `rust-shell/` binds strictly to `127.0.0.1`, keeps `/api/config`, `/api/v1/exec/run`, and
-  `/api/v1/editor/exec` blocked (`404`), and never widens CORS, cookie domains, or public binds.
-- No desktop client binary or native OS parity claim is valid until `rust-shell/desktop-tauri/` is
-  compiled and verified on real Linux, macOS, and Windows machines.
+- Production remains Next.js/React (`mso.service`, installers, state, tunnels, and host policy are untouched).
+- `rust-shell/` binds strictly to `127.0.0.1`, keeps `/api/config`, `/api/v1/exec/run`, and `/api/v1/editor/exec` blocked (`404`), and never widens CORS, cookie domains, or public binds.
+- No desktop client binary or production cutover claim is valid until built/verified on target OS hosts.
 
 ## 7. Local verification commands
 
@@ -120,9 +113,11 @@ Increment 5 cutover proof on a live host.
 # 1. Rust core & host binary (zero external crates)
 cd rust-shell && RUSTFLAGS="-D warnings" cargo test --workspace && cargo build --release --bin mso-shell-host
 
-# 2. Svelte static build + unit + E2E + audit
+# 2. Svelte static build + 172 unit tests + Chromium E2E + audit
 bun run svelte:check && bun run svelte:build && bun run svelte:e2e && bun run svelte:audit
 
-# 3. Live Rust host (--native-metrics + --native-fs-root) serving 33/33 Svelte build + Chromium smoke
-cd frontend/svelte && bun run test:rust-host && bun run perf:probe
+# 3. Live Rust host (--native-metrics + --native-fs-root) + Chromium + Same-host benchmark + Cutover preflight
+(cd frontend/svelte && bun run test:rust-host)
+node scripts/bench-hybrid-same-host.mjs
+node scripts/hybrid-runtime.mjs --check --runtime=hybrid --rust-bin=rust-shell/target/release/mso-shell-host --assets=frontend/svelte/build --api-origin=http://127.0.0.1:4005
 ```

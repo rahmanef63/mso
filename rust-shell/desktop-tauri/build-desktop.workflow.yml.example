@@ -1,0 +1,108 @@
+# Ready-to-enable GitHub Actions matrix blueprint for MSO Stage R1 native desktop builds.
+# Copy this file to `.github/workflows/build-desktop.yml` once release signing/icon assets
+# are configured for Linux, macOS, and Windows packaging.
+
+name: Build MSO Desktop (Tauri v2)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "desktop-v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-desktop:
+    name: Desktop (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+          - platform: macos-arm64
+            os: macos-14
+          - platform: windows-x86_64
+            os: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Install Linux WebKitGTK and GTK3 prerequisites
+        if: matrix.os == 'ubuntu-24.04'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            wget \
+            file \
+            pkg-config \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Verify Rust stable toolchain
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+          cargo --version
+
+      - name: Install and verify isolated Svelte frontend
+        shell: bash
+        run: |
+          bun run svelte:install
+          bun run svelte:check
+          bun run svelte:build
+
+      - name: Run zero-dependency Rust shell workspace tests
+        working-directory: rust-shell
+        shell: bash
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --workspace
+
+      - name: Install Tauri CLI v2
+        shell: bash
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Test and build Tauri desktop bundle
+        working-directory: rust-shell/desktop-tauri
+        shell: bash
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: |
+          cargo test
+          cargo tauri build
+
+      - name: Upload desktop bundle artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mso-desktop-${{ matrix.platform }}
+          path: rust-shell/desktop-tauri/target/release/bundle/
+          if-no-files-found: error
+          retention-days: 14

@@ -257,6 +257,78 @@ fn encode_fs_matches_json(matches: &[String]) -> String {
     out
 }
 
+fn encode_fs_list_json(listing: &fs_jail::JailedDirListing) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::from(r#"{"path":""#);
+    out.push_str(&escape_json_str(&listing.path));
+    out.push_str(r#"","parent":"#);
+    match &listing.parent {
+        Some(parent) => {
+            out.push('"');
+            out.push_str(&escape_json_str(parent));
+            out.push('"');
+        }
+        None => out.push_str("null"),
+    }
+    out.push_str(r#","entries":["#);
+    for (idx, entry) in listing.entries.iter().enumerate() {
+        if idx > 0 {
+            out.push(',');
+        }
+        let _ = write!(
+            &mut out,
+            r#"{{"name":"{}","kind":"{}","size":{},"mtime_ms":{}}}"#,
+            escape_json_str(&entry.name),
+            entry.kind,
+            entry.size,
+            entry.mtime_ms
+        );
+    }
+    out.push_str("]}");
+    out
+}
+
+fn encode_json_string(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    out.push_str(&escape_json_str(value));
+    out.push('"');
+    out
+}
+
+fn is_not_found_io_message(msg: &str) -> bool {
+    let lower = msg.to_ascii_lowercase();
+    lower.contains("no such file")
+        || lower.contains("os error 2")
+        || lower.contains("not found")
+        || lower.contains("cannot find the")
+}
+
+fn write_native_fs_error(stream: &mut TcpStream, err: fs_jail::FsJailError, fallback_code: &str) {
+    let (status, code) = match err {
+        fs_jail::FsJailError::SensitivePathDenied => (403, "sensitive_path_denied"),
+        fs_jail::FsJailError::TraversalBlocked => (400, "traversal_blocked"),
+        fs_jail::FsJailError::InvalidPath
+        | fs_jail::FsJailError::NotADirectory
+        | fs_jail::FsJailError::NotAFile => (400, "invalid_path"),
+        fs_jail::FsJailError::FileTooLarge => (413, "file_too_large"),
+        fs_jail::FsJailError::InvalidUtf8 => (422, "invalid_utf8"),
+        fs_jail::FsJailError::Io(ref msg) if is_not_found_io_message(msg) => (404, "not_found"),
+        fs_jail::FsJailError::Io(_) => (500, fallback_code),
+    };
+    let body = format!(r#"{{"error":"{code}"}}"#);
+    let _ = write_response(
+        stream,
+        status,
+        "application/json; charset=utf-8",
+        &[
+            ("X-MSO-Native-Handler".into(), "fs_jail".into()),
+            ("Cache-Control".into(), "no-store".into()),
+        ],
+        body.as_bytes(),
+    );
+}
+
 fn try_handle_native_api(stream: &mut TcpStream, cfg: &ServerConfig, req: &ParsedRequest) -> bool {
     let (path, query_str) = req.target.split_once('?').map_or((req.target.as_str(), ""), |(p, q)| (p, q));
 
@@ -382,6 +454,94 @@ fn try_handle_native_api(stream: &mut TcpStream, cfg: &ServerConfig, req: &Parse
             }
             return true;
         }
+
+        if path == "/api/v1/fs/list" {
+            if req.method != "GET" {
+                let _ = write_response(
+                    stream,
+                    405,
+                    "application/json; charset=utf-8",
+                    &[
+                        ("Allow".into(), "GET".into()),
+                        ("Cache-Control".into(), "no-store".into()),
+                    ],
+                    br#"{"error":"method_not_allowed"}"#,
+                );
+                return true;
+            }
+            if !has_session_cookie(req.cookie.as_deref()) {
+                let _ = write_response(
+                    stream,
+                    401,
+                    "application/json; charset=utf-8",
+                    &[("Cache-Control".into(), "no-store".into())],
+                    br#"{"error":"unauthorized"}"#,
+                );
+                return true;
+            }
+            let rel = extract_query_param(query_str, "path").unwrap_or_default();
+            match fs_jail::list_jailed_dir_with_meta(root, &rel) {
+                Ok(listing) => {
+                    let body = encode_fs_list_json(&listing);
+                    let _ = write_response(
+                        stream,
+                        200,
+                        "application/json; charset=utf-8",
+                        &[
+                            ("X-MSO-Native-Handler".into(), "fs_jail".into()),
+                            ("Cache-Control".into(), "no-store".into()),
+                        ],
+                        body.as_bytes(),
+                    );
+                }
+                Err(err) => write_native_fs_error(stream, err, "native_fs_list_failed"),
+            }
+            return true;
+        }
+
+        if path == "/api/v1/fs/read" {
+            if req.method != "GET" {
+                let _ = write_response(
+                    stream,
+                    405,
+                    "application/json; charset=utf-8",
+                    &[
+                        ("Allow".into(), "GET".into()),
+                        ("Cache-Control".into(), "no-store".into()),
+                    ],
+                    br#"{"error":"method_not_allowed"}"#,
+                );
+                return true;
+            }
+            if !has_session_cookie(req.cookie.as_deref()) {
+                let _ = write_response(
+                    stream,
+                    401,
+                    "application/json; charset=utf-8",
+                    &[("Cache-Control".into(), "no-store".into())],
+                    br#"{"error":"unauthorized"}"#,
+                );
+                return true;
+            }
+            let rel = extract_query_param(query_str, "path").unwrap_or_default();
+            match fs_jail::read_jailed_text(root, &rel, fs_jail::DEFAULT_MAX_READ_BYTES) {
+                Ok(content) => {
+                    let body = encode_json_string(&content);
+                    let _ = write_response(
+                        stream,
+                        200,
+                        "application/json; charset=utf-8",
+                        &[
+                            ("X-MSO-Native-Handler".into(), "fs_jail".into()),
+                            ("Cache-Control".into(), "no-store".into()),
+                        ],
+                        body.as_bytes(),
+                    );
+                }
+                Err(err) => write_native_fs_error(stream, err, "native_fs_read_failed"),
+            }
+            return true;
+        }
     }
 
     false
@@ -477,6 +637,41 @@ fn handle_connection(stream: &mut TcpStream, cfg: &ServerConfig) {
             return;
         }
         HostClass::Cockpit => {}
+    }
+
+    let req_path = req.target.split_once('?').map_or(req.target.as_str(), |(p, _)| p);
+    if req_path == "/healthz" {
+        const HEALTHZ_BODY: &[u8] = br#"{"ok":true,"runtime":"mso-shell-host"}"#;
+        if req.method == "GET" {
+            let _ = write_response(
+                stream,
+                200,
+                "application/json; charset=utf-8",
+                &[("Cache-Control".into(), "no-store".into())],
+                HEALTHZ_BODY,
+            );
+        } else if req.method == "HEAD" {
+            let _ = write_response_with_len(
+                stream,
+                200,
+                "application/json; charset=utf-8",
+                &[("Cache-Control".into(), "no-store".into())],
+                HEALTHZ_BODY.len(),
+                &[],
+            );
+        } else {
+            let _ = write_response(
+                stream,
+                405,
+                "application/json; charset=utf-8",
+                &[
+                    ("Allow".into(), "GET, HEAD".into()),
+                    ("Cache-Control".into(), "no-store".into()),
+                ],
+                br#"{"error":"method_not_allowed"}"#,
+            );
+        }
+        return;
     }
 
     if is_machine_protocol_path(&req.target) {
@@ -2156,6 +2351,280 @@ mod tests {
         // Subpaths remain unlisted (404)
         assert!(send("POST /api/auth/password/extra HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 404 Not Found"));
         assert!(send("GET /api/auth/account/extra HTTP/1.1\r\nHost: mso.example.com\r\n\r\n").starts_with("HTTP/1.1 404 Not Found"));
+
+        up_thread.join().unwrap();
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn serves_loopback_healthz_without_contacting_upstream() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-healthz-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        up_listener.set_nonblocking(true).unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        let r_get = send("GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(r_get.starts_with("HTTP/1.1 200 OK"), "got: {r_get}");
+        assert!(r_get.contains("Content-Type: application/json; charset=utf-8\r\n"));
+        assert!(r_get.contains("Cache-Control: no-store\r\n"));
+        let body = r_get.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+        assert_eq!(body, r#"{"ok":true,"runtime":"mso-shell-host"}"#);
+
+        let r_head = send("HEAD /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(r_head.starts_with("HTTP/1.1 200 OK"), "got: {r_head}");
+        assert!(r_head.contains("Cache-Control: no-store\r\n"));
+        assert_eq!(r_head.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("x"), "");
+
+        let r_post = send("POST /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r_post.starts_with("HTTP/1.1 405 Method Not Allowed") && r_post.contains("Allow: GET, HEAD\r\n"));
+
+        assert!(
+            matches!(up_listener.accept(), Err(ref e) if e.kind() == io::ErrorKind::WouldBlock),
+            "/healthz must never contact upstream"
+        );
+
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn serves_native_fs_list_and_read_with_cookie_gate_and_jail_guards() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r4-listread-assets-{nanos}"));
+        let jail = std::env::temp_dir().join(format!("mso-rust-srv-r4-listread-jail-{nanos}"));
+        let outside = std::env::temp_dir().join(format!("mso-rust-srv-r4-listread-outside-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.txt"), "outside-secret").unwrap();
+
+        fs::create_dir_all(jail.join("notes")).unwrap();
+        fs::create_dir_all(jail.join(".ssh")).unwrap();
+        fs::create_dir_all(jail.join(".mso")).unwrap();
+        fs::write(jail.join("readme.txt"), "top").unwrap();
+        fs::write(jail.join("notes/hello.txt"), "hello \"mso\"\nline2").unwrap();
+        fs::write(jail.join("huge.txt"), vec![b'a'; fs_jail::DEFAULT_MAX_READ_BYTES + 1]).unwrap();
+        fs::write(jail.join(".env"), "SECRET=1").unwrap();
+        fs::write(jail.join(".ssh/id_rsa"), "priv").unwrap();
+        fs::write(jail.join(".mso/vault.json"), "{}").unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            symlink(outside.join("secret.txt"), jail.join("escape.txt")).unwrap();
+        }
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        up_listener.set_nonblocking(true).unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: Some(jail.clone()),
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // Native fs/list requires session= cookie (401 without)
+        let r_list_no_cookie = send("GET /api/v1/fs/list?path=~ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(r_list_no_cookie.starts_with("HTTP/1.1 401 Unauthorized"), "got: {r_list_no_cookie}");
+        assert!(r_list_no_cookie.contains("Cache-Control: no-store\r\n"));
+
+        // Native fs/list root returns MSO shape and excludes .env, .ssh, .mso, and escaping symlinks
+        let r_list_root = send("GET /api/v1/fs/list?path=~ HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n");
+        assert!(r_list_root.starts_with("HTTP/1.1 200 OK"), "got: {r_list_root}");
+        assert!(r_list_root.contains("X-MSO-Native-Handler: fs_jail\r\n"));
+        assert!(r_list_root.contains("Cache-Control: no-store\r\n"));
+        let root_body = r_list_root.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+        assert!(root_body.starts_with(r#"{"path":".","parent":null,"entries":["#), "body: {root_body}");
+        assert!(root_body.contains(r#""name":"notes","kind":"dir","size":0,"mtime_ms":"#));
+        assert!(root_body.contains(r#""name":"readme.txt","kind":"file","size":3,"mtime_ms":"#));
+        assert!(!root_body.contains(".env") && !root_body.contains(".ssh") && !root_body.contains(".mso"));
+        assert!(!root_body.contains("escape.txt"));
+
+        // Native fs/list subdir sets path and parent
+        let r_list_sub = send("GET /api/v1/fs/list?path=notes HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n");
+        assert!(r_list_sub.starts_with("HTTP/1.1 200 OK"), "got: {r_list_sub}");
+        let sub_body = r_list_sub.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+        assert!(sub_body.starts_with(r#"{"path":"notes","parent":".","entries":[{"name":"hello.txt","kind":"file","size":17,"mtime_ms":"#), "body: {sub_body}");
+
+        // Native fs/list traversal -> 400, sensitive -> 403
+        assert!(send("GET /api/v1/fs/list?path=../etc HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n").starts_with("HTTP/1.1 400 Bad Request"));
+        assert!(send("GET /api/v1/fs/list?path=.ssh HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n").starts_with("HTTP/1.1 403 Forbidden"));
+
+        // Native fs/read requires session= cookie (401 without)
+        let r_read_no_cookie = send("GET /api/v1/fs/read?path=notes/hello.txt HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        assert!(r_read_no_cookie.starts_with("HTTP/1.1 401 Unauthorized"), "got: {r_read_no_cookie}");
+
+        // Native fs/read returns 200 + JSON-encoded string content for safe file
+        let r_read_ok = send("GET /api/v1/fs/read?path=notes%2Fhello.txt HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n");
+        assert!(r_read_ok.starts_with("HTTP/1.1 200 OK"), "got: {r_read_ok}");
+        assert!(r_read_ok.contains("X-MSO-Native-Handler: fs_jail\r\n"));
+        assert!(r_read_ok.contains("Cache-Control: no-store\r\n"));
+        let read_body = r_read_ok.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+        assert_eq!(read_body, r#""hello \"mso\"\nline2""#);
+
+        // Native fs/read denies sensitive paths with 403
+        let r_read_env = send("GET /api/v1/fs/read?path=.env HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n");
+        assert!(r_read_env.starts_with("HTTP/1.1 403 Forbidden"), "got: {r_read_env}");
+        assert!(r_read_env.contains("X-MSO-Native-Handler: fs_jail\r\n"));
+
+        // Native fs/read blocks traversal (raw and percent-encoded) with 400
+        let r_read_trav = send("GET /api/v1/fs/read?path=../etc/passwd HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n");
+        assert!(r_read_trav.starts_with("HTTP/1.1 400 Bad Request"), "got: {r_read_trav}");
+        let r_read_trav_enc = send("GET /api/v1/fs/read?path=%2e%2e%2fetc%2fpasswd HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n");
+        assert!(r_read_trav_enc.starts_with("HTTP/1.1 400 Bad Request"), "got: {r_read_trav_enc}");
+
+        // Native fs/read rejects directories (400) and files > 512 KiB (413)
+        assert!(send("GET /api/v1/fs/read?path=notes HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n").starts_with("HTTP/1.1 400 Bad Request"));
+        assert!(send("GET /api/v1/fs/read?path=huge.txt HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: session=r4-fs\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+
+        // Upstream must never have been contacted
+        assert!(
+            matches!(up_listener.accept(), Err(ref e) if e.kind() == io::ErrorKind::WouldBlock),
+            "native fs/list and fs/read must never contact upstream"
+        );
+
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&jail);
+        let _ = fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn enforces_stage_r3g_routes_methods_csrf_limits_and_unlisted_guards() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r3g-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+        let up_thread = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            let cases: &[(&str, &str)] = &[
+                ("GET /api/health HTTP/1.1", r#"{"ok":true}"#),
+                ("GET /api/status HTTP/1.1", r#"{"status":"ok"}"#),
+                ("POST /api/v1/fs/upload?dest=notes HTTP/1.1", r#"{"written":1}"#),
+                ("POST /api/v1/fs/zip HTTP/1.1", r#"{"zipped":true}"#),
+            ];
+            for (expected_line, resp_body) in cases {
+                let (mut s, _) = up_listener.accept().unwrap();
+                let n = s.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+                assert!(req.starts_with(expected_line), "expected {expected_line}, got: {req}");
+                assert!(req.contains("Host: mso.example.com\r\n"), "Host not preserved: {req}");
+                assert!(req.contains("Cookie: session=r3g-tok\r\n"), "Cookie not preserved: {req}");
+                assert!(!req.contains("Authorization:"), "Authorization must not be forwarded: {req}");
+                let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{resp_body}");
+                s.write_all(resp.as_bytes()).unwrap();
+            }
+        });
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+            native_metrics: false,
+            native_fs_root: None,
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // Unlisted routes and subpaths MUST return 404 without contacting upstream
+        for unlisted in [
+            "/api/config",
+            "/api/v1/exec/run",
+            "/api/v1/editor/exec",
+            "/api/health/extra",
+            "/api/status/extra",
+            "/api/v1/fs/upload/extra",
+            "/api/v1/fs/zip/extra",
+        ] {
+            let r_get = send(&format!("GET {unlisted} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3g-tok\r\n\r\n"));
+            assert!(r_get.starts_with("HTTP/1.1 404 Not Found") && r_get.contains("not_found"), "GET {unlisted}: {r_get}");
+            let r_post = send(&format!("POST {unlisted} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3g-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{{}}"));
+            assert!(r_post.starts_with("HTTP/1.1 404 Not Found") && r_post.contains("not_found"), "POST {unlisted}: {r_post}");
+        }
+
+        // /api/health & /api/status: GET only (0 bytes, 405 on POST, CSRF depth-2 on cross-site POST)
+        for (target, body_fragment) in [
+            ("/api/health", r#"{"ok":true}"#),
+            ("/api/status", r#"{"status":"ok"}"#),
+        ] {
+            let r_ok = send(&format!("GET {target} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3g-tok\r\nAuthorization: Bearer strip\r\n\r\n"));
+            assert!(r_ok.starts_with("HTTP/1.1 200 OK") && r_ok.contains(body_fragment), "GET {target}: {r_ok}");
+            assert!(send(&format!("POST {target} HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{{}}")).starts_with("HTTP/1.1 403 Forbidden"));
+            let r_post = send(&format!("POST {target} HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{{}}"));
+            assert!(r_post.starts_with("HTTP/1.1 405 Method Not Allowed") && r_post.contains("Allow: GET\r\n"), "POST {target}: {r_post}");
+        }
+
+        // /api/v1/fs/upload: POST only (<= 4 MiB, CSRF depth-2)
+        let up_get = send("GET /api/v1/fs/upload HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3g-tok\r\n\r\n");
+        assert!(up_get.starts_with("HTTP/1.1 405 Method Not Allowed") && up_get.contains("Allow: POST\r\n"));
+        assert!(send("POST /api/v1/fs/upload HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("POST /api/v1/fs/upload HTTP/1.1\r\nHost: mso.example.com\r\nOrigin: https://evil.example\r\nCookie: session=r3g-tok\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("POST /api/v1/fs/upload HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 4194305\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r_up = send("POST /api/v1/fs/upload?dest=notes HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3g-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: multipart/form-data; boundary=x\r\nContent-Length: 6\r\n\r\n--x--\n");
+        assert!(r_up.starts_with("HTTP/1.1 200 OK") && r_up.contains(r#"{"written":1}"#));
+
+        // /api/v1/fs/zip: POST only (<= 64 KiB, CSRF depth-2)
+        let zip_get = send("GET /api/v1/fs/zip HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3g-tok\r\n\r\n");
+        assert!(zip_get.starts_with("HTTP/1.1 405 Method Not Allowed") && zip_get.contains("Allow: POST\r\n"));
+        assert!(send("POST /api/v1/fs/zip HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("POST /api/v1/fs/zip HTTP/1.1\r\nHost: mso.example.com\r\nOrigin: https://evil.example\r\nCookie: session=r3g-tok\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("POST /api/v1/fs/zip HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r_zip = send("POST /api/v1/fs/zip HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3g-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r_zip.starts_with("HTTP/1.1 200 OK") && r_zip.contains(r#"{"zipped":true}"#));
 
         up_thread.join().unwrap();
         srv.stop();

@@ -1,4 +1,4 @@
-// Development/preview only. Mirrors Rust Stage R4 54-route cockpit allowlist + CSRF depth-2.
+// Development/preview only. Mirrors Rust Stage R3G+R4 58-route cockpit allowlist + CSRF depth-2.
 // No public server or production trust policy is changed.
 
 const ROUTES = {
@@ -10,10 +10,12 @@ const ROUTES = {
   "/api/auth/password": ["POST"],
   "/api/assistant": ["POST"],
   "/api/changelog": ["GET"],
+  "/api/health": ["GET"],
   "/api/memory": ["GET", "POST"],
   "/api/models": ["GET"],
   "/api/prefs": ["GET", "POST"],
   "/api/skills": ["GET"],
+  "/api/status": ["GET"],
   "/api/threads": ["GET", "POST", "PATCH", "DELETE"],
   "/api/v1/agent-groups": ["GET", "POST"],
   "/api/v1/agent-profiles": ["GET", "POST"],
@@ -47,10 +49,12 @@ const ROUTES = {
   "/api/v1/fs/raw": ["GET"],
   "/api/v1/fs/read": ["GET"],
   "/api/v1/fs/search": ["GET"],
+  "/api/v1/fs/upload": ["POST"],
   "/api/v1/fs/usage": ["GET"],
   "/api/v1/fs/write": ["POST"],
   "/api/v1/fs/mkdir": ["POST"],
   "/api/v1/fs/delete": ["DELETE"],
+  "/api/v1/fs/zip": ["POST"],
   "/api/v1/term/open": ["POST"],
   "/api/v1/term/stream": ["GET"],
   "/api/v1/term/input": ["POST"],

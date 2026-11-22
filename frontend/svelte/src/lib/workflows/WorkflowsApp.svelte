@@ -7,9 +7,11 @@
     type WorkflowsState,
     type WorkflowsTab,
   } from "./workflows-api.ts";
+  import WorkflowGraphCanvas from "./WorkflowGraphCanvas.svelte";
 
   let view = $state<WorkflowsState>({ kind: "loading", tab: "graphs" });
   let filterQuery = $state("");
+  let selectedGraphId = $state<string | null>(null);
   let controller: ReturnType<typeof createWorkflowsController> | undefined;
 
   let visibleGraphs = $derived.by<WorkflowGraphSummary[]>(() => {
@@ -19,6 +21,11 @@
     return view.graphs.filter((g) =>
       `${g.name} ${g.id} ${g.status} ${g.description} ${g.tags.join(" ")} ${g.project ?? ""} ${g.folder ?? ""}`
         .toLowerCase().includes(q));
+  });
+
+  let activeGraph = $derived.by<WorkflowGraphSummary | null>(() => {
+    if (visibleGraphs.length === 0) return null;
+    return visibleGraphs.find((g) => g.id === selectedGraphId) ?? visibleGraphs[0] ?? null;
   });
 
   let visibleRuns = $derived.by<WorkflowRunSummary[]>(() => {
@@ -41,9 +48,7 @@
   });
 
   function graphTone(status: WorkflowGraphSummary["status"]): "ok" | "warn" | "neutral" {
-    if (status === "active") return "ok";
-    if (status === "draft") return "warn";
-    return "neutral";
+    return status === "active" ? "ok" : status === "draft" ? "warn" : "neutral";
   }
 
   function runTone(runState: WorkflowRunSummary["state"]): "ok" | "warn" | "danger" | "neutral" {
@@ -80,12 +85,8 @@
     <h2 id="workflows-title">Workflows</h2>
     <div class="actions">
       <div class="wf-tabs" role="tablist" aria-label="Workflow views">
-        <button type="button" role="tab" aria-selected={view.tab === "graphs"} class:primary={view.tab === "graphs"} onclick={() => switchTab("graphs")}>
-          Graphs
-        </button>
-        <button type="button" role="tab" aria-selected={view.tab === "runs"} class:primary={view.tab === "runs"} onclick={() => switchTab("runs")}>
-          Recent Runs
-        </button>
+        <button type="button" role="tab" aria-selected={view.tab === "graphs"} class:primary={view.tab === "graphs"} onclick={() => switchTab("graphs")}>Graphs</button>
+        <button type="button" role="tab" aria-selected={view.tab === "runs"} class:primary={view.tab === "runs"} onclick={() => switchTab("runs")}>Recent Runs</button>
       </div>
       <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
         {view.kind === "loading" ? "Loading..." : "Refresh"}
@@ -114,26 +115,38 @@
       {:else if visibleGraphs.length === 0}
         <p>No workflow graphs match "{filterQuery.trim()}".</p>
       {:else}
-        <ul class="wf-list" aria-label="Workflow graphs">
-          {#each visibleGraphs as graph (graph.id)}
-            <li class="wf-row">
-              <div class="wf-info">
-                <div class="wf-heading">
-                  <strong>{graph.name}</strong>
-                  <span class="pill" data-tone={graphTone(graph.status)}>{graph.status}</span>
-                  <span class="pill">{graph.nodeCount} {graph.nodeCount === 1 ? "node" : "nodes"}</span>
-                  {#each graph.tags as tag}
-                    <span class="pill">#{tag}</span>
-                  {/each}
+        <div class="wf-graphs-stack">
+          {#if activeGraph}
+            <WorkflowGraphCanvas graph={activeGraph} />
+          {/if}
+          <ul class="wf-list" aria-label="Workflow graphs">
+            {#each visibleGraphs as graph (graph.id)}
+              {@const selected = activeGraph?.id === graph.id}
+              <li class="wf-row" class:selected>
+                <div class="wf-row-top">
+                  <div class="wf-info">
+                    <div class="wf-heading">
+                      <strong>{graph.name}</strong>
+                      <span class="pill" data-tone={graphTone(graph.status)}>{graph.status}</span>
+                      <span class="pill">{graph.nodeCount} {graph.nodeCount === 1 ? "node" : "nodes"}</span>
+                      {#each graph.tags as tag}<span class="pill">#{tag}</span>{/each}
+                    </div>
+                    {#if graph.description}<p class="wf-desc">{graph.description}</p>{/if}
+                    <p class="wf-meta">Updated {formatTime(graph.updatedAt)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class:primary={selected}
+                    aria-pressed={selected}
+                    onclick={() => { selectedGraphId = graph.id; }}
+                  >
+                    {selected ? "Inspecting" : "Inspect graph"}
+                  </button>
                 </div>
-                {#if graph.description}
-                  <p class="wf-desc">{graph.description}</p>
-                {/if}
-                <p class="wf-meta">Updated {formatTime(graph.updatedAt)}</p>
-              </div>
-            </li>
-          {/each}
-        </ul>
+              </li>
+            {/each}
+          </ul>
+        </div>
       {/if}
     {:else if view.runs.length === 0}
       <p>No recent workflow runs recorded.</p>
@@ -148,13 +161,9 @@
               <div class="wf-heading">
                 <strong>{run.graphName}</strong>
                 <span class="pill" data-tone={runTone(run.state)}>{run.state.replace(/_/g, " ")}</span>
-                {#if run.triggerType}
-                  <span class="pill">{run.triggerType}</span>
-                {/if}
+                {#if run.triggerType}<span class="pill">{run.triggerType}</span>{/if}
               </div>
-              {#if run.failedNodeName}
-                <p class="wf-diag">Failed node: {run.failedNodeName}</p>
-              {/if}
+              {#if run.failedNodeName}<p class="wf-diag">Failed node: {run.failedNodeName}</p>{/if}
               <p class="wf-meta">
                 Started {formatTime(run.startedAt)}{#if run.finishedAt} | Finished {formatTime(run.finishedAt)}{/if}
               </p>
@@ -171,10 +180,13 @@
   .wf-filter-wrap { display: grid; gap: 0.375rem; margin: 1rem 0; }
   .wf-filter-wrap label { font-size: 0.875rem; font-weight: 600; color: var(--text); }
   .wf-filter-wrap input { width: 100%; min-width: 0; min-height: var(--ui-control-height); }
+  .wf-graphs-stack { display: grid; gap: 0.75rem; min-width: 0; }
   .wf-summary { margin: 0 0 0.5rem; font-size: 0.875rem; color: var(--muted); }
-  .wf-list { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.625rem; max-height: 24rem; overflow-y: auto; }
+  .wf-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.625rem; max-height: 24rem; overflow-y: auto; }
   .wf-row { padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel); }
-  .wf-info { display: grid; gap: 0.25rem; min-width: 0; }
+  .wf-row.selected { border-color: var(--accent); }
+  .wf-row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+  .wf-info { display: grid; gap: 0.25rem; min-width: 0; flex: 1 1 14rem; }
   .wf-heading { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .wf-desc { margin: 0; font-size: 0.875rem; color: var(--muted); }
   .wf-meta { margin: 0; font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }

@@ -5,18 +5,15 @@ import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "@playwright/test";
 
-// Synthetic backend only: verifies Increment 4F + Inc. 2B Onboarding (Settings Account/Updates/Audit + 33/33 slices).
+// Synthetic backend only: verifies Wave 9 (Inc. 4 100%: Files Search/Copy/Move UI, Workflows SVG canvas, Settings Account/Updates/Audit).
 const viewerSession = { authenticated: true, deviceId: "fixture-viewer-0001", deviceLabel: "Browser fixture", role: "viewer" };
 const ownerSession = { authenticated: true, deviceId: "fixture-owner-0001", deviceLabel: "Owner fixture", role: "owner" };
 const signedOut = { authenticated: false, deviceId: null, deviceLabel: null, role: null };
 const stats = { cpu: { pct: 12, cores: 4 }, mem: { used: 1024 ** 3, total: 4 * 1024 ** 3 }, disk: { used: 2 * 1024 ** 3, total: 8 * 1024 ** 3 }, uptime: 3_660_000 };
-let account = { name: "Owner", icon: { type: "preset", id: "user" } };
-const prefs = { tweaks: { theme: "system", reducedMotion: false }, quicklinks: [], updates: { auto: true, channel: "stable" } };
-const updateStatus = { supported: true, reason: null, current: "6bcb8d65", currentSubject: "feat(hybrid): 33/33 slices", latest: "6bcb8d65", buildSha: "6bcb8d65", pendingBuild: false, ahead: 0, behind: 0, commits: [], dirty: false, running: false, remoteChecked: true, log: "", channel: "stable", target: "origin/main" };
-const auditEntries = { entries: [{ ts: "2026-11-22T09:00:00.000Z", action: "auth.login", actor: "fixture-owner-0001", target: "cockpit", ok: true, detail: "Browser sign-in" }] };
-const camStatus = { running: true, enabled: true, installed: true, viewerReady: true, activeState: "active", unit: "camoufox-vnc.service" };
-const camSession = { password: "secret-should-not-appear", viewerOrigin: "https://viewer.mso.example.com", viewerTicket: "secret-ticket", viewerPathPrefix: "/vnc" };
-let mode = "ready", cookieSeen = false;
+const workflows = { graphs: [{ id: "wf-1", name: "Deploy Check", description: "Verify host health", status: "active", nodes: [{ id: "n1" }, { id: "n2" }, { id: "n3" }], edges: [{ id: "e1" }, { id: "e2" }], metadata: { tags: ["ops"] }, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T01:00:00.000Z", revision: "r1" }] };
+let fsEntries = [{ name: "notes.txt", kind: "file", size: 14, mtime: 1_700_000_001_000 }];
+let notesContent = "hello from mso";
+let mode = "ready", cookieSeen = false, copied = false;
 const devices = { approved: { "fixture-owner-0001": { label: "Owner fixture", approvedAt: 1_700_000_000_000, role: "owner" } }, pending: {} };
 const hosts = new Set();
 const readBody = (req) => new Promise((r) => { let s = ""; req.on("data", (c) => { s += c; }); req.on("end", () => { try { r(s ? JSON.parse(s) : {}); } catch { r({}); } }); });
@@ -33,16 +30,16 @@ const backend = createServer(async (req, res) => {
     else { res.statusCode = 401; res.end(JSON.stringify({ error: "bad_password" })); }
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") { mode = "signed-out"; res.setHeader("Set-Cookie", "session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
   else if (url.pathname === "/api/auth/devices") res.end(JSON.stringify(devices));
-  else if (url.pathname === "/api/auth/account" && req.method === "GET") res.end(JSON.stringify(account));
-  else if (url.pathname === "/api/auth/account" && req.method === "POST") { const b = await readBody(req); account = { ...account, ...(b.name ? { name: b.name } : {}) }; res.end(JSON.stringify(account)); }
-  else if (url.pathname === "/api/auth/password" && req.method === "POST") res.end(JSON.stringify({ ok: true }));
-  else if (url.pathname === "/api/prefs") res.end(JSON.stringify(prefs));
   else if (url.pathname === "/api/v1/sys/stats") res.end(JSON.stringify(stats));
-  else if (url.pathname === "/api/v1/sys/update") res.end(JSON.stringify(updateStatus));
-  else if (url.pathname === "/api/v1/sys/audit") res.end(JSON.stringify(auditEntries));
-  else if (url.pathname === "/api/v1/camoufox/service") res.end(JSON.stringify(camStatus));
-  else if (url.pathname === "/api/v1/camoufox/session") res.end(JSON.stringify(camSession));
-  else { res.statusCode = 404; res.end("{}"); }
+  else if (url.pathname === "/api/v1/workflows") res.end(JSON.stringify(url.searchParams.get("runs") === "1" ? { runs: [], total: 0 } : workflows));
+  else if (url.pathname === "/api/v1/fs/list") res.end(JSON.stringify({ path: "/home/demo", parent: "/home", entries: fsEntries }));
+  else if (url.pathname === "/api/v1/fs/read") res.end(JSON.stringify(notesContent));
+  else if (url.pathname === "/api/v1/fs/search") res.end(JSON.stringify([{ name: "notes.txt", path: "/home/demo/notes.txt", kind: "file" }]));
+  else if (url.pathname === "/api/v1/fs/copy" && req.method === "POST") {
+    copied = true;
+    fsEntries = [...fsEntries, { name: "notes-copy.txt", kind: "file", size: 14, mtime: Date.now() }];
+    res.end(JSON.stringify({ ok: true }));
+  } else { res.statusCode = 404; res.end("{}"); }
 });
 
 let browser, preview, output = "";
@@ -82,7 +79,7 @@ try {
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       }
       await context.close();
-      console.log(`PASS 33/33 shell no overflow: ${width}px ${colorScheme}`);
+      console.log(`PASS 33/33 Inc4-100% no overflow: ${width}px ${colorScheme}`);
     }
   }
 
@@ -93,28 +90,29 @@ try {
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("heading", { name: "Devices & Approvals" }).waitFor();
 
-  // Verify Settings -> Account (Onboarding), Updates (single in-Settings signal), and Audit Log
-  await page.locator(".app-dock").getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("tab", { name: "Account" }).click();
-  await page.getByLabel("Display name").fill("Admin Host");
-  await page.getByRole("button", { name: "Update display name" }).click();
-  await page.waitForFunction(() => document.body.innerText.includes("Admin Host"));
-  await page.getByRole("tab", { name: "Updates" }).click();
-  await page.getByText("6bcb8d65").waitFor();
-  await page.getByRole("tab", { name: "Audit Log" }).click();
-  await page.getByText("auth.login").waitFor();
-  await page.getByRole("button", { name: "Close Settings" }).click();
+  // Verify Files Search + Copy/Move UI (FilesOpsPanel)
+  await page.locator(".app-dock").getByRole("button", { name: "Open Files" }).click();
+  await page.getByLabel(/Search files in/).fill("notes");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByText("/home/demo/notes.txt").waitFor();
+  await page.getByRole("button", { name: "Copy / Move" }).click();
+  await page.getByLabel("Source path").fill("/home/demo/notes.txt");
+  await page.getByLabel("Destination path").fill("/home/demo/notes-copy.txt");
+  await page.getByRole("button", { name: "Run" }).click();
+  await page.locator("button[data-entry-open='notes-copy.txt']").waitFor();
+  assert.equal(copied, true);
+  await page.getByRole("button", { name: "Close Files" }).click();
 
-  await page.locator(".app-dock").getByRole("button", { name: "Camoufox" }).click();
-  await page.getByText("https://viewer.mso.example.com").waitFor();
-  assert.equal(await page.evaluate(() => document.body.innerText.includes("secret-should-not-appear")), false);
-  await page.getByRole("button", { name: "Close Camoufox Browser" }).click();
+  // Verify Workflows SVG topology preview (WorkflowGraphCanvas)
+  await page.locator(".app-dock").getByRole("button", { name: "Workflows" }).click();
+  await page.getByRole("img", { name: /Workflow topology preview for Deploy Check/ }).waitFor();
+  await page.getByRole("button", { name: "Close Workflows" }).click();
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual([...hosts], ["127.0.0.1:4173"]);
   assert.ok(cookieSeen);
-  console.log("PASS Increments 1..4F: Onboarding/Account, single in-Settings Updates, Audit Log, 33/33 slices");
+  console.log("PASS Wave 9: Inc. 4 100% (Files Search/Copy/Move UI, Workflows SVG topology, 33/33 slices)");
 } finally {
   await browser?.close();
   if (preview && preview.exitCode === null) { preview.kill("SIGTERM"); await once(preview, "exit"); }

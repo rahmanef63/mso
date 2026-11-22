@@ -1,14 +1,23 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod profiles;
+
 use mso_shell_core::desktop::{
     parse_deep_link, render_bridge_bootstrap_json, DesktopError, DesktopHostProfile,
 };
 use mso_shell_core::origin::OriginError;
+use profiles::{
+    HostProfileStore, DEFAULT_LOCAL_HOST_ORIGIN, DEFAULT_LOCAL_PROFILE_ID,
+    DEFAULT_LOCAL_PROFILE_LABEL,
+};
+use std::sync::Mutex;
 use tauri::Manager;
 
-const DEFAULT_HOST_ORIGIN: &str = "http://127.0.0.1:4005";
+const DEFAULT_HOST_ORIGIN: &str = DEFAULT_LOCAL_HOST_ORIGIN;
 const HOST_ORIGIN_ENV: &str = "MSO_DESKTOP_HOST_ORIGIN";
 const SHELL_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+struct DesktopProfilesState(Mutex<HostProfileStore>);
 
 /// Resolves the active MSO host profile from `MSO_DESKTOP_HOST_ORIGIN`.
 ///
@@ -19,8 +28,8 @@ fn resolve_host_profile(raw_origin: Option<&str>) -> Result<DesktopHostProfile, 
     let trimmed = raw_origin.map(str::trim).filter(|value| !value.is_empty());
     let Some(origin) = trimmed else {
         return DesktopHostProfile::new(
-            "local-default",
-            "Local MSO Host",
+            DEFAULT_LOCAL_PROFILE_ID,
+            DEFAULT_LOCAL_PROFILE_LABEL,
             DEFAULT_HOST_ORIGIN,
             true,
         )
@@ -40,6 +49,21 @@ fn resolve_host_profile(raw_origin: Option<&str>) -> Result<DesktopHostProfile, 
         }
         Err(err) => Err(format!("invalid {HOST_ORIGIN_ENV} value: {err}")),
     }
+}
+
+/// Initializes the bounded `HostProfileStore` with the local WSL2/Lima default profile
+/// and registers/selects any validated host override from `MSO_DESKTOP_HOST_ORIGIN`.
+fn build_initial_profile_store(raw_origin: Option<&str>) -> Result<HostProfileStore, String> {
+    let mut store = HostProfileStore::default_local();
+    let resolved = resolve_host_profile(raw_origin)?;
+    let active_id = resolved.id.clone();
+    store
+        .upsert(resolved)
+        .map_err(|err| format!("failed to register desktop host profile: {err}"))?;
+    store
+        .select(&active_id)
+        .map_err(|err| format!("failed to select desktop host profile: {err}"))?;
+    Ok(store)
 }
 
 /// Builds the WebView initialization script injecting `window.__MSO_DESKTOP_SHELL__`
@@ -84,19 +108,35 @@ fn resolve_deep_link(uri: String) -> Result<String, String> {
     parse_deep_link(&uri).map_err(|err| err.to_string())
 }
 
+/// Returns the active host profile and bounded multi-profile registry as JSON.
+#[tauri::command]
+fn list_host_profiles_json(
+    state: tauri::State<'_, DesktopProfilesState>,
+) -> Result<String, String> {
+    let store = state
+        .0
+        .lock()
+        .map_err(|_| "desktop host profile store lock poisoned".to_string())?;
+    Ok(store.to_json(SHELL_VERSION))
+}
+
 fn main() {
     let raw_env = std::env::var(HOST_ORIGIN_ENV).ok();
-    let profile = match resolve_host_profile(raw_env.as_deref()) {
-        Ok(profile) => profile,
+    let store = match build_initial_profile_store(raw_env.as_deref()) {
+        Ok(store) => store,
         Err(err) => {
             eprintln!("mso-desktop-tauri startup rejected: {err}");
             std::process::exit(2);
         }
     };
-    let init_script = build_initialization_script(&profile, SHELL_VERSION);
+    let init_script = build_initialization_script(store.active(), SHELL_VERSION);
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![resolve_deep_link])
+        .manage(DesktopProfilesState(Mutex::new(store)))
+        .invoke_handler(tauri::generate_handler![
+            resolve_deep_link,
+            list_host_profiles_json
+        ])
         .setup(move |app| {
             let window_config = app
                 .config()
@@ -163,6 +203,20 @@ mod tests {
                 "expected origin rejection for {bad}"
             );
         }
+    }
+
+    #[test]
+    fn initial_profile_store_retains_local_default_alongside_remote_override() {
+        let store = build_initial_profile_store(Some("https://mso.example.com"))
+            .expect("store initialization should succeed");
+        assert_eq!(store.len(), 2);
+        assert_eq!(store.active().id, "remote-env");
+        assert_eq!(store.active().api_base_origin(), "https://mso.example.com");
+
+        let snapshot = store.to_json(SHELL_VERSION);
+        assert!(snapshot.contains(r#""activeProfileId":"remote-env""#));
+        assert!(snapshot.contains(r#""id":"local-default""#));
+        assert!(snapshot.contains(r#""apiBaseOrigin":"https://mso.example.com""#));
     }
 
     #[test]

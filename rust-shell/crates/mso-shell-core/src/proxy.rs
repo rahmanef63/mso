@@ -79,6 +79,11 @@ const ROUTE_POLICIES: &[RoutePolicy] = &[
     RoutePolicy { path: "/api/v1/desktop/screenshot", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
     RoutePolicy { path: "/api/v1/fs/copy", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/v1/fs/move", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    // Wave 3 / Stage R3G cockpit routes
+    RoutePolicy { path: "/api/health", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/status", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/fs/upload", prefix: false, methods: &["POST"], max_body_bytes: 4 * 1024 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/fs/zip", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
     // Stage R2B machine protocol routes (CSRF-exempt, bearer-authenticated)
     RoutePolicy { path: "/mcp", prefix: false, methods: &["GET", "POST", "DELETE"], max_body_bytes: 1024 * 1024, forward_authorization: true },
     RoutePolicy { path: "/oauth/token", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: true },
@@ -1044,5 +1049,154 @@ mod tests {
         assert_eq!(acct.max_body_bytes, 16 * 1024);
         assert!(!acct.forward_authorization);
         assert!(match_route_policy("/api/auth/account/extra").is_none());
+    }
+
+    #[test]
+    fn matches_stage_r3g_routes_with_exact_limits_and_unlisted_guards() {
+        let expected: &[(&str, &[&str], usize)] = &[
+            ("/api/health", &["GET"], 0),
+            ("/api/status", &["GET"], 0),
+            ("/api/v1/fs/upload", &["POST"], 4 * 1024 * 1024),
+            ("/api/v1/fs/zip", &["POST"], 64 * 1024),
+        ];
+
+        for &(path, methods, max_body) in expected {
+            let p = match_route_policy(path).expect(path);
+            assert!(!p.prefix, "expected exact match policy for {path}");
+            assert_eq!(p.methods, methods, "methods mismatch for {path}");
+            assert_eq!(p.max_body_bytes, max_body, "max_body_bytes mismatch for {path}");
+            assert!(!p.forward_authorization, "must not forward Authorization on {path}");
+
+            let with_q = format!("{path}?dest=notes&mode=1");
+            assert_eq!(match_route_policy(&with_q).unwrap().path, path);
+
+            let extra = format!("{path}/extra");
+            assert!(match_route_policy(&extra).is_none(), "subpath should be unlisted: {extra}");
+        }
+
+        for unlisted in ["/api/config", "/api/v1/exec/run", "/api/v1/editor/exec"] {
+            assert!(match_route_policy(unlisted).is_none(), "route must remain unlisted: {unlisted}");
+            assert!(match_route_policy(&format!("{unlisted}?x=1")).is_none());
+        }
+    }
+
+    #[test]
+    fn forwards_stage_r3g_routes_and_enforces_method_limit_and_404_guards() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            let cases: &[(&str, &str)] = &[
+                ("GET /api/health HTTP/1.1", r#"{"ok":true}"#),
+                ("GET /api/status?verbose=1 HTTP/1.1", r#"{"status":"ready"}"#),
+                ("POST /api/v1/fs/upload?dest=notes HTTP/1.1", r#"{"written":1}"#),
+                ("POST /api/v1/fs/zip HTTP/1.1", r#"{"zipped":true}"#),
+            ];
+            for (expected_line, body) in cases {
+                let (mut conn, _) = listener.accept().unwrap();
+                let n = conn.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+                assert!(req.starts_with(expected_line), "expected {expected_line}, got: {req}");
+                assert!(req.contains("Host: mso.example.com\r\n"));
+                assert!(req.contains("Cookie: session=r3g\r\n"));
+                assert!(!req.contains("Authorization:"));
+                let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{body}");
+                conn.write_all(resp.as_bytes()).unwrap();
+            }
+        });
+
+        let origin = parse_loopback_origin(&format!("http://127.0.0.1:{port}")).unwrap();
+
+        // Unlisted routes return 404 without contacting upstream
+        for unlisted in ["/api/config", "/api/v1/exec/run", "/api/v1/editor/exec"] {
+            let r = forward_api_request(&origin, &ForwardRequest {
+                method: "POST", target: unlisted, host: Some("mso.example.com"),
+                cookie: Some("session=r3g"), authorization: None, content_type: Some("application/json"),
+                accept: None, origin: None, sec_fetch_site: Some("same-origin"), body: b"{}",
+            });
+            assert_eq!(r.status, 404, "expected 404 for {unlisted}");
+        }
+
+        // Disallowed methods return 405 without contacting upstream
+        for (method, target, allow) in [
+            ("POST", "/api/health", "GET"),
+            ("DELETE", "/api/health", "GET"),
+            ("POST", "/api/status", "GET"),
+            ("DELETE", "/api/status", "GET"),
+            ("GET", "/api/v1/fs/upload", "POST"),
+            ("DELETE", "/api/v1/fs/upload", "POST"),
+            ("GET", "/api/v1/fs/zip", "POST"),
+            ("DELETE", "/api/v1/fs/zip", "POST"),
+        ] {
+            let r = forward_api_request(&origin, &ForwardRequest {
+                method, target, host: Some("mso.example.com"), cookie: None, authorization: None,
+                content_type: None, accept: None, origin: None, sec_fetch_site: Some("same-origin"), body: &[],
+            });
+            assert_eq!(r.status, 405, "expected 405 for {method} {target}");
+            assert!(r.extra_headers.iter().any(|(k, v)| k == "Allow" && v == allow));
+        }
+
+        // Body limit enforcement (413) without contacting upstream
+        for target in ["/api/health", "/api/status"] {
+            let r = forward_api_request(&origin, &ForwardRequest {
+                method: "GET", target, host: Some("mso.example.com"), cookie: None, authorization: None,
+                content_type: None, accept: None, origin: None, sec_fetch_site: None, body: b"x",
+            });
+            assert_eq!(r.status, 413, "expected 413 for {target}");
+        }
+        let over_64k = vec![b'z'; 64 * 1024 + 1];
+        let r_zip_big = forward_api_request(&origin, &ForwardRequest {
+            method: "POST", target: "/api/v1/fs/zip", host: Some("mso.example.com"), cookie: None,
+            authorization: None, content_type: Some("application/json"), accept: None, origin: None,
+            sec_fetch_site: Some("same-origin"), body: &over_64k,
+        });
+        assert_eq!(r_zip_big.status, 413);
+
+        let over_4m = vec![b'u'; 4 * 1024 * 1024 + 1];
+        let r_up_big = forward_api_request(&origin, &ForwardRequest {
+            method: "POST", target: "/api/v1/fs/upload", host: Some("mso.example.com"), cookie: None,
+            authorization: None, content_type: Some("multipart/form-data"), accept: None, origin: None,
+            sec_fetch_site: Some("same-origin"), body: &over_4m,
+        });
+        assert_eq!(r_up_big.status, 413);
+
+        // Allowed requests forward query strings, Host, Cookie and strip Authorization
+        let r_health = forward_api_request(&origin, &ForwardRequest {
+            method: "GET", target: "/api/health", host: Some("mso.example.com"),
+            cookie: Some("session=r3g"), authorization: Some("Bearer strip-me"),
+            content_type: None, accept: None, origin: None, sec_fetch_site: None, body: &[],
+        });
+        assert_eq!(r_health.status, 200);
+        assert_eq!(r_health.body, br#"{"ok":true}"#);
+
+        let r_status = forward_api_request(&origin, &ForwardRequest {
+            method: "GET", target: "/api/status?verbose=1", host: Some("mso.example.com"),
+            cookie: Some("session=r3g"), authorization: Some("Bearer strip-me"),
+            content_type: None, accept: None, origin: None, sec_fetch_site: None, body: &[],
+        });
+        assert_eq!(r_status.status, 200);
+        assert_eq!(r_status.body, br#"{"status":"ready"}"#);
+
+        let r_upload = forward_api_request(&origin, &ForwardRequest {
+            method: "POST", target: "/api/v1/fs/upload?dest=notes", host: Some("mso.example.com"),
+            cookie: Some("session=r3g"), authorization: Some("Bearer strip-me"),
+            content_type: Some("multipart/form-data; boundary=abc"), accept: None,
+            origin: Some("http://mso.example.com"), sec_fetch_site: Some("same-origin"),
+            body: b"--abc--\r\n",
+        });
+        assert_eq!(r_upload.status, 200);
+        assert_eq!(r_upload.body, br#"{"written":1}"#);
+
+        let r_zip = forward_api_request(&origin, &ForwardRequest {
+            method: "POST", target: "/api/v1/fs/zip", host: Some("mso.example.com"),
+            cookie: Some("session=r3g"), authorization: Some("Bearer strip-me"),
+            content_type: Some("application/json"), accept: None,
+            origin: Some("http://mso.example.com"), sec_fetch_site: Some("same-origin"),
+            body: br#"{"paths":["notes"]}"#,
+        });
+        assert_eq!(r_zip.status, 200);
+        assert_eq!(r_zip.body, br#"{"zipped":true}"#);
+
+        handle.join().unwrap();
     }
 }
