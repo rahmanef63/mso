@@ -1,18 +1,22 @@
 <h1 align="center">Manef Shell OS</h1>
 <p align="center"><strong>A self-hosted control plane for AI agents.</strong></p>
 <p align="center">Let agents work across your projects, tools, workflows and infrastructure while keeping context, permissions and execution evidence under your control.</p>
-<p align="center"><a href="#see-it-work">Demo</a> · <a href="./docs/QUICKSTART.md">First 10 minutes</a> · <a href="#install-or-update-mso-from-this-repo">Install</a> · <a href="./docs/LAUNCH-READINESS.md">Launch readiness</a> · <a href="./docs/README.md">Docs</a></p>
+<p align="center"><a href="https://manef.dev/mso/demo">Interactive Demo</a> · <a href="https://mso.manef.dev/">Full Demo</a> · <a href="./docs/QUICKSTART.md">First 10 minutes</a> · <a href="#install-or-update-mso-from-this-repo">Install</a> · <a href="./docs/LAUNCH-READINESS.md">Launch readiness</a> · <a href="./docs/README.md">Docs</a></p>
 <p align="center"><a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="Tests and build" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a> <a href="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml"><img alt="Actual open security findings" src="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml/badge.svg" /></a></p>
 
 ## See it work
 
-[![MSO recorded walkthrough: open Spotlight and inspect the server](./docs/media/demo.gif)](./docs/media/demo.gif)
+**Live public demos (mock data only, no host access):** [Interactive preview (`Desktop` / `Tablet` / `Phone`)](https://manef.dev/mso/demo) · [Full standalone workspace (`mso.manef.dev`)](https://mso.manef.dev/)
 
-*A recorded browser walkthrough, not a mockup. The GIF plays here; click to open it at full size.*
-
-| Your server, visually | Your tools, in the terminal |
+| Recorded Spotlight & server walkthrough | Hybrid Svelte 5 + Bun + Rust Shell (`mso-shell-host`) live walkthrough |
 |---|---|
-| ![MSO desktop and mobile workspace](./docs/media/mso-hero.webp) | ![Interactive `mso` Agent terminal](./docs/media/mso-cli.webp) |
+| [![MSO recorded walkthrough: open Spotlight and inspect the server](./docs/media/demo.gif)](./docs/media/demo.gif) | [![Svelte 5 + Bun + Rust Shell live walkthrough and benchmark](./docs/media/svelte-rust-perf.gif)](./docs/media/svelte-rust-perf.gif) |
+
+| Your server, visually | Your tools, in the terminal | Measured Svelte 5 + Bun + Rust Shell benchmark |
+|---|---|---|
+| ![MSO desktop and mobile workspace](./docs/media/mso-hero.webp) | ![Interactive `mso` Agent terminal](./docs/media/mso-cli.webp) | ![Svelte 5 + Bun + Rust Shell benchmark evidence](./docs/media/hybrid-svelte-rust-bench.webp) |
+
+**Hybrid Svelte 5 + Bun 1.4.2 + Rust Shell (`rustc 1.99.1`) same-host benchmark ([full plan & runbook](./docs/RUST-SHELL-PLAN.md)):** **557 KiB** zero-crate Rust binary (`2.58 ms` cold ready), **2.52 / 2.81 MiB** idle/active `VmRSS` (**-99.1% RAM** vs ~284 MiB Next.js), **0.301 ms** p50 HTML+CSP Nonce TTFB (**~35x faster**), **140.0 KiB** cold first-load JS across 33 lazy slices (**-84.7%** vs ~910 KiB), **1,712 / 1,700 ms** cold Slow 4G + 4x CPU Desktop/Mobile LCP (`7 / 3 ms` TBT), and **0.365 ms** p50 native Rust `fs_jail` search (`0` Node calls).
 
 ## More than an AI chat window
 
@@ -72,15 +76,11 @@ Browser reset is separate in **Settings → Account → About**. [Backups, scope
 
 ## Use MSO from an AI app (MCP)
 
-Connect ChatGPT, Codex, Claude Code, Cursor, or another compatible MCP client to your
-MSO installation. **You do not need SI-Coder**: it is an optional MSO plugin, not the
-MCP server or an installation prerequisite.
+Connect ChatGPT, Codex, Claude Code, Cursor, or another compatible MCP client to your MSO installation. **You do not need SI-Coder**: it is an optional MSO plugin, not the MCP server or an installation prerequisite.
 
 1. Open **Settings → MCP → Access MSO → Connect an app** and choose your client.
-2. Copy the server URL shown there (`https://mso.example.com/mcp` is a placeholder),
-   select **OAuth**, and authorize on an approved MSO owner device.
-3. Grant the minimum useful scope, refresh/scan the client's tools, and enable MSO
-   in the conversation. Start with: `@MSO check server status without changing anything`.
+2. Copy the server URL shown there (`https://mso.example.com/mcp` is a placeholder), select **OAuth**, and authorize on an approved MSO owner device.
+3. Grant the minimum useful scope, refresh/scan the client's tools, and enable MSO in the conversation. Start with: `@MSO check server status without changing anything`.
 
 | Direction | What it does |
 |---|---|

@@ -8,7 +8,9 @@ Detailed usage and installation context moved from the main README. For the shor
 
 <p align="center">
   <a href="#install">Install</a> ·
-  <a href="../media/demo.gif">Watch the demo</a> ·
+  <a href="https://manef.dev/mso/demo">Interactive demo</a> ·
+  <a href="https://mso.manef.dev/">Full demo</a> ·
+  <a href="../media/demo.gif">Recorded GIF</a> ·
   <a href="../README.md">Documentation</a> ·
   <a href="../../SECURITY.md">Security</a>
 </p>
@@ -550,7 +552,7 @@ Root deployment remains unsupported. See [PLATFORMS.md](../PLATFORMS.md).
 | Contribute or review security | [Contributing](../../CONTRIBUTING.md) · [Development](../DEVELOPMENT.md) · [Security](../../SECURITY.md) |
 | Browse everything | [Documentation map](../README.md) · [Changelog](../CHANGELOG.md) |
 
-Owner deployments require authentication and are **not public demos**. The [recorded demo](../media/demo.gif) is available without access to a real server.
+Owner deployments require authentication and are **not public demos**. Public mock-only demos live at [manef.dev/mso/demo](https://manef.dev/mso/demo) (interactive Desktop/Tablet/Phone preview) and [mso.manef.dev](https://mso.manef.dev/) (full standalone workspace), alongside the [recorded demo](../media/demo.gif).
 A separate mock-only demo must keep `NEXT_PUBLIC_OS_DEMO=1` at build time and bind to loopback
 unless its owner explicitly publishes it; never enable demo mode on an owner deployment.
 

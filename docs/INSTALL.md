@@ -599,7 +599,7 @@ iframe fallback. See `docs/MANAGED-APPS.md` and `docs/9ROUTER-INTEGRATION.md`.
 
 ## 11. Public demo mode
 
-A public showcase must be a separate checkout/service built with:
+The public mock-only showcase is hosted at [https://manef.dev/mso/demo](https://manef.dev/mso/demo) (responsive Desktop/Tablet/Phone preview frame) and [https://mso.manef.dev/](https://mso.manef.dev/) (full standalone demo workspace). Any self-hosted public showcase must be a separate checkout/service built with:
 
 ```bash
 NEXT_PUBLIC_OS_DEMO=1 bun run build

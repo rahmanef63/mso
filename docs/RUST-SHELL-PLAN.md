@@ -90,6 +90,10 @@ flowchart LR
 Captured on Linux x86_64 (`16 CPUs`, `20,000 MiB RAM`, `rustc 1.99.1`, `node v24.22.2`, `bun 1.4.2`)
 via `node scripts/bench-hybrid-same-host.mjs`, `node scripts/cutover-drill.mjs`, and `bun run test:rust-host` against synthetic fixtures:
 
+| Live Svelte 5 + Bun + Rust Shell (`mso-shell-host`) walkthrough | Measured same-host benchmark scorecard |
+|---|---|
+| ![Svelte 5 + Bun + Rust Shell live walkthrough](./media/svelte-rust-perf.gif) | ![Svelte 5 + Bun + Rust Shell benchmark scorecard](./media/hybrid-svelte-rust-bench.webp) |
+
 | Measurement | Next.js baseline | Hybrid Svelte + Rust Shell (Wave 10, 2026-11-22) |
 |---|---|---|
 | Server binary / runtime footprint | ~1.5 GiB `node_modules` | **536 KiB** stripped Rust binary (`0` external crates) |

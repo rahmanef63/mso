@@ -26,6 +26,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `e2e` isolate release fixture from host Docker and widen the n8n journey timeout
 - `managed-apps` annotate operator-supplied fs paths so the build trace stays static
 
+**Docs**
+
+- `readme` add live demo domain links and Svelte 5 + Bun + Rust Shell benchmark GIF/WebP proof
+
 **Chores**
 
 - `t3` pin nightly 0.1.12 and widen the MSO Web pairing window
