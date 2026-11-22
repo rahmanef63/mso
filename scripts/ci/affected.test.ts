@@ -13,24 +13,23 @@ describe("change-aware modular gate planner", () => {
     expect(plan.steps.staticChecks).toContain("docs");
   });
 
-  it("scopes isolated slice changes to that slice's tests and matching E2E journeys", () => {
-    const plan = buildGatePlan(["frontend/slices/assistant/app.tsx"]);
+  it("scopes isolated lib domain changes to that domain's tests", () => {
+    const plan = buildGatePlan(["lib/workflow/store.ts"]);
     expect(plan.mode).toBe("modular");
     expect(plan.steps.typecheck).toBe(true);
-    expect(plan.steps.vitestTargets).toEqual(["frontend/slices/assistant"]);
+    expect(plan.steps.vitestTargets).toEqual(["lib/workflow"]);
     expect(plan.steps.svelte).toBe(false);
-    expect(plan.steps.e2eJourneys).toEqual(["assistant-chat-ux"]);
   });
 
-  it("isolates frontend/svelte changes so React build and full Vitest are skipped", () => {
+  it("isolates frontend/svelte changes so full backend Vitest is skipped", () => {
     const plan = buildGatePlan(["frontend/svelte/src/routes/+page.svelte"]);
     expect(plan.mode).toBe("svelte-only");
     expect(plan.steps.svelte).toBe(true);
     expect(plan.steps.buildAndE2e).toBe(false);
   });
 
-  it("escalates core shell or dependency changes to full verification", () => {
-    const plan = buildGatePlan(["frontend/slices/appshell/lib/store.ts"]);
+  it("escalates core runtime or dependency changes to full verification", () => {
+    const plan = buildGatePlan(["lib/http/router.ts"]);
     expect(plan.mode).toBe("full");
     expect(plan.steps.vitestTargets).toBe("all");
     expect(plan.steps.e2eJourneys).toEqual(RELEASE_E2E_JOURNEYS.map((j) => j.id));

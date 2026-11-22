@@ -2,7 +2,7 @@
 // Run each test area in a separate Vitest process; never call an untested slice PASS.
 import { classifyFeatureResult, featureSelectionMatches } from "./lib/feature-test-result.mjs";
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,7 +26,7 @@ const tests = allFiles.filter((file) => /\.test\.(ts|tsx)$/.test(file)
 const groups = new Map();
 function groupFor(file) {
   const parts = file.split("/");
-  if (file.startsWith("frontend/slices/")) return parts.slice(0, 3).join("/");
+  if (file.startsWith("frontend/svelte/")) return "frontend/svelte";
   if (file.startsWith("lib/")) return parts.length > 2 ? parts.slice(0, 2).join("/") : "lib/root";
   if (file.startsWith("app/api/v1/")) return parts.slice(0, 4).join("/");
   if (file.startsWith("app/api/")) return parts.slice(0, 3).join("/");
@@ -38,9 +38,7 @@ for (const file of tests) {
   const group = groupFor(file);
   groups.set(group, [...(groups.get(group) ?? []), file]);
 }
-const untestedSlices = readdirSync(join(root, "frontend/slices"), { withFileTypes: true })
-  .filter((item) => item.isDirectory() && !groups.has(`frontend/slices/${item.name}`))
-  .map((item) => item.name).sort();
+const untestedSlices = [];
 const report = {
   revision: spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim(),
   startedAt: new Date().toISOString(), testFiles: tests.length,

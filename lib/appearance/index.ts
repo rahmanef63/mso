@@ -1,4 +1,3 @@
-export { AppearanceProvider, useAppearance } from "./store";
 export {
   loadPresetRegistry,
   findPreset,

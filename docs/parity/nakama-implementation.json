@@ -9,16 +9,13 @@
         "README.md"
       ],
       "implementation_paths": [
-        "frontend/slices/auth/components/first-login-onboarding.tsx",
-        "frontend/slices/auth/lib/onboarding-api.ts",
-        "frontend/slices/auth/lib/onboarding-state.ts",
+        "frontend/svelte/src/lib/auth/AccountOnboardingCard.svelte",
+        "frontend/svelte/src/lib/auth/account-api.ts",
         "app/api/v1/alfa/cockpit/route.ts",
         "app/api/v1/workflows/route.ts"
       ],
       "test_paths": [
-        "frontend/slices/auth/lib/onboarding-state.test.ts",
-        "frontend/slices/auth/lib/onboarding-api.test.ts",
-        "frontend/slices/auth/lib/onboarding-runtime.test.ts",
+        "frontend/svelte/tests/onboarding.test.ts",
         "app/api/v1/workflows/run-revision.test.ts",
         "scripts/e2e/onboarding.mjs"
       ],
@@ -95,7 +92,7 @@
       "id": "NK-009",
       "status": "partial",
       "source_paths": [
-        "frontend/slices/assistant/lib/types.ts"
+        "frontend/svelte/src/lib/assistant/assistant-api.ts"
       ],
       "implementation_paths": [
         "lib/contracts/agent-profile.ts",
@@ -103,7 +100,7 @@
         "lib/agent/profile-runtime.ts",
         "lib/agent/bounded-runner.ts",
         "app/api/v1/agent-profiles/run/route.ts",
-        "frontend/slices/assistant/components/profiles-panel.tsx"
+        "frontend/svelte/src/lib/assistant/AssistantApp.svelte"
       ],
       "test_paths": [
         "lib/agent/profile-store.test.ts",
@@ -470,7 +467,7 @@
         "lib/workflow/graph-triggers.ts",
         "lib/workflow/graph-run-store.ts",
         "lib/workflow/private-file.ts",
-        "frontend/slices/workflows/components/workflow-schedule-fields.tsx"
+        "frontend/svelte/src/lib/workflows/WorkflowsApp.svelte"
       ],
       "test_paths": [
         "lib/contracts/workflow-schedule.test.ts",
@@ -544,7 +541,7 @@
       "id": "NK-052",
       "status": "pending",
       "source_paths": [
-        "frontend/slices/os-shell/shell.manifest.ts"
+        "frontend/svelte/src/lib/shell/shell-registry.ts"
       ],
       "implementation_paths": [],
       "test_paths": [],
@@ -638,7 +635,7 @@
       "id": "NK-061",
       "status": "pending",
       "source_paths": [
-        "app/register-sw.tsx"
+        "frontend/svelte/src/app.html"
       ],
       "implementation_paths": [],
       "test_paths": [],
@@ -666,7 +663,7 @@
       "id": "NK-064",
       "status": "pending",
       "source_paths": [
-        "frontend/slices/os-shell/theme-quick-picker.tsx"
+        "frontend/svelte/src/lib/shell/ShellSettingsApp.svelte"
       ],
       "implementation_paths": [],
       "test_paths": [],

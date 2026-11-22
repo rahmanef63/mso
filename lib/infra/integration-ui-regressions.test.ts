@@ -46,10 +46,8 @@ describe("integration UI fixes that must not regress", () => {
     expect(search).toContain("font-size:var(--type-body)");
   });
 
-  it("the lock curtain stays deferred while its timer stays eager", () => {
-    // Deferred for bundle reasons in #222; the invariant is that the timer is mounted from the
-    // provider, not from the deferred component.
-    expect(read("frontend/slices/appshell/provider/app-shell.tsx")).toContain("useIdleAutoLock()");
-    expect(read("frontend/slices/appshell/lib/use-idle-auto-lock.ts")).toContain("setTimeout(lock");
+  it("the lock curtain stays lazily mounted in the Svelte 5 shell", () => {
+    expect(read("frontend/svelte/src/lib/shell/LazyModals.svelte")).toContain("LockScreen.svelte");
+    expect(read("frontend/svelte/src/lib/shell/LockScreen.svelte")).toContain("dialog");
   });
 });

@@ -1,64 +1,115 @@
-import next from "next";
-import { createServer, request as httpRequest } from "node:http";
+import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
+import { register } from "node:module";
+import { Readable } from "node:stream";
 import { attachSocketProxy } from "./server-sockets.mjs";
 import { requestBodyLimit } from "./server-body-policy.mjs";
 
+if (!process.versions.bun) {
+  register("./lib/ts-alias-loader.mjs", import.meta.url);
+}
+
+const { registerServerBootstrap } = await import("../lib/http/server-bootstrap.ts");
+const { dispatchMsoRequest } = await import("../lib/http/router.ts");
+
 const args = process.argv.slice(2);
-const argument = (name, fallback) => args.includes(name) ? args[args.indexOf(name) + 1] : fallback;
+const argument = (name, fallback) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
 const hostname = argument("--hostname", process.env.HOSTNAME ?? "0.0.0.0");
 const port = Number(argument("--port", process.env.PORT ?? "3000"));
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("invalid runtime port");
 process.env.MSO_SOCKET_POLICY_SECRET = randomBytes(32).toString("hex");
-// Next builds the internal request origin (`initUrl`) from this hostname, and that origin
-// decides whether a middleware rewrite is internal or external. Next's NextURL canonicalizes
-// a bare loopback IP to `localhost` (next-url.js REGEX_LOCALHOST_HOSTNAME), so handing Next
-// the raw address makes `initUrl` (127.0.0.1) disagree with the middleware's `nextUrl`
-// (localhost) and every managed-app internal rewrite is misclassified as EXTERNAL and
-// self-proxied over TLS (EPROTO/500). Pass the canonical loopback name Next itself uses
-// while we keep binding the public socket to the real address below.
-const nextHostname = /^(?:127(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d?\d)){3}|\[::1\]|::1|localhost)$/.test(hostname) ? "localhost" : hostname;
-const internal = createServer();
-const app = next({ dev: false, hostname: nextHostname, port, httpServer: internal });
-await app.prepare();
-internal.on("request", app.getRequestHandler());
-await new Promise((resolve) => internal.listen(0, "127.0.0.1", resolve));
-const internalOrigin = `http://127.0.0.1:${internal.address().port}`;
+
+await registerServerBootstrap();
+
+const canonicalHost = /^(?:127(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d?\d)){3}|\[::1\]|::1|localhost)$/.test(hostname)
+  ? "localhost"
+  : hostname;
+
 let activeBodies = 0;
-// Next owns HTTP on a private socket; only our public server receives upgrades.
-const server = createServer((incoming, outgoing) => {
+
+const server = createServer(async (incoming, outgoing) => {
   const limit = requestBodyLimit(incoming.url);
-  const hasBody = Number(incoming.headers["content-length"] ?? 0) > 0 || incoming.headers["transfer-encoding"];
-  const reject = (status) => { outgoing.once("finish", () => incoming.destroy()); outgoing.writeHead(status, { connection: "close" }); outgoing.end(); };
+  const hasBody = Number(incoming.headers["content-length"] ?? 0) > 0 || Boolean(incoming.headers["transfer-encoding"]);
+  const reject = (status) => {
+    outgoing.once("finish", () => incoming.destroy());
+    outgoing.writeHead(status, { connection: "close" });
+    outgoing.end();
+  };
   if (Number(incoming.headers["content-length"] ?? 0) > limit) return reject(413);
   if (hasBody && activeBodies >= 32) return reject(429);
-  if (hasBody) { activeBodies++; outgoing.once("close", () => { activeBodies--; }); }
-  const hop = httpRequest({ hostname: "127.0.0.1", port: internal.address().port, path: incoming.url, method: incoming.method, headers: incoming.headers }, (response) => {
-    outgoing.writeHead(response.statusCode, response.headers); response.pipe(outgoing);
-  });
-  hop.once("error", () => { if (!outgoing.headersSent) outgoing.writeHead(502); outgoing.end(); });
-  incoming.once("aborted", () => hop.destroy());
-  outgoing.once("close", () => hop.destroy());
+  if (hasBody) {
+    activeBodies++;
+    outgoing.once("close", () => { activeBodies--; });
+  }
+
   let size = 0;
-  incoming.on("data", chunk => {
+  incoming.on("data", (chunk) => {
     size += chunk.length;
     if (size <= limit) return;
-    incoming.unpipe(hop); hop.destroy();
-    if (!outgoing.headersSent) reject(413); else outgoing.destroy();
+    if (!outgoing.headersSent) reject(413);
+    else outgoing.destroy();
   });
-  incoming.pipe(hop);
+
+  try {
+    const proto = String(incoming.headers["x-forwarded-proto"] ?? "http").split(",")[0].trim() || "http";
+    const url = `${proto}://${canonicalHost}:${port}${incoming.url ?? "/"}`;
+    const headers = new Headers();
+    for (const [k, v] of Object.entries(incoming.headers)) {
+      if (Array.isArray(v)) {
+        for (const item of v) headers.append(k, item);
+      } else if (typeof v === "string") {
+        headers.set(k, v);
+      }
+    }
+    const method = incoming.method ?? "GET";
+    const body = method === "GET" || method === "HEAD" ? undefined : Readable.toWeb(incoming);
+    const req = new Request(url, { method, headers, body, duplex: body ? "half" : undefined });
+    const res = await dispatchMsoRequest(req);
+
+    const outHeaders = {};
+    res.headers.forEach((v, k) => {
+      if (k.toLowerCase() === "set-cookie") return;
+      outHeaders[k] = v;
+    });
+    const setCookies = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
+    if (setCookies.length > 0) outHeaders["set-cookie"] = setCookies;
+
+    outgoing.writeHead(res.status, outHeaders);
+    if (!res.body || method === "HEAD") {
+      outgoing.end();
+      return;
+    }
+    for await (const chunk of res.body) {
+      if (outgoing.destroyed) break;
+      outgoing.write(chunk);
+    }
+    outgoing.end();
+  } catch {
+    if (!outgoing.headersSent) outgoing.writeHead(502);
+    outgoing.end();
+  }
 });
+
+const internalOrigin = `http://127.0.0.1:${port}`;
 const closeSockets = attachSocketProxy(server, async (request) => {
   const headers = Object.fromEntries(Object.entries(request.headers).filter(([, value]) => typeof value === "string"));
   const host = headers.host;
   if (!host || !request.url?.startsWith("/")) return null;
   const response = await fetch(`${internalOrigin}/api/internal/socket-policy`, {
-    method: "POST", redirect: "error", signal: AbortSignal.timeout(3000),
+    method: "POST",
+    redirect: "error",
+    signal: AbortSignal.timeout(3000),
     headers: { "content-type": "application/json", authorization: `Bearer ${process.env.MSO_SOCKET_POLICY_SECRET}` },
     body: JSON.stringify({ url: `http://${host}${request.url}`, headers }),
   });
   return response.ok ? response.json() : null;
 });
+
 server.listen(port, hostname);
-const shutdown = () => { closeSockets(); server.closeAllConnections(); internal.closeAllConnections(); internal.close(); server.close(() => process.exit(0)); };
-process.once("SIGTERM", shutdown); process.once("SIGINT", shutdown);
+const shutdown = () => {
+  closeSockets();
+  server.closeAllConnections();
+  server.close(() => process.exit(0));
+};
+process.once("SIGTERM", shutdown);
+process.once("SIGINT", shutdown);

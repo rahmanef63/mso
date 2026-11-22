@@ -42,7 +42,7 @@ export const unmeasured = (note = "no cited ceiling exists in code"): Provenance
  */
 export const absent = (slice: string, note: string): Provenance => ({
   kind: "derived",
-  file: `frontend/slices/${slice}`,
+  file: `frontend/svelte/src/lib/${slice}`,
   line: 0,
   note,
 });

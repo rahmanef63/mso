@@ -15,7 +15,7 @@ import {
   HEADLESS_TOOLS,
   type Doc,
   type Invocation,
-} from "@/features/image-editor/server";
+} from "@/lib/image-editor/server";
 
 type Body = {
   doc?: Doc;

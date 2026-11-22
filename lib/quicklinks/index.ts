@@ -1,9 +1,7 @@
-export {
-  QuicklinksProvider,
-  useQuicklinks,
-  faviconUrl,
-  normalizeUrl,
-  titleFromUrl,
-  openQuicklink,
-  type Quicklink,
-} from "./store";
+export type Quicklink = {
+  id: string;
+  title: string;
+  url: string;
+  icon?: string;
+  color?: string;
+};

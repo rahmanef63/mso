@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+type CSSProperties = Record<string, string | number | undefined>;
 
 export type ImageSource = "color" | "gradient" | "texture" | "upload" | "link" | "unsplash";
 export interface ImageValue {

@@ -17,7 +17,7 @@ vi.mock("@/lib/host/fs-api", () => ({
 }));
 
 import { GET, POST } from "./route";
-import { HEADLESS_TOOLS } from "@/features/image-editor/server";
+import { HEADLESS_TOOLS } from "@/lib/image-editor/server";
 
 function makeReq(url: string, method = "GET", body?: unknown): Request {
   return new Request(url, {
@@ -98,7 +98,7 @@ describe("POST /api/v1/editor/exec", () => {
   });
 
   it("reads, mutates and writes an existing document", async () => {
-    const { blankDoc } = await import("@/features/image-editor/server");
+    const { blankDoc } = await import("@/lib/image-editor/server");
     const existingDoc = blankDoc(400, 300);
     mocks.readFile.mockResolvedValue(JSON.stringify(existingDoc));
     const res = await POST(

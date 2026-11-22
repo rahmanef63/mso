@@ -180,7 +180,6 @@ export function mountScreenLoop({
   paint();
 
   const loop = {
-    active: true, session, paint, sync, suspend, resume,
     active: true,
     session,
     // Exposed so /find can move the window: the viewport is a closure local, and a command cannot reach

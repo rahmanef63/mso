@@ -43,23 +43,18 @@ for (const [file, ref] of [
   ["CLAUDE.md", "./docs/FRONTEND-CONTRACT.md"],
   ["frontend/AGENTS.md", "../docs/FRONTEND-CONTRACT.md"],
   ["docs/UI-UX-FOUNDATION.md", "./FRONTEND-CONTRACT.md"],
-  ["frontend/slices/appshell/design/README.md", "../../../../docs/FRONTEND-CONTRACT.md"],
 ]) if (!read(file).includes(ref)) fail.push(`${file}: must reference the frontend implementation contract (${ref})`);
 
-// --- Slice catalog counts.
+// --- Slice catalog counts (Svelte 5 modules under frontend/svelte/src/lib).
 const dirs = (p) => readdirSync(join(ROOT, p), { withFileTypes: true }).filter((x) => x.isDirectory()).map((x) => x.name);
-const sliceCount = dirs("frontend/slices").length;
-const featureCount = dirs("frontend/slices/appshell/features").length;
-const sliceMarker = `<!-- slice-catalog: slices=${sliceCount} appshell-features=${featureCount} -->`;
+const sliceCount = dirs("frontend/svelte/src/lib").length;
+const sliceMarker = `<!-- slice-catalog: svelte-modules=${sliceCount} -->`;
 const sliceDoc = read("docs/SLICE-CATALOG.md");
 if (!sliceDoc.includes(sliceMarker)) {
   fail.push(`docs/SLICE-CATALOG.md: count marker stale; expected ${sliceMarker}`);
 }
-for (const name of dirs("frontend/slices")) {
-  if (!sliceDoc.includes(`\`${name}\``)) fail.push(`docs/SLICE-CATALOG.md: slice ${name} is not documented`);
-}
-for (const name of dirs("frontend/slices/appshell/features")) {
-  if (!sliceDoc.includes(`\`${name}\``)) fail.push(`docs/SLICE-CATALOG.md: AppShell feature ${name} is not documented`);
+for (const name of dirs("frontend/svelte/src/lib")) {
+  if (!sliceDoc.includes(`\`${name}\``)) fail.push(`docs/SLICE-CATALOG.md: module ${name} is not documented`);
 }
 
 // --- Every top-level docs/*.md must be classified in docs/README.md.
@@ -115,4 +110,4 @@ if (fail.length) {
   for (const item of fail) console.error(`- ${item}`);
   process.exit(1);
 }
-console.log(`docs: current — ${markdown.length} markdown files, full ${catalog.modelCount}+${catalog.appOnly.length} app-only MCP tools, ChatGPT ${catalog.chatgpt.modelCount}+${catalog.chatgpt.appOnly.length} app-only, ${sliceCount} slices, ${featureCount} AppShell feature dirs`);
+console.log(`docs: current — ${markdown.length} markdown files, full ${catalog.modelCount}+${catalog.appOnly.length} app-only MCP tools, ChatGPT ${catalog.chatgpt.modelCount}+${catalog.chatgpt.appOnly.length} app-only, ${sliceCount} Svelte feature modules`);

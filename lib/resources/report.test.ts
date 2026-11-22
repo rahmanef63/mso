@@ -154,14 +154,14 @@ describe("unaccounted slices", () => {
 
   it("lists every on-disk slice that has no registry entry", () => {
     const report = buildResourceReport({
-      knownSlices: ["system-monitor", "docs", "brand-new-slice"],
-      buckets: [usage()],
+      knownSlices: ["monitor", "docs", "brand-new-slice"],
+      buckets: [usage({ slice: "monitor" })],
       droppedSamples: 0,
       bufferCapacity: 2_048,
       now: 31_000,
     });
     expect(report.unaccountedSlices).toEqual(["brand-new-slice"]);
-    expect(report.slices.map((row) => row.slice)).toEqual(["docs", "system-monitor"]);
+    expect(report.slices.map((row) => row.slice)).toEqual(["docs", "monitor"]);
     // The registered slices still report; the unregistered one is never silently dropped.
     expect(report.slices.every((row) => row.accounted)).toBe(true);
   });
@@ -173,8 +173,8 @@ describe("unaccounted slices", () => {
 
   it("reports unattributed capability cost separately from every slice total", () => {
     const report = buildResourceReport({
-      knownSlices: ["system-monitor"],
-      buckets: [usage(), usage({ slice: "", calls: 3, cpuMs: 900 })],
+      knownSlices: ["monitor"],
+      buckets: [usage({ slice: "monitor" }), usage({ slice: "", calls: 3, cpuMs: 900 })],
       droppedSamples: 2,
       bufferCapacity: 2_048,
       now: 31_000,
@@ -187,11 +187,11 @@ describe("unaccounted slices", () => {
 
 describe("worst offenders", () => {
   it("ranks an over-budget slice above a heavier one that is within budget", () => {
-    const over = buildSliceReport("system-monitor", { ...budget, externalCallsPerMinute: 5 }, provenance, "r", usage(), 31_000);
+    const over = buildSliceReport("monitor", { ...budget, externalCallsPerMinute: 5 }, provenance, "r", usage({ slice: "monitor" }), 31_000);
     const heavy = buildSliceReport("assistant", budget, provenance, "r", usage({ calls: 10, cpuMs: 20_000 }), 31_000);
-    const report = buildResourceReport({ knownSlices: ["system-monitor", "assistant"], buckets: [], droppedSamples: 0, bufferCapacity: 10, now: 1 });
+    const report = buildResourceReport({ knownSlices: ["monitor", "assistant"], buckets: [], droppedSamples: 0, bufferCapacity: 10, now: 1 });
     report.slices = [heavy, over];
-    expect(worstOffenders(report, 2).map((row) => row.slice)).toEqual(["system-monitor", "assistant"]);
+    expect(worstOffenders(report, 2).map((row) => row.slice)).toEqual(["monitor", "assistant"]);
   });
 
   it("returns nothing when no slice has activity or a violation", () => {

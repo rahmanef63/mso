@@ -42,7 +42,7 @@ if (!/^https:\/\/github\.com\/rahmanef63\/mso(?:\.git)?\/?$/.test(origin)) {
   fail("the native candidate must run from the official public checkout");
 }
 if (run("git", ["status", "--porcelain"], { quiet: true })) fail("preserve uncommitted work before installation");
-if (fs.existsSync(path.join(root, ".next"))) {
+if (fs.existsSync(path.join(root, "frontend", "svelte", "build"))) {
   fail("an existing build is present; do not replace a potentially running MSO checkout");
 }
 
@@ -76,7 +76,8 @@ OS_MCP_MAX_SCOPE=read
     run("icacls", [envFile, "/inheritance:r", "/grant:r", `*${sid}:(F)`], { quiet: true });
   }
 }
-run(process.execPath, [path.join(root, "node_modules", "next", "dist", "bin", "next"), "build"]);
+run("bun", ["run", "svelte:install"]);
+run("bun", ["run", "svelte:build"]);
 process.stdout.write(`Native host build ready in ${root}\n`);
 if (generatedPassword && process.env.CI !== "true") process.stdout.write(`First-login password (shown once): ${generatedPassword}\n`);
 process.stdout.write("Run: node bin/mso-host.mjs doctor\nRun: node bin/mso-host.mjs start\nAfter your first browser login shows a pending device, approve its exact ID locally with: node scripts/approve-device.js <device-id> \"my device\" --role owner\n");

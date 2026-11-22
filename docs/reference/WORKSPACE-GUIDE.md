@@ -387,7 +387,7 @@ flowchart LR
 Core persistence is local. Optional model-provider calls send the selected context off-host;
 **BYOK does not mean the data stays on your server**. Files and model output are untrusted input,
 not permission to execute a command. See [architecture](../ARCHITECTURE.md) and
-[the AI/tool contract](../../frontend/slices/assistant/CONTRACT.md).
+[the AI/tool registry](../../lib/agent/host-tools/registry.ts).
 
 ## CLI
 

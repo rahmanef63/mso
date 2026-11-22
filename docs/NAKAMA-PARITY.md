@@ -81,16 +81,16 @@ Kontrak lengkap tersimpan dalam [snapshot](./parity/nakama-v0.1.json), [peta imp
 
 ### NK-001
 
-Kode: [frontend/slices/auth/components/first-login-onboarding.tsx](../frontend/slices/auth/components/first-login-onboarding.tsx), [frontend/slices/auth/lib/onboarding-api.ts](../frontend/slices/auth/lib/onboarding-api.ts), [frontend/slices/auth/lib/onboarding-state.ts](../frontend/slices/auth/lib/onboarding-state.ts), [app/api/v1/alfa/cockpit/route.ts](../app/api/v1/alfa/cockpit/route.ts), [app/api/v1/workflows/route.ts](../app/api/v1/workflows/route.ts).
+Kode: [frontend/svelte/src/lib/auth/AccountOnboardingCard.svelte](../frontend/svelte/src/lib/auth/AccountOnboardingCard.svelte), [frontend/svelte/src/lib/auth/account-api.ts](../frontend/svelte/src/lib/auth/account-api.ts), [app/api/v1/alfa/cockpit/route.ts](../app/api/v1/alfa/cockpit/route.ts), [app/api/v1/workflows/route.ts](../app/api/v1/workflows/route.ts).
 
-Pengujian: [frontend/slices/auth/lib/onboarding-state.test.ts](../frontend/slices/auth/lib/onboarding-state.test.ts), [frontend/slices/auth/lib/onboarding-api.test.ts](../frontend/slices/auth/lib/onboarding-api.test.ts), [frontend/slices/auth/lib/onboarding-runtime.test.ts](../frontend/slices/auth/lib/onboarding-runtime.test.ts), [app/api/v1/workflows/run-revision.test.ts](../app/api/v1/workflows/run-revision.test.ts), [scripts/e2e/onboarding.mjs](../scripts/e2e/onboarding.mjs).
+Pengujian: [frontend/svelte/tests/onboarding.test.ts](../frontend/svelte/tests/onboarding.test.ts), [app/api/v1/workflows/run-revision.test.ts](../app/api/v1/workflows/run-revision.test.ts), [scripts/e2e/onboarding.mjs](../scripts/e2e/onboarding.mjs).
 
 - Akun manusia, organisasi, migrasi owner dan konteks pengguna yang dapat disunting masih memerlukan PK04–PK06.
 - Pemulihan instalasi penuh, installer lintas platform dan kesiapan provider nyata belum dibuktikan; panduan ini memakai instalasi dan perangkat Owner yang sudah ada.
 
 ### NK-009
 
-Kode: [lib/contracts/agent-profile.ts](../lib/contracts/agent-profile.ts), [lib/agent/profile-store.ts](../lib/agent/profile-store.ts), [lib/agent/profile-runtime.ts](../lib/agent/profile-runtime.ts), [lib/agent/bounded-runner.ts](../lib/agent/bounded-runner.ts), [app/api/v1/agent-profiles/run/route.ts](../app/api/v1/agent-profiles/run/route.ts), [frontend/slices/assistant/components/profiles-panel.tsx](../frontend/slices/assistant/components/profiles-panel.tsx).
+Kode: [lib/contracts/agent-profile.ts](../lib/contracts/agent-profile.ts), [lib/agent/profile-store.ts](../lib/agent/profile-store.ts), [lib/agent/profile-runtime.ts](../lib/agent/profile-runtime.ts), [lib/agent/bounded-runner.ts](../lib/agent/bounded-runner.ts), [app/api/v1/agent-profiles/run/route.ts](../app/api/v1/agent-profiles/run/route.ts), [frontend/svelte/src/lib/assistant/AssistantApp.svelte](../frontend/svelte/src/lib/assistant/AssistantApp.svelte).
 
 Pengujian: [lib/agent/profile-store.test.ts](../lib/agent/profile-store.test.ts), [lib/agent/profile-runtime.test.ts](../lib/agent/profile-runtime.test.ts), [lib/ai/profile-model-binding.test.ts](../lib/ai/profile-model-binding.test.ts), [app/api/v1/agent-profiles/route.test.ts](../app/api/v1/agent-profiles/route.test.ts), [app/api/v1/agent-profiles/run/route.test.ts](../app/api/v1/agent-profiles/run/route.test.ts), [scripts/e2e/agent-profiles.mjs](../scripts/e2e/agent-profiles.mjs).
 
@@ -107,7 +107,7 @@ Pengujian: [lib/agent/profile-store.test.ts](../lib/agent/profile-store.test.ts)
 
 ### NK-045
 
-Kode: [lib/contracts/workflow-schedule.ts](../lib/contracts/workflow-schedule.ts), [lib/workflow/schedule.ts](../lib/workflow/schedule.ts), [lib/workflow/graph-triggers.ts](../lib/workflow/graph-triggers.ts), [lib/workflow/graph-run-store.ts](../lib/workflow/graph-run-store.ts), [lib/workflow/private-file.ts](../lib/workflow/private-file.ts), [frontend/slices/workflows/components/workflow-schedule-fields.tsx](../frontend/slices/workflows/components/workflow-schedule-fields.tsx).
+Kode: [lib/contracts/workflow-schedule.ts](../lib/contracts/workflow-schedule.ts), [lib/workflow/schedule.ts](../lib/workflow/schedule.ts), [lib/workflow/graph-triggers.ts](../lib/workflow/graph-triggers.ts), [lib/workflow/graph-run-store.ts](../lib/workflow/graph-run-store.ts), [lib/workflow/private-file.ts](../lib/workflow/private-file.ts), [frontend/svelte/src/lib/workflows/WorkflowsApp.svelte](../frontend/svelte/src/lib/workflows/WorkflowsApp.svelte).
 
 Pengujian: [lib/contracts/workflow-schedule.test.ts](../lib/contracts/workflow-schedule.test.ts), [lib/workflow/schedule.test.ts](../lib/workflow/schedule.test.ts), [lib/workflow/schedule-runtime.test.ts](../lib/workflow/schedule-runtime.test.ts), [lib/workflow/private-file-durable.test.ts](../lib/workflow/private-file-durable.test.ts), [scripts/e2e/workflow-schedules.mjs](../scripts/e2e/workflow-schedules.mjs).
 

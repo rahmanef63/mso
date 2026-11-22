@@ -17,13 +17,13 @@ import { ATTRIBUTION } from "./attribution";
  */
 /** Every non-test source file inside one slice directory. */
 function sliceSources(slice: string): string[] {
-  const root = join(process.cwd(), "frontend", "slices", slice);
+  const root = join(process.cwd(), "frontend", "svelte", "src", "lib", slice);
   const out: string[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (/\.(ts|tsx)$/.test(entry.name) && !entry.name.includes(".test.")) out.push(full);
+      else if (/\.(ts|svelte)$/.test(entry.name) && !entry.name.includes(".test.")) out.push(full);
     }
   };
   try { walk(root); } catch { return []; }
@@ -55,10 +55,10 @@ const OUTBOUND = /\bfetch\(|\/api\/v1\/|api\.(fs|exec|sys|apps|browser|projects)
 describe("slice resource registry", () => {
   const onDisk = knownSliceDirectories();
 
-  it("reads the real slice directory rather than a fixture", () => {
+  it("reads the real Svelte module directory rather than a fixture", () => {
     expect(onDisk.length).toBeGreaterThan(20);
-    expect(onDisk).toContain("system-monitor");
-    expect(onDisk).toContain("appshell");
+    expect(onDisk).toContain("monitor");
+    expect(onDisk).toContain("shell");
   });
 
   it("registers exactly one entry for every slice on disk", () => {
@@ -94,8 +94,8 @@ describe("slice resource registry", () => {
         expect(provenance.note.length, `${entry.slice}.${field}`).toBeGreaterThan(10);
       // A cited/derived/policy claim must point at a real file and a real line, or at
       // a slice tree for an absence claim (which has neither a file nor a line).
-      if (provenance.kind !== "unmeasured" && !provenance.file.startsWith("frontend/slices/")) {
-        expect(provenance.file, `${entry.slice}.${field}`).toMatch(/\.(ts|tsx)$/);
+      if (provenance.kind !== "unmeasured" && !provenance.file.startsWith("frontend/svelte/src/lib/")) {
+        expect(provenance.file, `${entry.slice}.${field}`).toMatch(/\.(ts|tsx|svelte)$/);
         expect(provenance.line, `${entry.slice}.${field}`).toBeGreaterThan(0);
       }
       }
@@ -134,7 +134,7 @@ describe("slice resource registry", () => {
       } else {
         // An absence claim must be anchored to the slice's own tree, so a later
         // worker-spawning capability added to that slice contradicts a checkable file.
-        expect(provenance.file, entry.slice).toBe(`frontend/slices/${entry.slice}`);
+        expect(provenance.file, entry.slice).toBe(`frontend/svelte/src/lib/${entry.slice}`);
         expect(matchingSources(entry.slice, WORKER_CALLS), `${entry.slice} now references a worker`).toEqual([]);
       }
     }
@@ -144,7 +144,7 @@ describe("slice resource registry", () => {
     for (const entry of REGISTRY) {
       if (entry.budget.externalCallsPerMinute !== 0) continue;
       expect(entry.provenance.externalCallsPerMinute.kind, entry.slice).toBe("derived");
-      expect(entry.provenance.externalCallsPerMinute.file, entry.slice).toBe(`frontend/slices/${entry.slice}`);
+      expect(entry.provenance.externalCallsPerMinute.file, entry.slice).toBe(`frontend/svelte/src/lib/${entry.slice}`);
       expect(matchingSources(entry.slice, OUTBOUND), `${entry.slice} now makes a call`).toEqual([]);
     }
   });
