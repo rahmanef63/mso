@@ -9,6 +9,7 @@ import {
   sendA2AStreamingMessage,
 } from "@/lib/a2a";
 import { audit } from "@/lib/host/audit-api";
+import { errorMessage } from "@/lib/host/error-message";
 import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
 import { a2aHash, a2aLimited } from "./route-shared";
 
@@ -92,7 +93,7 @@ export async function handleA2AMessageAction(
         } catch (error) {
           controller.enqueue(
             encoder.encode(
-              `event: error\ndata: ${JSON.stringify(error instanceof Error ? error.message : String(error))}\n\n`,
+              `event: error\ndata: ${JSON.stringify(errorMessage(error))}\n\n`,
             ),
           );
         } finally {

@@ -21,14 +21,17 @@ import { listAutomationScripts } from "@/lib/orchestration/repo-memory-artifacts
 import { getWorkflowDataTable, listWorkflowDataTables } from "@/lib/workflow/data-table-store";
 import { learningPage } from "@/lib/workflow/learning-page";
 import { discoverOwnerGraphs } from "@/lib/workflow/owner-discovery";
+import { clientMessage, errorMessage } from "@/lib/host/error-message";
 
 const headers = { "Cache-Control": "no-store, private" };
 
+// `fail` takes a caught error, `failCode` takes a literal code the route chose. Separate paths
+// keep a propagated string out of a response body; see lib/host/error-message.ts.
 const fail = (error: unknown, status = 400) =>
-  NextResponse.json(
-    { error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500) || "workflow request failed" },
-    { status, headers },
-  );
+  NextResponse.json({ error: errorMessage(error, 500) }, { status, headers });
+
+const failCode = (code: string, status = 400) =>
+  NextResponse.json({ error: clientMessage(code) }, { status, headers });
 
 async function auth(minimum: "viewer" | "operator" | "owner" = "viewer") {
   const context = await getSessionContext();
@@ -40,10 +43,10 @@ export async function handleGetWorkflow(req: NextRequest): Promise<Response> {
   const q = req.nextUrl.searchParams;
   const minimum = (q.has("variables") || q.has("data_tables") || q.has("data_table")) ? "operator" : "viewer";
   const session = await auth(minimum);
-  if (!session) return fail("unauthorized", 401);
+  if (!session) return failCode("unauthorized", 401);
   try {
     if (q.get("owner_view") === "1") {
-      if (session.context.role !== "owner") return fail("owner_required", 403);
+      if (session.context.role !== "owner") return failCode("owner_required", 403);
       return NextResponse.json(await discoverOwnerGraphs(session.context.role, session.principal, Number(q.get("owner_offset")) || 0), { headers });
     }
     if (q.get("directory") === "1") {
@@ -118,7 +121,7 @@ export async function handleGetWorkflow(req: NextRequest): Promise<Response> {
       return NextResponse.json({ project: project.id, scripts }, { headers });
     }
     if (q.get("learning") === "1") {
-      if (!roleAtLeast(session.context.role, "owner")) return fail("owner_required", 403);
+      if (!roleAtLeast(session.context.role, "owner")) return failCode("owner_required", 403);
       return NextResponse.json(await learningPage({
         offset: Number(q.get("offset")) || 0,
         limit: Number(q.get("limit")) || 40,
@@ -151,7 +154,7 @@ export async function handleGetWorkflow(req: NextRequest): Promise<Response> {
     }
     if (q.has("graph_id")) {
       const graph = await getWorkflowGraph(session.principal, q.get("graph_id")!);
-      if (!graph) return fail("workflow graph not found", 404);
+      if (!graph) return failCode("workflow graph not found", 404);
       return NextResponse.json({ graph }, { headers });
     }
     const graphs = await listWorkflowGraphs(session.principal);
