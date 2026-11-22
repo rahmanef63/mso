@@ -1,8 +1,15 @@
 #!/usr/bin/env node
-import { chromium, expect } from '@playwright/test';
+import { chromium, expect as playwrightExpect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { releaseFixture } from './release-fixture.mjs';
+
+// This journey waits on /api/v1/managed-apps/discover, which probes whatever
+// managed apps the HOST actually has installed. A bare CI runner answers in
+// milliseconds; a workstation with orca or n8n installed answered in 5.17s for
+// orca alone and 6.5s for the whole snapshot, so the 5s default failed a gate the
+// product had not broken. Matches shell-apps/ios-lock/bundle-performance.
+const expect = playwrightExpect.configure({ timeout: 15_000 });
 
 const app = {
   id: 'n8n',

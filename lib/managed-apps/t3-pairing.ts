@@ -7,7 +7,11 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const PAIRING_TOKEN_PATTERN = /^[A-Za-z0-9._~+/=-]{8,512}$/;
 const PAIRING_TIMEOUT_MS = 4_000;
-const PAIRING_TTL = "2m";
+// The iframe mints a one-time token on every mount, so the TTL only has to outlive
+// a slow refresh or a tab resumed from background. 2m lost that race and surfaced
+// as "Invalid pairing token"; the token is still one-time and still scoped to the
+// MSO Web session, so a longer window costs nothing.
+const PAIRING_TTL = "10m";
 
 export function validateT3PairUrl(rawUrl: unknown, expectedOrigin: string): string | null {
   if (typeof rawUrl !== "string" || rawUrl.length === 0 || rawUrl.length > 2048) return null;

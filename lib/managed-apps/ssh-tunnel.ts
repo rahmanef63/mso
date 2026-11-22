@@ -64,7 +64,10 @@ export function buildSshTunnelArgv(record: SshTunnelRecord): string[] {
 
 async function readRecords(): Promise<SshTunnelRecord[]> {
   try {
-    const raw = await fs.readFile(tunnelStorePath(), "utf8");
+    // `turbopackIgnore` is load-bearing: the store path is env-overridable, so
+    // Turbopack cannot resolve it and would trace the whole project (which the
+    // release gate treats as a build warning = failure).
+    const raw = await fs.readFile(/* turbopackIgnore: true */ tunnelStorePath(), "utf8");
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as SshTunnelRecord[]) : [];
   } catch {
@@ -74,10 +77,10 @@ async function readRecords(): Promise<SshTunnelRecord[]> {
 
 async function writeRecords(records: SshTunnelRecord[]): Promise<void> {
   const file = tunnelStorePath();
-  await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+  await fs.mkdir(/* turbopackIgnore: true */ path.dirname(file), { recursive: true, mode: 0o700 });
   const temp = `${file}.tmp.${process.pid}.${Date.now()}`;
-  await fs.writeFile(temp, `${JSON.stringify(records, null, 2)}\n`, { mode: 0o600 });
-  await fs.rename(temp, file);
+  await fs.writeFile(/* turbopackIgnore: true */ temp, `${JSON.stringify(records, null, 2)}\n`, { mode: 0o600 });
+  await fs.rename(/* turbopackIgnore: true */ temp, file);
 }
 
 function toView(record: SshTunnelRecord): SshTunnelView {
