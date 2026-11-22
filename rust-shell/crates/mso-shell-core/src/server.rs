@@ -1281,4 +1281,157 @@ mod tests {
         srv.stop();
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn enforces_stage_r3d_routes_methods_csrf_limits_and_unlisted_guards() {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("mso-rust-srv-r3d-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>ok</html>").unwrap();
+
+        let up_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let up_port = up_listener.local_addr().unwrap().port();
+        let up_thread = thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            let cases: &[(&str, &str)] = &[
+                ("GET /api/v1/app-catalog?category=all HTTP/1.1", r#"{"catalog":[]}"#),
+                ("GET /api/v1/features?installed=1 HTTP/1.1", r#"{"features":[]}"#),
+                ("GET /api/v1/sys/audit?limit=50 HTTP/1.1", r#"{"events":[]}"#),
+                ("GET /api/v1/infra/providers?action=list HTTP/1.1", r#"{"providers":[]}"#),
+                ("POST /api/v1/infra/providers?action=upsert HTTP/1.1", r#"{"saved":true}"#),
+                ("DELETE /api/v1/infra/providers?providerId=cloudflare HTTP/1.1", r#"{"deleted":true}"#),
+                ("GET /api/v1/agent-vault?scope=project HTTP/1.1", r#"{"notes":[]}"#),
+                ("POST /api/v1/agent-vault?action=sync HTTP/1.1", r#"{"synced":true}"#),
+                ("GET /api/v1/agent-groups HTTP/1.1", r#"{"groups":[]}"#),
+                ("POST /api/v1/agent-groups HTTP/1.1", r#"{"groupId":"g-1"}"#),
+                ("GET /api/v1/agent-profiles HTTP/1.1", r#"{"profiles":[]}"#),
+                ("POST /api/v1/agent-profiles HTTP/1.1", r#"{"profileId":"p-1"}"#),
+                ("GET /api/v1/agent-sessions?limit=20 HTTP/1.1", r#"{"sessions":[]}"#),
+                ("POST /api/v1/agent-sessions?action=open HTTP/1.1", r#"{"sessionId":"s-1"}"#),
+            ];
+            for (expected_line, resp_body) in cases {
+                let (mut s, _) = up_listener.accept().unwrap();
+                let n = s.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+                assert!(req.starts_with(expected_line), "expected {expected_line}, got: {req}");
+                assert!(req.contains("Host: mso.example.com\r\n"), "Host not preserved: {req}");
+                assert!(req.contains("Cookie: session=r3d-tok\r\n"), "Cookie not preserved: {req}");
+                assert!(!req.contains("Authorization:"), "Authorization must not be forwarded: {req}");
+                let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{resp_body}");
+                s.write_all(resp.as_bytes()).unwrap();
+            }
+        });
+
+        let assets = AssetRoot::open(&dir).unwrap();
+        let api_origin = Some(parse_loopback_origin(&format!("http://127.0.0.1:{up_port}")).unwrap());
+        let mut srv = start_loopback_server(ServerConfig {
+            port: 0,
+            assets,
+            api_origin,
+            managed_hosts: ManagedHostConfig::default(),
+        })
+        .unwrap();
+
+        let send = |raw: &str| {
+            let mut c = TcpStream::connect(srv.addr()).unwrap();
+            c.write_all(raw.as_bytes()).unwrap();
+            let mut out = String::new();
+            c.read_to_string(&mut out).unwrap();
+            out
+        };
+
+        // Unlisted routes and subpaths MUST return 404 without contacting upstream
+        for unlisted in [
+            "/api/config",
+            "/api/v1/exec/run",
+            "/api/v1/editor/exec",
+            "/api/v1/app-catalog/extra",
+            "/api/v1/infra/providers/extra",
+            "/api/v1/agent-sessions/extra",
+        ] {
+            let r_get = send(&format!("GET {unlisted} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\n\r\n"));
+            assert!(r_get.starts_with("HTTP/1.1 404 Not Found") && r_get.contains("not_found"), "GET {unlisted}: {r_get}");
+            let r_post = send(&format!("POST {unlisted} HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{{}}"));
+            assert!(r_post.starts_with("HTTP/1.1 404 Not Found") && r_post.contains("not_found"), "POST {unlisted}: {r_post}");
+        }
+
+        // /api/v1/app-catalog: GET only
+        let r = send("GET /api/v1/app-catalog?category=all HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nAuthorization: Bearer strip\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"catalog":[]}"#));
+        assert!(send("POST /api/v1/app-catalog HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let cat_post = send("POST /api/v1/app-catalog HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(cat_post.starts_with("HTTP/1.1 405 Method Not Allowed") && cat_post.contains("Allow: GET\r\n"));
+
+        // /api/v1/features: GET only
+        let r = send("GET /api/v1/features?installed=1 HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nAuthorization: Bearer strip\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"features":[]}"#));
+        assert!(send("POST /api/v1/features HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let feat_post = send("POST /api/v1/features HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(feat_post.starts_with("HTTP/1.1 405 Method Not Allowed") && feat_post.contains("Allow: GET\r\n"));
+
+        // /api/v1/sys/audit: GET only
+        let r = send("GET /api/v1/sys/audit?limit=50 HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nAuthorization: Bearer strip\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"events":[]}"#));
+        assert!(send("POST /api/v1/sys/audit HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let aud_post = send("POST /api/v1/sys/audit HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(aud_post.starts_with("HTTP/1.1 405 Method Not Allowed") && aud_post.contains("Allow: GET\r\n"));
+
+        // /api/v1/infra/providers: GET, POST, DELETE (<=65,536 bytes, CSRF depth-2 on POST & DELETE)
+        let r = send("GET /api/v1/infra/providers?action=list HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"providers":[]}"#));
+        assert!(send("POST /api/v1/infra/providers HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        assert!(send("DELETE /api/v1/infra/providers?providerId=cloudflare HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\n\r\n").starts_with("HTTP/1.1 403 Forbidden"));
+        let prov_patch = send("PATCH /api/v1/infra/providers HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(prov_patch.starts_with("HTTP/1.1 405 Method Not Allowed") && prov_patch.contains("Allow: GET, POST, DELETE\r\n"));
+        assert!(send("POST /api/v1/infra/providers HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        assert!(send("DELETE /api/v1/infra/providers HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r_post = send("POST /api/v1/infra/providers?action=upsert HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r_post.starts_with("HTTP/1.1 200 OK") && r_post.contains(r#"{"saved":true}"#));
+        let r_del = send("DELETE /api/v1/infra/providers?providerId=cloudflare HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(r_del.starts_with("HTTP/1.1 200 OK") && r_del.contains(r#"{"deleted":true}"#));
+
+        // /api/v1/agent-vault: GET + POST (<=65,536 bytes, CSRF-protected)
+        let r = send("GET /api/v1/agent-vault?scope=project HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"notes":[]}"#));
+        assert!(send("POST /api/v1/agent-vault HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let av_del = send("DELETE /api/v1/agent-vault HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(av_del.starts_with("HTTP/1.1 405 Method Not Allowed") && av_del.contains("Allow: GET, POST\r\n"));
+        assert!(send("POST /api/v1/agent-vault HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r = send("POST /api/v1/agent-vault?action=sync HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"synced":true}"#));
+
+        // /api/v1/agent-groups: GET + POST (<=65,536 bytes, CSRF-protected)
+        let r = send("GET /api/v1/agent-groups HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"groups":[]}"#));
+        assert!(send("POST /api/v1/agent-groups HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let ag_del = send("DELETE /api/v1/agent-groups HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(ag_del.starts_with("HTTP/1.1 405 Method Not Allowed") && ag_del.contains("Allow: GET, POST\r\n"));
+        assert!(send("POST /api/v1/agent-groups HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r = send("POST /api/v1/agent-groups HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"groupId":"g-1"}"#));
+
+        // /api/v1/agent-profiles: GET + POST (<=65,536 bytes, CSRF-protected)
+        let r = send("GET /api/v1/agent-profiles HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"profiles":[]}"#));
+        assert!(send("POST /api/v1/agent-profiles HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let ap_del = send("DELETE /api/v1/agent-profiles HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(ap_del.starts_with("HTTP/1.1 405 Method Not Allowed") && ap_del.contains("Allow: GET, POST\r\n"));
+        assert!(send("POST /api/v1/agent-profiles HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r = send("POST /api/v1/agent-profiles HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"profileId":"p-1"}"#));
+
+        // /api/v1/agent-sessions: GET + POST (<=65,536 bytes, CSRF-protected)
+        let r = send("GET /api/v1/agent-sessions?limit=20 HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\n\r\n");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"sessions":[]}"#));
+        assert!(send("POST /api/v1/agent-sessions HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{}").starts_with("HTTP/1.1 403 Forbidden"));
+        let as_del = send("DELETE /api/v1/agent-sessions HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+        assert!(as_del.starts_with("HTTP/1.1 405 Method Not Allowed") && as_del.contains("Allow: GET, POST\r\n"));
+        assert!(send("POST /api/v1/agent-sessions HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 65537\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+        let r = send("POST /api/v1/agent-sessions?action=open HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3d-tok\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
+        assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"sessionId":"s-1"}"#));
+
+        up_thread.join().unwrap();
+        srv.stop();
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

@@ -1,20 +1,29 @@
 <script lang="ts">
   import type { Component } from "svelte";
   import type { Session } from "../host-api";
-  import type { WindowState } from "./window-store";
+  import type { ChromeProfile } from "./chrome-profile";
+  import type { ShellLayoutState, WindowState } from "./window-store";
 
   let {
     win,
     session,
+    layout,
+    resolvedChrome,
+    viewportWidth,
     onFilesPathChange,
     onThemeChange,
     onEditorDirtyChange,
+    onOpenInEditor,
   }: {
     win: WindowState;
     session: Session;
+    layout: ShellLayoutState;
+    resolvedChrome: ChromeProfile;
+    viewportWidth: number;
     onFilesPathChange: (path: string) => void;
     onThemeChange: (theme: string) => void;
     onEditorDirtyChange: (winId: string, dirty: boolean) => void;
+    onOpenInEditor: (path: string) => void;
   } = $props();
 
   type AnySliceComponent = Component<Record<string, unknown>>;
@@ -35,6 +44,13 @@
     workflows: () => import("../workflows/WorkflowsApp.svelte"),
     integrations: () => import("../integrations/IntegrationsView.svelte"),
     channels: () => import("../integrations/ChannelsView.svelte"),
+    organization: () => import("../organization/OrganizationApp.svelte"),
+    memory: () => import("../memory-graph/MemoryGraphApp.svelte"),
+    store: () => import("../catalog/AppStoreView.svelte"),
+    extensions: () => import("../catalog/ExtensionsView.svelte"),
+    infra: () => import("../infra/InfrastructureView.svelte"),
+    clipboard: () => import("./ClipboardPanel.svelte"),
+    inspector: () => import("./InspectorPanel.svelte"),
   };
 
   const cache = new Map<string, Promise<AnySliceComponent>>();
@@ -62,7 +78,11 @@
     }
     if (win.app === "settings") return { role: session.role, onThemeChange };
     if (win.app === "devices") return { currentDeviceId: session.deviceId };
-    if (win.app === "integrations" || win.app === "channels") return { role: session.role };
+    if (win.app === "memory") return { role: session.role, onOpenFile: onOpenInEditor };
+    if (win.app === "inspector") return { layout, resolvedChrome, viewportWidth, role: session.role };
+    if (["integrations", "channels", "store", "extensions", "infra"].includes(win.app)) {
+      return { role: session.role };
+    }
     return {};
   }
 

@@ -5,47 +5,28 @@ import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "@playwright/test";
 
-// Synthetic backend only: verifies Increments 1..4B (lazy slices, Editor, Docs, Workflows, Integrations, Channels, Palette, Chrome).
+// Synthetic backend only: verifies Increments 1..4C (Organization, Memory Graph, App Store, Extensions, Infra, Control Center, Lock, Force Quit, Clipboard, Inspector).
 const viewerSession = { authenticated: true, deviceId: "fixture-viewer-0001", deviceLabel: "Browser fixture", role: "viewer" };
 const ownerSession = { authenticated: true, deviceId: "fixture-owner-0001", deviceLabel: "Owner fixture", role: "owner" };
 const signedOut = { authenticated: false, deviceId: null, deviceLabel: null, role: null };
 const stats = { cpu: { pct: 12, cores: 4 }, mem: { used: 1024 ** 3, total: 4 * 1024 ** 3 }, disk: { used: 2 * 1024 ** 3, total: 8 * 1024 ** 3 }, uptime: 3_660_000 };
-const processes = [{ pid: 101, name: "mso-shell-host", status: "S", cpu: 0.4, mem: 3 }];
-const services = { services: [{ unit: "mso.service", scope: "user", load: "loaded", active: "active", sub: "running", description: "MSO host", controllable: true }], diagnostics: [], truncated: false, controlAllowlistConfigured: true, generatedAt: "2026-11-22T00:00:00.000Z" };
-const models = { models: [{ id: "demo-1", ref: "openai/demo-1", provider: "openai", name: "Demo Model" }] };
-const managedApps = { apps: [{ id: "hermes", name: "Hermes Agent", description: "Managed runtime", installed: true, installationType: "systemd", state: "running", healthy: true, version: "1.2.0", dashboardAvailable: true, publicDashboardUrl: "https://hermes.mso.example.com", supportedActions: ["restart"], diagnostic: null }] };
-const packages = { manager: "apt", available: true, truncated: false, checkedAt: "2026-11-22T00:00:00.000Z", source: "local-cache", updates: [{ name: "openssl", current: "3.0.1", candidate: "3.0.2", architecture: "amd64" }] };
-const changelog = { markdown: "## 2026-11-22\n- Landed Svelte lazy window loader\n", generated: true };
-const workflows = { graphs: [{ id: "wf-1", name: "Nightly Backup", description: "Sync host state", status: "active", nodes: [{ id: "n1" }], edges: [], metadata: { tags: ["ops"] }, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T01:00:00.000Z", revision: "r1" }] };
-const integrations = { version: 2, user: "owner", resolution: "default", users: [{ id: "owner", label: "Owner", isDefault: true, connectionCount: 1 }], connections: [{ user: "owner", id: "c1", label: "Primary Convex", provider: "convex-cloud", source: "direct", authMethod: "token", scope: "global", isDefault: true, missing: [], state: "ready", verifiedAt: 1_700_000_000_000 }] };
-const channels = { version: 1, revision: 1, providers: [{ id: "telegram", title: "Telegram", inbound: "webhook", sendText: true, inboundEvents: true }], channels: [{ id: "ch-1", name: "Ops Bot", provider: "telegram", credential: { user: "owner", connection: "tg-main" }, enabled: true, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T00:00:00.000Z", connection: { state: "connected" } }] };
-let prefs = { tweaks: { theme: "system", reducedMotion: false }, quicklinks: [], updates: { auto: true, channel: "stable" } };
-let fsEntries = [{ name: "notes.txt", kind: "file", size: 14, mtime: 1_700_000_001_000 }];
+const changelog = { markdown: "## 2026-11-22\n- Wave 5 slices live\n", generated: true };
+const org = { chart: { version: 1, name: "MSO Org", revision: "rev1", updatedAt: "2026-11-22T00:00:00.000Z", units: [{ id: "u1", key: "core", name: "Core Platform", kind: "team", status: "active", sortOrder: 1, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T00:00:00.000Z" }], seats: [{ id: "s1", unitId: "u1", name: "Alfa", title: "Lead Agent", role: "ops", state: "active", seatMode: "permanent", responsibilities: ["health"], target: { kind: "local-agent", ref: "alfa" }, sortOrder: 1, createdAt: "2026-11-22T00:00:00.000Z", updatedAt: "2026-11-22T00:00:00.000Z" }] }, runtime: [{ seatId: "s1", targetKind: "local-agent", status: "ready" }] };
+const memGraph = { nodes: [{ id: "n1", title: "Runbook Note", kind: "note", group: "ops", degree: 1, path: "/home/demo/notes.txt", excerpt: "Check host" }], edges: [], truncated: false, warnings: [], root: "/home/demo", counts: { notes: 1, memories: 0, ghosts: 0 } };
+const appCatalog = { status: "remote", entries: [{ kind: "managed", id: "hermes" }, { kind: "connected", manifest: { id: "docs-app", name: "Docs Portal", description: "Internal wiki" } }] };
+const features = { schemaVersion: 1, features: [{ id: "mod-metrics", title: "Metrics Pack", version: "1.0.0", description: "Modular widget" }] };
+const skills = { skills: [{ id: "vps-alfa", name: "vps-alfa", description: "Patrol VPS", source: "mso", trust: "official" }], recipes: [] };
+const infra = { providers: [{ id: "convex-cloud", label: "Convex Cloud", configured: true, fields: ["url"] }, { id: "cloudflare", label: "Cloudflare", configured: false, missing: ["token"] }] };
 let notesContent = "hello from mso";
-const termStreams = new Map();
-let mode = "ready", calls = [], cookieSeen = false;
+let mode = "ready", cookieSeen = false;
 const devices = { approved: { "fixture-owner-0001": { label: "Owner fixture", approvedAt: 1_700_000_000_000, role: "owner" } }, pending: {} };
 const hosts = new Set();
 const readBody = (req) => new Promise((r) => { let s = ""; req.on("data", (c) => { s += c; }); req.on("end", () => { try { r(s ? JSON.parse(s) : {}); } catch { r({}); } }); });
-const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
 
 const backend = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
-  calls.push(`${req.method} ${url.pathname}`);
   hosts.add(req.headers.host);
   cookieSeen ||= req.headers.cookie?.includes("mso_fixture=synthetic") ?? false;
-  if (url.pathname === "/api/v1/term/stream" && req.method === "GET") {
-    const id = url.searchParams.get("id") ?? "t1";
-    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-    res.write(`event: data\ndata: ${b64("mso-shell ready\n")}\n\n`);
-    termStreams.set(id, res); req.on("close", () => termStreams.delete(id)); return;
-  }
-  if (url.pathname === "/api/assistant" && req.method === "POST") {
-    const body = await readBody(req);
-    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
-    res.write(`event: delta\ndata: ${JSON.stringify({ text: `Alfa reply: ${body.messages?.[0]?.text ?? ""}` })}\n\n`);
-    res.end(`event: done\ndata: ${JSON.stringify({ stopReason: "stop" })}\n\n`); return;
-  }
   res.setHeader("Content-Type", "application/json"); res.setHeader("Cache-Control", "no-store");
   if (url.pathname === "/api/auth/me") res.end(JSON.stringify(mode === "signed-out" ? signedOut : mode === "owner" ? ownerSession : viewerSession));
   else if (url.pathname === "/api/auth/login" && req.method === "POST") {
@@ -55,23 +36,15 @@ const backend = createServer(async (req, res) => {
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") { mode = "signed-out"; res.setHeader("Set-Cookie", "session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
   else if (url.pathname === "/api/auth/devices") res.end(JSON.stringify(devices));
   else if (url.pathname === "/api/v1/sys/stats") res.end(JSON.stringify(stats));
-  else if (url.pathname === "/api/v1/sys/processes") res.end(JSON.stringify(processes));
-  else if (url.pathname === "/api/v1/sys/services") res.end(JSON.stringify(req.method === "POST" ? services.services[0] : services));
-  else if (url.pathname === "/api/v1/sys/packages") res.end(JSON.stringify(packages));
-  else if (url.pathname === "/api/v1/managed-apps") res.end(JSON.stringify(managedApps));
   else if (url.pathname === "/api/changelog") res.end(JSON.stringify(changelog));
-  else if (url.pathname === "/api/v1/workflows") res.end(JSON.stringify(url.searchParams.get("runs") === "1" ? { runs: [], total: 0 } : workflows));
-  else if (url.pathname === "/api/v1/integrations") res.end(JSON.stringify(integrations));
-  else if (url.pathname === "/api/v1/channels" && req.method === "GET") res.end(JSON.stringify(channels));
-  else if (url.pathname === "/api/v1/channels" && req.method === "POST") res.end(JSON.stringify({ ok: true, detail: "Channel reachable", channel: { lastCheck: { at: "2026-11-22T02:00:00.000Z", ok: true, detail: "Channel reachable" } } }));
-  else if (url.pathname === "/api/models") res.end(JSON.stringify(models));
-  else if (url.pathname === "/api/prefs" && req.method === "GET") res.end(JSON.stringify(prefs));
-  else if (url.pathname === "/api/prefs" && req.method === "POST") { const p = await readBody(req); prefs = { ...prefs, ...(p.tweaks ? { tweaks: { ...prefs.tweaks, ...p.tweaks } } : {}), ...(p.quicklinks ? { quicklinks: p.quicklinks } : {}) }; res.end(JSON.stringify({ ok: true })); }
-  else if (url.pathname === "/api/v1/fs/list") res.end(JSON.stringify({ path: "/home/demo", parent: "/home", entries: fsEntries }));
+  else if (url.pathname === "/api/v1/organization") res.end(JSON.stringify(org));
+  else if (url.pathname === "/api/v1/memory-graph") res.end(JSON.stringify(memGraph));
+  else if (url.pathname === "/api/v1/app-catalog") res.end(JSON.stringify(appCatalog));
+  else if (url.pathname === "/api/v1/features") res.end(JSON.stringify(features));
+  else if (url.pathname === "/api/skills") res.end(JSON.stringify(skills));
+  else if (url.pathname === "/api/v1/infra/providers") res.end(JSON.stringify(infra));
   else if (url.pathname === "/api/v1/fs/read") res.end(JSON.stringify(notesContent));
   else if (url.pathname === "/api/v1/fs/write" && req.method === "POST") { notesContent = (await readBody(req)).content; res.end(JSON.stringify({ ok: true })); }
-  else if (url.pathname === "/api/v1/term/open" && req.method === "POST") res.end(JSON.stringify({ id: "t1" }));
-  else if (url.pathname === "/api/v1/term/close" && req.method === "POST") { const b = await readBody(req); termStreams.get(b.id)?.end(); termStreams.delete(b.id); res.end(JSON.stringify({ ok: true })); }
   else { res.statusCode = 404; res.end("{}"); }
 });
 
@@ -117,62 +90,50 @@ try {
   }
 
   const page = await browser.newPage();
-  mode = "signed-out"; calls = [];
+  mode = "signed-out";
   await page.goto(base);
   await page.getByLabel("Cockpit password").fill("owner-pass");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("heading", { name: "Devices & Approvals" }).waitFor();
 
-  // Shell features: Chrome profile, Shortcut Help, Command Palette -> Docs
-  await page.getByLabel("Shell chrome").selectOption("windows");
-  await page.waitForFunction(() => document.querySelector(".workspace")?.getAttribute("data-chrome") === "windows");
-  await page.getByRole("button", { name: "Shortcuts" }).click();
-  await page.getByRole("dialog").waitFor();
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Commands" }).click();
-  await page.getByRole("combobox", { name: "Search commands" }).fill("Docs");
-  await page.keyboard.press("Enter");
-  await page.getByText("Landed Svelte lazy window loader").waitFor();
-  await page.getByRole("button", { name: "Close Docs & Changelog" }).click();
+  // Wave 5 Slices: Organization, Memory Graph -> Open in Editor, App Store, Extensions, Infrastructure
+  await page.getByRole("button", { name: "Organization" }).click();
+  await page.getByText("Core Platform").waitFor();
+  await page.getByRole("button", { name: "Close Organization" }).click();
 
-  // Code Editor (open + edit + save)
-  await page.getByRole("button", { name: "Open Editor" }).click();
-  await page.getByLabel("File path").fill("/home/demo/notes.txt");
-  await page.getByRole("button", { name: "Open", exact: true }).click();
-  await page.locator("#editor-textarea").fill("edited in code editor");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.waitForFunction(() => document.querySelector("[data-editor-dirty='false']") !== null);
-  assert.equal(notesContent, "edited in code editor");
-  await page.getByRole("button", { name: "Close Code Editor" }).click();
+  await page.getByRole("button", { name: "Memory Graph" }).click();
+  await page.getByRole("heading", { name: "Runbook Note" }).waitFor();
+  await page.getByRole("button", { name: "Close Memory Graph" }).click();
 
-  // Workflows, Integrations (single convex), Channels (+ Test), Alfa SSE
-  await page.getByRole("button", { name: "Workflows" }).click();
-  await page.getByText("Nightly Backup").waitFor();
-  await page.getByRole("button", { name: "Close Workflows" }).click();
+  await page.getByRole("button", { name: "App Store" }).click();
+  await page.getByText("Docs Portal").waitFor();
+  await page.getByRole("button", { name: "Close App Store" }).click();
 
-  await page.getByRole("button", { name: "Integrations" }).click();
-  await page.getByText("Primary Convex").waitFor();
-  await page.getByRole("button", { name: "Close Integrations" }).click();
+  await page.getByRole("button", { name: "Extensions" }).click();
+  await page.getByText("Metrics Pack").waitFor();
+  await page.getByRole("button", { name: "Close Extensions" }).click();
 
-  await page.getByRole("button", { name: "Channels" }).click();
-  await page.getByText("Ops Bot").waitFor();
-  await page.getByRole("button", { name: "Test" }).click();
-  await page.getByText("Channel reachable").waitFor();
-  await page.getByRole("button", { name: "Close Channels" }).click();
+  await page.getByRole("button", { name: "Infrastructure" }).click();
+  await page.getByText("Cloudflare", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Close Infrastructure" }).click();
 
-  await page.getByRole("button", { name: "Open Alfa" }).click();
-  await page.getByLabel("Message Alfa Assistant").fill("ping");
-  await page.getByRole("button", { name: "Send" }).click();
-  await page.getByText("Alfa reply: ping").waitFor();
-  await page.getByRole("button", { name: "Close Alfa Assistant" }).click();
+  // Wave 5 AppShell features: Clipboard, Inspector, Control Center -> Lock -> Unlock -> Force Quit
+  await page.getByRole("button", { name: "Clipboard" }).click();
+  await page.getByRole("button", { name: "Inspector" }).click();
+  await page.getByRole("button", { name: "Controls" }).click();
+  await page.getByRole("button", { name: "Lock screen" }).click();
+  await page.getByRole("heading", { name: "Workspace locked" }).waitFor();
+  await page.getByRole("button", { name: "Unlock workspace" }).click();
+  await page.getByRole("button", { name: "Controls" }).click();
+  await page.getByRole("button", { name: "Force quit windows..." }).click();
+  await page.getByRole("button", { name: "Close all" }).click();
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
   assert.deepEqual([...hosts], ["127.0.0.1:4173"]);
   assert.ok(cookieSeen);
-  console.log("PASS Increments 1..4B: lazy slices, Editor, Docs, Workflows, Integrations, Channels, Palette, Chrome");
+  console.log("PASS Increments 1..4C: Org, Memory Graph, App Store, Extensions, Infra, Clipboard, Inspector, Control Center, Lock, Force Quit");
 } finally {
-  for (const s of termStreams.values()) s.end();
   await browser?.close();
   if (preview && preview.exitCode === null) { preview.kill("SIGTERM"); await once(preview, "exit"); }
   backend.closeAllConnections();

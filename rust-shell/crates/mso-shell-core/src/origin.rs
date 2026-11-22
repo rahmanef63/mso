@@ -165,6 +165,14 @@ pub fn parse_remote_origin(raw: &str) -> Result<HostOrigin, OriginError> {
     Ok(origin)
 }
 
+pub fn validate_loopback_origin(raw: &str) -> Result<HostOrigin, OriginError> {
+    parse_loopback_origin(raw)
+}
+
+pub fn validate_remote_host_origin(raw: &str) -> Result<HostOrigin, OriginError> {
+    parse_remote_origin(raw)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,6 +216,16 @@ mod tests {
         assert!(parse_remote_origin("http://127.0.0.1:4005").is_ok());
         assert_eq!(
             parse_remote_origin("http://mso.example.com"),
+            Err(OriginError::HttpsRequiredForRemote)
+        );
+        assert!(validate_loopback_origin("http://127.0.0.1:4005").is_ok());
+        assert_eq!(
+            validate_loopback_origin("https://mso.example.com"),
+            Err(OriginError::LoopbackRequired)
+        );
+        assert!(validate_remote_host_origin("https://mso.example.com:8443").is_ok());
+        assert_eq!(
+            validate_remote_host_origin("http://mso.example.com"),
             Err(OriginError::HttpsRequiredForRemote)
         );
     }
