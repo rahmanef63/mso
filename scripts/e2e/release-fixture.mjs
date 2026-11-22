@@ -53,6 +53,12 @@ export async function releaseFixture({ live = false, surfaceApps = [], publicOri
   for (const [, key] of example.matchAll(/\b((?:OS|MSO)_[A-Z_]*(?:STORE|PATH|DIR|LOG))=/g)) env[key] = path.join(dir, key.toLowerCase());
   Object.assign(env, {
     MSO_SURFACE_APPS_FILE: surfaceRegistry,
+    // Managed-app discovery shells out to `docker ps` and systemctl against the REAL
+    // host. A CI runner has neither, so a bare runner saw "nothing installed" while a
+    // workstation saw its own containers — this journey then took the managed branch
+    // instead of the connect form and failed a gate the product had not broken. Point
+    // Docker at a socket that cannot exist so every runner agrees on "no host apps".
+    DOCKER_HOST: `unix://${path.join(dir, "no-docker.sock")}`,
     OS_DEVICE_STORE: deviceFile, OS_INFRA_STORE: path.join(dir, "infra.json"),
     OS_CONFIG_STORE: path.join(dir, "config.json"), OS_PREFS_PATH: path.join(dir, "prefs.json"),
     OS_AUDIT_LOG: path.join(dir, "audit.jsonl"), OS_LOGIN_PASSWORD: password,
