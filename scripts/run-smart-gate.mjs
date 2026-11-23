@@ -1,30 +1,35 @@
 #!/usr/bin/env node
 // Runs the dynamic, change-aware gate plan from scripts/ci/affected.mjs.
 //   --pr-fast    Fast feature-branch push gate: typecheck, changed-file lint,
-//                all static checks, and affected Vitest targets (~20-45s).
-//   --with-build Include isolated Next build + affected E2E journeys.
+//                affected static checks, Vitest, Svelte, and Rust targets (~5-45s).
+//   --docs-main  Verified docs-only push gate for main (docs, comparison, changelog, contracts).
+//   --with-build Include isolated Svelte + Rust build + browser E2E.
 //   --full       Run the complete release gate (scripts/gates.sh).
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildGatePlan, detectChangedFiles } from "./ci/affected.mjs";
+import { DOCS_CONTRACT_TESTS, buildGatePlan, detectChangedFiles } from "./ci/affected.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const forceFull = args.includes("--full");
 const prFast = args.includes("--pr-fast");
+const docsMain = args.includes("--docs-main");
 const withBuild = args.includes("--with-build");
 const baseIdx = args.indexOf("--base");
 const base = baseIdx >= 0 && args[baseIdx + 1] ? args[baseIdx + 1] : "origin/main";
+const rangeIdx = args.indexOf("--range");
+const range = rangeIdx >= 0 && args[rangeIdx + 1] ? args[rangeIdx + 1] : "";
 
-const changedFiles = detectChangedFiles({ base, cwd: ROOT });
+const changedFiles = detectChangedFiles({ base, range, cwd: ROOT });
 const plan = buildGatePlan(changedFiles, { forceFull, repoRoot: ROOT });
+const parallelEnv = { VITEST_MAX_WORKERS: process.env.VITEST_MAX_WORKERS || "2" };
 
-function execStep(label, cmd, cmdArgs, extraEnv = {}) {
+function execStep(label, cmd, cmdArgs, extraEnv = {}, cwd = ROOT) {
   console.log(`\n▶ [smart-gate] ${label}`);
   const result = spawnSync(cmd, cmdArgs, {
-    cwd: ROOT,
+    cwd,
     stdio: "inherit",
     env: { ...process.env, ...extraEnv },
   });
@@ -34,13 +39,17 @@ function execStep(label, cmd, cmdArgs, extraEnv = {}) {
   }
 }
 
-function affectedVitestDirs(files) {
+function affectedVitestDirs(files, isDocsOnly) {
   const targets = new Set();
+  if (isDocsOnly) {
+    for (const docTest of DOCS_CONTRACT_TESTS) {
+      if (existsSync(path.join(ROOT, docTest))) targets.add(docTest);
+    }
+    return [...targets].sort();
+  }
   for (const file of files) {
     if (!existsSync(path.join(ROOT, file))) continue;
-    if (file.startsWith("frontend/svelte/")) continue;
-    const mSlice = file.match(/^(frontend\/slices\/[^/]+)\//);
-    if (mSlice) { targets.add(mSlice[1]); continue; }
+    if (file.startsWith("frontend/svelte/") || file.startsWith("rust-shell/")) continue;
     const mLib = file.match(/^(lib\/[^/]+)\//);
     if (mLib) { targets.add(mLib[1]); continue; }
     const mApi = file.match(/^(app\/api\/v1\/[^/]+)\//);
@@ -55,9 +64,16 @@ function affectedVitestDirs(files) {
   return [...targets].sort();
 }
 
-console.log(`MSO Smart Gate | mode=${prFast ? `${plan.mode}/pr-fast` : plan.mode} | reason=${plan.reason}`);
+function runRustWorkspaceTests() {
+  const rustDir = path.join(ROOT, "rust-shell");
+  if (!existsSync(path.join(rustDir, "Cargo.toml"))) return;
+  execStep("rust workspace tests (cargo test --workspace)", "cargo", ["test", "--workspace"], {}, rustDir);
+}
 
-if (forceFull) {
+const modeLabel = docsMain ? `${plan.mode}/docs-main` : prFast ? `${plan.mode}/pr-fast` : plan.mode;
+console.log(`MSO Smart Gate | mode=${modeLabel} | reason=${plan.reason}`);
+
+if (forceFull || (docsMain && plan.mode !== "docs-only")) {
   execStep("full repository gates", "bash", ["scripts/gates.sh"], { MSO_GATE_FULL: "1" });
   process.exit(0);
 }
@@ -67,6 +83,7 @@ const CHECK_MAP = {
   cycles: ["node", ["scripts/check-cycles.mjs"]],
   features: ["node", ["scripts/check-features.mjs"]],
   docs: ["node", ["scripts/check-docs.mjs"]],
+  comparison: ["node", ["scripts/gen-comparison.mjs", "--check"]],
   changelog: ["node", ["scripts/gen-changelog.mjs", "--check"]],
   contrast: ["node", ["scripts/check-contrast.mjs"]],
   "instance-literals": ["node", ["scripts/check-instance-literals.mjs"]],
@@ -92,33 +109,41 @@ for (const check of plan.steps.staticChecks) {
   if (entry) execStep(`check:${check}`, entry[0], entry[1]);
 }
 
-if (prFast) {
-  const fastTests = affectedVitestDirs(changedFiles);
+if (prFast || docsMain) {
+  const fastTests = affectedVitestDirs(changedFiles, plan.classification.docsOnly);
   if (fastTests.length > 0) {
     execStep(
       `vitest (${fastTests.length} affected target(s))`,
       "node",
       ["node_modules/vitest/vitest.mjs", "run", ...fastTests],
+      parallelEnv,
     );
   }
   if (plan.classification.svelte) {
     execStep("svelte checks", "node", ["scripts/run-svelte-if-changed.mjs"], { MSO_VERIFY_FULL: "1" });
   }
-  console.log(`\n✅ smart-gate passed (${plan.mode}/pr-fast; GitHub Actions CI + bun run pr:local cover full release verification)`);
+  if (plan.classification.rust) {
+    runRustWorkspaceTests();
+  }
+  console.log(`\n✅ smart-gate passed (${modeLabel}; GitHub Actions CI + bun run pr:local cover full release verification)`);
   process.exit(0);
 }
 
 if (plan.steps.vitestTargets === "all") {
-  execStep("vitest (all)", "bun", ["run", "test"]);
+  execStep("vitest (all)", "bun", ["run", "test"], parallelEnv);
 } else if (Array.isArray(plan.steps.vitestTargets) && plan.steps.vitestTargets.length > 0) {
   execStep(
     `vitest (${plan.steps.vitestTargets.join(", ")})`,
     "node",
     ["node_modules/vitest/vitest.mjs", "run", ...plan.steps.vitestTargets],
+    parallelEnv,
   );
 }
-if (plan.classification.svelte) {
+if (plan.steps.svelte) {
   execStep("svelte checks", "node", ["scripts/run-svelte-if-changed.mjs"], { MSO_VERIFY_FULL: "1" });
+}
+if (plan.steps.rust) {
+  runRustWorkspaceTests();
 }
 if (plan.steps.auditStrict) {
   execStep("dependency audit (strict)", "node", ["scripts/audit.mjs", "--strict"]);

@@ -42,6 +42,7 @@ const NOT_A_KNOB: Record<string, string> = {
   // Standard terminal convention inherited from the invoking shell, not MSO config.
   NO_COLOR: "standard terminal color convention inherited from the caller",
   VITEST: "set by the test runner",
+  VITEST_MAX_WORKERS: "Vitest worker concurrency bound used by local smart-gate and shared-host test runs; tooling only",
   // Read by scripts/integrations-ui-evidence.mjs, the browser evidence harness.
   MSO_EVIDENCE_DIR: "output directory for the integrations UI evidence harness; local diagnostics only",
   // The OS gives these to every process.

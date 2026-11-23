@@ -43,9 +43,36 @@ fail() { echo ""; echo "❌ $1 push blocked."; [ -n "${2-}" ] && echo "   $2"; e
 
 CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
 if [ "${MSO_GATE_FULL:-0}" != "1" ] && [ "${CI:-}" != "true" ] && [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "master" ]; then
+  SMART_RECEIPT="$(git rev-parse --git-path mso-smart-gate-verified 2>/dev/null || true)"
+  SMART_KEY=""
+  if [ "${MSO_GATE_NO_CACHE:-0}" != "1" ] && [ -n "$SMART_RECEIPT" ] && [ -z "$(git status --porcelain 2>/dev/null)" ]; then
+    HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+    SMART_HASH="$(sha256sum scripts/gates.sh scripts/run-smart-gate.mjs scripts/ci/affected.mjs 2>/dev/null | sha256sum | cut -d' ' -f1 || true)"
+    if [ -n "$HEAD_SHA" ] && [ -n "$SMART_HASH" ]; then
+      SMART_KEY="${HEAD_SHA}:${SMART_HASH}"
+      if [ -f "$SMART_RECEIPT" ] && [ "$(cat "$SMART_RECEIPT" 2>/dev/null || true)" = "$SMART_KEY" ]; then
+        echo "smart-gate: reused per-worktree receipt for unchanged clean HEAD ${HEAD_SHA:0:7} (set MSO_GATE_NO_CACHE=1 to force rerun)."
+        exit 0
+      fi
+    fi
+  fi
   echo "▶ running fast change-aware gate on feature branch '${CURRENT_BRANCH}' (set MSO_GATE_FULL=1 for full release gate)"
   node scripts/run-smart-gate.mjs --pr-fast || fail "smart gate failed." "reproduce: bun run gate:smart -- --pr-fast"
+  if [ -n "$SMART_KEY" ] && [ -n "$SMART_RECEIPT" ]; then
+    (umask 077 && printf '%s\n' "$SMART_KEY" > "$SMART_RECEIPT") || true
+  fi
   exit 0
+fi
+
+# Fast verified path on main when origin/main..HEAD is strictly docs-only.
+if [ "${MSO_GATE_FULL:-0}" != "1" ] && [ "${CI:-}" != "true" ] && { [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; } \
+   && [ -z "$(git status --porcelain 2>/dev/null)" ] && git rev-parse --verify -q origin/main >/dev/null 2>&1; then
+  MAIN_DIFF_MODE="$(node scripts/ci/affected.mjs --range origin/main..HEAD --mode 2>/dev/null || true)"
+  if [ "$MAIN_DIFF_MODE" = "docs-only" ]; then
+    echo "▶ running verified docs-only gate on '${CURRENT_BRANCH}' (set MSO_GATE_FULL=1 for full release gate)"
+    node scripts/run-smart-gate.mjs --docs-main --range origin/main..HEAD || fail "docs-only gate failed." "reproduce: node scripts/run-smart-gate.mjs --docs-main --range origin/main..HEAD"
+    exit 0
+  fi
 fi
 
 # Reuse a passing full-gate receipt ONLY for the exact clean HEAD SHA + unchanged gate scripts

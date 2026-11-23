@@ -1,9 +1,20 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { createServer as createNetServer } from "node:net";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "@playwright/test";
+
+// Allocate an ephemeral loopback port so parallel agent worktrees can run browser E2E concurrently without colliding on 4173.
+async function findFreeLoopbackPort() {
+  const probe = createNetServer();
+  probe.listen(0, "127.0.0.1");
+  await once(probe, "listening");
+  const { port } = probe.address();
+  await new Promise((resolve) => probe.close(resolve));
+  return port;
+}
 
 // Synthetic backend only: verifies Wave 9 (Inc. 4 100%: Files Search/Copy/Move UI, Workflows SVG canvas, Settings Account/Updates/Audit).
 const viewerSession = { authenticated: true, deviceId: "fixture-viewer-0001", deviceLabel: "Browser fixture", role: "viewer" };
@@ -45,12 +56,17 @@ const backend = createServer(async (req, res) => {
 let browser, preview, output = "";
 try {
   backend.listen(0, "127.0.0.1"); await once(backend, "listening");
-  preview = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview"], {
-    cwd: process.cwd(), env: { ...process.env, MSO_SVELTE_API_ORIGIN: `http://127.0.0.1:${backend.address().port}` },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const previewPort = await findFreeLoopbackPort();
+  preview = spawn(
+    process.execPath,
+    ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", String(previewPort), "--strictPort"],
+    {
+      cwd: process.cwd(), env: { ...process.env, MSO_SVELTE_API_ORIGIN: `http://127.0.0.1:${backend.address().port}` },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   preview.stdout.on("data", (c) => { output += c; }); preview.stderr.on("data", (c) => { output += c; });
-  const base = "http://127.0.0.1:4173";
+  const base = `http://127.0.0.1:${previewPort}`;
   let listening = false;
   for (const deadline = Date.now() + 30_000; Date.now() < deadline;) {
     if (preview.exitCode !== null) throw new Error(`preview exited: ${output}`);
@@ -110,7 +126,7 @@ try {
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("heading", { name: "Sign in to the existing cockpit" }).waitFor();
-  assert.deepEqual([...hosts], ["127.0.0.1:4173"]);
+  assert.deepEqual([...hosts], [`127.0.0.1:${previewPort}`]);
   assert.ok(cookieSeen);
   console.log("PASS Wave 9: Inc. 4 100% (Files Search/Copy/Move UI, Workflows SVG topology, 33/33 slices)");
 } finally {
