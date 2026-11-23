@@ -2,8 +2,8 @@
 
 ### Is MSO a real operating system?
 
-No. It is a self-hosted Next.js application with an OS-style workspace metaphor. The value
-is practical server control—Files, Terminal, Code, metrics, Browser, AI and managed apps—in
+No. It is a self-hosted Rust Shell + Svelte 5 + Bun/Node application with an OS-style workspace metaphor. The value
+is practical server control (Files, Terminal, Code, metrics, Browser, AI and managed apps) in
 one responsive browser UI.
 
 ### Is it safe to expose to the public internet?
@@ -73,15 +73,11 @@ real VPS. A public demo build is forced mock-only and does not expose live host 
 
 ### How do I add an MSO app?
 
-Create a vertical slice under `frontend/slices/<slug>/` and register its descriptor in the
-MSO shell manifest. Dock/launcher/search/routing/windowing consume the manifest rather than
-requiring per-surface edits. Shell features are nested under `appshell/features/*`; see
-`docs/ARCHITECTURE.md` and `docs/SLICE-CATALOG.md`.
+Add a Svelte 5 feature module under `frontend/svelte/src/lib/<module>/`, declare it in `frontend/svelte/src/lib/feature-contracts.ts`, and register it in `frontend/svelte/src/lib/shell/shell-registry.ts`. For standalone features that update independently of MSO core, package them under `~/.mso/features/` with `bun run feature:pack`; see `docs/ARCHITECTURE.md`, `docs/MODULAR-FEATURES.md`, and `docs/SLICE-CATALOG.md`.
 
-### Can I reuse slices outside MSO?
+### Can I reuse features outside MSO?
 
-That is a design goal. AppShell is generic and application slices keep their host coupling
-behind small adapters/contracts so they can be lifted into compatible Next.js projects.
+That is a design goal. Svelte 5 UI modules keep host coupling behind narrow API clients (`frontend/svelte/src/lib/host-api.ts` and `shell-bridge.ts`), and modular feature packages are self-contained static HTML/JS/CSS bundles.
 
 ### What does the Browser app actually run?
 

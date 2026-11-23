@@ -1,18 +1,23 @@
-# Hybrid Svelte + Rust Shell Cutover Runbook
+# Hybrid Svelte 5 + Rust Shell Cutover Runbook
 
-> **Scope & safety contract.** Production stays on Next.js by default (`runtime = next` via
-> `MSO_RUNTIME=next` or unset). Switching to the hybrid Svelte 5 static UI + Rust shell host
-> (`mso-shell-host`) is strictly opt-in, automatically fail-safe back to `next` when prerequisites
-> are missing, reversible with zero state conversion, and never mutates `~/.mso` (sessions, device
-> approvals, secrets, or stored state). See [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md) and
-> [`SVELTE-IMPLEMENTATION.md`](./SVELTE-IMPLEMENTATION.md) for architecture and milestone gates.
+> **Scope & safety contract (updated 2026-11-24).** Legacy Next.js/React was removed from `main` and
+> archived in private checkpoint repo `rahmanef63/mso-nextjs-checkpoint`. Production now serves the
+> Svelte 5 static UI (`frontend/svelte/build`) via the zero-Next Web Fetch server (`scripts/server.mjs`)
+> or through the Rust shell host (`mso-shell-host`, `MSO_RUNTIME=hybrid`). In `scripts/hybrid-runtime.mjs`,
+> the legacy token `runtime = "next"` refers to the standalone `scripts/server.mjs` fallback when
+> `MSO_RUNTIME` is unset or when Rust host prerequisites are missing. Switching between standalone
+> `scripts/server.mjs` and `mso-shell-host` is reversible with zero state conversion and never mutates
+> `~/.mso` (sessions, device approvals, secrets, or stored state). See
+> [`RUST-SHELL-PLAN.md`](./RUST-SHELL-PLAN.md) and [`SVELTE-IMPLEMENTATION.md`](./SVELTE-IMPLEMENTATION.md)
+> for architecture and milestone gates.
 
 ## Scope & safety contract
 
-- **Default runtime remains `next`:** `scripts/hybrid-runtime.mjs` defaults to `runtime: "next"`
-  and falls back to `next` if `MSO_RUNTIME` is unset, unknown (`unsupported_runtime`), or if any
-  hybrid prerequisite fails validation (`missing_rust_binary`, `missing_svelte_build`,
-  `invalid_loopback_api_origin`, `invalid_port`, or `missing_native_fs_root`).
+- **Fallback mode (`scripts/hybrid-runtime.mjs`):** `scripts/hybrid-runtime.mjs` defaults to
+  `runtime: "next"` (the compatibility token for standalone `scripts/server.mjs`) and falls back if
+  `MSO_RUNTIME` is unset, unknown (`unsupported_runtime`), or if any Rust-shell prerequisite fails
+  validation (`missing_rust_binary`, `missing_svelte_build`, `invalid_loopback_api_origin`,
+  `invalid_port`, or `missing_native_fs_root`).
 - **Zero state mutation:** Hybrid mode shares the existing loopback MSO backend API and leaves
   `~/.mso` completely untouched. No migration or state conversion is required on cutover or
   rollback.
@@ -20,9 +25,9 @@
   only loopback `--api-origin` targets (`127.0.0.1`, `[::1]`, or `localhost` without credentials,
   paths, or queries), never widens CORS, cookie domains, or public binds, and keeps production
   TLS termination behind the existing operator proxy (for example `https://mso.example.com`).
-- **Cutover gate:** Do not switch a live `mso.service` unit from `next` to `hybrid` until every
-  preflight check, automated cutover/rollback drill, same-host benchmark, and real-device
-  verification checklist item below has passed on the target host.
+- **Cutover gate:** Run every preflight check, automated cutover/rollback drill, and real-device
+  verification checklist item below on the target host before switching a live `mso.service` unit
+  to `MSO_RUNTIME=hybrid`.
 
 ## 1. Build & preflight checks
 
@@ -253,21 +258,24 @@ Expected output fields:
 ### 5.3 Preserve `~/.mso` untouched
 
 Do **not** delete, recreate, or re-seed `~/.mso`. All existing session tokens, approved devices,
-preferences, and encrypted credentials remain valid for the Next.js cockpit without conversion.
+preferences, and encrypted credentials remain valid across standalone `scripts/server.mjs` and
+`mso-shell-host` without conversion.
 
-### 5.4 Stop `mso-shell-host` and verify the Next.js cockpit
+### 5.4 Stop `mso-shell-host` and verify the standalone `scripts/server.mjs` cockpit
 
-Stop the opt-in `mso-shell-host` process (or revert the `mso.service` unit override to run
-`scripts/server.mjs`), then verify the Next.js cockpit responds on its loopback port (for example
-`127.0.0.1:3000`):
+Stop the `mso-shell-host` process (or revert the `mso.service` unit override to run
+`scripts/server.mjs`), then verify the cockpit responds on its loopback port (for example
+`127.0.0.1:4005`):
 
 ```sh
-curl -fsS http://127.0.0.1:3000/api/auth/me
+curl -fsS http://127.0.0.1:4005/api/auth/me
 ```
 
-Confirm `/` loads the Next.js shell, `/api/auth/me` returns the expected auth JSON, and
+Confirm `/` loads the Svelte 5 shell, `/api/auth/me` returns the expected auth JSON, and
 `mso doctor` reports healthy runtime status (see [`INSTALL.md`](./INSTALL.md) and
-[`DISASTER-RECOVERY.md`](./DISASTER-RECOVERY.md) if host recovery is needed).
+[`DISASTER-RECOVERY.md`](./DISASTER-RECOVERY.md) if host recovery is needed). If you ever need
+the archived pre-cutover Next.js build, check out the private checkpoint repository
+`rahmanef63/mso-nextjs-checkpoint`.
 
 ### 5.5 Confirm `lastKnownGoodSha`
 

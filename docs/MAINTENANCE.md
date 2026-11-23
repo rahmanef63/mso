@@ -115,5 +115,5 @@ never claims a customized installation was completely reset while quietly leavin
 `bun run test -- scripts/maintenance.test.ts` exercises isolated synthetic homes only, including
 preview immutability, stale confirmation, identity/symlink checks, private archives, normal uninstall,
 explicit purge, clean standalone source removal and failure-before-data-removal on service errors.
-Browser ownership is tested separately in `frontend/slices/os-settings/lib/browser-reset.test.ts`.
+Browser ownership is covered separately in the Svelte 5 settings maintenance unit tests under `frontend/svelte/src/lib/settings/`.
 The maintenance feature is not tested by resetting or uninstalling the maintainer's production host.

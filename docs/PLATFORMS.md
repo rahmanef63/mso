@@ -51,7 +51,7 @@ Lima Linux VM. A `~/.local/bin/mso` launcher on macOS delegates commands into th
 Requirements:
 
 - Lima, installed automatically with Homebrew when Homebrew is already available;
-- enough disk/RAM for the Linux guest and Next production build.
+- enough disk/RAM for the Linux guest and Svelte 5 + Rust build (minimum 512 MiB RAM + 1 GiB swap, 1 GiB free disk).
 
 The MSO host tools manage the **Linux guest**, not native launchd services or arbitrary macOS
 processes. That boundary is intentional until native macOS host adapters provide equivalent safety.

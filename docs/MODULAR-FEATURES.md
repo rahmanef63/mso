@@ -5,7 +5,7 @@
 
 ## 1. Independent feature updates (`~/.mso/features/`)
 
-Built-in slices under `frontend/slices/` compile into the core Next.js bundle. When a feature
+Built-in UI modules under `frontend/svelte/src/lib/` compile into the core Svelte 5 static bundle. When a feature
 should ship and update independently of the MSO core release cycle, package it as a **modular
 feature** under owner-private `~/.mso/features/<id>/` (override via `MSO_FEATURES_DIR`).
 
@@ -44,7 +44,7 @@ assets from `GET /api/v1/features/<id>/asset/<...path>` with:
   `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store, private`).
 
 Reloading the feature window (or refocusing the shell) loads the updated version immediately
-without rebuilding Next.js or restarting `mso.service`.
+without rebuilding the Svelte 5 / Rust core or restarting `mso.service`.
 
 ## 2. Dynamic change-aware gates
 
@@ -58,7 +58,7 @@ bun run gate:plan
 # Execute only the checks matching the current diff (docs-only, svelte-only, modular slice, or full)
 bun run gate:smart
 
-# Include isolated Next build + affected E2E journeys only
+# Include isolated production build + affected E2E journeys only
 bun run gate:smart -- --with-build
 
 # Force the complete release gate
@@ -68,12 +68,10 @@ bun run gate:smart -- --full
 Additional build and release speedups:
 
 - `scripts/verify-build.sh` uses `cp -a --reflink=auto` when staging `node_modules`, supports
-  `MSO_VERIFY_E2E_FILTER`, supports bounded parallel E2E workers (`MSO_E2E_JOBS=2`), and can
-  export its verified `.next` directory via `MSO_EXPORT_NEXT_DIR`.
-- `scripts/self-update.sh` stages and atomically promotes the verified `.next` artifact from
-  `verify-build.sh` via `scripts/lib/promote-next-build.sh`, eliminating the duplicate in-place
-  `next build`.
-- `scripts/run-svelte-if-changed.mjs` skips the five isolated Svelte steps during local `verify`
+  `MSO_VERIFY_E2E_FILTER`, and supports bounded parallel E2E workers (`MSO_E2E_JOBS=2`).
+- `scripts/self-update.sh` verifies and promotes the built Svelte 5 (`frontend/svelte/build`) and
+  Rust Shell artifacts cleanly, avoiding redundant rebuild work.
+- `scripts/run-svelte-if-changed.mjs` skips the isolated Svelte steps during local `verify`
   when `frontend/svelte/**` is untouched (always runs in `CI=true` or `MSO_VERIFY_FULL=1`).
 - `scripts/gates.sh` automatically runs `scripts/run-smart-gate.mjs --pr-fast` on non-`main`
   feature branches (~20-45s instead of ~12 min), while pushes to `main` (`bun run ship`) and
@@ -89,13 +87,12 @@ Additional build and release speedups:
 
 ## 3. Automated feature governance (`check:features`)
 
-Every slice under `frontend/slices/` is classified in `frontend/slices/feature-contracts.ts`
+Every UI module under `frontend/svelte/src/lib/` is classified in `frontend/svelte/src/lib/feature-contracts.ts`
 and checked automatically by `node scripts/check-features.mjs` (wired into `bun run check`)
 against ratchets in `feature.boundaries.json`:
 
-- Every slice must declare a contract (`surfaceKind`, `minRole`, `stateStrategy`, `updatableTier`).
-- Every slice must expose an `index.ts` or `index.tsx` barrel and at least one colocated unit test.
-- New `window.confirm` / `alert` / `prompt` calls, new direct `localStorage` slices, new `frame`
-  slices missing `AppFrame`, and new minified single-line files (>400 chars) are blocked by ratchets.
-- Use `<ConfirmDialog>` (from `@/features/appshell`) instead of `window.confirm()` and
-  `featureFetch()` (from `@/lib/os-api`) for standardized 401/403/JSON error handling.
+- Every module must declare a contract (`surfaceKind`, `minRole`, `stateStrategy`, `updatableTier`).
+- New `window.confirm` / `alert` / `prompt` calls, new direct `localStorage` usage outside ratified
+  boundaries, and new minified single-line files (>400 chars) are blocked by ratchets.
+- Use shared shell confirm dialogs instead of `window.confirm()` and `host-api.ts` helpers for
+  standardized 401/403/JSON error handling.

@@ -24,7 +24,7 @@ See [PLATFORMS.md](./PLATFORMS.md) for the exact host scope and limitations.
 - Node.js 22.12+, 24.x or 26+ inside the Linux runtime;
 - Bun for dependency installation/scripts;
 - a normal non-root runtime user;
-- enough memory/swap for a Next production build;
+- minimum machine specs (MSO Core): 1 vCPU, 512 MiB RAM (+ 1 GiB swap for build), 1 GiB free disk (2+ vCPU, 2-4 GiB RAM, 10+ GiB disk recommended with AppDeck Docker apps);
 - HTTPS through Tailscale Serve or a reverse proxy for normal non-localhost browser use;
 - CLI runtime tools `curl`, `jq`, GNU coreutils and util-linux `flock` inside the Linux runtime.
 
@@ -60,16 +60,15 @@ The installer core:
    shell's PATH;
 3. verifies whether the invoking shell will actually resolve `mso` after the child installer
    returns, and persists an idempotent `~/.local/bin` PATH fallback for future shells;
-4. before dependency or `.next` mutation, acquires the same checkout transaction/runtime exclusion used by
+4. before dependency or build-output mutation, acquires the same checkout transaction/runtime exclusion used by
    self-update, validates every owned gateway fallback, quiesces an active service only when it belongs to
    this checkout, then quiesces gateway-owned fallback runtimes while preserving their public tunnels;
 5. installs Bun/dependencies as needed;
 6. creates private owner auth configuration when missing; a fresh `.env.local` also enables the
    OAuth-protected MCP surface with `OS_MCP_ENABLED=1` and an `exec` consent ceiling, while an
    existing `.env.local` is never rewritten during update;
-7. runs the production build through `node node_modules/next/dist/bin/next build`, bypassing Bun's
-   package-bin remapper; if the Next package payload itself is absent, it performs one bounded
-   `bun install --force` repair before failing;
+7. builds the Svelte 5 static bundle (`frontend/svelte/build`) and optional Rust shell host (`mso-shell-host`)
+   via `scripts/build-safe.sh`;
 8. installs the `mso.service` system unit only when systemd is really PID 1 (not merely when a
    `systemctl` executable exists);
 9. enables the owner's lingering user manager needed by self-update/managed-app user units;
@@ -268,17 +267,17 @@ in `security/gateway-artifacts.env`, then creates an outbound Quick Tunnel to `1
 never changes the application bind to `0.0.0.0`. The tool cache is user-local and the tunnel is run
 with Cloudflare auto-update disabled. The tunnel process also receives a scrubbed environment rather
 than inheriting MSO login/session/BYOK secrets from the application shell. If systemd is unavailable (common on WSL), it may start the
-already-built Next production runtime itself, still on `127.0.0.1`, and records whether that process
-is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. After TERM/SIGKILL, MSO re-verifies that the exact recorded process identity disappeared before deleting lifecycle state; an unverified survivor leaves state intact and the stop fails closed. User-facing `gateway stop` also takes the checkout update transaction lock before the gateway lifecycle lock, so an in-flight update/installer must finish its runtime restore first; the operator's later stop is therefore final instead of being undone by stale restore inventory. Internal updater `runtime-stop` deliberately does not reacquire that transaction lock. Private state and logs are owner-only and scoped by the canonical checkout plus selected loopback
+already-built production runtime itself, still on `127.0.0.1`, and records whether that process
+is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the local fallback uses PID/start-time/Node or Bun executable plus a random runtime-instance nonce echoed by `/api/health` so mutable process titles cannot confuse ownership. After TERM/SIGKILL, MSO re-verifies that the exact recorded process identity disappeared before deleting lifecycle state; an unverified survivor leaves state intact and the stop fails closed. User-facing `gateway stop` also takes the checkout update transaction lock before the gateway lifecycle lock, so an in-flight update/installer must finish its runtime restore first; the operator's later stop is therefore final instead of being undone by stale restore inventory. Internal updater `runtime-stop` deliberately does not reacquire that transaction lock. Private state and logs are owner-only and scoped by the canonical checkout plus selected loopback
 origin. When a fallback is launched through a custom `mso --env /path/file web`, state stores only the
 validated env-file identity (canonical path, device and inode), never its secret contents. Update/installer
 restore revalidates that same owner/private non-symlink file and identity before sourcing it; a replacement
 or moved file fails closed while restore intent remains persisted instead of silently switching to
-`.env.local`. The fallback Next process uses the same held-child release handshake as Cloudflared, so neither
+`.env.local`. The fallback runtime process uses the same held-child release handshake as Cloudflared, so neither
 child may execute before the parent records PID + kernel start-ticks. Gateway/update lifecycle
 transactions use kernel `flock`, which is released automatically when a process exits instead of
 trying to reclaim stale lock directories. A second checkout-wide shared/exclusive runtime lock blocks
-`mso web`/`gateway start` while an offline update is mutating `.next`; the updater releases that
+`mso web`/`gateway start` while an offline update is mutating the production build (`frontend/svelte/build` / Rust Shell); the updater releases that
 exclusive lock only after the build tree and deployment receipt are stable, then restores the runtime.
 If a tunnel is still alive but its local runtime died, `mso gateway start` reconciles/restarts the
 runtime, preserves the existing tunnel identity, and re-verifies the public endpoint before reporting
@@ -669,7 +668,7 @@ The updater verifies the incoming checkout/build before replacing the service. R
 that invoked `mso update`; a secondary clone is never allowed to restart an unrelated live service.
 The updater then runs outside that service cgroup so it survives the restart. With no active
 service (including WSL without systemd), it performs the clean fast-forward/dependency/verify/build
-path locally. Before an offline build mutates dependencies or `.next`, MSO also verifies the selected
+path locally. Before an offline build mutates dependencies or build artifacts (`frontend/svelte/build`), MSO also verifies the selected
 loopback origin is either down or represented by gateway-owned lifecycle state; a manually started or
 otherwise unowned healthy MSO runtime is refused and must be stopped first. The service-active
 quiesce path additionally treats a healthy listener that is *proven* to be this checkout's own active
@@ -700,7 +699,7 @@ mso update --rebuild
 outer checkout runtime lifecycle as self-update: verify the service belongs to this checkout, hold the
 exclusive mutation boundary, quiesce every owned fallback runtime, rebuild/restart the service, then
 restore those fallbacks. `mso service start` and `mso service restart` take the shared side of that same
-checkout lock and refuse while an offline update/deploy is mutating `.next`; they also refuse when the
+checkout lock and refuse while an offline update/deploy is mutating the production build; they also refuse when the
 installed service belongs to another checkout.
 
 ### No-systemd and hosted workspaces
@@ -743,7 +742,7 @@ A Git push by itself is **not** a production deployment.
 ## 13. Rollback
 
 Prefer an explicit known-good Git commit and the same verified rebuild/update machinery,
-not ad-hoc partial `.next` changes. Keep the old running process alive if the candidate
+not ad-hoc partial build-tree changes. Keep the old running process alive if the candidate
 build itself fails.
 
 For a live chunk mismatch after the source ref is already correct, `mso update --rebuild`
@@ -800,4 +799,4 @@ After install/update:
 
 ## Reset and clean uninstall
 
-Use `mso reset` or `mso uninstall` for local, preview-first maintenance. Optional `--scope all`, `--purge` and `--remove-code` have distinct scopes and need an exact-plan confirmation. Read [maintenance and recovery](./MAINTENANCE.md) before applying. The legacy installer `--uninstall` keeps code and state; it is not a full purge. Bun >=1.2.15 is required for native dependency auditing.
+Use `mso reset` or `mso uninstall` for local, preview-first maintenance. Optional `--scope all`, `--purge` and `--remove-code` have distinct scopes and need an exact-plan confirmation. Read [maintenance and recovery](./MAINTENANCE.md) before applying. The legacy installer `--uninstall` keeps code and state; it is not a full purge. Bun >=1.4.2 is required for package management and native dependency auditing.

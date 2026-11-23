@@ -12,7 +12,7 @@ healthy deployment.
 
 | Layer | Location | Authority |
 |---|---|---|
-| Open source feature | `frontend/slices/agent-vault`, `lib/agent-vault`, shared contract and host facade | Portable implementation; no operator repo identities or user notes |
+| Open source feature | `frontend/svelte/src/lib/agent-vault`, `lib/agent-vault`, shared contract and host facade | Portable implementation; no operator repo identities or user notes |
 | Default source selection | `OS_AGENT_VAULT_PROJECT` in the installation's private environment | Optional repo id/name/path; browser selection can override it |
 | Vault data base | `OS_AGENT_VAULT_ROOT`, default `~/mso-vaults` | Installation-owned data outside the MSO checkout and selected source repository |
 | One repository vault | `<base>/<safe-repo-name>-<hash-of-project-id>` | Distinct roots even when repositories have the same name |

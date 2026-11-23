@@ -1,13 +1,8 @@
 # Hybrid Svelte + Rust Shell Plan
 
-> **Implementation contract & Wave 10 record (2026-11-22) — 90.2% (~90%) combined.**
-> **Svelte Increments 1, 2, 3, and 4 are 100% complete** (**33 / 33 slices**, **10 / 10 AppShell features**,
-> **5 / 5 OS chromes**, Files search/copy/move UI, Workflows SVG topology, Onboarding/Account/Updates/Audit),
-> **Increment 5 runtime selector + same-host benchmark + automated cutover/rollback drill + iOS PWA standalone
-> hardening + operator runbook landed (60%)**, **Rust Stage R0, R2, and R4 are 100% complete** (`--native-metrics`
-> for `stats`+`processes` and `--native-fs-root` for `list`/`read`/`search`/`usage`), **Stage R1 Tauri v2 scaffold +
-> `profiles.rs` + cross-layer contract (50%)**, and **Stage R3 (62 route policies + `/healthz`, 85%)** are
-> implemented and verified on this branch. Production remains Next.js/React until live cutover.
+> **Implementation contract & post-cutover record (2026-11-24).**
+> **Next.js and React have been completely removed from `main`** (pre-removal checkpoint archived to private repo `rahmanef63/mso-nextjs-checkpoint`).
+> **Svelte 5 (`frontend/svelte/`, 22 modules covering all 33 workspace slices, 5 OS chromes, Files/Workflows SVG/Settings)** + **zero-Next Web Fetch API runtime (`lib/http/`, `scripts/server.mjs`)** + **Rust Shell (`rust-shell/`, Stages R0/R2/R4 100%, Stage R3 62 route policies + `/healthz`)** are now the sole repository architecture (`node_modules` shrunk from ~1.5 GiB to 289 MiB). Remaining items: Stage R1 Tauri v2 cross-OS binary builds and operator live `mso.service` switchover + real-device iPhone PWA proof.
 
 ## 1. Progress percentage tracker (formula-based, 2026-11-22)
 
@@ -43,17 +38,17 @@ Progress is computed strictly from weighted milestone gates (never guessed from 
   - **Stage R1 Tauri v2 real binary builds & cross-OS smoke (+5.0% combined):** requires `pkg-config`, `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev` + crates.io on Linux, plus macOS/Windows runners (`rust-shell/desktop-tauri/build-desktop.workflow.yml.example`).
   - **Increment 5 + Stage R3 live production cutover (+4.8% combined):** switching live `mso.service` from `next` to `hybrid` per [`CUTOVER-RUNBOOK.md`](./CUTOVER-RUNBOOK.md), live-host RSS/CPU/latency proof, and real-device iOS PWA standalone verification.
 
-### D. Codebase language & scope breakdown (why GitHub shows Rust ~2.5% and Svelte ~2.3%)
+### D. Codebase language & scope breakdown (after Next.js/React removal, 2026-11-24)
 
-GitHub Linguist counts git-tracked bytes across the whole repository, so the hybrid architecture intentionally looks TypeScript-heavy until the legacy Next.js frontend is retired:
+GitHub Linguist counts git-tracked bytes across the whole repository. With 1,112 legacy Next.js/React files (~3.56 MiB) removed, TypeScript remains the largest share purely because the backend API, MCP server, and 902 test suites are intentionally TypeScript:
 
 | Codebase area | Tracked size | Role |
 |---|---:|---|
-| `lib/` + `app/api/` (Domain, 127 MCP tools, Agent, Auth, Workflows, AppDeck) | ~6.9 MiB | **Intentionally TypeScript/Bun** (hybrid plan keeps business logic in TS, not rewritten in Rust) |
-| `frontend/slices/` + `components/` + `app/` (Legacy Next.js/React UI) | ~3.8 MiB | **Active default (`MSO_RUNTIME=next`)** until live cutover + retirement |
+| `lib/` + `app/api/` (Domain, 127 MCP tools, Agent, Auth, Workflows, AppDeck, `lib/http/`) | ~7.0 MiB | **Intentionally TypeScript/Bun** (business logic, 128 API/MCP/OAuth/A2A routes, zero-Next HTTP router, and tests) |
 | `scripts/` + `bin/` (CLI, E2E, CI, Ops, Managed App adapters) | ~3.3 MiB | Shell, Node/Bun tooling, and test harnesses |
-| `frontend/svelte/` (Svelte 5 static UI) | ~882 KiB | ~477 KiB `.ts` stores/clients (counted as TypeScript) + ~346 KiB `.svelte` (~2.3% of repo) |
-| `rust-shell/` (`mso-shell-core` + `mso-shell-host` + Tauri scaffold) | ~383 KiB | 19 zero-crate `.rs` files (~2.3-2.5% of repo) compiled into a ~560 KiB static binary |
+| `frontend/svelte/` (Svelte 5 static UI — 22 modules) | ~882 KiB | ~477 KiB `.ts` stores/clients + ~346 KiB `.svelte` (~3.03% of tracked code) |
+| `rust-shell/` (`mso-shell-core` + `mso-shell-host` + Tauri scaffold) | ~383 KiB | 19 zero-crate `.rs` files (~3.28% of tracked code) compiled into a ~598 KiB static binary |
+| Legacy Next.js / React (`frontend/slices/`, `components/`, `next.config.mjs`) | **0 B (removed)** | Archived to private checkpoint repo `rahmanef63/mso-nextjs-checkpoint` |
 
 ## 2. Why hybrid instead of a full Rust rewrite
 
@@ -119,9 +114,9 @@ via `node scripts/bench-hybrid-same-host.mjs`, `node scripts/cutover-drill.mjs`,
 
 ## 6. Explicit boundaries and non-goals
 
-- Production remains Next.js/React (`mso.service`, installers, state, tunnels, and host policy are untouched).
+- Next.js and React have been removed from `main`; running deployments upgrade explicitly via `mso update` / service restart per [`CUTOVER-RUNBOOK.md`](./CUTOVER-RUNBOOK.md).
 - `rust-shell/` binds strictly to `127.0.0.1`, keeps `/api/config`, `/api/v1/exec/run`, and `/api/v1/editor/exec` blocked (`404`), and never widens CORS, cookie domains, or public binds.
-- No desktop client binary or production cutover claim is valid until built/verified on target OS hosts.
+- No desktop client binary claim is valid until built and verified on target OS hosts (Linux/macOS/Windows).
 
 ## 7. Local verification commands
 
