@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { requireSession } from "@/lib/auth/require-session";
 import { resolveModelRef, hostCredentialStore, selectedCustomConn, readOAuthBundle, writeOAuthBundle } from "@/lib/config/store";
 import { resolveModel } from "@/lib/models";
+import { errorMessage } from "@/lib/host/error-message";
 import { safeProviderFetch } from "@/lib/host/ssrf";
 import { codexModels, ensureFreshCodex } from "@/lib/ai/oauth/codex";
 import { streamCodex } from "@/lib/ai/codex-stream";
@@ -42,7 +43,7 @@ export async function handlePostTest(): Promise<Response> {
       if (!completed || !text.trim()) return NextResponse.json({ ok: false, error: "OpenAI ChatGPT returned no completed reply" });
       return NextResponse.json({ ok: true, provider: "openai-codex", model: selectedModel });
     } catch (e) {
-      return NextResponse.json({ ok: false, error: (e as Error).message });
+      return NextResponse.json({ ok: false, error: errorMessage(e) });
     }
   }
 
@@ -57,7 +58,7 @@ export async function handlePostTest(): Promise<Response> {
       protocol: custom?.protocol,
     });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message });
+    return NextResponse.json({ ok: false, error: errorMessage(e) });
   }
 
   try {
@@ -84,6 +85,6 @@ export async function handlePostTest(): Promise<Response> {
     }
     return NextResponse.json({ ok: true, provider: resolved.provider, model: resolved.model });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message });
+    return NextResponse.json({ ok: false, error: errorMessage(e) });
   }
 }

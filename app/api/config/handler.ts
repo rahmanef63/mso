@@ -15,6 +15,7 @@ import {
 } from "@/lib/config/store";
 import { PROVIDERS } from "@/lib/models";
 import { defaultModelFor } from "@/lib/models/defaults";
+import { errorMessage } from "@/lib/host/error-message";
 import { resolveSafeProviderEndpoint } from "@/lib/host/ssrf";
 
 
@@ -123,7 +124,7 @@ export async function handlePostConfig(req: NextRequest): Promise<Response> {
     try {
       safe = (await resolveSafeProviderEndpoint(String(c.baseURL ?? c.baseUrl ?? existing?.baseUrl ?? ""))).url;
     } catch (e) {
-      return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+      return NextResponse.json({ error: errorMessage(e) }, { status: 400 });
     }
     const protocol = c.protocol === "anthropic" ? "anthropic" : c.protocol === "openai" ? "openai" : existing?.protocol ?? "openai";
     // Omitted `models` keeps what is stored; an explicit array replaces it. Before this,
