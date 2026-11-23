@@ -141,7 +141,9 @@ cmd_update() {
 
 cmd_uninstall() {
   local dry=0
-  case "${1:-}" in --dry-run) dry=1 ;; esac
+  case "${1:-}" in
+    --dry-run) dry=1 ;;
+  esac
   if [ "$dry" = 1 ]; then
     echo "would remove container: $NAME"
     echo "kept: image $IMAGE, data $DATA"

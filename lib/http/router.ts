@@ -3,6 +3,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { NextRequest, NextResponse } from "./next-server-shim";
 import { runWithRequestHeaders } from "./next-headers-shim";
 import { onRequestError } from "./server-bootstrap";
@@ -199,7 +200,7 @@ export async function dispatchMsoRequest(rawReq: Request, rootDir = process.cwd(
   for (const route of getCompiledRoutes(rootDir)) {
     const match = route.regex.exec(pathname);
     if (!match) continue;
-    route.mod ??= (await import(route.filePath)) as RouteModule;
+    route.mod ??= (await import(pathToFileURL(route.filePath).href)) as RouteModule;
     const method = (req.method.toUpperCase() as keyof RouteModule);
     const handler = route.mod[method] ?? (method === "HEAD" ? route.mod.GET : undefined);
     if (!handler) return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
