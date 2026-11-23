@@ -16,6 +16,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `native` import route modules via file: URL so Windows paths resolve
 - `native` point host launcher at Svelte build and node runtime
 
+**Chores**
+
+- `gitignore` ignore root test-results/ so a local Playwright run cannot block preflight
+
 ## 2026-11-22
 
 **Added**
