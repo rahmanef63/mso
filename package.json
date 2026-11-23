@@ -81,7 +81,7 @@
     "svelte:audit:strict": "node scripts/audit.mjs --dir=frontend/svelte --strict"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.6.0",
+    "@anthropic-ai/sdk": "^1.8.0",
     "node-pty": "^1.1.0",
     "sharp": "^0.35.5",
     "yaml": "^2.9.1"
