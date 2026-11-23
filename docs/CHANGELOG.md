@@ -4,6 +4,16 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-24
+
+**Fixed**
+
+- `security` prove exception messages are stack-free at the JSON sink (#210)
+
+**Docs**
+
+- `readme` highlight Now in Rust + Svelte 5, add minimum specs, remove Next.js comparison media
+
 ## 2026-11-23
 
 **Added**
@@ -1318,30 +1328,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `mcp` register organization parity boundaries
 - `cli` include organization command module in route coverage
-
-## 2026-09-14
-
-**Added**
-
-- `integrations` simplify UI and secure credential exports
-- `mcp` add original-byte file transfer
-
-**Fixed**
-
-- `shell` place server status in native chrome
-- `integrations` use contrast-safe action tokens
-- `integrations` inherit shell design tokens
-- `integrations` align layout with Settings sidebar
-- `mcp` harden bidirectional file transfer
-- `mcp` bind ChatGPT Azure file trust to OAuth provenance
-- `mcp` make project plugins explicit opt-in installs
-- `mcp` trust verified ChatGPT Azure file host
-- `integrations` preserve strict SC bundle validation
-- `integrations` make shell embed frameable
-- `integrations` add shell app and detect SC worktrees
-- `integrations` expose native shell and managed SC project bindings
-- `mcp` fall back when project MCP discover returns -32601
-
-**Changed**
-
-- `integrations` source compact width from responsive SSOT
