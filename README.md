@@ -100,7 +100,7 @@ Use Bun >=1.4.2 and Node 22.12+ / 24.x / 26+. [Contributing](./CONTRIBUTING.md) 
 **Public Alpha / Developer Preview.** Owner/exec authority can run commands as the service user. Provider calls may send selected context off-host. Review approvals and keep credentials private. Successful analysis jobs are not proof of zero open alerts; the security badge above checks the actual inventory. [Security policy](./SECURITY.md) · [Verification and known limits](./docs/SECURITY-ASSURANCE.md)
 
 <!-- comparison:start -->
-[Product comparison, evidence and limitations](docs/COMPARISON.md) · reviewed 2026-09-17.
+[Product comparison, evidence and limitations](docs/COMPARISON.md) · reviewed 2026-11-24.
 <!-- comparison:end -->
 
 **License ([PolyForm Noncommercial 1.0.0](./LICENSE)):** Free to use, modify, and self-host for personal, educational, and noncommercial use. **Commercial use, resale, or paid hosting is prohibited** without a written [commercial license](./LICENSE-EXCEPTION.md). · [Third-party notices](./LICENSES/THIRD-PARTY-NOTICES.md) · [Code of Conduct](./CODE_OF_CONDUCT.md) · [Workspace guide](./docs/reference/WORKSPACE-GUIDE.md)

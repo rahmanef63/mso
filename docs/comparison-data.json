@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-09-17",
+  "reviewedAt": "2026-11-24",
   "expiresAfterDays": 90,
   "positioning": "MSO is designed as a mobile-first, AI-native private Linux workspace for an owner or small trusted team. It does not claim to replace specialist products at their strongest specialty.",
   "legend": {
@@ -54,9 +54,10 @@
       "ratings": {
         "workspace": {
           "value": "strong",
-          "note": "Files, real PTY, code/media editors, managed apps, Integrations, Workflows, Organization, responsive shells, PWA, and CLI share one authenticated runtime.",
+          "note": "Svelte 5 static cockpit, Rust shell host, real PTY, files, code/media editors, AppDeck managed apps, Integrations, native SVG Workflows, Organization, responsive PWA, and CLI share one authenticated zero-Next runtime.",
           "evidence": [
             "frontend/svelte/src/routes/+page.svelte",
+            "rust-shell/crates/mso-shell-core/src/server.rs",
             "frontend/svelte/src/lib/files/FilesManager.svelte",
             "frontend/svelte/src/lib/terminal/TerminalApp.svelte",
             "frontend/svelte/src/lib/workflows/WorkflowsApp.svelte",
@@ -66,8 +67,9 @@
         },
         "hostOps": {
           "value": "partial",
-          "note": "Live metrics/processes, service inventory and logs, exact allowlisted systemd lifecycle, package-cache visibility, full owner shell. No first-class network/storage/user administration yet.",
+          "note": "Native Rust /proc + disk metrics and processes, service inventory and logs, exact allowlisted systemd lifecycle, package-cache visibility, full owner shell. No first-class network/storage/user administration yet.",
           "evidence": [
+            "rust-shell/crates/mso-shell-core/src/sys_metrics.rs",
             "lib/host/sys.ts",
             "lib/host/services.ts",
             "lib/host/package-updates.ts",
@@ -76,8 +78,9 @@
         },
         "delivery": {
           "value": "partial",
-          "note": "Pinned managed-app install/update/backup/rollback paths are built in, and named Integrations can orchestrate GitHub/Dokploy delivery plus DNS/provider operations. MSO still delegates the underlying PaaS/container control plane rather than replacing one.",
+          "note": "AppDeck provides transactional preflight, quiesce, backup, pinned install/update, and auto-recovery for managed apps, while named Integrations orchestrate GitHub/Dokploy delivery plus DNS/provider operations. MSO still delegates the underlying PaaS/container control plane rather than replacing one.",
           "evidence": [
+            "lib/managed-apps/appdeck-preflight.ts",
             "lib/managed-apps/install.ts",
             "lib/managed-apps/update.ts",
             "lib/managed-apps/backups.ts",
@@ -211,6 +214,10 @@
         {
           "label": "Portainer stack delivery",
           "url": "https://docs.portainer.io/user/docker/stacks/add"
+        },
+        {
+          "label": "Portainer MCP server repository",
+          "url": "https://github.com/portainer/portainer-mcp"
         }
       ],
       "ratings": {
@@ -235,8 +242,8 @@
           "note": "Access controls are available; advanced RBAC is edition-dependent."
         },
         "aiControl": {
-          "value": "none",
-          "note": "No native AI/MCP workspace control plane."
+          "value": "partial",
+          "note": "Portainer publishes an official OpenAPI-generated MCP server (portainer-mcp) and offers Portainer-Command (governed MCP gateway and AI Workspace) in Business Edition. Marked partial because the governed AI workspace is edition-dependent and scoped to container/Kubernetes stacks rather than general host operations."
         }
       }
     },
@@ -289,7 +296,7 @@
         },
         "aiControl": {
           "value": "strong",
-          "note": "Netdata AI provides built-in conversations, insights and investigations, while native Cloud and Agent/Parent MCP servers expose metrics, alerts, logs, anomaly/RCA queries, and supported function execution to AI clients."
+          "note": "Netdata AI provides built-in conversations, insights and investigations, while read-only Cloud and Agent/Parent MCP servers expose metrics, alerts, logs, and anomaly/RCA queries to AI clients (and Netdata Cloud can also connect outbound as an MCP client to incident/code tools)."
         }
       }
     },
@@ -301,6 +308,10 @@
         {
           "label": "Tailscale SSH",
           "url": "https://tailscale.com/docs/features/tailscale-ssh"
+        },
+        {
+          "label": "Tailscale (Aperture AI gateway & MCP connectors)",
+          "url": "https://tailscale.com/"
         }
       ],
       "ratings": {
@@ -325,8 +336,8 @@
           "note": "Identity, ACLs, SSH checks, session controls, revocation, and recording integrations are core strengths."
         },
         "aiControl": {
-          "value": "none",
-          "note": "No built-in AI/MCP host workspace."
+          "value": "partial",
+          "note": "Tailscale Aperture (GA August 2026) adds a built-in Tailscale SSH MCP connector (list machines and run commands over /v1/mcp governed by tailnet grants). Marked partial because it is an adjacent AI gateway/SSH tool surface rather than a full browser workspace assistant."
         }
       }
     },
@@ -343,7 +354,7 @@
       "ratings": {
         "workspace": {
           "value": "partial",
-          "note": "The final shipped product provides upload/delete/preview/edit file management, but the repository is now archived and no longer maintained."
+          "note": "The final shipped product provides upload/delete/preview/edit file management, but the repository was archived on August 31, 2026 and is read-only with no further updates."
         },
         "hostOps": {
           "value": "none",
@@ -437,7 +448,7 @@
         },
         "aiControl": {
           "value": "none",
-          "note": "No native AI/MCP workspace control."
+          "note": "Core CasaOS has no built-in AI/MCP workspace control (IceWhaleTech maintains separate experimental/hardware-focused ZimaOS-MCP and ToolFS repositories)."
         }
       }
     },

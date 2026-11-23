@@ -13,11 +13,11 @@ node scripts/approve-device.js <deviceId> "my laptop" --role owner   # deviceId 
 
 ## Layout
 
-Every built-in feature is a self-contained **vertical slice** under `frontend/slices/<slug>/`
-(its own components, hooks, barrel, colocated unit tests, and declarative entry in
-`frontend/slices/feature-contracts.ts`). One manifest,
-`frontend/slices/os-shell/shell.manifest.ts`, wires built-in slices into the shell.
-Features that should update independently without rebuilding Next.js core can instead be packaged
+Every built-in UI feature is a self-contained **Svelte 5 module** under `frontend/svelte/src/lib/<module>/`
+with a declarative entry in `frontend/svelte/src/lib/feature-contracts.ts` and registration in
+`frontend/svelte/src/lib/shell/shell-registry.ts`. The native Rust shell host lives in `rust-shell/`,
+and the zero-Next Web Fetch HTTP router lives in `lib/http/`.
+Features that should update independently without rebuilding MSO core can instead be packaged
 as **modular feature packages** under `~/.mso/features/<id>/` using `bun run feature:pack`
 (see [MODULAR-FEATURES.md](./MODULAR-FEATURES.md)). Host access is bounded in
 `lib/host` (Node `fs`/`child_process`, filesystem-jailed) behind signed-cookie plus live device-role auth
@@ -54,7 +54,7 @@ freshness (`gen-changelog.mjs --check`, which defers automatically on PR branche
 out-of-tree production build plus mandatory synthetic browser journeys (`scripts/verify-build.sh`
 with `--reflink=auto` and optional `MSO_E2E_JOBS=2`).
 `check-contrast.mjs` blocks palette regressions. None of the build verification touches the live
-checkout's `.next`. For conflict-free PR documentation, write per-PR progress notes under
+checkout's `frontend/svelte/build`. For conflict-free PR documentation, write per-PR progress notes under
 `docs/progress/YYYY-MM-DD-<slug>.md` instead of prepending to `docs/PROGRESS.md`.
 
 The local dependency audit may explicitly skip an unavailable registry; that is not a security pass.
@@ -119,9 +119,8 @@ and the baseline is an idle measurement. CI runs this in the `verify` job. Bundl
 deliberately *not* re-gated here: `check-bundle.mjs` already gates gzip bytes
 deterministically from build output, while a browser-measured byte count includes deferred
 chunks and moves. Targets in the budget file (`tbtMs 150`, `lcpMs 2500`,
-`initialGzipBytes 256000`) are the post-migration goal from `docs/MSO-MIGRATION.md`; they
-are printed as advisory and never enforced, since holding today's Next build to a Svelte
-target would just make the gate permanently red.
+`initialGzipBytes 256000`) are the Svelte 5 / Rust Shell performance targets from `docs/MSO-MIGRATION.md`
+and are printed alongside live measurements.
 
 Regenerate the baseline with `node scripts/perf-probe.mjs --json` and commit the
 runs. Do that deliberately after a real improvement, not to silence a failure.
@@ -184,11 +183,11 @@ scan is not enough to merge a dependency change: the repository `Verify` job mus
 and patch updates are grouped to reduce PR noise. Major toolchain updates are evaluated separately
 because they can require source or configuration migrations.
 
-`eslint` 10 and TypeScript 7 are temporarily ignored in `.github/dependabot.yml`: the current
-Next.js ESLint plugin stack fails under ESLint 10, and the current `typescript-eslint` stack rejects
-TypeScript 7. Remove an ignore only after the isolated candidate passes typecheck, lint, repository
-checks, and the out-of-tree production build. This is a compatibility hold, not a permanent version
-pin and not an exemption from Dependabot security updates.
+ESLint 10 (`eslint@^10.0.0`, `@eslint/js@^10.0.1`) is active on `main` after removing Next.js and its
+legacy ESLint plugin stack. TypeScript 7 remains temporarily held in `.github/dependabot.yml` while
+`typescript-eslint` completes TypeScript 7 compatibility. Remove an ignore only after the isolated
+candidate passes typecheck, lint, repository checks, and the out-of-tree production build. This is a
+compatibility hold, not a permanent version pin and not an exemption from Dependabot security updates.
 
 ### Security scanners run as your own uid, never as root
 
@@ -247,10 +246,9 @@ that only regenerate this file, so a commit that edits prose still adds a line a
 `docs/CHANGELOG.md` stale. That is precisely how this rule got written: three separate
 `docs/`-only commits in one session each needed a second commit to regenerate the file.
 
-**`bun run build` now refuses when a live Next/MSO runtime serves the same checkout.**
-`next start` loads the build manifest at boot; overwriting `.next` under the live
-process makes the already-served HTML reference chunk hashes that no longer exist on
-disk → every JS/CSS chunk 404/500s → **the live site is broken until you restart**.
+**`bun run build` refuses when a live MSO runtime serves the same checkout.**
+Overwriting `frontend/svelte/build` under a live server can make already-served HTML reference
+chunk hashes that no longer exist on disk → **the live site breaks until you restart**.
 
 Use `mso build` for the normal out-of-tree compile proof and `mso deploy` for a
 production replacement. To test runtime behaviour without risking prod, use a

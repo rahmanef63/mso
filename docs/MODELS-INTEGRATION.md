@@ -119,4 +119,4 @@ provider. Host mutation approval and filesystem boundaries remain separate MSO c
 - `lib/ai/openai-stream.ts` — OpenAI-compatible streaming
 - `lib/ai/codex-stream.ts` — ChatGPT Codex Responses streaming
 - `lib/ai/oauth/codex.ts` — Codex OAuth/device flow
-- `frontend/slices/os-settings/components/` — provider Settings UI
+- `frontend/svelte/src/lib/settings/` — provider Settings UI

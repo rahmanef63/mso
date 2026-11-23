@@ -54,5 +54,5 @@ To add a new open-source app to AppDeck without copying upstream code into MSO:
    - `update --yes`
    - `uninstall --help` and `uninstall --yes [--dry-run]`
    - Emit `[appdeck] step=download|apply|health|ready` milestones for the UI stepper.
-4. Register the adapter in `lib/managed-apps/update-cli.ts` (`pinnedAdapter(...)`) and `frontend/slices/managed-apps/app-support.ts`.
+4. Register the adapter in `lib/managed-apps/update-cli.ts` (`pinnedAdapter(...)`) and the Managed Apps UI under `frontend/svelte/src/lib/managed-apps/`.
 5. Run `bun run gate:smart` and `bun run pr:security` to verify contract, supply-chain, ShellCheck, and Semgrep gates.

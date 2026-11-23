@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- revalidate comparison matrix (2026-11-24) and update living docs for Rust + Svelte 5
 - `readme` highlight Now in Rust + Svelte 5, add minimum specs, remove Next.js comparison media
 
 ## 2026-11-23

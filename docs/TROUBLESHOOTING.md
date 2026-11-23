@@ -65,7 +65,7 @@ existing device role still requires the explicit `mso device role` command.
 ### How do I update when the web UI / port 4005 is down?
 
 Run `mso update`. The CLI updater reads/fetches `origin/main` directly and does not need the MSO API.
-On WSL without an active service it verifies and builds the clean updated checkout. Every gateway-owned fallback runtime for that canonical checkout is inventoried and quiesced before `.next` changes, then restored afterward while active tunnel identities are preserved. Checkout-scoped private deployment receipts/restart markers
+On WSL without an active service it verifies and builds the clean updated checkout. Every gateway-owned fallback runtime for that canonical checkout is inventoried and quiesced before production build artifacts change, then restored afterward while active tunnel identities are preserved. Checkout-scoped private deployment receipts/restart markers
 survive partial failures, so rerunning the same `mso update` retries dependency/build/restart work even
 when Git HEAD already equals `origin/main`. Offline transactions are serialized; do not remove the
 owner-only update-state directory just to bypass a pending recovery. Recovery intent is written before
@@ -95,7 +95,7 @@ without fetching or rewriting Git history.
 ### Re-running the installer while MSO is already running
 
 Supported reruns now use the same checkout-wide mutation boundary as self-update before dependency install
-or `.next` build. A same-checkout service is quiesced and refreshed as part of the installer lifecycle;
+or production build. A same-checkout service is quiesced and refreshed as part of the installer lifecycle;
 gateway-owned WSL/no-systemd fallbacks are inventoried, stopped and restored afterward with their original
 env-file identities. A service from another checkout, an unowned loopback runtime, or `--no-service` against
 an active same-checkout service is refused before mutation.
@@ -109,8 +109,8 @@ by the installer) instead of letting a secondary clone rebuild itself and restar
 ### `mso update` says the selected loopback runtime is not safely update-owned
 
 MSO found a healthy loopback responder while `mso.service` is inactive, but that process is not
-recorded as a gateway-owned fallback runtime. This is commonly a manual `bun run start`/`next start`.
-Stop that manual runtime first, then rerun `mso update`. MSO refuses here before dependency or `.next`
+recorded as a gateway-owned fallback runtime. This is commonly a manual `bun run start` / `scripts/server.mjs` process.
+Stop that manual runtime first, then rerun `mso update`. MSO refuses here before dependency or build-tree
 mutation rather than rebuilding underneath a process that is actively serving the old build.
 
 ### `mso update` says a gateway-owned runtime predates env identity
@@ -124,8 +124,8 @@ state. Do not delete the private restore/update state to bypass this check.
 
 ### `mso gateway start` says an offline update is mutating this checkout
 
-This is an intentional safety exclusion. Every in-place `mso update` (service-active or offline) holds the checkout-wide runtime lock while `.next` can change, so `mso web`, onboarding fallback, gateway runtime recovery, and `mso service start/restart` cannot start
-Next from a partially-mutated build. Let the update finish, then rerun the same gateway/web/service command.
+This is an intentional safety exclusion. Every in-place `mso update` (service-active or offline) holds the checkout-wide runtime lock while production build artifacts can change, so `mso web`, onboarding fallback, gateway runtime recovery, and `mso service start/restart` cannot start
+MSO from a partially-mutated build. Let the update finish, then rerun the same gateway/web/service command.
 `mso deploy` uses the same runtime-quiesce lifecycle and requires the active service to belong to the
 checkout invoking the command.
 
@@ -215,8 +215,8 @@ instead of silently drifting.
 
 ### UI is unstyled or JS/CSS chunks 404 after deploy
 
-The running `next start` process and on-disk `.next` tree do not match. Do **not** keep
-mutating the live `.next` tree manually. After any active updater/finalizer has finished,
+The running server process and on-disk `frontend/svelte/build` assets do not match. Do **not** keep
+mutating the live build tree manually. After any active updater/finalizer has finished,
 run the supported recovery rebuild:
 
 ```bash
@@ -229,11 +229,11 @@ build/restart sequence.
 
 ### Build runs out of memory
 
-A Next production build can need multiple GiB. Add swap or raise the Node heap for the
-build process, then run the supported build/release path again. Do not restart a healthy
+A production Svelte/Rust build on a 512 MiB host benefits from swap (1 GiB swap recommended).
+Add swap or raise the Node heap for the build process, then run the supported build/release path again. Do not restart a healthy
 old service after a failed build.
 
-### "Another next build process is already running"
+### "Another build/deploy process owns this checkout"
 
 First confirm a release/self-update is not actually active. Multiple simultaneous builds
 against the production checkout are unsafe. If no process owns the build and only a stale

@@ -4,7 +4,7 @@
 > `docs/PROGRESS.md` records why the architecture changed; dated plans and audits are
 > historical inputs, not runtime contracts.
 
-MSO is one self-hosted Next.js application running under a non-root Linux runtime.
+MSO is a self-hosted Rust Shell + Svelte 5 + Bun/Node Web Fetch application running under a non-root Linux runtime (Next.js and React have been removed from `main`).
 On Linux that runtime is native; macOS, Windows and Android can supply it through the platform
 adapters documented in [PLATFORMS.md](./PLATFORMS.md). iOS/iPadOS is a client/PWA surface.
 The browser UI, CLI, Alfa assistant, and optional MCP connector all converge on the same bounded
@@ -12,7 +12,7 @@ host layer rather than each implementing filesystem or process access.
 
 ```mermaid
 flowchart LR
-  B[Browser / phone] -->|HTTPS + live device role| N[MSO Next.js :4005]
+  B[Browser / phone] -->|HTTPS + live device role| N[MSO Rust Shell / HTTP :4005]
   C[CLI `mso`] -->|local HTTP + approved device role| N
   T[Terminal MSO Agent] -->|SSE chat| N
   T -->|owner-only agent-tools bridge| M[/mcp dispatcher]
@@ -47,7 +47,7 @@ flowchart LR
 | Same-session subagents | `lib/agent/subagent-runner.ts`, `lib/mcp/tools-subagents.ts` | Bounded foreground isolated child runs behind an exec-scope delegation boundary; no recursive/background worker is created. |
 | Saved agent profiles | `lib/agent/profile-*`, `bounded-runner.ts`, `/api/v1/agent-profiles` | Owner-device revisioned configuration and foreground read tasks; exact model binding, server-enforced tools and live authorization. See [AGENT-PROFILES.md](./AGENT-PROFILES.md). |
 | Infrastructure providers | `lib/infra/*`, `/api/v1/infra/*` | Owner-private Dokploy/Cloudflare/Hostinger state and bounded provider clients; secrets never enter model tool arguments. |
-| Alfa | `frontend/slices/assistant/host-tools/*` | Stable tool catalog; reads run immediately, mutations require human approval. |
+| Alfa | `lib/agent/host-tools/*` | Stable tool catalog; reads run immediately, mutations require human approval. |
 | MCP | `lib/mcp/*`, `/mcp`, `/oauth/*` | OAuth 2.1 + PKCE; `read < write < exec` token scope. |
 | Managed apps | `lib/managed-apps/*` | Hermes/OpenClaw remain separate runtimes and state trees. |
 | Remote browser | `camoufox-vnc.service` + `scripts/camoufox-vnc-service` | Real Camoufox Firefox over noVNC; no legacy Playwright browser service. |
@@ -64,13 +64,13 @@ existing preference store.
 ## 2. Repository layout
 
 ```text
-app/                         Next.js routes, OAuth and public install surface
-frontend/slices/             vertical application slices
-  appshell/                  generic shell framework
-    features/                shell features
-  os-shell/                  MSO manifest + capability adapters
-  infrastructure/            Dokploy and Cloudflare default feature apps
-  integrations/              Native connection manager shell app
+app/                         Web Fetch API, MCP, A2A, and OAuth route handlers (128 routes)
+frontend/svelte/             Svelte 5 static cockpit (22 feature modules covering 33 slices)
+  src/lib/shell/             Window manager, dock, command palette, lock screen, 5 OS chromes
+  src/lib/infra/             Dokploy and Cloudflare infrastructure views
+  src/lib/integrations/      Integrations and Channels workspace
+rust-shell/                  Zero-crate Rust shell host (mso-shell-core + mso-shell-host + Tauri scaffold)
+lib/http/                    Zero-Next Web Fetch router, shims, and server bootstrap
 lib/auth/                    login/session/device approval + live roles
 lib/host/                    bounded host capability implementation
 lib/mcp/                     OAuth/MCP tool catalog and dispatcher
@@ -99,7 +99,7 @@ MSO uses several extension concepts because they own different authority. They a
 | **MCP** | Protocol/transport boundary for structured tools. This includes MSO's own `/mcp` and project-declared MCP servers. | Tool schemas are discovered from the selected server; OAuth/project policy and call-time guards remain authoritative. | Package identity or credential storage. |
 | **Integration** | Credential identity and provider routing: credential user → provider → named connection → source/backend → auth method. | Native Integrations is the credential authority; secrets stay outside ordinary model/tool arguments. | MCP itself, Project Plugin, App. |
 | **App** | AppShell user-interface application or feature surfaced inside the MSO workspace. | UI install/toggle state belongs to the shell/app registry. | Managed service runtime or MCP capability. |
-| **Modular Feature Package** | Independently versioned static feature bundle under `~/.mso/features/<id>/`, served via `/api/v1/features/*` and packed/deployed with `bun run feature:pack`. | Owner-private disk package with `O_NOFOLLOW` fd reads, live `minRole` authorization, SHA-256 entry integrity, and sandboxed same-origin iframe framing; updates atomically without rebuilding Next.js or restarting `mso.service`. See [`MODULAR-FEATURES.md`](./MODULAR-FEATURES.md). | Built-in `frontend/slices/` monolith code, Managed App runtime, or Integration credential. |
+| **Modular Feature Package** | Independently versioned static feature bundle under `~/.mso/features/<id>/`, served via `/api/v1/features/*` and packed/deployed with `bun run feature:pack`. | Owner-private disk package with `O_NOFOLLOW` fd reads, live `minRole` authorization, SHA-256 entry integrity, and sandboxed same-origin iframe framing; updates atomically without rebuilding MSO core or restarting `mso.service`. See [`MODULAR-FEATURES.md`](./MODULAR-FEATURES.md). | Built-in `frontend/svelte/src/lib/` module code, Managed App runtime, or Integration credential. |
 | **Managed App** | External runtime/service that MSO installs or operates, such as Hermes, OpenClaw or 9Router. | Host/service lifecycle, health, version, backup/update/uninstall state. | App Store entry, Integration, Project Plugin. |
 | **Skill Market** | Curated source of reviewed skill bundles. | Install state is local skill state (`installed / modified / conflict / not-installed`); removal refuses unmanaged content. | General app/plugin marketplace. |
 | **App Store** | Apps plus shared MCP/Skills management tabs. | UI app state remains in the workspace; MCP bindings and managed skill files live on the VPS and are shared with Settings. | OpenAI plugin directory, Project Plugin catalog, Managed App registry. |
@@ -121,27 +121,13 @@ A store/catalog is discovery metadata, not execution authority. Likewise, packag
 
 The cross-reference audit that informs this taxonomy lives in [`PLUGIN-REFERENCE-MATRIX.md`](./PLUGIN-REFERENCE-MATRIX.md).
 
-## 4. AppShell
+## 4. AppShell (Svelte 5)
 
-`frontend/slices/appshell/` is the generic shell framework. `os-shell` is the thin MSO
-consumer that supplies brand, app manifest, shell choice and capabilities.
-
-Current AppShell feature directories are:
-
-- `clipboard`
-- `control-center`
-- `desktop-icons`
-- `force-quit`
-- `inspector`
-- `lock-screen`
-- `notifications`
-- `search`
-- `shortcut-help`
-- `widgets`
-
-`desktop-icons` and `force-quit` are shell infrastructure rather than ordinary slot
-features, but they live under the same feature tree. See `docs/SLICE-CATALOG.md` for the
-current slice inventory; its counts are checked by `scripts/check-docs.mjs`.
+`frontend/svelte/src/lib/shell/` owns the desktop/mobile shell framework (window manager,
+dock, command palette, lock screen, notifications, clipboard, inspector, widgets, force-quit,
+and shortcut help), driven by `frontend/svelte/src/lib/shell/shell-registry.ts`.
+See `docs/SLICE-CATALOG.md` for the current 22-module Svelte inventory; its counts are checked
+by `scripts/check-docs.mjs`.
 
 The shell supports macOS, Windows, iOS, Android and Dashboard presentation layers over the
 same app/window state. Phone portrait resolves to a mobile shell; phone landscape can use
@@ -150,9 +136,9 @@ same feature code.
 
 ## 5. Addressable routing without page-per-app duplication
 
-MSO uses one catch-all application route, `app/[[...slug]]/page.tsx`. The focused app is
-mirrored into the URL while window state remains client-side. App slugs are assigned in
-`frontend/slices/os-shell/shell.manifest.ts`.
+MSO serves its static Svelte 5 cockpit from `frontend/svelte/build` (via `rust-shell/` or
+`lib/http/router.ts`). The focused app is mirrored into the URL while window state remains
+client-side. App slugs are assigned in `frontend/svelte/src/lib/shell/shell-registry.ts`.
 
 The shell uses the History API for focus/open URL synchronization instead of treating every
 window operation as a server navigation. Reserved framework paths are never allowed to fall
@@ -229,9 +215,9 @@ single deployment-wide prefs document: delegated devices read it; Owner is the o
 Alfa and MCP are two separate model-facing catalogs on purpose.
 
 **Alfa** runs inside the authenticated MSO UI. Its tool catalog lives under
-`frontend/slices/assistant/host-tools/`. Read tools execute immediately; host mutations
-park a visible Approve/Deny card. The complete semantic contract is
-`frontend/slices/assistant/CONTRACT.md`.
+`lib/agent/host-tools/`. Read tools execute immediately; host mutations
+park a visible Approve/Deny card. The complete registry and tests live in
+`lib/agent/host-tools/registry.ts`.
 
 **MCP** is for external clients such as ChatGPT, Claude.ai and Cursor. Its catalog lives in
 `lib/mcp/`; access is controlled by the OAuth token scope rather than Alfa approval cards.
@@ -310,8 +296,8 @@ The release path regenerates derived changelog data, runs push gates (including 
 out-of-tree production build with `--reflink=auto` and bounded parallel `MSO_E2E_JOBS` E2E),
 pushes the exact commit, then hands build/restart/final verification to the owner user manager
 when launched through MSO/MCP. During `mso update` (`scripts/self-update.sh`), the verified
-out-of-tree `.next` artifact is staged and promoted atomically via `scripts/lib/promote-next-build.sh`
-rather than running a duplicate in-place `next build`.
+out-of-tree Svelte build artifact is staged and promoted atomically rather than mutating
+a live runtime checkout in place.
 Before push, the out-of-tree build runs required browser journeys against synthetic device/credential stores and a local provider fixture.
 A successful finalizer ends `~/.mso/self-update.log` with `UPDATE OK`.
 
@@ -347,11 +333,11 @@ extension mechanism.
 
 | Path | What it is |
 |---|---|
-| `app/` | Next.js routes, OAuth endpoints, public install surface |
-| `lib/` | Host, auth, MCP, infra and managed-app authorities |
-| `components/` | Shared UI primitives used by every slice |
+| `app/` | Web Fetch API, MCP, A2A, and OAuth route handlers |
+| `lib/` | Host, auth, HTTP router, MCP, infra and managed-app authorities |
+| `rust-shell/` | Zero-crate Rust shell host (`mso-shell-core`, `mso-shell-host`, Tauri scaffold) |
 | `scripts/` | Install, release gates, service/updater helpers, terminal agent |
-| `frontend/slices/` core | The shipped slices (`appshell`, `os-shell`, `os-settings`, …) and their contracts |
+| `frontend/svelte/` | Svelte 5 static cockpit (22 modules) and feature contracts |
 | `schemas/` | Versioned JSON schemas for portable bundles |
 | `templates/` | Shipped app / skill-flow templates |
 
@@ -394,7 +380,7 @@ MSO has a Workflow Graph v2 layer above the existing automation/lifecycle/RASMIC
 
 ## Channels
 
-`frontend/slices/channels/` is the first-class messaging application. The provider-neutral runtime lives in `lib/channels/`; provider-specific behavior is limited to adapters. Channel records store only non-secret routing/configuration and exact references to native Integrations connections.
+`frontend/svelte/src/lib/integrations/` hosts the messaging Channels UI alongside Integrations. The provider-neutral runtime lives in `lib/channels/`; provider-specific behavior is limited to adapters. Channel records store only non-secret routing/configuration and exact references to native Integrations connections.
 
 Telegram and Discord credentials remain under `lib/infra/*`. Telegram inbound requests require the configured Bot API webhook secret; Discord inbound requests require Ed25519-signed Interactions. Discord Gateway message ingestion is not part of the current capability.
 
@@ -404,4 +390,4 @@ Inbound channel events may dispatch into the existing Workflow Graph engine thro
 
 Agent Vault (`/agent-vault`) is a native reader for private repository snapshots. It loads metadata first and one note per selection, searches titles/types/source paths locally, and uses container queries for side-by-side desktop versus single-panel mobile navigation. Its inert Markdown reader resolves links only to published snapshot notes; HTML and resource embeds remain text. Backlinks reuse the existing owner-only Memory projection on demand, and opening Memory passes the selected snapshot root explicitly. Organization remains the authority for team/agent structure. Personal Markdown under each vault's `Notes/` directory uses the existing guarded Files API and Code editor; generated snapshot metadata and source repositories are unaffected. No additional service, database, polling loop or Markdown dependency is required.
 
-`frontend/slices/memory-graph/` is the owner-only Memory app at `/memory` (`mso memory-graph`). It draws vault markdown, project `.mso/KNOWLEDGE.md`, repo-local `.agent` memory, the signed-in device's typed agent memory, and assistant memories. Unresolved `[[wikilinks]]` are ghost nodes. Web, radial, and layered layouts plus a local hop neighbourhood are client-side. This surface is inspired by open-silong's memory graph (MIT) and does not depend on Obsidian or Convex. It is not the Workflow session graph. See [`MEMORY-GRAPH.md`](./MEMORY-GRAPH.md).
+`frontend/svelte/src/lib/memory-graph/` is the owner-only Memory app at `/memory` (`mso memory-graph`). It draws vault markdown, project `.mso/KNOWLEDGE.md`, repo-local `.agent` memory, the signed-in device's typed agent memory, and assistant memories. Unresolved `[[wikilinks]]` are ghost nodes. Web, radial, and layered layouts plus a local hop neighbourhood are client-side. This surface is inspired by open-silong's memory graph (MIT) and does not depend on Obsidian or Convex. It is not the Workflow session graph. See [`MEMORY-GRAPH.md`](./MEMORY-GRAPH.md).
