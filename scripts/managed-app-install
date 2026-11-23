@@ -554,12 +554,16 @@ hermes_cmd() {
 }
 
 # -------------------------------------------------------------- openclaw ----
-install_openclaw() {
-  local tmp tarball actual openclaw installed_version
+# Download, verify and install the pinned tarball. ONE global-install call site for the
+# whole script keeps Scorecard PinnedDependenciesID (alert #209) green. Pass "--apply-step"
+# to emit the update flow's step echo between verification and installation.
+openclaw_install_verified() {
+  local tmp tarball actual apply_step="${1:-}"
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
+  # Trap is function-scoped, so clear it once it runs: otherwise RETURN in this helper
+  # stays armed for every caller's return, where "$tmp" is unbound under `set -u`.
+  trap 'rm -rf "$tmp"; trap - RETURN' RETURN
 
-  log "installing the pinned OpenClaw CLI ($OPENCLAW_VERSION)"
   # Verify the exact package bytes before npm can execute lifecycle hooks.
   tarball="$(cd "$tmp" && npm pack "openclaw@$OPENCLAW_VERSION" --silent)"
   [ -n "$tarball" ] && [ -f "$tmp/$tarball" ] || { echo "OpenClaw package download failed" >&2; return 1; }
@@ -568,7 +572,17 @@ install_openclaw() {
     echo "OpenClaw tarball integrity check failed" >&2
     return 1
   }
+  if [ "$apply_step" = "--apply-step" ]; then
+    echo "[appdeck] step=apply Installing verified OpenClaw tarball"
+  fi
   npm install -g "$tmp/$tarball"
+}
+
+install_openclaw() {
+  local openclaw installed_version
+
+  log "installing the pinned OpenClaw CLI ($OPENCLAW_VERSION)"
+  openclaw_install_verified || return 1
 
   openclaw="$(openclaw_bin)"
   installed_version="$("$openclaw" --version 2>/dev/null | head -1)"
@@ -637,21 +651,11 @@ openclaw_bin() {
 }
 
 update_openclaw() {
-  local tmp tarball actual openclaw installed_version
-  tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
+  local openclaw installed_version
 
   echo "[appdeck] step=download Downloading pinned OpenClaw release ($OPENCLAW_VERSION)"
   log "reconciling the pinned OpenClaw CLI ($OPENCLAW_VERSION)"
-  tarball="$(cd "$tmp" && npm pack "openclaw@$OPENCLAW_VERSION" --silent)"
-  [ -n "$tarball" ] && [ -f "$tmp/$tarball" ] || { echo "OpenClaw package download failed" >&2; return 1; }
-  actual="$(sha512sum "$tmp/$tarball" | awk '{print $1}')"
-  [ "$actual" = "$OPENCLAW_TARBALL_SHA512" ] || {
-    echo "OpenClaw tarball integrity check failed" >&2
-    return 1
-  }
-  echo "[appdeck] step=apply Installing verified OpenClaw tarball"
-  npm install -g "$tmp/$tarball"
+  openclaw_install_verified --apply-step || return 1
 
   openclaw="$(openclaw_bin)"
   installed_version="$("$openclaw" --version 2>/dev/null | head -1)"

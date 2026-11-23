@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { NextRequest, NextResponse, parseRelativeURL } from "./next-server-shim";
 import { compileRoutePattern, dispatchMsoRequest } from "./router";
 
@@ -66,6 +69,13 @@ describe("zero-Next Web HTTP shim & router", () => {
     expect(catchAll.extract(hookMatch!)).toEqual({ hook: ["run", "123"] });
   });
 
+  it("imports compiled route modules through a file: URL so Windows absolute paths work", () => {
+    const nativePath = path.join(process.cwd(), "app", "api", "health", "route.ts");
+    const url = new URL(pathToFileURL(nativePath).href);
+    expect(url.protocol).toBe("file:");
+    expect(url.href).not.toMatch(/^[a-z]:/i);
+  });
+
   it("dispatches /api/health directly through proxy.ts and app/api/health/route.ts", async () => {
     const res = await dispatchMsoRequest(new Request("http://127.0.0.1:4005/api/health", {
       headers: { host: "127.0.0.1:4005" },
@@ -73,5 +83,25 @@ describe("zero-Next Web HTTP shim & router", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({ status: "ok" });
+  });
+
+  it("serves a static file in one read so there is no check-then-read race", () => {
+    // js/file-system-race lock: tryServeStatic must attempt one read per candidate and skip on
+    // error, not check-then-read. Existence/stat probing before the read is the vulnerability.
+    const source = fs.readFileSync(new URL("./router.ts", import.meta.url), "utf8");
+    expect(source).not.toContain("existsSync(");
+    expect(source).not.toContain("statSync(");
+  });
+
+  it("exposes no stack-bearing String(error) in the workflow fail helpers", () => {
+    // js/stack-trace-exposure lock: these routes answer with lib/host/error-message.ts barriers.
+    for (const rel of [
+      "../../app/api/v1/workflows/route-mutation.ts",
+      "../../app/api/v1/workflows/route-read.ts",
+      "../../app/api/v1/a2a/route-messages.ts",
+    ]) {
+      const source = fs.readFileSync(new URL(rel, import.meta.url), "utf8");
+      expect(source).not.toContain("String(error)");
+    }
   });
 });
