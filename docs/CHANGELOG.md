@@ -12,6 +12,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` close CodeQL #211 file-system race and #210 stack-trace exposure
+- `security` collapse duplicate npm install site so Scorecard alert #209 clears
 - `security` format case blocks so Semgrep --strict stops failing SAST
 - `native` import route modules via file: URL so Windows paths resolve
 - `native` point host launcher at Svelte build and node runtime
@@ -41,6 +43,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `e2e` isolate release fixture from host systemd and HOME
 - `media,rust,svelte` readable full-width Before/After chart & GIF, real Rust disk/net metrics, and Impeccable polish
+- `security` stop the Semgrep bash parser from failing the SAST gate
 - `gate,update,docs` hermetic managed-app E2E isolation, resilient push/update UX, and noncommercial license polish
 - `security` remove Scorecard-flagged write permissions workflow and allowlist RFC 6455 test key
 - `e2e` isolate release fixture from host Docker and widen the n8n journey timeout
