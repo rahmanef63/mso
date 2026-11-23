@@ -72,10 +72,17 @@ Additional build and release speedups:
 - `scripts/self-update.sh` verifies and promotes the built Svelte 5 (`frontend/svelte/build`) and
   Rust Shell artifacts cleanly, avoiding redundant rebuild work.
 - `scripts/run-svelte-if-changed.mjs` skips the isolated Svelte steps during local `verify`
-  when `frontend/svelte/**` is untouched (always runs in `CI=true` or `MSO_VERIFY_FULL=1`).
+  when `frontend/svelte/**` is untouched (always runs in `CI=true` or `MSO_VERIFY_FULL=1`), and
+  skips redundant `svelte:install` when `frontend/svelte/node_modules` already exists and Svelte
+  dependencies did not change so parallel worktrees do not race on `bun install`.
 - `scripts/gates.sh` automatically runs `scripts/run-smart-gate.mjs --pr-fast` on non-`main`
-  feature branches (~20-45s instead of ~12 min), while pushes to `main` (`bun run ship`) and
-  `bun run pr:local` (`MSO_GATE_FULL=1`) keep the complete release gate.
+  feature branches (~5-45s scoped to `docs-only`, `rust-only`, `svelte-only`, or affected
+  `lib/*` domains with per-worktree receipt caching and `VITEST_MAX_WORKERS=2`), runs the
+  verified `--docs-main` gate for strictly docs-only pushes on `main`, and keeps the complete
+  release gate for code pushes to `main` (`bun run ship`) and `bun run pr:local` (`MSO_GATE_FULL=1`).
+- `frontend/svelte/tests/browser.mjs` binds Vite preview to an ephemeral free loopback port
+  (`127.0.0.1:0` -> `--strictPort`) instead of hardcoded `4173`, so multiple parallel agent
+  worktrees can run browser E2E concurrently without port collisions.
 
 ### Conflict-free PR docs (`docs/progress/` & `docs/CHANGELOG.md`)
 
