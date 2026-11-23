@@ -1,5 +1,6 @@
 import "server-only";
 import path from "node:path";
+import { errorMessage as message } from "@/lib/host/error-message";
 import {
   APPDECK_DRIVERS,
   assertPinnedUpdateOptions,
@@ -38,8 +39,6 @@ async function resolveProgram(command: string): Promise<string> {
   if (!resolved || !path.isAbsolute(resolved)) throw new Error(`${command} is not installed`);
   return resolved;
 }
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 function unavailable(id: ManagedAppId, error: string): ManagedAppUpdateStatus {
   const { capabilities } = updateAdapter(id);
