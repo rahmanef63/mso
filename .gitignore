@@ -34,6 +34,10 @@ progress.md
 # Coverage output (pnpm coverage) — generated, never committed.
 coverage/
 
+# playwright e2e runs write a root test-results/ (error contexts, .playwright-artifacts-N);
+# generated output, never source, and must not block scripts/pr-preflight.sh.
+/test-results/
+
 # Agent/debug scratch harnesses — never committed, never run in CI.
 **/zz-*
 

@@ -3,6 +3,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { NextRequest, NextResponse } from "./next-server-shim";
 import { runWithRequestHeaders } from "./next-headers-shim";
 import { onRequestError } from "./server-bootstrap";
@@ -40,8 +41,13 @@ const MIME_BY_EXT: Record<string, string> = {
 };
 
 function scanRouteFiles(dir: string, out: string[] = []): string[] {
-  if (!fs.existsSync(dir)) return out;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) scanRouteFiles(full, out);
     else if (entry.isFile() && entry.name === "route.ts") out.push(full);
@@ -142,14 +148,18 @@ function tryServeStatic(rootDir: string, pathname: string): Response | null {
     path.join(svelteBuild, "index.html"),
   ];
   for (const candidate of candidates) {
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-      const ext = path.extname(candidate).toLowerCase();
-      const body = fs.readFileSync(candidate);
-      return new NextResponse(body, {
-        status: 200,
-        headers: { "content-type": MIME_BY_EXT[ext] ?? "application/octet-stream" },
-      });
+    let body: Buffer;
+    try {
+      body = fs.readFileSync(candidate);
+    } catch {
+      continue;
     }
+    const ext = path.extname(candidate).toLowerCase();
+    // Copy into a plain Uint8Array: the DOM BodyInit union rejects Buffer/ArrayBufferLike views.
+    return new NextResponse(new Uint8Array(body), {
+      status: 200,
+      headers: { "content-type": MIME_BY_EXT[ext] ?? "application/octet-stream" },
+    });
   }
   return null;
 }
@@ -199,7 +209,7 @@ export async function dispatchMsoRequest(rawReq: Request, rootDir = process.cwd(
   for (const route of getCompiledRoutes(rootDir)) {
     const match = route.regex.exec(pathname);
     if (!match) continue;
-    route.mod ??= (await import(route.filePath)) as RouteModule;
+    route.mod ??= (await import(pathToFileURL(route.filePath).href)) as RouteModule;
     const method = (req.method.toUpperCase() as keyof RouteModule);
     const handler = route.mod[method] ?? (method === "HEAD" ? route.mod.GET : undefined);
     if (!handler) return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });

@@ -4,6 +4,7 @@ import { roleAtLeast } from "@/lib/auth/roles";
 import { createAgentSession } from "@/lib/agent/session-store";
 import { readSetupJson } from "@/lib/infra/setup-http";
 import { rateLimited } from "@/lib/host/limits-api";
+import { clientMessage, errorMessage } from "@/lib/host/error-message";
 import { configuredCapabilityCeiling } from "@/lib/capabilities/scope-policy";
 import { TOOLS_BY_NAME } from "@/lib/mcp/tools";
 import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
@@ -34,11 +35,13 @@ import { cloneOwnerGraph } from "@/lib/workflow/owner-discovery";
 
 const headers = { "Cache-Control": "no-store, private" };
 
+// `fail` takes a caught error, `failCode` takes a literal code the route chose. Separate paths
+// keep a propagated string out of a response body; see lib/host/error-message.ts.
 const fail = (error: unknown, status = 400) =>
-  NextResponse.json(
-    { error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500) || "workflow request failed" },
-    { status, headers },
-  );
+  NextResponse.json({ error: errorMessage(error, 500) }, { status, headers });
+
+const failCode = (code: string, status = 400) =>
+  NextResponse.json({ error: clientMessage(code) }, { status, headers });
 
 async function auth(minimum: "viewer" | "operator" | "owner" = "viewer") {
   const context = await getSessionContext();
@@ -53,16 +56,16 @@ function definition(graph: NonNullable<Awaited<ReturnType<typeof getWorkflowGrap
 
 export async function handlePostWorkflow(req: NextRequest): Promise<Response> {
   const session = await auth("operator");
-  if (!session) return fail("operator_required", 403);
+  if (!session) return failCode("operator_required", 403);
   try {
     const body = await readSetupJson(req);
     const action = typeof body.action === "string" ? body.action : "";
     if (rateLimited(`workflow:${action}:${session.context.session.device_id}`, action === "run" ? 60 : 30, 60_000)) {
-      return fail("rate_limited", 429);
+      return failCode("rate_limited", 429);
     }
     if (action === "owner_clone") {
-      if (session.context.role !== "owner") return fail("owner_required", 403);
-      if (body.confirm !== true) return fail("explicit_confirmation_required", 400);
+      if (session.context.role !== "owner") return failCode("owner_required", 403);
+      if (body.confirm !== true) return failCode("explicit_confirmation_required", 400);
       return NextResponse.json({
         graph: await cloneOwnerGraph(session.context.role, session.principal, String(body.origin_owner ?? ""), String(body.graph_id ?? ""), String(body.expected_revision ?? "")),
       }, { headers });
@@ -95,7 +98,7 @@ export async function handlePostWorkflow(req: NextRequest): Promise<Response> {
       }, { headers });
     }
     if (action === "variable_set" || action === "variable_delete") {
-      if (!roleAtLeast(session.context.role, "owner")) return fail("owner_required", 403);
+      if (!roleAtLeast(session.context.role, "owner")) return failCode("owner_required", 403);
       return NextResponse.json(
         action === "variable_set"
           ? await setWorkflowVariable(session.principal, String(body.key ?? ""), body.value, body.secret === true)
@@ -104,7 +107,7 @@ export async function handlePostWorkflow(req: NextRequest): Promise<Response> {
       );
     }
     if (action === "ai_suggest") {
-      if (!roleAtLeast(session.context.role, "owner")) return fail("owner_required", 403);
+      if (!roleAtLeast(session.context.role, "owner")) return failCode("owner_required", 403);
       return NextResponse.json({ definition: await suggestWorkflowGraph(String(body.prompt ?? "")) }, { headers });
     }
     if (action === "optimize_preview" || action === "optimize_clone") {
@@ -116,7 +119,7 @@ export async function handlePostWorkflow(req: NextRequest): Promise<Response> {
       const mode = body.mode === "jev" ? ("jev" as const) : ("deterministic" as const);
       let evaluator;
       if (mode === "jev") {
-        if (!roleAtLeast(session.context.role, "owner")) return fail("owner_required", 403);
+        if (!roleAtLeast(session.context.role, "owner")) return failCode("owner_required", 403);
         evaluator = createJevDecisionEvaluator("workflow.optimize", body.jev, { workflowRef: graph.id }, Number(body.threshold) || undefined);
       }
       const optimized = await optimizeWorkflowGraph(graph, {
@@ -182,10 +185,10 @@ export async function handlePostWorkflow(req: NextRequest): Promise<Response> {
       if (!graph) throw new Error("workflow graph not found");
       if (body.expected_revision !== undefined) {
         if (typeof body.expected_revision !== "string" || !/^[a-f0-9]{64}$/.test(body.expected_revision)) {
-          return fail("invalid expected workflow revision", 400);
+          return failCode("invalid expected workflow revision", 400);
         }
         if (body.expected_revision !== graph.revision) {
-          return fail("workflow graph revision changed; review it before running", 409);
+          return failCode("workflow graph revision changed; review it before running", 409);
         }
       }
       const agentSession = await createAgentSession(session.principal, "cli", { title: `Workflow: ${graph.name}`, titleSource: "auto" });
