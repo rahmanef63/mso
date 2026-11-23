@@ -57,6 +57,15 @@ describe("managed-app immutable artifact contract", () => {
     expect(script).toContain('sha512sum "$tmp/$tarball"');
     expect(script).toContain('[ "$actual" = "$OPENCLAW_TARBALL_SHA512" ]');
     expect(script).not.toContain("openclaw@latest");
+    // ONE global-install call site for the whole script: Scorecard PinnedDependenciesID
+    // (alert #209) counts every `npm install -g` invocation, comments excluded.
+    const globalInstalls = script
+      .split("\n")
+      .filter((line) => line.trim().startsWith("npm install -g"));
+    expect(globalInstalls).toHaveLength(1);
+    expect(script).toContain("openclaw_install_verified()");
+    const helperCalls = script.split("\n").filter((line) => /(^|\s)openclaw_install_verified(\s|$)/.test(line));
+    expect(helperCalls.length).toBeGreaterThanOrEqual(2);
   });
 
   it("accepts only immutable 9Router references and verifies pulled/running digests", () => {
