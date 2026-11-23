@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("./manager", () => ({ assertManagedAppStopped: vi.fn().mockResolvedValue(undefined) }));
+// checkUpdate resolves the managed app's CLI before it probes, so a host without
+// `hermes` on PATH throws "hermes is not installed" and never reaches the probe.
+vi.mock("./runner", async () => ({
+  ...(await vi.importActual<typeof import("./runner")>("./runner")),
+  resolveCommand: async () => "/usr/local/bin/hermes",
+}));
 const { checkUpdate } = await import("./update");
 const updateCli = await import("./update-cli");
 beforeEach(() =>
