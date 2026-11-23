@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { writeConfig, writeOAuthBundle } from "@/lib/config/store";
+import { errorMessage } from "@/lib/host/error-message";
 import { codexStart, codexPoll, codexModels, CODEX } from "@/lib/ai/oauth/codex";
 import { setFlow, getFlow, clearFlow } from "@/lib/ai/oauth/flow-state";
 
@@ -52,6 +53,6 @@ export async function handlePostOAuth(req: NextRequest, ctx: { params: Promise<{
         return NextResponse.json({ error: "bad_action" }, { status: 400 });
     }
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 502 });
+    return NextResponse.json({ error: errorMessage(e) }, { status: 502 });
   }
 }
