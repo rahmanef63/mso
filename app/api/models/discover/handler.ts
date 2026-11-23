@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { hostCredentialStore, readConfig, safeProviderId } from "@/lib/config/store";
 import { discoverEndpointModels } from "@/lib/models/discover.js";
+import { errorMessage } from "@/lib/host/error-message";
 import { assertSafeUrl } from "@/lib/host/ssrf";
 
 
@@ -54,7 +55,7 @@ export async function handlePostDiscover(req: NextRequest): Promise<Response> {
     try {
       baseUrl = assertSafeUrl(body.baseURL.trim()).toString().replace(/\/$/, "");
     } catch (e) {
-      return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+      return NextResponse.json({ error: errorMessage(e) }, { status: 400 });
     }
     apiKey = body.apiKey.trim();
     protocol = body.protocol === "anthropic" ? "anthropic" : "openai";
@@ -64,6 +65,6 @@ export async function handlePostDiscover(req: NextRequest): Promise<Response> {
     const models = await discoverEndpointModels({ baseUrl, apiKey, protocol });
     return NextResponse.json({ ok: true, count: models.length, models });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message });
+    return NextResponse.json({ ok: false, error: errorMessage(e) });
   }
 }
