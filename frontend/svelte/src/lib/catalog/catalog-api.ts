@@ -15,6 +15,8 @@ export type AppCatalogSnapshot = { status: AppCatalogStatus; entries: AppCatalog
 
 export type ModularFeatureSummary = {
   id: string; title?: string; name?: string; version: string; description?: string;
+  /** Present on host snapshots; rendered as a least-privilege badge. */
+  minRole?: string; entry?: string; updatedAt?: string; integrity?: string;
 };
 export type ModularFeaturesSnapshot = { schemaVersion: 1; features: ModularFeatureSummary[] };
 
@@ -31,13 +33,14 @@ export type AppStoreState =
   | { kind: "ready"; catalog: AppCatalogSnapshot }
   | { kind: "error"; message: string; forbidden?: boolean };
 
-export type ExtensionsTab = "features" | "skills";
+export type ExtensionsTab = "features" | "skills" | "market";
 export type ExtensionsState =
   | { kind: "loading"; tab: ExtensionsTab }
   | { kind: "ready"; tab: ExtensionsTab; features: ModularFeatureSummary[]; skills: SkillSummary[]; recipes: SkillRecipeSummary[] }
   | { kind: "error"; tab: ExtensionsTab; message: string; forbidden?: boolean };
 
 const CATALOG_STATUSES = new Set<AppCatalogStatus>(["remote", "stale", "unavailable"]);
+const ROLES = new Set(["viewer", "operator", "owner"]);
 const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 const isNonEmpty = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
 const isOptStr = (v: unknown): v is string | undefined => v === undefined || typeof v === "string";
@@ -110,11 +113,17 @@ export async function readModularFeatures(
         || !isOptStr(item.title) || !isOptStr(item.name) || !isOptStr(item.description)) {
       throw new ApiError("The MSO modular features response is invalid.", 502);
     }
+    const minRole = typeof item.minRole === "string" && ROLES.has(item.minRole) ? item.minRole : undefined;
+    const integrity = isOptStr(item.integrity) ? item.integrity : undefined;
     return {
       id: item.id, version: item.version,
       ...(item.title ? { title: item.title } : {}),
       ...(item.name ? { name: item.name } : {}),
       ...(item.description ? { description: item.description } : {}),
+      ...(minRole ? { minRole } : {}),
+      ...(isNonEmpty(item.entry) ? { entry: item.entry } : {}),
+      ...(isNonEmpty(item.updatedAt) ? { updatedAt: item.updatedAt } : {}),
+      ...(integrity ? { integrity } : {}),
     };
   });
   return { schemaVersion: 1, features };
@@ -185,6 +194,9 @@ export function createExtensionsController(
     tab = targetTab;
     const run = ++generation;
     active?.abort();
+    // The market tab owns its own controller; switching to it must not drop the
+    // feature and skill snapshots the other tabs still render.
+    if (tab === "market") { update({ kind: "ready", tab, features, skills, recipes }); return; }
     const ctrl = (active = new AbortController());
     update({ kind: "loading", tab });
     try {

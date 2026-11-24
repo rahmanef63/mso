@@ -10,9 +10,13 @@ export type AssistantModel = {
 export type AssistantWireMessage = { role: "user" | "assistant"; text: string };
 export type StreamAssistantInput = { messages: AssistantWireMessage[]; model?: string; system?: string };
 export type StreamDonePayload = { stopReason: string | null };
+export type StreamToolUsePayload = { id: string; name: string; input?: unknown };
 export type StreamAssistantHandlers = {
-  onText: (chunk: string) => void; onReasoning?: (chunk: string) => void;
-  onDone?: (payload: StreamDonePayload) => void; onError?: (message: string) => void;
+  onText: (chunk: string) => void;
+  onReasoning?: (chunk: string) => void;
+  onToolUse?: (tool: StreamToolUsePayload) => void;
+  onDone?: (payload: StreamDonePayload) => void;
+  onError?: (message: string) => void;
 };
 const MODELS_TIMEOUT_MS = 10_000, PROVIDER_RE = /^[a-z0-9._-]{1,40}$/i;
 const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -118,7 +122,10 @@ function dispatchSseBlock(block: string, handlers: StreamAssistantHandlers): "do
   const kind = event === "message" && isRecord(parsed) && typeof parsed.type === "string" ? parsed.type : event;
   if (kind === "delta" || kind === "text") { const c = extractText(parsed); if (c) handlers.onText(c); }
   else if (kind === "reasoning") { const c = extractText(parsed, "reasoning"); if (c) handlers.onReasoning?.(c); }
-  else if (kind === "done") {
+  else if (kind === "tool_use" && isRecord(parsed) && typeof parsed.name === "string") {
+    const id = typeof parsed.id === "string" && parsed.id.trim() ? parsed.id.trim() : `tool-${parsed.name}`;
+    handlers.onToolUse?.({ id, name: parsed.name.trim(), ...(parsed.input !== undefined ? { input: parsed.input } : {}) });
+  } else if (kind === "done") {
     handlers.onDone?.({ stopReason: isRecord(parsed) && typeof parsed.stopReason === "string" ? parsed.stopReason : null });
     return "done";
   } else if (kind === "error") { handlers.onError?.(sanitizeStreamError(parsed)); return "error"; }

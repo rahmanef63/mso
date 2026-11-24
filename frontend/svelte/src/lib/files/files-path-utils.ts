@@ -1,5 +1,19 @@
 import type { PathCrumb } from "./FilesChromeHeader.svelte";
 
+export function joinFsPath(dir: string, name: string): string {
+  if (!dir || dir === "/") return `/${name}`;
+  return dir.endsWith("/") ? `${dir}${name}` : `${dir}/${name}`;
+}
+
+export function validateEntryName(raw: string, label = "Folder"): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return `${label} name is required.`;
+  if (trimmed === "." || trimmed.includes("..") || trimmed.includes("/") || trimmed.includes("\\") || trimmed.includes("\0")) {
+    return `${label} name must be a single segment without slashes or "..".`;
+  }
+  return null;
+}
+
 export function buildPathSegments(rawPath: string): PathCrumb[] {
   const raw = rawPath || "~";
   if (raw === "~" || raw === "/") {

@@ -1,159 +1,209 @@
 <script lang="ts">
+  import "./IntegrationsView.css";
   import {
     createIntegrationsController,
     type IntegrationConnectionSummary,
     type IntegrationsState,
   } from "./integrations-api.ts";
+  import {
+    createIntegrationCatalogController,
+    type IntegrationCatalogProvider,
+    type IntegrationCatalogState,
+  } from "./integrations-workspace-api.ts";
+  import {
+    buildProviderCards, connectionsFor, filterProviderCards, providerTone,
+    INTEGRATION_CATEGORIES, type IntegrationCategoryId,
+  } from "./integrations-catalog.ts";
+  import IntegrationProviderDetail from "./IntegrationProviderDetail.svelte";
+  import ComposioSessionPanel from "./ComposioSessionPanel.svelte";
+  import IntegrationTransferPanel from "./IntegrationTransferPanel.svelte";
 
   let { role = null }: { role?: "viewer" | "operator" | "owner" | null } = $props();
 
   let view = $state<IntegrationsState>({ kind: "loading" });
+  let catalog = $state<IntegrationCatalogState>({ kind: "loading" });
+  let category = $state<IntegrationCategoryId>("all");
   let filterQuery = $state("");
+  let selectedId = $state<string | null>(null);
+  let showTransfer = $state(false);
+  let notice = $state("");
   let controller: ReturnType<typeof createIntegrationsController> | undefined;
+  let catalogController: ReturnType<typeof createIntegrationCatalogController> | undefined;
 
   let isOwner = $derived(role === "owner");
 
-  let visibleConnections = $derived.by<IntegrationConnectionSummary[]>(() => {
-    if (view.kind !== "ready") return [];
-    const q = filterQuery.trim().toLowerCase();
-    if (!q) return view.snapshot.connections;
-    return view.snapshot.connections.filter((conn) =>
-      `${conn.provider} ${conn.label} ${conn.id} ${conn.user} ${conn.scope} ${conn.source} ${conn.authMethod} ${conn.state}`
-        .toLowerCase().includes(q));
-  });
+  let connections = $derived.by<IntegrationConnectionSummary[]>(() => (view.kind === "ready" ? view.snapshot.connections : []));
+  let profiles = $derived.by<string[]>(() => (view.kind === "ready" ? view.snapshot.users.map((user) => user.id) : []));
+  let providers = $derived.by<IntegrationCatalogProvider[]>(() => (catalog.kind === "ready" ? catalog.providers : []));
 
-  let providerSummary = $derived.by<Array<{ provider: string; count: number; healthy: number }>>(() => {
-    if (view.kind !== "ready") return [];
-    const map = new Map<string, { provider: string; count: number; healthy: number }>();
-    for (const conn of view.snapshot.connections) {
-      const entry = map.get(conn.provider) ?? { provider: conn.provider, count: 0, healthy: 0 };
-      entry.count += 1;
-      if (conn.state === "verified" || conn.state === "configured" || conn.state === "ACTIVE") entry.healthy += 1;
-      map.set(conn.provider, entry);
-    }
-    return [...map.values()].sort((a, b) => a.provider.localeCompare(b.provider));
-  });
+  let cards = $derived.by(() => filterProviderCards(buildProviderCards(providers, connections), category, filterQuery));
+  let selectedProvider = $derived.by<IntegrationCatalogProvider | null>(
+    () => providers.find((provider) => provider.id === selectedId) ?? null,
+  );
+  let composioConnections = $derived(connections.filter((row) => row.provider === "composio"));
+  let convexConnections = $derived(connections.filter((row) => row.provider === "convex"));
 
   let stateTag = $derived.by(() => {
     if (!isOwner) return "owner-only";
-    if (view.kind !== "ready") return view.kind;
-    if (view.snapshot.connections.length === 0) return "empty";
-    return visibleConnections.length === 0 ? "no-filter-matches" : "ready";
+    if (catalog.kind !== "ready" || view.kind !== "ready") return catalog.kind === "error" ? "error" : view.kind === "error" ? "error" : "loading";
+    if (providers.length === 0) return "empty";
+    return cards.length === 0 ? "no-filter-matches" : "ready";
   });
 
-  function connTone(connState: string): "ok" | "warn" | "danger" | "neutral" {
-    if (connState === "verified" || connState === "ACTIVE") return "ok";
-    if (connState === "configured" || connState === "incomplete" || connState === "authorization-required") return "warn";
-    if (connState === "invalid" || connState === "unavailable" || connState === "error") return "danger";
-    return "neutral";
+  export function refresh() {
+    if (!isOwner) return;
+    notice = "";
+    void controller?.refresh();
+    void catalogController?.refresh();
   }
 
-  export function refresh() {
-    if (isOwner) void controller?.refresh();
+  function openProvider(id: string) {
+    selectedId = selectedId === id ? null : id;
+  }
+
+  function closeDetail() {
+    selectedId = null;
+  }
+
+  function onChanged(message: string) {
+    notice = message;
+    void controller?.refresh();
   }
 
   $effect(() => {
     if (!isOwner) {
       controller?.dispose();
+      catalogController?.dispose();
       controller = undefined;
+      catalogController = undefined;
+      selectedId = null;
+      showTransfer = false;
       return;
     }
-    const next = createIntegrationsController((s) => { view = s; });
-    controller = next;
-    void next.refresh();
+    const nextConnections = createIntegrationsController((s) => { view = s; });
+    const nextCatalog = createIntegrationCatalogController((s) => { catalog = s; });
+    controller = nextConnections;
+    catalogController = nextCatalog;
+    void nextConnections.refresh();
+    void nextCatalog.refresh();
     return () => {
-      next.dispose();
-      if (controller === next) controller = undefined;
+      nextConnections.dispose();
+      nextCatalog.dispose();
+      if (controller === nextConnections) controller = undefined;
+      if (catalogController === nextCatalog) catalogController = undefined;
     };
   });
 </script>
 
-<section aria-labelledby="integrations-title" aria-busy={isOwner && view.kind === "loading"} data-integrations-state={stateTag}>
+<section aria-labelledby="integrations-title" aria-busy={view.kind === "loading"} data-integrations-state={stateTag}>
   <header class="feature-header">
     <h2 id="integrations-title">Integrations</h2>
     {#if isOwner}
-      <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
-        {view.kind === "loading" ? "Loading..." : "Refresh"}
-      </button>
+      <div class="actions">
+        <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
+          {view.kind === "loading" ? "Loading..." : "Refresh"}
+        </button>
+        <button type="button" aria-expanded={showTransfer} onclick={() => { showTransfer = !showTransfer; }}>
+          {showTransfer ? "Hide transfer" : "Transfer"}
+        </button>
+      </div>
     {/if}
   </header>
 
   {#if !isOwner}
     <p class="feedback pending" role="status">
-      Owner role is required to view configured integrations and provider connections. Sign in from an Owner device to inspect connection metadata.
+      Owner role is required to view providers, configure credentials and open transfer previews. Sign in from an
+      Owner device to manage integrations.
     </p>
   {:else}
-    <div class="int-filter-wrap">
-      <label for="integrations-filter">Filter connections</label>
-      <input id="integrations-filter" type="search" bind:value={filterQuery} placeholder="Provider, label, scope, source, or status" />
+    {#if notice}<p class="feedback ok" role="status">{notice}</p>{/if}
+    {#if view.kind === "error"}<p class="feedback error" role="alert">{view.message}</p>{/if}
+    {#if catalog.kind === "error"}<p class="feedback error" role="alert">{catalog.message}</p>{/if}
+
+    <div class="int-toolbar">
+      <div class="field int-search">
+        <label for="integrations-filter">Filter providers</label>
+        <input
+          id="integrations-filter"
+          type="search"
+          bind:value={filterQuery}
+          placeholder="Name, category, connection state, or required field"
+        />
+      </div>
+      <div class="int-tabs" role="tablist" aria-label="Provider categories">
+        {#each INTEGRATION_CATEGORIES as tab (tab.id)}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={category === tab.id}
+            class:primary={category === tab.id}
+            onclick={() => { category = tab.id; }}
+          >{tab.label}</button>
+        {/each}
+      </div>
     </div>
 
     <div role="status" aria-live="polite">
-      {#if view.kind === "loading"}
-        <p>Loading configured integrations...</p>
-      {:else if view.kind === "error"}
-        <p class="feedback error" role="alert">{view.message}</p>
-      {:else if view.snapshot.connections.length === 0}
-        <p>No provider connections configured yet for {view.snapshot.user ?? "this workspace"}.</p>
+      {#if catalog.kind === "loading"}
+        <p>Loading the provider catalog...</p>
+      {:else if providers.length === 0}
+        <p>No integration providers are registered for this installation.</p>
+      {:else if cards.length === 0}
+        <p>No providers match "{filterQuery.trim()}".</p>
       {:else}
-        <div class="provider-chips" aria-label="Configured providers">
-          {#each providerSummary as item (item.provider)}
-            <span class="pill" data-tone={item.healthy === item.count ? "ok" : "warn"}>
-              {item.provider} ({item.count})
-            </span>
+        <ul class="int-grid" aria-label="Integration providers">
+          {#each cards as card (card.id)}
+            <li class="int-card" data-tone={providerTone(card)}>
+              <button
+                type="button"
+                class="int-card-hit"
+                aria-pressed={selectedId === card.id}
+                aria-expanded={selectedId === card.id}
+                onclick={() => openProvider(card.id)}
+              >
+                <span class="int-card-head">
+                  <strong>{card.title}</strong>
+                  <span class="pill" data-tone={card.connected > 0 ? (card.healthy ? "ok" : "warn") : "neutral"}>
+                    {card.connected > 0 ? `${card.connected} connected` : "not connected"}
+                  </span>
+                </span>
+                <span class="int-card-desc">{card.description}</span>
+                <span class="int-card-meta">
+                  {card.methods} method{card.methods === 1 ? "" : "s"} · {card.sources.join(", ")}
+                </span>
+                {#if card.missing.length > 0}
+                  <span class="int-card-warn">Missing: {card.missing.join(", ")}</span>
+                {/if}
+              </button>
+            </li>
           {/each}
-        </div>
-
-        {#if visibleConnections.length === 0}
-          <p>No connections match "{filterQuery.trim()}".</p>
-        {:else}
-          <ul class="int-list" aria-label="Integration connections">
-            {#each visibleConnections as conn (`${conn.user}:${conn.provider}:${conn.id}`)}
-              <li class="int-row">
-                <div class="int-info">
-                  <div class="int-heading">
-                    <strong>{conn.label}</strong>
-                    <code>{conn.provider}/{conn.id}</code>
-                    <span class="pill" data-tone={connTone(conn.state)}>{conn.state}</span>
-                    <span class="pill">{conn.source}</span>
-                    <span class="pill">{conn.scope}</span>
-                    {#if conn.isDefault}
-                      <span class="pill" data-tone="ok">default</span>
-                    {/if}
-                  </div>
-                  <p class="int-meta">
-                    Profile: {conn.user} | Auth: {conn.authMethod}
-                  </p>
-                  {#if conn.missing.length > 0}
-                    <p class="int-warn">Missing required fields: {conn.missing.join(", ")}</p>
-                  {/if}
-                  {#if conn.lastCheckDetail}
-                    <p class="int-meta">Last check: {conn.lastCheckDetail}</p>
-                  {/if}
-                </div>
-              </li>
-            {/each}
-          </ul>
-        {/if}
+        </ul>
       {/if}
     </div>
+
+    {#if selectedProvider}
+      <IntegrationProviderDetail
+        provider={selectedProvider}
+        connections={connectionsFor(selectedProvider.id, connections)}
+        users={profiles}
+        onClose={closeDetail}
+        {onChanged}
+      />
+    {/if}
+
+    {#if convexConnections.length > 1}
+      <p class="int-hint">
+        {convexConnections.length} Convex connections share one provider. Cloud and self-hosted deployments are a
+        project dimension, not separate cards.
+      </p>
+    {/if}
+
+    {#if composioConnections.length > 0}
+      <ComposioSessionPanel connections={composioConnections} />
+    {/if}
+
+    {#if showTransfer}
+      <IntegrationTransferPanel onClose={() => { showTransfer = false; }} />
+    {/if}
   {/if}
 </section>
-
-<style>
-  .int-filter-wrap { display: grid; gap: 0.375rem; margin: 1rem 0; }
-  .int-filter-wrap label { font-size: 0.875rem; font-weight: 600; color: var(--text); }
-  .int-filter-wrap input { width: 100%; min-width: 0; min-height: var(--ui-control-height); }
-  .provider-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.75rem; }
-  .int-list { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.625rem; max-height: 24rem; overflow-y: auto; }
-  .int-row { padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel); }
-  .int-info { display: grid; gap: 0.25rem; min-width: 0; }
-  .int-heading { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .int-heading code { font-size: 0.8125rem; color: var(--muted); }
-  .int-meta { margin: 0; font-size: 0.8125rem; color: var(--muted); }
-  .int-warn { margin: 0; font-size: 0.8125rem; color: var(--warn); }
-  .pill { display: inline-block; padding: 0.125rem 0.5rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.75rem; color: var(--muted); }
-  .pill[data-tone="ok"] { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
-  .pill[data-tone="danger"] { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
-  .pill[data-tone="warn"] { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
-</style>

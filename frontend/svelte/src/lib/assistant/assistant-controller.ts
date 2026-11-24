@@ -1,23 +1,20 @@
 import { detectShellBridge, type ShellBridge } from "../shell-bridge.ts";
-import {
-  ApiError, readModels, streamAssistant,
-  type AssistantModel, type AssistantWireMessage,
-} from "./assistant-api.ts";
+import { ApiError, readModels, streamAssistant, type AssistantWireMessage } from "./assistant-api.ts";
+import { runSavedProfile } from "./assistant-cockpit-api.ts";
+import { findPlaybook } from "./assistant-presets.ts";
+import type { AssistantMessage, AssistantState, AssistantToolCall } from "./assistant-types.ts";
+import { createWorkspaceActions } from "./assistant-workspace.ts";
+import { sendAssistantMessage, type SendContext } from "./assistant-send.ts";
 
-export type AssistantMessage = {
-  id: string; role: "user" | "assistant"; text: string; reasoning?: string; error?: string;
-};
-export type AssistantState = {
-  models: AssistantModel[]; modelsLoading: boolean; selectedModel: string;
-  messages: AssistantMessage[]; streaming: boolean; error: string | null;
-};
+export type { AssistantMessage, AssistantState };
+export { initialAssistantState } from "./assistant-initial-state.ts";
+import { initialAssistantState } from "./assistant-initial-state.ts";
 export type AssistantControllerOptions = {
-  fetcher?: typeof fetch; bridge?: ShellBridge; initialModel?: string; system?: string;
+  fetcher?: typeof fetch;
+  bridge?: ShellBridge;
+  initialModel?: string;
+  system?: string;
 };
-
-export function initialAssistantState(initialModel = ""): AssistantState {
-  return { models: [], modelsLoading: false, selectedModel: initialModel, messages: [], streaming: false, error: null };
-}
 
 export function createAssistantController(
   update: (state: AssistantState) => void,
@@ -38,6 +35,45 @@ export function createAssistantController(
     emit({ ...extra, messages: state.messages.map((msg) => (msg.id === id ? fn(msg) : msg)) });
   const toWireHistory = (messages: AssistantMessage[]): AssistantWireMessage[] =>
     messages.filter((msg) => !msg.error && msg.text.trim().length > 0).map((msg) => ({ role: msg.role, text: msg.text }));
+
+  const abortActiveStream = () => {
+    chatGen++;
+    streamGen++;
+    streamAbort?.abort();
+    streamAbort = undefined;
+    return chatGen;
+  };
+
+  const workspace = createWorkspaceActions({
+    fetcher,
+    getBridge,
+    getState: () => state,
+    isDisposed: () => disposed,
+    emit,
+    abortActiveStream,
+    isChatCurrent: (gen) => gen === chatGen,
+    toWireHistory,
+  });
+
+  const sendCtx: SendContext = {
+    get state() { return state; },
+    fetcher,
+    getBridge,
+    workspace,
+    disposed: () => disposed,
+    nextId,
+    emit,
+    patchMessage,
+    toWireHistory,
+    buildSystemPrompt: () => buildSystemPrompt(),
+    beginStream: () => {
+      const chat = abortActiveStream();
+      const run = ++streamGen;
+      return { run, chatGen, chat };
+    },
+    setStreamAbort: (ctrl) => { streamAbort = ctrl; },
+    isStale: (run, chat, ctrl) => disposed || run !== streamGen || chat !== chatGen || ctrl.signal.aborted,
+  };
 
   async function loadModels(): Promise<void> {
     if (disposed) return;
@@ -61,49 +97,26 @@ export function createAssistantController(
     }
   }
 
-  function selectModel(model: string): void {
-    if (!disposed) emit({ selectedModel: model });
+  async function loadWorkspace(): Promise<void> {
+    if (!disposed) await Promise.all([workspace.loadThreads(), workspace.refreshInspector()]);
   }
 
-  async function sendMessage(rawPrompt: string): Promise<void> {
-    if (disposed || state.streaming) return;
-    const prompt = rawPrompt.trim();
-    if (!prompt) return;
+  const selectModel = (model: string): void => { if (!disposed) emit({ selectedModel: model }); };
+  const selectProfile = (id: string | null): void => {
+    if (!disposed) emit({ activeProfileId: id, ...(id ? { activePlaybookId: null } : {}) });
+  };
+  const selectPlaybook = (id: string | null): void => {
+    if (!disposed) emit({ activePlaybookId: id, ...(id ? { activeProfileId: null } : {}) });
+  };
 
-    const run = ++streamGen, activeChat = chatGen;
-    const userMsg: AssistantMessage = { id: nextId(), role: "user", text: prompt };
-    const assistantId = nextId();
-    const assistantMsg: AssistantMessage = { id: assistantId, role: "assistant", text: "" };
-    const wireMessages = [...toWireHistory(state.messages), { role: "user" as const, text: prompt }];
-
-    emit({ messages: [...state.messages, userMsg, assistantMsg], streaming: true, error: null });
-    const ctrl = (streamAbort = new AbortController());
-    const stale = () => disposed || run !== streamGen || activeChat !== chatGen || ctrl.signal.aborted;
-
-    try {
-      await streamAssistant(
-        {
-          messages: wireMessages,
-          ...(state.selectedModel ? { model: state.selectedModel } : {}),
-          ...(options.system ? { system: options.system } : {}),
-        },
-        {
-          onText(chunk) { if (!stale()) patchMessage(assistantId, (m) => ({ ...m, text: m.text + chunk })); },
-          onReasoning(chunk) { if (!stale()) patchMessage(assistantId, (m) => ({ ...m, reasoning: (m.reasoning ?? "") + chunk })); },
-          onError(message) { if (!stale()) patchMessage(assistantId, (m) => ({ ...m, error: message }), { streaming: false, error: message }); },
-          onDone() { if (!stale()) emit({ streaming: false }); },
-        },
-        ctrl.signal, fetcher, getBridge(),
-      );
-    } catch (error) {
-      if (stale()) return;
-      const message = error instanceof ApiError ? error.message : "Could not reach Alfa Assistant. Check the backend and retry.";
-      patchMessage(assistantId, (m) => ({ ...m, error: message }), { streaming: false, error: message });
-    } finally {
-      if (streamAbort === ctrl) streamAbort = undefined;
-      if (!stale() && state.streaming) emit({ streaming: false });
-    }
+  function buildSystemPrompt(): string | undefined {
+    const playbook = findPlaybook(state.activePlaybookId);
+    const parts = [options.system?.trim(), playbook?.instructions].filter((p): p is string => Boolean(p));
+    return parts.length ? parts.join("\n\n") : undefined;
   }
+
+  const sendMessage = async (rawPrompt: string): Promise<void> =>
+    sendAssistantMessage(sendCtx, rawPrompt);
 
   function stopStreaming(): void {
     if (disposed || !state.streaming) return;
@@ -113,7 +126,7 @@ export function createAssistantController(
     const cleaned = state.messages.filter((m, idx) =>
       !(idx === state.messages.length - 1 && m.role === "assistant" && !m.text && !m.reasoning && !m.error),
     );
-    emit({ messages: cleaned, streaming: false });
+    emit({ messages: cleaned, streaming: false, liveActivity: null });
   }
 
   async function retryLast(): Promise<void> {
@@ -130,11 +143,11 @@ export function createAssistantController(
 
   function newChat(): void {
     if (disposed) return;
-    chatGen++;
-    streamGen++;
-    streamAbort?.abort();
-    streamAbort = undefined;
-    emit({ messages: [], streaming: false, error: null });
+    abortActiveStream();
+    emit({
+      activeThreadId: null, activeThreadTitle: null, activeThreadCreatedAt: 0,
+      messages: [], streaming: false, error: null, liveActivity: null,
+    });
   }
 
   function dispose(): void {
@@ -147,7 +160,13 @@ export function createAssistantController(
     modelsAbort?.abort();
     streamAbort = undefined;
     modelsAbort = undefined;
+    workspace.dispose();
   }
 
-  return { loadModels, selectModel, sendMessage, stopStreaming, retryLast, newChat, dispose, getState: () => state };
+  return {
+    loadModels, loadWorkspace, loadThreads: workspace.loadThreads, refreshInspector: workspace.refreshInspector,
+    selectThread: workspace.selectThread, renameThread: workspace.renameThread, deleteThread: workspace.deleteThread,
+    selectModel, selectProfile, selectPlaybook, sendMessage, stopStreaming, retryLast, newChat, dispose,
+    getState: () => state,
+  };
 }

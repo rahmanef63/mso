@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./SettingsApp.css";
   import { onMount, untrack } from "svelte";
   import {
     createPrefsController,
@@ -11,6 +12,13 @@
   import AccountOnboardingCard from "../auth/AccountOnboardingCard.svelte";
   import SoftwareUpdateCard from "./SoftwareUpdateCard.svelte";
   import AuditLogCard from "./AuditLogCard.svelte";
+  import AiModelsSection from "./AiModelsSection.svelte";
+  import McpSection from "./McpSection.svelte";
+  import MemorySection from "./MemorySection.svelte";
+  import SystemSection from "./SystemSection.svelte";
+  import AboutSection from "./AboutSection.svelte";
+  import ThemePresetGallery from "./ThemePresetGallery.svelte";
+  import { applyThemePresetToDom } from "./theme-presets.ts";
   import { CHROME_PROFILES, isChromeChoice, type ChromeChoice, type ChromeProfile } from "../shell/chrome-profile.ts";
   import { designProfileFor, type MobileNavSpec } from "../shell/shell-design.ts";
   import {
@@ -25,7 +33,9 @@
   import { isWallpaperId, WALLPAPERS, type WallpaperId } from "../shell/wallpaper-store.ts";
   import { getWinState, setWinState } from "../shell/window-feature-state.ts";
 
-  type SettingsSectionId = "appearance" | "quicklinks" | "account" | "updates" | "audit";
+  type SettingsSectionId =
+  | "appearance" | "models" | "mcp" | "memory" | "system"
+  | "quicklinks" | "account" | "updates" | "audit" | "about";
 
   type SectionMeta = {
     id: SettingsSectionId;
@@ -38,9 +48,14 @@
   const SECTIONS: readonly SectionMeta[] = [
     { id: "appearance", label: "Appearance & Shell", subtitle: "OS shell, theme, wallpaper, accessibility", glyph: "Aa", tint: "#2563eb" },
     { id: "quicklinks", label: "Quicklinks", subtitle: "Saved bookmarks and workspace shortcuts", glyph: "QL", tint: "#0891b2" },
+    { id: "models", label: "AI Models", subtitle: "Providers, BYOK keys, catalog, and connection tests", glyph: "AI", tint: "#db2777" },
+    { id: "mcp", label: "MCP Servers", subtitle: "Model Context Protocol servers, toolsets, and scopes", glyph: "MC", tint: "#0d9488" },
+    { id: "memory", label: "Memory", subtitle: "Agent memory stores, retention, and retrieval", glyph: "MM", tint: "#9333ea" },
+    { id: "system", label: "System & Storage", subtitle: "Cleanup, federation workers, update automation", glyph: "SY", tint: "#b45309" },
     { id: "account", label: "Account & Device", subtitle: "Role, onboarding, and pairing status", glyph: "ID", tint: "#7c3aed" },
     { id: "updates", label: "Software Update", subtitle: "Version status and release channel", glyph: "UP", tint: "#059669" },
     { id: "audit", label: "Audit Log", subtitle: "Recent host actions and security events", glyph: "AU", tint: "#d97706" },
+    { id: "about", label: "About", subtitle: "Version, changelog, and build provenance", glyph: "AB", tint: "#475569" },
   ];
 
   let {
@@ -175,6 +190,11 @@
     if (isIosStyleVariant(val)) updateShell({ ...shellPrefs, iosStyle: val });
   }
 
+  function handlePresetSelect(presetName: string | null) {
+    applyThemePresetToDom(presetName);
+    void savePatch({ preset: presetName });
+  }
+
   function handleThemeChange(nextTheme: ThemeMode) {
     applyAppearanceToDom({ theme: nextTheme });
     notifyTheme(nextTheme);
@@ -233,6 +253,16 @@
     <div class="detail-body"><SoftwareUpdateCard {role} /></div>
   {:else if section === "audit"}
     <div class="detail-body"><AuditLogCard {role} /></div>
+  {:else if section === "models"}
+    <div class="detail-body"><AiModelsSection {role} /></div>
+  {:else if section === "mcp"}
+    <div class="detail-body"><McpSection {role} /></div>
+  {:else if section === "memory"}
+    <div class="detail-body"><MemorySection {role} /></div>
+  {:else if section === "system"}
+    <div class="detail-body"><SystemSection {role} /></div>
+  {:else if section === "about"}
+    <div class="detail-body"><AboutSection {role} {deviceLabel} resolvedChrome={resolvedChrome} /></div>
   {:else}
     {#if !isOwner}
       <p class="feedback pending">Local shell preferences save on this device. Owner role is required to sync shared workspace settings.</p>
@@ -285,6 +315,15 @@
                 </select>
               </div>
             </div>
+          </div>
+
+          <div class="settings-card">
+            <h3 class="card-heading">Theme Presets</h3>
+            <ThemePresetGallery
+              activePreset={view.prefs.tweaks?.preset ?? null}
+              disabled={!isOwner || view.saving}
+              onSelect={handlePresetSelect}
+            />
           </div>
 
           <div class="settings-card">
@@ -543,296 +582,3 @@
     </div>
   {/if}
 </section>
-
-<style>
-  .settings-root {
-    container-type: inline-size;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    padding: 0;
-    background: transparent;
-    border: 0;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  /* Shared content cards */
-  .settings-card {
-    display: grid;
-    gap: 0.75rem;
-    padding: 0.875rem 1rem;
-    background: var(--panel-solid);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    min-width: 0;
-  }
-  .settings-card + .settings-card { margin-top: 0.75rem; }
-  .card-heading { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--text); }
-  .status-msg { margin: 0; font-size: 0.875rem; color: var(--muted); }
-  .settings-grid {
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: repeat(auto-fit, minmax(min(11.5rem, 100%), 1fr));
-  }
-  .toggle-list { display: grid; border-top: 1px solid var(--border); padding-top: 0.5rem; gap: 0.25rem; }
-  .toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    min-height: 2.75rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text);
-    cursor: pointer;
-  }
-  .toggle-row input { width: 1.25rem; height: 1.25rem; min-height: 1.25rem; margin: 0; padding: 0; accent-color: var(--accent); }
-
-  /* 1. Desktop Split: macOS System Settings vs Windows 11 NavigationView */
-  .split-settings {
-    display: grid;
-    grid-template-columns: 13.75rem minmax(0, 1fr);
-    min-height: 24rem;
-    gap: 0;
-    border-radius: 0.625rem;
-    overflow: hidden;
-  }
-  .settings-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 0.625rem;
-    padding: 0.75rem;
-    border-right: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface) 78%, transparent);
-    min-width: 0;
-  }
-  .split-settings.is-windows .settings-sidebar {
-    border-right: 0;
-    background: color-mix(in srgb, var(--surface) 92%, var(--accent) 4%);
-  }
-  .sidebar-search input {
-    width: 100%;
-    min-height: 2rem;
-    padding: 0.25rem 0.625rem;
-    font-size: 0.8125rem;
-  }
-  .split-settings.is-macos .sidebar-search input { border-radius: 0.5rem; }
-  .split-settings.is-windows .sidebar-search input {
-    border-radius: 0.25rem;
-    border-bottom: 2px solid color-mix(in srgb, var(--text) 30%, transparent);
-  }
-  .sidebar-nav { display: grid; gap: 0.2rem; }
-  .sidebar-item {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    width: 100%;
-    min-height: 2.25rem;
-    padding: 0.35rem 0.625rem;
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-    font-size: 0.84rem;
-    font-weight: 500;
-  }
-  .split-settings.is-macos .sidebar-item { border-radius: 0.5rem; }
-  .split-settings.is-macos .sidebar-item.active {
-    background: var(--accent);
-    color: var(--accent-text);
-  }
-  .split-settings.is-macos .sidebar-glyph {
-    display: grid;
-    place-items: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 0.375rem;
-    background: var(--glyph-tint);
-    color: #fff;
-    font-size: 0.68rem;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-  .split-settings.is-windows .sidebar-item {
-    min-height: 2.5rem;
-    border-radius: 0.25rem;
-    padding-left: 0.875rem;
-  }
-  .split-settings.is-windows .sidebar-item:hover {
-    background: color-mix(in srgb, var(--text) 7%, transparent);
-  }
-  .split-settings.is-windows .sidebar-item.active {
-    background: color-mix(in srgb, var(--text) 9%, transparent);
-    font-weight: 600;
-  }
-  .win-nav-indicator {
-    position: absolute;
-    left: 0.125rem;
-    top: 0.5rem;
-    bottom: 0.5rem;
-    width: 3px;
-    border-radius: 999px;
-    background: transparent;
-  }
-  .split-settings.is-windows .sidebar-item.active .win-nav-indicator {
-    background: #0078d4;
-  }
-  .split-settings.is-windows .sidebar-glyph {
-    display: grid;
-    place-items: center;
-    width: 1.4rem;
-    height: 1.4rem;
-    border-radius: 0.2rem;
-    background: color-mix(in srgb, var(--text) 8%, transparent);
-    color: var(--text);
-    font-size: 0.68rem;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  .split-settings.is-windows .settings-card { border-radius: 0.375rem; }
-  .settings-main { display: flex; flex-direction: column; min-width: 0; padding: 0.875rem 1rem; gap: 0.875rem; }
-  .split-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
-  .split-title-group { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-  .macos-section-title { margin: 0; font-size: 1.125rem; font-weight: 700; }
-  .win-crumb { margin: 0; font-size: 1rem; color: var(--muted); }
-  .win-crumb strong { color: var(--text); font-weight: 600; }
-  .narrow-nav-toggle { display: none; min-height: 2rem; font-size: 0.8125rem; }
-
-  @container (max-width: 36rem) {
-    .split-settings { grid-template-columns: minmax(0, 1fr); }
-    .settings-sidebar { display: none; border-right: 0; border-bottom: 1px solid var(--border); }
-    .settings-sidebar.open { display: flex; }
-    .narrow-nav-toggle { display: inline-flex; }
-  }
-
-  /* 2. iOS grouped inset stack */
-  .ios-settings-wrap { display: grid; gap: 0.875rem; padding: 0.75rem; }
-  .ios-search-input {
-    width: 100%;
-    min-height: 2.5rem;
-    border-radius: 0.75rem;
-    border: 0;
-    background: color-mix(in srgb, var(--text) 9%, transparent);
-    padding: 0.45rem 0.875rem;
-  }
-  .ios-inset-group {
-    display: grid;
-    border-radius: 1rem;
-    overflow: hidden;
-    background: var(--panel-solid);
-    border: 1px solid var(--border);
-  }
-  .ios-group-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    min-height: 3.25rem;
-    padding: 0.625rem 0.875rem;
-    border: 0;
-    border-radius: 0;
-    border-bottom: 1px solid var(--border);
-    background: transparent;
-    text-align: left;
-  }
-  .ios-group-row:last-child { border-bottom: 0; }
-  .ios-row-icon {
-    display: grid;
-    place-items: center;
-    width: 1.875rem;
-    height: 1.875rem;
-    border-radius: 0.45rem;
-    color: #fff;
-    font-size: 0.72rem;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-  .ios-row-label { flex: 1 1 auto; font-size: 0.97rem; font-weight: 500; color: var(--text); }
-  .ios-row-chevron { font-size: 1.25rem; color: var(--muted); }
-  .ios-detail-pane :global(.settings-card) { border-radius: 1rem; }
-
-  /* 3. Android Material You list */
-  .android-settings-wrap { display: grid; gap: 0.75rem; padding: 0.75rem; }
-  .m3-search-input {
-    width: 100%;
-    min-height: 3rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--accent) 8%, var(--panel-solid));
-    padding: 0.5rem 1.125rem;
-  }
-  .m3-settings-list { display: grid; gap: 0.375rem; }
-  .m3-list-row {
-    display: flex;
-    align-items: center;
-    gap: 0.875rem;
-    width: 100%;
-    min-height: 4rem;
-    padding: 0.75rem 0.875rem;
-    border: 0;
-    border-radius: 1.25rem;
-    background: color-mix(in srgb, var(--panel-solid) 92%, var(--accent) 4%);
-    text-align: left;
-  }
-  .m3-tonal-icon {
-    display: grid;
-    place-items: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--m3-tint) 18%, var(--panel-solid));
-    color: var(--m3-tint);
-    font-size: 0.78rem;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-  .m3-row-copy { display: grid; gap: 0.125rem; min-width: 0; }
-  .m3-row-title { font-size: 1rem; font-weight: 500; color: var(--text); }
-  .m3-row-sub { font-size: 0.8125rem; color: var(--muted); }
-  .m3-detail-pane :global(.settings-card) { border-radius: 1.25rem; }
-
-  /* 4. Dashboard operational cockpit */
-  .dash-settings { display: grid; gap: 0.75rem; padding: 0.5rem; }
-  .dash-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 0.5rem;
-  }
-  .dash-tab {
-    min-height: 2rem;
-    padding: 0.25rem 0.625rem;
-    font-size: 0.8125rem;
-    border-radius: 0.375rem;
-    background: transparent;
-    border: 1px solid transparent;
-  }
-  .dash-tab.active {
-    background: var(--accent);
-    color: var(--accent-text);
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-
-  /* Quicklinks */
-  .ql-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
-  .ql-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    padding: 0.625rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--surface);
-  }
-  .ql-link { display: grid; gap: 0.125rem; min-width: 0; flex: 1 1 12rem; color: var(--text); text-decoration: none; }
-  .ql-link:hover strong { color: var(--accent); text-decoration: underline; }
-  .ql-link span { font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
-  .ql-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .ql-form { display: grid; gap: 0.625rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
-</style>

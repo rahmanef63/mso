@@ -187,6 +187,15 @@ export function createAgentGroupController(
         "Could not load agent groups. Check the backend and retry.", false,
       );
     },
+    /** Background refresh for a live run: never clears the current transcript. */
+    poll() {
+      return runAction(
+        () => current !== null,
+        (sig) => readAgentGroups(sig, fetcher, bridge),
+        (snapshot) => { current = snapshot; update({ kind: "ready", snapshot, busyAction: null }); },
+        "Could not refresh agent groups.", true,
+      );
+    },
     startRun(id: string, prompt: string) {
       return runAction(
         () => { if (!current) return false; update({ kind: "ready", snapshot: current, busyAction: "run" }); return true; },

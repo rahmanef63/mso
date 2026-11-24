@@ -1,0 +1,11 @@
+  .studio-root { display: grid; gap: 0.75rem; min-width: 0; }
+  .title-wrap, .summary-badges, .header-actions, .kind-tabs, .view-toggle { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; min-width: 0; }
+  .project-title { width: min(14rem, 100%); font-weight: 600; }
+  .studio-form { display: flex; align-items: flex-end; gap: 0.625rem; flex-wrap: wrap; }
+  .grow { flex: 1 1 13rem; }
+  .dur-field { flex: 0 1 7rem; }
+  .filter-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+  .search-box { flex: 1 1 11rem; min-width: 0; }
+  button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  .studio-workspace { display: grid; gap: 0.875rem; grid-template-columns: minmax(0, 1.2fr) minmax(17rem, 0.8fr); align-items: start; }
+  @media (max-width: 52rem) { .studio-workspace { grid-template-columns: 1fr; } }
