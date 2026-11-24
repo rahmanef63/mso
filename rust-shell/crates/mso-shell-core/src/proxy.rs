@@ -92,6 +92,30 @@ const ROUTE_POLICIES: &[RoutePolicy] = &[
     RoutePolicy { path: "/a2a/v1", prefix: false, methods: &["GET", "POST"], max_body_bytes: 1024 * 1024, forward_authorization: true },
     RoutePolicy { path: "/.well-known/agent-card.json", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: true },
     RoutePolicy { path: "/.well-known/oauth-", prefix: true, methods: &["GET"], max_body_bytes: 0, forward_authorization: true },
+    RoutePolicy { path: "/api/assistant", prefix: false, methods: &["POST"], max_body_bytes: 640 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/term/stream", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/integrations/setup", prefix: false, methods: &["POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/mcp/activity", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/mcp/tokens", prefix: false, methods: &["GET", "POST", "DELETE"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/models/discover", prefix: false, methods: &["POST"], max_body_bytes: 8 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/models/providers", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/models/test", prefix: false, methods: &["POST"], max_body_bytes: 8 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/agent-profiles/run", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/agent-tools", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/alfa/cockpit", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/federation/status", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/infra/cloudflare/zones", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/infra/dokploy/projects", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/infra/providers/doctor", prefix: false, methods: &["POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/infra/setup", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/integrations/composio/session", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/integrations/transfer", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/managed-apps/discover", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/managed-apps/tunnels", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/skill-market", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/sys/cleanup", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/sys/memory-backup", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/sys/update/automation", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
 ];
 
 #[derive(Debug, Clone)]
@@ -421,8 +445,17 @@ mod tests {
         assert_eq!(sys_svc_logs.max_body_bytes, 0);
         assert!(!sys_svc_logs.forward_authorization);
         assert!(match_route_policy("/api/v1/exec/run").is_none());
-        assert!(match_route_policy("/api/v1/term/stream").is_none());
-        assert!(match_route_policy("/api/assistant").is_none());
+        // Assistant chat and the terminal stream are real cockpit surfaces: the Svelte
+        // client calls /api/assistant for SSE chat and /api/v1/term/stream for PTY output.
+        // They were previously absent here, which 404'd both under mso-shell-host.
+        let assistant = match_route_policy("/api/assistant").unwrap();
+        assert_eq!(assistant.methods, &["POST"]);
+        assert_eq!(assistant.max_body_bytes, 640 * 1024);
+        assert!(!assistant.forward_authorization);
+        let term_stream = match_route_policy("/api/v1/term/stream").unwrap();
+        assert_eq!(term_stream.methods, &["GET"]);
+        assert_eq!(term_stream.max_body_bytes, 0);
+        assert!(!term_stream.forward_authorization);
         assert!(match_route_policy("/api/config").is_none());
 
         // Wave 3 / Stage R3B route policies

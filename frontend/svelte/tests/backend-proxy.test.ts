@@ -8,7 +8,7 @@ test("no backend configured means no proxy", () => {
 
 test("only explicit loopback origins are accepted", () => {
   for (const origin of ["http://127.0.0.1:4005", "https://localhost:4005", "http://[::1]:4005"]) {
-    assert.equal(Object.keys(localReadProxy(origin)!).length, 59);
+    assert.equal(Object.keys(localReadProxy(origin)!).length, 81);
   }
   for (const origin of ["https://mso.example.com", "http://localhost.evil.test", "http://user:pass@localhost:4005",
     "http://localhost/path", "http://localhost/?x=1", "file:///etc/passwd", "http://localhost/#fragment"]) {
