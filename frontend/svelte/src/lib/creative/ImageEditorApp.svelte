@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./ImageEditorApp.css";
   import { classifyMediaKind, resolveRawMediaUrl } from "../media/media-api.ts";
   import {
     buildCssFilter, buildCssTransform, clampPercent, defaultAdjustments, rotateRight,
@@ -137,13 +138,7 @@
   <div class="editor-layout">
     <div class="stage" role="region" aria-label="Image preview stage">
       {#if imageUrl}
-        <img
-          bind:this={imgEl}
-          src={imageUrl}
-          alt={activePath}
-          style="filter: {cssFilter}; transform: {cssTransform};"
-          onload={() => { imageLoaded = true; feedback = null; }}
-          onerror={() => { imageLoaded = false; setStatus("error", "Could not load image from host path."); }}
+        <img bind:this={imgEl} src={imageUrl} alt={activePath} style="filter: {cssFilter}; transform: {cssTransform};" onload={() => { imageLoaded = true; feedback = null; }} onerror={() => { imageLoaded = false; setStatus("error", "Could not load image from host path."); }}
         />
       {:else}
         <p class="placeholder">Enter a host image path above and click Load to edit.</p>
@@ -187,21 +182,3 @@
     <pre class="json-summary" aria-label="Exported settings summary">{exportedJson}</pre>
   {/if}
 </section>
-
-<style>
-  .editor-bar { display: flex; align-items: flex-end; gap: 0.625rem; flex-wrap: wrap; margin: 1rem 0; }
-  .grow { flex: 1 1 15rem; }
-  .editor-layout { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr)); margin-top: 1rem; }
-  .stage {
-    display: grid; place-items: center; min-height: 16rem; padding: 1rem; overflow: hidden;
-    border: 1px solid var(--border); border-radius: 0.5rem; background: var(--surface);
-  }
-  .stage img { max-width: 100%; max-height: 20rem; object-fit: contain; transition: transform 120ms ease; }
-  .placeholder { margin: 0; text-align: center; }
-  .controls { display: grid; gap: 0.75rem; align-content: start; }
-  .controls input[type="range"] { min-height: 2rem; padding: 0; border: 0; background: transparent; accent-color: var(--accent); }
-  .json-summary {
-    margin: 1rem 0 0; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem;
-    background: var(--surface); font-size: 0.8125rem; overflow-x: auto;
-  }
-</style>
