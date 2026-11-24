@@ -8,7 +8,7 @@ test("no backend configured means no proxy", () => {
 
 test("only explicit loopback origins are accepted", () => {
   for (const origin of ["http://127.0.0.1:4005", "https://localhost:4005", "http://[::1]:4005"]) {
-    assert.equal(Object.keys(localReadProxy(origin)!).length, 58);
+    assert.equal(Object.keys(localReadProxy(origin)!).length, 59);
   }
   for (const origin of ["https://mso.example.com", "http://localhost.evil.test", "http://user:pass@localhost:4005",
     "http://localhost/path", "http://localhost/?x=1", "file:///etc/passwd", "http://localhost/#fragment"]) {
@@ -28,7 +28,7 @@ test("proxy allowlist matches exact Increments 1-5 paths, not siblings or exec",
     "/api/v1/desktop/containers", "/api/v1/desktop/lifecycle", "/api/v1/desktop/screenshot?container=c1",
     "/api/v1/features", "/api/v1/infra/providers", "/api/v1/integrations", "/api/v1/managed-apps",
     "/api/v1/memory-graph", "/api/v1/organization", "/api/v1/shell-apps", "/api/v1/stock/search?q=cats", "/api/v1/workflows",
-    "/api/v1/sys/audit", "/api/v1/sys/stats", "/api/v1/sys/processes", "/api/v1/sys/services", "/api/v1/sys/packages", "/api/v1/sys/update",
+    "/api/v1/sys/audit", "/api/v1/sys/stats", "/api/v1/sys/processes", "/api/v1/sys/services", "/api/v1/sys/services/logs?unit=mso.service", "/api/v1/sys/packages", "/api/v1/sys/update",
     "/api/v1/fs/copy", "/api/v1/fs/list?path=~", "/api/v1/fs/move", "/api/v1/fs/raw?path=~/a.png",
     "/api/v1/fs/read?path=~/a", "/api/v1/fs/search?q=x", "/api/v1/fs/upload", "/api/v1/fs/usage", "/api/v1/fs/write", "/api/v1/fs/mkdir", "/api/v1/fs/delete", "/api/v1/fs/zip",
     "/api/v1/term/open", "/api/v1/term/stream?id=t1", "/api/v1/term/input", "/api/v1/term/resize", "/api/v1/term/close",

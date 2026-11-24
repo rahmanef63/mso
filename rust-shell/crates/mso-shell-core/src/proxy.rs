@@ -40,6 +40,7 @@ const ROUTE_POLICIES: &[RoutePolicy] = &[
     // Increment 3B host routes
     RoutePolicy { path: "/api/v1/fs/delete", prefix: false, methods: &["DELETE"], max_body_bytes: 16 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/v1/sys/services", prefix: false, methods: &["GET", "POST"], max_body_bytes: 16 * 1024, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/sys/services/logs", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
     // Wave 3 / Stage R3B cockpit routes
     RoutePolicy { path: "/api/prefs", prefix: false, methods: &["GET", "POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
     RoutePolicy { path: "/api/models", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
@@ -415,6 +416,10 @@ mod tests {
         assert_eq!(sys_svc.methods, &["GET", "POST"]);
         assert_eq!(sys_svc.max_body_bytes, 16 * 1024);
         assert!(!sys_svc.forward_authorization);
+        let sys_svc_logs = match_route_policy("/api/v1/sys/services/logs").unwrap();
+        assert_eq!(sys_svc_logs.methods, &["GET"]);
+        assert_eq!(sys_svc_logs.max_body_bytes, 0);
+        assert!(!sys_svc_logs.forward_authorization);
         assert!(match_route_policy("/api/v1/exec/run").is_none());
         assert!(match_route_policy("/api/v1/term/stream").is_none());
         assert!(match_route_policy("/api/assistant").is_none());

@@ -41,6 +41,7 @@ const ROUTES = {
   "/api/v1/sys/stats": ["GET"],
   "/api/v1/sys/processes": ["GET"],
   "/api/v1/sys/services": ["GET", "POST"],
+  "/api/v1/sys/services/logs": ["GET"],
   "/api/v1/sys/packages": ["GET"],
   "/api/v1/sys/update": ["GET"],
   "/api/v1/fs/copy": ["POST"],
