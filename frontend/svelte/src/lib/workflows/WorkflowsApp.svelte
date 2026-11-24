@@ -19,9 +19,12 @@
   import WorkflowLibraryRail from "./WorkflowLibraryRail.svelte";
   import WorkflowInspectorPanel from "./WorkflowInspectorPanel.svelte";
   import WorkflowRunsPanel from "./WorkflowRunsPanel.svelte";
+  import "./WorkflowsApp.css";
 
-  let tab = $state<WorkflowsTab>("graphs"), loadKind = $state<"loading" | "ready" | "error">("loading");
-  let errorMsg = $state(""), feedback = $state<{ kind: "ok" | "error"; text: string } | null>(null);
+  type LoadKind = "loading" | "ready" | "error";
+  type Feedback = { kind: "ok" | "error"; text: string };
+  let tab = $state<WorkflowsTab>("graphs"), loadKind = $state<LoadKind>("loading");
+  let errorMsg = $state(""), feedback = $state<Feedback | null>(null);
   let graphs = $state<WorkflowGraphDetail[]>([]), runs = $state<WorkflowRunSummary[]>([]), totalRuns = $state(0);
   let selectedGraphId = $state<string | null>(null), draft = $state<WorkflowGraphDraft | null>(null);
   let selectedNodeId = $state<string | null>(null), selectedEdgeId = $state<string | null>(null);
@@ -29,7 +32,6 @@
   let filterQuery = $state(""), statusFilter = $state<StatusFilter>("all"), runFilter = $state<RunStateFilter>("all");
   let mobilePane = $state<StudioPane>("canvas");
   let abortCtrl: AbortController | undefined;
-
   let visibleGraphs = $derived(filterGraphDetails(graphs, filterQuery, statusFilter));
   let activeGraph = $derived(graphs.find((g) => g.id === selectedGraphId) ?? visibleGraphs[0] ?? null);
   let visibleRuns = $derived(filterRunSummaries(runs, filterQuery, runFilter));
@@ -37,13 +39,12 @@
   let selectedNode = $derived(draft?.nodes.find((n) => n.id === selectedNodeId) ?? null);
   let selectedEdge = $derived(draft?.edges.find((e) => e.id === selectedEdgeId) ?? null);
   let canvasSummary = $derived(activeGraph && draft ? {
-    ...summaryFromDetail(activeGraph), name: draft.name, status: draft.status,
-    nodeCount: draft.nodes.length, edgeCount: draft.edges.length,
+    ...summaryFromDetail(activeGraph), name: draft.name, status: draft.status, nodeCount: draft.nodes.length, edgeCount: draft.edges.length,
   } : null);
   let stateTag = $derived.by(() => {
     if (loadKind !== "ready") return loadKind;
-    if (tab === "graphs") return graphs.length === 0 ? "empty" : visibleGraphs.length === 0 ? "no-filter-matches" : "ready";
-    return runs.length === 0 ? "empty" : visibleRuns.length === 0 ? "no-filter-matches" : "ready";
+    const list = tab === "graphs" ? graphs : runs, visible = tab === "graphs" ? visibleGraphs : visibleRuns;
+    return list.length === 0 ? "empty" : visible.length === 0 ? "no-filter-matches" : "ready";
   });
 
   function syncDraft(target: WorkflowGraphDetail | null) {
@@ -142,7 +143,6 @@
   export function refresh() { void loadTab(tab); }
   onMount(() => { void loadTab("graphs"); return () => abortCtrl?.abort(); });
 </script>
-
 <section aria-labelledby="workflows-title" aria-busy={loadKind === "loading"} data-workflows-state={stateTag} data-workflows-tab={tab}>
   <header class="feature-header">
     <h2 id="workflows-title">Workflows</h2>
@@ -208,24 +208,3 @@
   </div>
 </section>
 
-<style>
-  .wf-tabs { display: inline-flex; gap: 0.375rem; flex-wrap: wrap; }
-  .wf-draft-bar { margin-top: 0.625rem; padding: 0.5rem 0.75rem; border: 1px solid var(--warn); border-radius: 0.5rem; background: var(--warn-bg); display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
-  .wf-unsaved-pill { font-size: 0.8rem; font-weight: 600; color: var(--warn); }
-  .wf-bar-btn { min-height: 2rem; padding: 0.25rem 0.65rem; font-size: 0.8rem; }
-  .wf-body { margin-top: 0.75rem; min-width: 0; }
-  .wf-empty { margin: 0; padding: 1rem; border: 1px dashed var(--border); border-radius: 0.625rem; font-size: 0.85rem; color: var(--muted); }
-  .wf-mobile-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; margin-bottom: 0.625rem; }
-  .wf-mobile-nav button { min-height: 2.1rem; padding: 0.25rem 0.4rem; font-size: 0.8rem; }
-  .wf-studio { display: grid; gap: 0.75rem; min-width: 0; grid-template-columns: minmax(0, 1fr); }
-  .wf-studio > div { min-width: 0; }
-  @media (max-width: 959px) {
-    .wf-studio[data-mobile-pane="library"] .wf-pane-canvas, .wf-studio[data-mobile-pane="library"] .wf-pane-insp { display: none; }
-    .wf-studio[data-mobile-pane="canvas"] .wf-pane-lib, .wf-studio[data-mobile-pane="canvas"] .wf-pane-insp { display: none; }
-    .wf-studio[data-mobile-pane="inspector"] .wf-pane-lib, .wf-studio[data-mobile-pane="inspector"] .wf-pane-canvas { display: none; }
-  }
-  @media (min-width: 960px) {
-    .wf-mobile-nav { display: none; }
-    .wf-studio { grid-template-columns: minmax(14rem, 16.5rem) minmax(0, 1fr) minmax(15rem, 18.5rem); align-items: start; }
-  }
-</style>
