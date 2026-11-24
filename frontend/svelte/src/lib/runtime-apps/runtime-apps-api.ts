@@ -138,6 +138,24 @@ export function safeViewerHref(origin: string | null, pathPrefix: string | null 
   } catch { return null; }
 }
 
+/** noVNC entry point for an already-validated viewer href. The session ticket and
+ *  password never reach this surface, so the fragment stays empty. */
+export function viewerEmbedSrc(href: string | null): string | null {
+  if (!href) return null;
+  try {
+    const origin = new URL(href);
+    const prefix = origin.pathname.replace(/\/+$/, "");
+    const target = new URL(`${prefix}/vnc.html`, origin.origin);
+    const socket = `${prefix.replace(/^\/+/, "")}/websockify`.replace(/^\/+/, "");
+    target.searchParams.set("path", socket);
+    target.searchParams.set("autoconnect", "1");
+    target.searchParams.set("resize", "remote");
+    return target.href;
+  } catch {
+    return null;
+  }
+}
+
 export function sanitizeLogLines(lines: readonly string[]): string {
   return lines.map((line) => line.replace(ANSI_CSI_RE, "").replace(CTRL_RE, "")).join("\n");
 }
