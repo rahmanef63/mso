@@ -25,6 +25,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` resolve 2 CodeQL alerts and 3 Semgrep parse errors from the UI merge
 - `proxy` close cockpit allowlist drift and add a parity guard
 - `proxy` allow GET /api/v1/sys/services/logs in dev and Rust proxy allowlists
 - `svelte/workflows,creative` replace structuredClone with JSON clone so Svelte 5 $state proxies no longer crash window mounts
