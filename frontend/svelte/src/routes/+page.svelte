@@ -442,13 +442,7 @@
       />
     {/if}
 
-    <main
-      id="main-content"
-      tabindex="-1"
-      class="os-desktop-stage"
-      class:signed-out-stage={!activeSession?.authenticated}
-      oncontextmenu={openDesktopContextMenu}
-    >
+    <main id="main-content" tabindex="-1" class="os-desktop-stage" class:signed-out-stage={!activeSession?.authenticated} oncontextmenu={openDesktopContextMenu}>
       <div class:desktop-backdrop-layer={Boolean(activeSession?.authenticated)} class:lock-center-shell={!activeSession?.authenticated}>
         <div class:desktop-top-widgets={Boolean(activeSession?.authenticated)}>
           {@render monitorSnippet()}

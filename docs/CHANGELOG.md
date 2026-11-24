@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `shell` restore 1:1 MSO OS shells (floating windows, context menus, macOS/Windows/iOS/Android/Dashboard) in Svelte 5
 - `ui` restore authentic MSO OS shell UI (wallpapers, lockscreen, glass dock, macOS/Windows/iOS/Android chrome)
 - `ci` upgrade dynamic pre-push gate for Rust/Svelte/docs-only and parallel agent worktrees (#365)
 
