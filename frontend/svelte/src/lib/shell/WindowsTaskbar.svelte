@@ -22,6 +22,7 @@
     signingOut = false,
     onToggleStart,
     onOpenApp,
+    onToggleApp,
     onCommandPalette,
     onMissionControl,
     onControlCenter,
@@ -44,6 +45,7 @@
     signingOut?: boolean;
     onToggleStart: () => void;
     onOpenApp: (app: string, title: string, payload?: unknown, multi?: boolean) => void;
+    onToggleApp?: (item: DockAppDef) => void;
     onCommandPalette: () => void;
     onMissionControl: () => void;
     onControlCenter: () => void;
@@ -83,6 +85,14 @@
     if (!onAppContextMenu) return;
     event.preventDefault();
     onAppContextMenu(event, item);
+  }
+
+  function handleAppClick(item: DockAppDef) {
+    if (onToggleApp) {
+      onToggleApp(item);
+      return;
+    }
+    onOpenApp(item.app, item.title, item.payload, item.multi);
   }
 
   function markBroken(app: string) {
@@ -126,7 +136,7 @@
       <button
         type="button"
         class="tb-icon-btn"
-        aria-label="Mission Control"
+        aria-label="Task View"
         title="Task View"
         onclick={onMissionControl}
       >
@@ -151,7 +161,7 @@
               class:focused={isFocused}
               aria-label={item.label}
               title={item.title}
-              onclick={() => onOpenApp(item.app, item.title, item.payload, item.multi)}
+              onclick={() => handleAppClick(item)}
               oncontextmenu={(e) => handleContextMenu(e, item)}
             >
               <span class="tb-app-icon" style:background={visual.gradient} aria-hidden="true">

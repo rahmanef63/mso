@@ -109,7 +109,11 @@
 
 <section class={`files-shell is-${variant}`} aria-labelledby={`${uid}-title`} aria-busy={view.kind === "loading" || (view.kind === "ready" && view.busy)} data-files-state={view.kind} data-files-variant={variant} data-shell-family={design.family}>
   <h2 id={`${uid}-title`} class="sr-only">Files ({variant})</h2>
-  <FilesChromeHeader {uid} {variant} path={view.path} {folderTitle} {pathSegments} canGoParent={view.kind === "ready" && Boolean(view.parent)} loading={view.kind === "loading"} busy={view.kind === "ready" && view.busy} {viewMode} bind:filterText bind:sidebarOpen {creatingFolder} onGoParent={() => void controller?.goParent()} onNavigate={navigateTo} onViewMode={setMode} onToggleNewFolder={() => void toggleNewFolder()} onRefresh={() => void controller?.refresh()} />
+  <FilesChromeHeader
+    {uid} {variant} path={view.path} {folderTitle} {pathSegments} canGoParent={view.kind === "ready" && Boolean(view.parent)}
+    loading={view.kind === "loading"} busy={view.kind === "ready" && view.busy} {viewMode} bind:filterText bind:sidebarOpen {creatingFolder}
+    onGoParent={() => void controller?.goParent()} onNavigate={navigateTo} onViewMode={setMode} onToggleNewFolder={() => void toggleNewFolder()} onRefresh={() => void controller?.refresh()}
+  />
 
   {#if view.kind === "loading"}
     <p class="files-status" role="status" aria-live="polite">Loading directory contents...</p>

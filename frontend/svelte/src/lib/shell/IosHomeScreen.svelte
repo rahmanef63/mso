@@ -440,7 +440,8 @@
     gap: 6px;
     min-width: 0;
     max-width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
 
   .ios-time {
@@ -450,6 +451,7 @@
     font-variant-numeric: tabular-nums;
     color: #ffffff;
     padding: 0 2px;
+    flex-shrink: 0;
   }
 
   .ios-brand-pill {
@@ -463,6 +465,7 @@
     font-size: 0.75rem;
     font-weight: 600;
     color: #ffffff;
+    flex-shrink: 0;
   }
 
   .ios-brand-mark {
@@ -473,6 +476,7 @@
   }
 
   .ios-active-title {
+    min-width: 0;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -488,6 +492,10 @@
     max-width: 100%;
   }
 
+  .ios-status-actions::-webkit-scrollbar {
+    display: none;
+  }
+
   .ios-shell .ios-status-bar button,
   .ios-shell .ios-status-bar select {
     min-height: 30px;
@@ -499,11 +507,30 @@
     border-radius: 999px;
     max-width: 100%;
     min-width: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background-color 140ms ease, border-color 140ms ease;
   }
 
   .ios-shell .ios-status-bar select option {
     background: #141724;
     color: #f8fafc;
+  }
+
+  @media (max-width: 40rem) {
+    .ios-shell .ios-status-bar.workspace-header {
+      padding: 6px 8px;
+      gap: 4px 6px;
+    }
+
+    .ios-status-actions {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      width: 100%;
+      justify-content: flex-start;
+      padding-bottom: 1px;
+    }
   }
 
   .ios-main {
@@ -683,6 +710,7 @@
     backdrop-filter: blur(18px) saturate(180%);
     -webkit-backdrop-filter: blur(18px) saturate(180%);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+    transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
     max-width: 100%;
   }
 

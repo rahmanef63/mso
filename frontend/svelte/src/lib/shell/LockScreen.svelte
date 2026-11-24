@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { onMount, tick } from "svelte";
 
   let {
     locked,
@@ -15,23 +15,77 @@
     onSignOut: () => void;
   } = $props();
 
+  let overlayEl = $state<HTMLDivElement | null>(null);
   let unlockBtn = $state<HTMLButtonElement | null>(null);
 
-  $effect(() => {
-    if (!locked) return;
+  function getFocusable(): HTMLElement[] {
+    if (!overlayEl) return [];
+    return Array.from(
+      overlayEl.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+  }
+
+  function focusUnlock() {
     void tick().then(() => {
       unlockBtn?.focus();
     });
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (!locked) return;
+    if (event.key === "Tab") {
+      const focusable = getFocusable();
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (!active || active === first || !overlayEl?.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (!active || active === last || !overlayEl?.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && overlayEl?.contains(active) && active.tagName === "BUTTON") {
+        return;
+      }
+      event.preventDefault();
+      onUnlock();
+    }
+  }
+
+  onMount(() => {
+    if (locked) focusUnlock();
+  });
+
+  $effect(() => {
+    if (!locked) return;
+    focusUnlock();
   });
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#if locked}
   <div
     class="lock-overlay"
+    bind:this={overlayEl}
     role="dialog"
     aria-modal="true"
     aria-labelledby="lock-screen-title"
     aria-describedby="lock-screen-note"
+    tabindex="-1"
   >
     <div class="lock-card">
       <div class="lock-badges">
@@ -65,13 +119,13 @@
 
 <style>
   .lock-overlay {
-    position: fixed; inset: 0; z-index: 100;
+    position: fixed; inset: 0; z-index: 9500;
     display: grid; place-items: center; padding: 1.5rem;
     background: var(--surface); color: var(--text);
   }
   .lock-card {
     width: min(26rem, 100%); display: grid; gap: 0.875rem;
-    padding: 1.5rem; background: var(--panel);
+    padding: 1.5rem; background: var(--panel-solid);
     border: 1px solid var(--border); border-radius: 0.75rem;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
   }
