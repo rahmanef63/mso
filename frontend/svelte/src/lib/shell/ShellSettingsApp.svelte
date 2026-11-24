@@ -1,19 +1,41 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { createPrefsController, type PrefTweaks, type PrefsState, type ThemeMode } from "../settings/prefs-api.ts";
-  import { CHROME_PROFILES, isChromeChoice, isChromeProfile, type ChromeChoice } from "./chrome-profile.ts";
+  import { CHROME_PROFILES, isChromeChoice, type ChromeChoice } from "./chrome-profile.ts";
   import { clampFontScale, DEFAULT_FONT_SCALE, MAX_FONT_SCALE, MIN_FONT_SCALE } from "./desktop-icons-data.ts";
+  import {
+    applyAppearanceToDom,
+    buildShellTweaksPatch,
+    DEFAULT_SHELL_PREFS,
+    extractShellPrefsFromTweaks,
+    isDesktopShell,
+    isIosStyleVariant,
+    isMobileShell,
+    type DesktopShellId,
+    type IosStyleVariant,
+    type MobileShellId,
+    type ShellPrefs,
+  } from "./shell-prefs-store.ts";
+  import { isWallpaperId, WALLPAPERS, type WallpaperId } from "./wallpaper-store.ts";
 
   let {
     role = null,
     chromeChoice = "auto",
+    shellPrefs = { ...DEFAULT_SHELL_PREFS },
+    wallpaper = "auto",
     onChromeChange,
+    onShellPrefsChange,
     onThemeChange,
+    onWallpaperChange,
   }: {
     role?: "viewer" | "operator" | "owner" | null;
     chromeChoice?: ChromeChoice;
+    shellPrefs?: ShellPrefs;
+    wallpaper?: WallpaperId;
     onChromeChange?: (c: ChromeChoice) => void;
+    onShellPrefsChange?: (next: ShellPrefs) => void;
     onThemeChange?: (t: string) => void;
+    onWallpaperChange?: (w: WallpaperId) => void;
   } = $props();
 
   let view = $state<PrefsState>({ kind: "loading" });
@@ -26,10 +48,12 @@
   let themeMode = $derived<ThemeMode>(
     tweaks.theme === "light" || tweaks.theme === "dark" ? tweaks.theme : "system",
   );
-  let selectedChrome = $derived<ChromeChoice>(
-    view.kind === "ready"
-      ? isChromeProfile(tweaks.preset) ? tweaks.preset : tweaks.preset === null ? "auto" : chromeChoice
-      : chromeChoice,
+  let selectedDesktop = $derived<DesktopShellId>(shellPrefs.desktop);
+  let selectedMobile = $derived<MobileShellId>(shellPrefs.mobile);
+  let selectedOverride = $derived<ChromeChoice>(shellPrefs.override ?? chromeChoice);
+  let selectedIosStyle = $derived<IosStyleVariant>(shellPrefs.iosStyle);
+  let activeWallpaper = $derived<WallpaperId>(
+    isWallpaperId(tweaks.wallpaper) ? tweaks.wallpaper : wallpaper,
   );
   let savedScale = $derived<number>(
     clampFontScale(typeof tweaks.fontScale === "number" ? tweaks.fontScale : DEFAULT_FONT_SCALE),
@@ -38,23 +62,6 @@
   let reduceGlass = $derived<boolean>(Boolean(tweaks.reduceGlass));
   let highContrast = $derived<boolean>(Boolean(tweaks.highContrast));
   let reducedMotion = $derived<boolean>(Boolean(tweaks.reducedMotion));
-
-  function applyFontScaleDom(scale: number) {
-    if (typeof document === "undefined") return;
-    document.documentElement.style.fontSize = `${Math.round(clampFontScale(scale) * 100)}%`;
-  }
-
-  function applyTweaksDom(next: PrefTweaks | undefined) {
-    if (typeof document === "undefined") return;
-    const root = document.documentElement;
-    applyFontScaleDom(typeof next?.fontScale === "number" ? next.fontScale : DEFAULT_FONT_SCALE);
-    if (next?.reduceGlass) root.dataset.reduceGlass = "true";
-    else delete root.dataset.reduceGlass;
-    if (next?.highContrast) root.dataset.highContrast = "true";
-    else delete root.dataset.highContrast;
-    if (next?.reducedMotion) root.dataset.reducedMotion = "true";
-    else delete root.dataset.reducedMotion;
-  }
 
   function notifyTheme(theme: ThemeMode) {
     if (lastNotifiedTheme !== theme) {
@@ -73,39 +80,90 @@
     if (await controller?.saveTweaks(patch)) after?.();
   }
 
-  function handleChromeSelect(event: Event) {
+  function updateShellPrefs(next: ShellPrefs) {
+    onShellPrefsChange?.(next);
+    if (next.override !== selectedOverride) onChromeChange?.(next.override);
+    if (isOwner) {
+      const patch = buildShellTweaksPatch(next, tweaks);
+      void savePatch(patch);
+    }
+  }
+
+  function handleDesktopSelect(event: Event) {
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    if (!isDesktopShell(value)) return;
+    updateShellPrefs({ ...shellPrefs, desktop: value });
+  }
+
+  function handleMobileSelect(event: Event) {
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    if (!isMobileShell(value)) return;
+    updateShellPrefs({ ...shellPrefs, mobile: value });
+  }
+
+  function handleOverrideSelect(event: Event) {
     const value = (event.currentTarget as HTMLSelectElement).value;
     if (!isChromeChoice(value)) return;
-    void savePatch({ preset: value === "auto" ? null : value }, () => onChromeChange?.(value));
+    updateShellPrefs({ ...shellPrefs, override: value });
+  }
+
+  function handleIosStyleSelect(event: Event) {
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    if (!isIosStyleVariant(value)) return;
+    updateShellPrefs({ ...shellPrefs, iosStyle: value });
   }
 
   function handleThemeSelect(event: Event) {
     const value = (event.currentTarget as HTMLSelectElement).value;
     if (value !== "system" && value !== "light" && value !== "dark") return;
-    void savePatch({ theme: value }, () => notifyTheme(value));
+    applyAppearanceToDom({ theme: value });
+    notifyTheme(value);
+    void savePatch({ theme: value });
+  }
+
+  function handleWallpaperSelect(event: Event) {
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    if (!isWallpaperId(value)) return;
+    onWallpaperChange?.(value);
+    void savePatch({ wallpaper: value });
   }
 
   function handleScaleInput(event: Event) {
     if (!isOwner) return;
     const next = clampFontScale(Number((event.currentTarget as HTMLInputElement).value));
     draftScale = next;
-    applyFontScaleDom(next);
+    applyAppearanceToDom({ fontScale: next });
   }
 
   function handleScaleCommit(scale: number) {
     const clamped = clampFontScale(scale);
     draftScale = clamped;
-    applyFontScaleDom(clamped);
+    applyAppearanceToDom({ fontScale: clamped });
     void savePatch({ fontScale: clamped }, () => { draftScale = null; });
+  }
+
+  function handleA11yToggle(key: "reduceGlass" | "highContrast" | "reducedMotion", checked: boolean) {
+    applyAppearanceToDom({ [key]: checked });
+    void savePatch({ [key]: checked });
   }
 
   onMount(() => {
     controller = createPrefsController((next) => {
       if (next.kind === "ready") {
         draftScale = null;
-        applyTweaksDom(next.prefs.tweaks);
-        if (next.prefs.tweaks?.theme) notifyTheme(next.prefs.tweaks.theme);
-        if (isChromeProfile(next.prefs.tweaks?.preset)) onChromeChange?.(next.prefs.tweaks.preset);
+        const t = next.prefs.tweaks;
+        applyAppearanceToDom({
+          fontScale: typeof t?.fontScale === "number" ? t.fontScale : DEFAULT_FONT_SCALE,
+          reduceGlass: Boolean(t?.reduceGlass),
+          highContrast: Boolean(t?.highContrast),
+          reducedMotion: Boolean(t?.reducedMotion),
+        });
+        if (t?.theme) notifyTheme(t.theme);
+        if (isWallpaperId(t?.wallpaper)) onWallpaperChange?.(t.wallpaper);
+        const extracted = extractShellPrefsFromTweaks(t, shellPrefs);
+        if (t?.shell || extracted.migratedFromLegacyPreset) {
+          onShellPrefsChange?.(extracted.prefs);
+        }
       }
       view = next;
     });
@@ -123,7 +181,7 @@
   </header>
 
   {#if !isOwner}
-    <p class="feedback pending">Read-only view. Owner role is required to update shared shell preferences.</p>
+    <p class="feedback pending">Local shell choice saves on this device. Owner role is required to sync shared workspace preferences.</p>
   {/if}
 
   <div role="status" aria-live="polite">
@@ -137,12 +195,34 @@
 
       <div class="ss-grid">
         <div class="field">
-          <label for="ss-chrome">OS chrome profile</label>
-          <select id="ss-chrome" value={selectedChrome} disabled={!isOwner || view.saving} onchange={handleChromeSelect}>
-            <option value="auto">Auto (match viewport)</option>
+          <label for="ss-desktop-shell">Desktop shell (over 640px)</label>
+          <select id="ss-desktop-shell" value={selectedDesktop} disabled={view.saving} onchange={handleDesktopSelect}>
+            <option value="macos">macOS</option>
+            <option value="windows">Windows</option>
+            <option value="dashboard">Dashboard</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="ss-mobile-shell">Mobile shell (up to 640px)</label>
+          <select id="ss-mobile-shell" value={selectedMobile} disabled={view.saving} onchange={handleMobileSelect}>
+            <option value="ios">iOS</option>
+            <option value="android">Android</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="ss-chrome">Active shell override</label>
+          <select id="ss-chrome" value={selectedOverride} disabled={view.saving} onchange={handleOverrideSelect}>
+            <option value="auto">Auto (use desktop / mobile choice)</option>
             {#each CHROME_PROFILES as profile (profile.id)}
-              <option value={profile.id}>{profile.label}</option>
+              <option value={profile.id}>Pin {profile.label}</option>
             {/each}
+          </select>
+        </div>
+        <div class="field">
+          <label for="ss-ios-style">iOS presentation</label>
+          <select id="ss-ios-style" value={selectedIosStyle} disabled={view.saving} onchange={handleIosStyleSelect}>
+            <option value="classic">iOS Classic</option>
+            <option value="modern">iOS Modern (glass controls)</option>
           </select>
         </div>
         <div class="field">
@@ -151,6 +231,14 @@
             <option value="system">System</option>
             <option value="light">Light</option>
             <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="ss-wallpaper">Wallpaper</label>
+          <select id="ss-wallpaper" value={activeWallpaper} disabled={!isOwner || view.saving} onchange={handleWallpaperSelect}>
+            {#each WALLPAPERS as wp (wp.id)}
+              <option value={wp.id}>{wp.label}</option>
+            {/each}
           </select>
         </div>
       </div>
@@ -168,15 +256,15 @@
       <fieldset class="ss-toggles">
         <legend>Display and accessibility</legend>
         <label class="ss-toggle" for="ss-reduce-glass">
-          <input id="ss-reduce-glass" type="checkbox" checked={reduceGlass} disabled={!isOwner || view.saving} onchange={(e) => void savePatch({ reduceGlass: (e.currentTarget as HTMLInputElement).checked })} />
+          <input id="ss-reduce-glass" type="checkbox" checked={reduceGlass} disabled={!isOwner || view.saving} onchange={(e) => handleA11yToggle("reduceGlass", (e.currentTarget as HTMLInputElement).checked)} />
           <span>Reduce glass transparency</span>
         </label>
         <label class="ss-toggle" for="ss-high-contrast">
-          <input id="ss-high-contrast" type="checkbox" checked={highContrast} disabled={!isOwner || view.saving} onchange={(e) => void savePatch({ highContrast: (e.currentTarget as HTMLInputElement).checked })} />
+          <input id="ss-high-contrast" type="checkbox" checked={highContrast} disabled={!isOwner || view.saving} onchange={(e) => handleA11yToggle("highContrast", (e.currentTarget as HTMLInputElement).checked)} />
           <span>High contrast borders and text</span>
         </label>
         <label class="ss-toggle" for="ss-reduced-motion">
-          <input id="ss-reduced-motion" type="checkbox" checked={reducedMotion} disabled={!isOwner || view.saving} onchange={(e) => void savePatch({ reducedMotion: (e.currentTarget as HTMLInputElement).checked })} />
+          <input id="ss-reduced-motion" type="checkbox" checked={reducedMotion} disabled={!isOwner || view.saving} onchange={(e) => handleA11yToggle("reducedMotion", (e.currentTarget as HTMLInputElement).checked)} />
           <span>Reduce motion</span>
         </label>
       </fieldset>

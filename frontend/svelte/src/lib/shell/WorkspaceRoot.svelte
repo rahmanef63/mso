@@ -20,7 +20,19 @@
   import DashboardShell from "./DashboardShell.svelte";
   import { createNotificationStore, type NotificationItem } from "./notifications-store";
   import { createContextMenuStore, type ContextMenuItem, type ContextMenuState } from "./context-menu-store";
-  import { CHROME_PROFILES, resolveChromeProfile, type ChromeChoice } from "./chrome-profile";
+  import { CHROME_PROFILES, type ChromeChoice } from "./chrome-profile";
+  import {
+    applyAppearanceToDom,
+    applyQuickShellChoice,
+    DEFAULT_SHELL_PREFS,
+    extractAppearanceFromTweaks,
+    extractShellPrefsFromTweaks,
+    readLocalShellPrefs,
+    resolveActiveShell,
+    writeLocalShellPrefs,
+    type ShellPrefs,
+  } from "./shell-prefs-store";
+  import { readPrefs } from "../settings/prefs-api";
   import { APP_SLUGS, DOCK_APPS, SHORTCUTS, buildShellCommands, visibleDockApps, type DockAppDef } from "./shell-registry";
   import { nextWallpaper, resolveWallpaperBackground, resolveWallpaperUrl, type WallpaperId } from "./wallpaper-store";
   import {
@@ -63,7 +75,8 @@
   let themeMode = $state<"system" | "light" | "dark">("system");
   let prefersDark = $state(false);
   let wallpaper = $state<WallpaperId>("auto");
-  let chromeChoice = $state<ChromeChoice>("auto");
+  let shellPrefs = $state<ShellPrefs>({ ...DEFAULT_SHELL_PREFS });
+  let hadLocalShellChoice = $state(false);
   let viewportWidth = $state(1440);
   let viewportHeight = $state(900);
   let ownerDevicesOpened = $state(false);
@@ -73,9 +86,16 @@
   let pendingDeepLink: { app: string; path?: string } | null = null;
   let deepLinkApplied = false;
   let restoringHistory = false;
+  let prefsBootAbort: AbortController | undefined;
 
+  let chromeChoice = $derived<ChromeChoice>(shellPrefs.override);
   let resolvedChrome = $derived(
-    resolveChromeProfile(chromeChoice, viewportWidth, typeof navigator === "undefined" ? "" : navigator.userAgent),
+    resolveActiveShell(
+      shellPrefs,
+      viewportWidth,
+      typeof navigator === "undefined" ? "" : navigator.userAgent,
+      { preferAndroidUaWhenDefault: !hadLocalShellChoice },
+    ),
   );
   let isDark = $derived(themeMode === "dark" || (themeMode === "system" && prefersDark));
   let wallpaperUrl = $derived(resolveWallpaperUrl(wallpaper, resolvedChrome, isDark));
@@ -108,9 +128,43 @@
     ctxStore.close();
   }
 
-  function setChrome(next: ChromeChoice) {
+  function setShellPrefs(next: ShellPrefs, persist = true) {
     closeShellOverlays();
-    chromeChoice = next;
+    shellPrefs = next;
+    if (persist) {
+      hadLocalShellChoice = true;
+      writeLocalShellPrefs(next);
+    }
+  }
+
+  function setChrome(next: ChromeChoice) {
+    setShellPrefs(applyQuickShellChoice(shellPrefs, next, viewportWidth), true);
+  }
+
+  function setWallpaper(next: WallpaperId) {
+    wallpaper = next;
+  }
+
+  async function bootstrapRemotePrefs() {
+    prefsBootAbort?.abort();
+    const ctrl = new AbortController();
+    prefsBootAbort = ctrl;
+    try {
+      const prefs = await readPrefs(ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      const appearance = extractAppearanceFromTweaks(prefs.tweaks);
+      themeMode = appearance.theme;
+      wallpaper = appearance.wallpaper;
+      applyAppearanceToDom(appearance);
+      if (!hadLocalShellChoice) {
+        const extracted = extractShellPrefsFromTweaks(prefs.tweaks, shellPrefs);
+        if (prefs.tweaks?.shell || extracted.migratedFromLegacyPreset) {
+          shellPrefs = extracted.prefs;
+        }
+      }
+    } catch {
+      // Offline or unavailable prefs must not block the workspace; local prefs stay active.
+    }
   }
 
   function openApp(app: string, title: string, payload?: unknown, multi = false) {
@@ -283,6 +337,11 @@
   onMount(() => {
     viewportWidth = window.innerWidth;
     viewportHeight = window.innerHeight;
+    const local = readLocalShellPrefs();
+    shellPrefs = local.prefs;
+    hadLocalShellChoice = local.hadStored;
+    if (local.corrupt) writeLocalShellPrefs(local.prefs);
+
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     prefersDark = mq.matches;
     const onScheme = (e: MediaQueryListEvent) => { prefersDark = e.matches; };
@@ -309,6 +368,7 @@
 
     return () => {
       clearInterval(clockTimer);
+      prefsBootAbort?.abort();
       mq.removeEventListener("change", onScheme);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("popstate", onPopState);
@@ -320,8 +380,10 @@
   });
 
   function handleSessionChange(next: Session | null) {
+    const wasAuthed = Boolean(activeSession?.authenticated);
     activeSession = next;
     if (next?.authenticated) {
+      if (!wasAuthed) void bootstrapRemotePrefs();
       if (pendingDeepLink && !deepLinkApplied) {
         const target = pendingDeepLink;
         deepLinkApplied = true;
@@ -412,9 +474,13 @@
               {chromeChoice}
               {resolvedChrome}
               {viewportWidth}
+              {shellPrefs}
+              {wallpaper}
               onFilesPathChange={(p) => winStore.focusApp("files", p)}
               onThemeChange={applyTheme}
               onChromeChange={setChrome}
+              onShellPrefsChange={(next) => setShellPrefs(next, true)}
+              onWallpaperChange={setWallpaper}
               onEditorDirtyChange={handleEditorDirtyChange}
               onOpenInEditor={(p) => openApp("editor", "Code Editor", p, true)}
             />
@@ -438,6 +504,7 @@
   class:signed-out={!activeSession?.authenticated}
   class:desktop-fixed={isDesktopFloating}
   data-chrome={resolvedChrome}
+  data-ios-style={shellPrefs.iosStyle}
   data-build-sha={BUILD_SHA}
   data-build-mode={BUILD_MODE}
   style:background-image={wallpaperBg}

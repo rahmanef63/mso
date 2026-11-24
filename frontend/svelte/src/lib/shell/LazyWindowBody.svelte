@@ -2,11 +2,15 @@
   import type { Component } from "svelte";
   import type { Session } from "../host-api";
   import type { ChromeChoice, ChromeProfile } from "./chrome-profile";
+  import type { ShellPrefs } from "./shell-prefs-store";
+  import type { WallpaperId } from "./wallpaper-store";
   import type { ShellLayoutState, WindowState } from "./window-store";
 
   let {
     win, session, layout, chromeChoice, resolvedChrome, viewportWidth,
-    onFilesPathChange, onThemeChange, onChromeChange, onEditorDirtyChange, onOpenInEditor,
+    shellPrefs, wallpaper,
+    onFilesPathChange, onThemeChange, onChromeChange, onShellPrefsChange, onWallpaperChange,
+    onEditorDirtyChange, onOpenInEditor,
   }: {
     win: WindowState;
     session: Session;
@@ -14,9 +18,13 @@
     chromeChoice: ChromeChoice;
     resolvedChrome: ChromeProfile;
     viewportWidth: number;
+    shellPrefs?: ShellPrefs;
+    wallpaper?: WallpaperId;
     onFilesPathChange: (path: string) => void;
     onThemeChange: (theme: string) => void;
     onChromeChange: (c: ChromeChoice) => void;
+    onShellPrefsChange?: (prefs: ShellPrefs) => void;
+    onWallpaperChange?: (w: WallpaperId) => void;
     onEditorDirtyChange: (winId: string, dirty: boolean) => void;
     onOpenInEditor: (path: string) => void;
   } = $props();
@@ -83,8 +91,29 @@
       };
     }
     if (win.app === "media" || win.app === "image-editor") return { initialPath: typeof win.payload === "string" ? win.payload : undefined };
-    if (win.app === "settings") return { role: session.role, deviceLabel: session.deviceLabel, onThemeChange };
-    if (win.app === "shell-settings") return { role: session.role, chromeChoice, onChromeChange, onThemeChange };
+    if (win.app === "settings") {
+      return {
+        role: session.role,
+        deviceLabel: session.deviceLabel,
+        shellPrefs,
+        wallpaper,
+        onShellPrefsChange,
+        onWallpaperChange,
+        onThemeChange,
+      };
+    }
+    if (win.app === "shell-settings") {
+      return {
+        role: session.role,
+        chromeChoice,
+        shellPrefs,
+        wallpaper,
+        onChromeChange,
+        onShellPrefsChange,
+        onWallpaperChange,
+        onThemeChange,
+      };
+    }
     if (win.app === "devices") return { currentDeviceId: session.deviceId };
     if (win.app === "memory") return { role: session.role, onOpenFile: onOpenInEditor };
     if (win.app === "inspector") return { layout, resolvedChrome, viewportWidth, role: session.role };
