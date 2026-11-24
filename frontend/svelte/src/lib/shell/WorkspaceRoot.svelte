@@ -21,6 +21,8 @@
   import { createNotificationStore, type NotificationItem } from "./notifications-store";
   import { createContextMenuStore, type ContextMenuItem, type ContextMenuState } from "./context-menu-store";
   import { CHROME_PROFILES, type ChromeChoice } from "./chrome-profile";
+  import { designProfileFor, type MobileNavSpec } from "./shell-design";
+  import { clearAllWinState, clearWinState } from "./window-feature-state";
   import {
     applyAppearanceToDom,
     applyQuickShellChoice,
@@ -81,6 +83,7 @@
   let viewportHeight = $state(900);
   let ownerDevicesOpened = $state(false);
   let clockNow = $state(new Date());
+  let mobileNavByWin = $state<Record<string, MobileNavSpec | null>>({});
   let monitorRef: { refresh: () => void } | undefined;
 
   let pendingDeepLink: { app: string; path?: string } | null = null;
@@ -112,6 +115,11 @@
   let dockApps = $derived(visibleDockApps(activeSession?.role));
   let pinnedDockApps = $derived(dockApps.filter((item) => PINNED_DOCK_APPS.has(item.app) || openAppSet.has(item.app)));
   let isDesktopShell = $derived(resolvedChrome === "macos" || resolvedChrome === "windows");
+  let isMobileShell = $derived(resolvedChrome === "ios" || resolvedChrome === "android");
+  let activeDesign = $derived(designProfileFor(resolvedChrome));
+  let activeMobileNav = $derived<MobileNavSpec | null>(
+    layout.focused ? (mobileNavByWin[layout.focused] ?? null) : null,
+  );
   let isDesktopFloating = $derived(isDesktopShell && viewportWidth >= 720 && Boolean(activeSession?.authenticated));
   let desktopBounds = $derived<DesktopBounds>({
     width: Math.max(360, viewportWidth),
@@ -181,14 +189,38 @@
     openApp(app, title, payload ?? def?.payload, multi);
   }
 
+  function handleMobileNavChange(winId: string, nav: MobileNavSpec | null) {
+    if (nav === null) {
+      if (!(winId in mobileNavByWin)) return;
+      const next = { ...mobileNavByWin };
+      delete next[winId];
+      mobileNavByWin = next;
+      return;
+    }
+    mobileNavByWin = { ...mobileNavByWin, [winId]: nav };
+  }
+
+  function closeWindowSafely(id: string) {
+    if (winStore.closeWindow(id)) {
+      dirtyEditors.delete(id);
+      forceCloseOnce.delete(id);
+      clearWinState(id);
+      handleMobileNavChange(id, null);
+    }
+  }
+
   function forceCloseWindow(id: string) {
     dirtyEditors.delete(id);
     forceCloseOnce.delete(id);
     winStore.setCloseGuard(id, null);
     winStore.closeWindow(id);
+    clearWinState(id);
+    handleMobileNavChange(id, null);
   }
   function forceCloseAll() {
     for (const id of [...winStore.getState().order]) forceCloseWindow(id);
+    clearAllWinState();
+    mobileNavByWin = {};
     forceQuitOpen = false;
   }
 
@@ -455,12 +487,14 @@
             {win}
             focused={layout.focused === id}
             {floating}
+            framelessMobile={isMobileShell}
+            edgeToEdge={activeDesign.edgeToEdgeApps.includes(win.app)}
             chrome={resolvedChrome}
             {desktopBounds}
             onFocus={(w) => winStore.focusWindow(w)}
             onMinimize={(w) => winStore.minimizeWindow(w)}
             onMaximize={(w) => winStore.toggleMaximize(w)}
-            onClose={(w) => winStore.closeWindow(w)}
+            onClose={closeWindowSafely}
             onMove={(w, x, y) => winStore.moveWindow(w, x, y)}
             onResize={(w, width, height) => winStore.resizeWindow(w, width, height)}
             onSnap={(w, zone: SnapZone) => winStore.snapWindow(w, zone, desktopBounds)}
@@ -476,13 +510,14 @@
               {viewportWidth}
               {shellPrefs}
               {wallpaper}
-              onFilesPathChange={(p) => winStore.focusApp("files", p)}
+              onFilesPathChange={(winId, p) => winStore.setWindowPayload(winId, p)}
               onThemeChange={applyTheme}
               onChromeChange={setChrome}
               onShellPrefsChange={(next) => setShellPrefs(next, true)}
               onWallpaperChange={setWallpaper}
               onEditorDirtyChange={handleEditorDirtyChange}
               onOpenInEditor={(p) => openApp("editor", "Code Editor", p, true)}
+              onMobileNavChange={handleMobileNavChange}
             />
           </WindowFrame>
         {/if}
@@ -514,6 +549,8 @@
       authenticated={Boolean(activeSession?.authenticated)}
       role={activeSession?.role ?? null}
       {focusedTitle}
+      focusedWinId={layout.focused}
+      mobileNav={activeMobileNav}
       {chromeChoice}
       {resolvedChrome}
       {dockApps}
@@ -525,6 +562,7 @@
       onRestoreWindow={(id) => winStore.restoreWindow(id)}
       onMinimizeWindow={(id) => winStore.minimizeWindow(id)}
       onMinimizeAll={() => winStore.minimizeAll()}
+      onCloseWindow={closeWindowSafely}
       onFocusWindow={(id) => winStore.restoreWindow(id)}
       onOpenPalette={() => { paletteOpen = true; }}
       onOpenControl={() => { controlOpen = true; }}
@@ -540,6 +578,8 @@
       authenticated={Boolean(activeSession?.authenticated)}
       role={activeSession?.role ?? null}
       {focusedTitle}
+      focusedWinId={layout.focused}
+      mobileNav={activeMobileNav}
       {chromeChoice}
       {resolvedChrome}
       {dockApps}
@@ -551,7 +591,7 @@
       onRestoreWindow={(id) => winStore.restoreWindow(id)}
       onMinimizeWindow={(id) => winStore.minimizeWindow(id)}
       onMinimizeAll={() => winStore.minimizeAll()}
-      onCloseWindow={(id) => winStore.closeWindow(id)}
+      onCloseWindow={closeWindowSafely}
       onFocusWindow={(id) => winStore.restoreWindow(id)}
       onOpenPalette={() => { paletteOpen = true; }}
       onOpenControl={() => { controlOpen = true; }}

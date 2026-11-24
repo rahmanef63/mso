@@ -265,6 +265,11 @@ export function createWindowStore(initial?: ShellLayoutState) {
       patch(top, { minimized: false, z: topZ(state) + 1, payload: payload !== undefined ? payload : state.windows[top].payload }, top);
       return true;
     },
+    setWindowPayload(id: WinId, payload: unknown) {
+      const cur = state.windows[id];
+      if (!cur || cur.payload === payload) return;
+      patch(id, { payload });
+    },
     minimizeWindow(id: WinId) {
       const cur = state.windows[id];
       if (!cur || cur.minimized) return;

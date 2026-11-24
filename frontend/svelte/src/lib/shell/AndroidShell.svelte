@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, type Snippet } from "svelte";
+  import MobileAppBar from "./MobileAppBar.svelte";
   import { resolveAppIcon } from "./app-icons.ts";
+  import type { MobileNavSpec } from "./shell-design.ts";
   import {
     CHROME_PROFILES,
     isChromeChoice,
@@ -14,6 +16,8 @@
     authenticated = false,
     role = null,
     focusedTitle = "Home",
+    focusedWinId = null,
+    mobileNav = null,
     chromeChoice,
     resolvedChrome,
     dockApps,
@@ -40,6 +44,8 @@
     authenticated?: boolean;
     role?: string | null;
     focusedTitle?: string;
+    focusedWinId?: string | null;
+    mobileNav?: MobileNavSpec | null;
     chromeChoice: ChromeChoice;
     resolvedChrome: ChromeProfile;
     dockApps: readonly DockAppDef[];
@@ -150,6 +156,10 @@
     }
     if (recentsOpen) {
       recentsOpen = false;
+      return;
+    }
+    if (showingWindows && mobileNav?.onBack) {
+      mobileNav.onBack();
       return;
     }
     goHome();
@@ -413,19 +423,14 @@
 
     {#if showingWindows}
       <div class="android-window-stage" data-open-windows={activeWindows.length}>
-        <div class="android-feature-bar">
-          <button type="button" class="android-bar-btn" onclick={goHome}>
-            Back
-          </button>
-          <span class="android-bar-title">{focusedTitle}</span>
-          <button
-            type="button"
-            class="android-bar-btn"
-            onclick={() => { recentsOpen = true; }}
-          >
-            Recents ({openWindows.length})
-          </button>
-        </div>
+        <MobileAppBar
+          variant="android"
+          appTitle={focusedTitle}
+          {mobileNav}
+          onBackHome={goHome}
+          onOpenAi={() => onOpenApp("assistant", "Alfa Assistant")}
+          onCloseApp={focusedWinId && onCloseWindow ? () => onCloseWindow(focusedWinId) : undefined}
+        />
 
         {#if windowsSlot}
           <div class="window-area android-window-list">
@@ -952,38 +957,6 @@
     gap: 10px;
     width: 100%;
     min-width: 0;
-  }
-
-  .android-feature-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 8px 12px;
-    border-radius: 20px;
-    background: var(--panel-solid);
-    color: var(--text);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-pop);
-    min-width: 0;
-  }
-
-  .android-bar-btn {
-    min-height: 34px;
-    padding: 4px 12px;
-    border-radius: 999px;
-    font-size: 0.8125rem;
-  }
-
-  .android-bar-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .android-window-list {

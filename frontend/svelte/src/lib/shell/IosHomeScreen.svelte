@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, type Snippet } from "svelte";
+  import MobileAppBar from "./MobileAppBar.svelte";
   import { resolveAppIcon } from "./app-icons.ts";
+  import type { MobileNavSpec } from "./shell-design.ts";
   import {
     CHROME_PROFILES,
     isChromeChoice,
@@ -14,6 +16,8 @@
     authenticated = false,
     role = null,
     focusedTitle = "Home",
+    focusedWinId = null,
+    mobileNav = null,
     chromeChoice,
     resolvedChrome,
     dockApps,
@@ -25,6 +29,7 @@
     onRestoreWindow,
     onMinimizeWindow,
     onMinimizeAll,
+    onCloseWindow,
     onFocusWindow,
     onOpenPalette,
     onOpenControl,
@@ -38,6 +43,8 @@
     authenticated?: boolean;
     role?: string | null;
     focusedTitle?: string;
+    focusedWinId?: string | null;
+    mobileNav?: MobileNavSpec | null;
     chromeChoice: ChromeChoice;
     resolvedChrome: ChromeProfile;
     dockApps: readonly DockAppDef[];
@@ -49,6 +56,7 @@
     onRestoreWindow?: (id: string) => void;
     onMinimizeWindow?: (id: string) => void;
     onMinimizeAll?: () => void;
+    onCloseWindow?: (id: string) => void;
     onFocusWindow?: (id: string) => void;
     onOpenPalette: () => void;
     onOpenControl: () => void;
@@ -251,24 +259,14 @@
 
     {#if showingWindows}
       <div class="ios-sheet-stage" data-open-windows={activeWindows.length}>
-        <div class="ios-sheet-bar">
-          <button type="button" class="ios-home-btn" onclick={goHome}>
-            Home
-          </button>
-          <div class="ios-sheet-tabs" role="tablist" aria-label="Open sheets">
-            {#each activeWindows as win (win.id)}
-              <button
-                type="button"
-                role="tab"
-                class="ios-sheet-tab"
-                aria-selected={win.title === focusedTitle}
-                onclick={() => onFocusWindow?.(win.id)}
-              >
-                {win.title}
-              </button>
-            {/each}
-          </div>
-        </div>
+        <MobileAppBar
+          variant="ios"
+          appTitle={focusedTitle}
+          {mobileNav}
+          onBackHome={goHome}
+          onOpenAi={() => onOpenApp("assistant", "Alfa Assistant")}
+          onCloseApp={focusedWinId && onCloseWindow ? () => onCloseWindow(focusedWinId) : undefined}
+        />
 
         {#if windowsSlot}
           <div class="window-area ios-sheet-windows">
@@ -704,68 +702,6 @@
     gap: 10px;
     width: 100%;
     min-width: 0;
-  }
-
-  .ios-sheet-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 8px 10px;
-    border-radius: 18px;
-    background: rgba(15, 20, 34, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(20px) saturate(170%);
-    -webkit-backdrop-filter: blur(20px) saturate(170%);
-    min-width: 0;
-  }
-
-  .ios-home-btn {
-    min-height: 34px;
-    padding: 5px 12px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
-    border: 1px solid rgba(255, 255, 255, 0.24);
-    color: #ffffff;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-
-  .ios-home-btn:hover {
-    background: rgba(255, 255, 255, 0.26);
-  }
-
-  .ios-sheet-tabs {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .ios-sheet-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .ios-sheet-tab {
-    flex: 0 0 auto;
-    min-height: 32px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: rgba(248, 250, 252, 0.86);
-    font-size: 0.78rem;
-  }
-
-  .ios-sheet-tab[aria-selected="true"] {
-    background: #ffffff;
-    color: #0f172a;
-    border-color: #ffffff;
-    font-weight: 600;
   }
 
   .ios-sheet-windows {

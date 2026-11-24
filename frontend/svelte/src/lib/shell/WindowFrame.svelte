@@ -31,6 +31,8 @@
     win,
     focused,
     floating = false,
+    framelessMobile = false,
+    edgeToEdge = false,
     chrome = "macos",
     desktopBounds = { width: 1440, height: 820, top: 32, bottom: 76 },
     onFocus,
@@ -47,6 +49,8 @@
     win: WindowState;
     focused: boolean;
     floating?: boolean;
+    framelessMobile?: boolean;
+    edgeToEdge?: boolean;
     chrome?: string;
     desktopBounds?: DesktopBounds;
     onFocus: (id: string) => void;
@@ -407,21 +411,24 @@
   class="win-frame"
   class:focused
   class:floating
+  class:frameless-mobile={framelessMobile}
   class:maximized={win.maximized}
   class:pinned={Boolean(win.pinned)}
   class:interacting
-  hidden={win.minimized}
+  hidden={win.minimized || (framelessMobile && !focused)}
   data-win-id={win.id}
   data-win-app={win.app}
   data-chrome={chrome}
   data-floating={floating}
+  data-frameless-mobile={framelessMobile}
   data-focused={focused}
   data-maximized={win.maximized}
   data-pinned={Boolean(win.pinned)}
   aria-label={win.title}
-  style={frameStyle}
+  style={framelessMobile ? "" : frameStyle}
   onpointerdown={() => onFocus(win.id)}
 >
+  {#if !framelessMobile}
   <div
     class="win-bar"
     class:draggable={floating}
@@ -544,8 +551,9 @@
       </button>
     </div>
   </div>
+  {/if}
 
-  <div class="win-body">
+  <div class="win-body" class:edge-to-edge={edgeToEdge}>
     <svelte:boundary>
       {@render children()}
       {#snippet failed(_error, reset)}
@@ -606,6 +614,22 @@
     position: absolute;
     width: auto;
     max-width: none;
+  }
+
+  .win-frame.frameless-mobile {
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .win-body.edge-to-edge {
+    padding: 0;
   }
 
   .win-frame.floating.maximized {
