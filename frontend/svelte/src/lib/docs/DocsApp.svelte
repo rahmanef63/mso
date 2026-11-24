@@ -1,65 +1,47 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import {
-    createDocsController,
-    type ChangelogSection,
-    type DocsState,
-  } from "./docs-api.ts";
+  import { createDocsController, type DocsState } from "./docs-api.ts";
+  import { STATIC_SECTIONS, countEntries, filterGroups, type DocsGroup, type DocsSectionId } from "./docs-sections.ts";
+  import DocsContent from "./DocsContent.svelte";
 
-  type DocsTab = "whats-new" | "quick-ref";
-
-  const QUICK_REFERENCE = [
-    {
-      title: "Keyboard shortcuts",
-      items: [
-        "Ctrl+S or Cmd+S saves the active buffer in the Code Editor.",
-        "Enter submits path lookups and workspace forms.",
-        "Tab and Shift+Tab navigate interactive controls in focus order.",
-      ],
-    },
-    {
-      title: "Device roles and authorization",
-      items: [
-        "MSO enforces Viewer, Operator, and Owner roles on the server.",
-        "Hiding or disabling controls in the UI is convenience only, not an authorization boundary.",
-        "Privileged settings and device approvals require an authenticated Owner session.",
-      ],
-    },
-    {
-      title: "Host and filesystem boundaries",
-      items: [
-        "Filesystem requests use authenticated /api/v1/fs/* endpoints with no-store responses.",
-        "Private credentials and runtime state under ~/.mso are blocked by host-file guards.",
-        "Local desktop and web clients stay same-origin unless explicitly configured by the shell bridge.",
-      ],
-    },
-    {
-      title: "Changelog source",
-      items: [
-        "What's New reads GET /api/changelog from the running deployment's generated changelog.",
-        "Run node scripts/gen-changelog.mjs or ship a release if a fresh checkout has no generated file yet.",
-      ],
-    },
-  ] as const;
-
-  let activeTab = $state<DocsTab>("whats-new");
+  let activeSection = $state<DocsSectionId>("changelog");
   let view = $state<DocsState>({ kind: "loading" });
-  let filterQuery = $state("");
+  let query = $state("");
+  let navOpen = $state(false);
   let controller: ReturnType<typeof createDocsController> | undefined;
 
-  let filteredSections = $derived.by<ChangelogSection[]>(() => {
-    if (view.kind !== "ready") return [];
-    const query = filterQuery.trim().toLowerCase();
-    if (!query) return view.sections;
-    return view.sections.flatMap((section): ChangelogSection[] => {
-      if (section.heading.toLowerCase().includes(query)) return [section];
-      const matches = section.items.filter((item) => item.toLowerCase().includes(query));
-      return matches.length > 0 ? [{ heading: section.heading, items: matches }] : [];
-    });
+  let changelogGroups = $derived.by<DocsGroup[]>(() => {
+    if (view.kind !== "ready" || !view.generated) return [];
+    return view.sections.map((section): DocsGroup => ({
+      title: section.heading,
+      entries: section.items.map((item) => ({ title: item, body: "" })),
+    }));
+  });
+  let activeGroups = $derived<DocsGroup[]>(
+    activeSection === "changelog"
+      ? changelogGroups
+      : (STATIC_SECTIONS.find((section) => section.id === activeSection)?.groups ?? []));
+  let filtered = $derived(filterGroups(activeGroups, query));
+  let totalEntries = $derived(countEntries(activeGroups));
+
+  let emptyMessage = $derived.by(() => {
+    if (query.trim()) return `No entries match "${query.trim()}" in this section.`;
+    if (activeSection === "changelog" && view.kind === "loading") return "Loading changelog...";
+    if (activeSection === "changelog" && view.kind === "error") return "";
+    if (activeSection === "changelog" && view.kind === "ready" && !view.generated) {
+      return "No generated changelog in this checkout yet. Run node scripts/gen-changelog.mjs to populate release notes.";
+    }
+    return "This section has no entries yet.";
   });
 
+  function select(id: DocsSectionId) {
+    activeSection = id;
+    query = "";
+    navOpen = false;
+  }
+
   export function refresh() {
-    void controller?.refresh();
+    if (activeSection === "changelog") void controller?.refresh();
   }
 
   onMount(() => {
@@ -70,119 +52,83 @@
 </script>
 
 <section
+  class="docs"
   aria-labelledby="docs-title"
-  aria-busy={activeTab === "whats-new" && view.kind === "loading"}
-  data-docs-tab={activeTab}
+  aria-busy={activeSection === "changelog" && view.kind === "loading"}
+  data-docs-section={activeSection}
   data-docs-state={view.kind}
 >
-  <header class="feature-header">
-    <h2 id="docs-title">Docs &amp; Changelog</h2>
-    {#if activeTab === "whats-new"}
-      <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
-        {view.kind === "loading" ? "Loading..." : "Refresh"}
-      </button>
-    {/if}
+  <header class="docs-bar">
+    <div class="docs-id">
+      <h2 id="docs-title">Docs</h2>
+      {#if totalEntries > 0}<span class="pill">{totalEntries} entries</span>{/if}
+      <button type="button" class="docs-nav-toggle" aria-expanded={navOpen} aria-controls="docs-nav"
+        onclick={() => { navOpen = !navOpen; }}>Sections</button>
+    </div>
+    <div class="docs-tools">
+      <label class="sr-only" for="docs-search">Search documentation</label>
+      <input id="docs-search" type="search" bind:value={query} placeholder="Search this section" />
+      {#if activeSection === "changelog"}
+        <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
+          {view.kind === "loading" ? "Loading..." : "Refresh"}
+        </button>
+      {/if}
+    </div>
   </header>
 
-  <div class="docs-tabs" role="tablist" aria-label="Documentation sections">
-    <button
-      id="tab-whats-new"
-      type="button"
-      role="tab"
-      aria-selected={activeTab === "whats-new"}
-      aria-controls="panel-whats-new"
-      class:primary={activeTab === "whats-new"}
-      onclick={() => { activeTab = "whats-new"; }}
-    >
-      What's New
-    </button>
-    <button
-      id="tab-quick-ref"
-      type="button"
-      role="tab"
-      aria-selected={activeTab === "quick-ref"}
-      aria-controls="panel-quick-ref"
-      class:primary={activeTab === "quick-ref"}
-      onclick={() => { activeTab = "quick-ref"; }}
-    >
-      Quick Reference
-    </button>
+  <div class="docs-layout" class:nav-open={navOpen}>
+    <nav id="docs-nav" class="docs-nav" aria-label="Documentation sections">
+      <button type="button" class:active={activeSection === "changelog"}
+        aria-current={activeSection === "changelog" ? "page" : undefined}
+        onclick={() => select("changelog")}>
+        <span class="nav-label">What's New</span>
+        <span class="nav-summary">Generated release notes</span>
+      </button>
+      {#each STATIC_SECTIONS as section (section.id)}
+        <button type="button" class:active={activeSection === section.id}
+          aria-current={activeSection === section.id ? "page" : undefined}
+          onclick={() => select(section.id)}>
+          <span class="nav-label">{section.label}</span>
+          <span class="nav-summary">{section.summary}</span>
+        </button>
+      {/each}
+      <p class="nav-foot">Rendered as structured text. No raw markup is injected.</p>
+    </nav>
+
+    <div class="docs-body" role="region" aria-live="polite">
+      {#if activeSection === "changelog" && view.kind === "error"}
+        <p class="feedback error" role="alert">{view.message}</p>
+      {/if}
+      <DocsContent groups={filtered} {query} {emptyMessage} onChange={(value) => { query = value; }} />
+    </div>
   </div>
-
-  {#if activeTab === "whats-new"}
-    <div id="panel-whats-new" role="tabpanel" aria-labelledby="tab-whats-new" class="docs-panel">
-      <div class="field docs-filter">
-        <label for="docs-changelog-filter">Filter release notes</label>
-        <input
-          id="docs-changelog-filter"
-          type="search"
-          bind:value={filterQuery}
-          placeholder="Search date, scope, or change"
-        />
-      </div>
-
-      <div role="status" aria-live="polite">
-        {#if view.kind === "loading"}
-          <p>Loading changelog...</p>
-        {:else if view.kind === "error"}
-          <p class="feedback error" role="alert">{view.message}</p>
-        {:else if !view.generated}
-          <p class="feedback pending">
-            No generated changelog is available in this checkout yet. Run
-            <code>node scripts/gen-changelog.mjs</code> to populate release notes.
-          </p>
-        {:else if view.sections.length === 0}
-          <p>No changelog entries were found.</p>
-        {:else if filteredSections.length === 0}
-          <p>No changelog entries match "{filterQuery.trim()}".</p>
-        {:else}
-          <div class="changelog-list">
-            {#each filteredSections as section (section.heading)}
-              <article class="docs-card">
-                <h3>{section.heading}</h3>
-                <ul>
-                  {#each section.items as item, index (`${section.heading}-${index}`)}
-                    <li>{item}</li>
-                  {/each}
-                </ul>
-              </article>
-            {/each}
-          </div>
-        {/if}
-      </div>
-    </div>
-  {:else}
-    <div id="panel-quick-ref" role="tabpanel" aria-labelledby="tab-quick-ref" class="docs-panel">
-      <div class="ref-grid">
-        {#each QUICK_REFERENCE as group (group.title)}
-          <article class="docs-card">
-            <h3>{group.title}</h3>
-            <ul>
-              {#each group.items as item (item)}
-                <li>{item}</li>
-              {/each}
-            </ul>
-          </article>
-        {/each}
-      </div>
-    </div>
-  {/if}
 </section>
 
 <style>
-  .docs-tabs { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.875rem; }
-  .docs-panel { margin-top: 1rem; display: grid; gap: 0.875rem; min-width: 0; }
-  .docs-filter { max-width: 26rem; }
-  .changelog-list,
-  .ref-grid { display: grid; gap: 0.75rem; min-width: 0; }
-  .ref-grid { grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); }
-  .docs-card {
-    padding: 0.875rem 1rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--surface);
-    min-width: 0;
+  .docs { display: grid; gap: 0.75rem; min-width: 0; }
+  .docs-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+  .docs-id, .docs-tools { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
+  .docs-bar h2 { margin: 0; font-size: 1rem; }
+  .docs-tools input { min-height: 2rem; width: 13rem; max-width: 100%; }
+  .docs-nav-toggle { display: none; font-size: 0.75rem; padding: 0.1875rem 0.5rem; }
+  .docs-layout { display: grid; grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); gap: 0.875rem; min-width: 0; }
+  .docs-nav {
+    display: grid; gap: 0.25rem; align-content: start; padding: 0.625rem;
+    border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel);
   }
-  .docs-card ul { margin: 0.5rem 0 0; padding-left: 1.25rem; display: grid; gap: 0.375rem; }
-  .docs-card li { color: var(--text); overflow-wrap: anywhere; }
+  .docs-nav button { display: grid; gap: 0.125rem; text-align: left; font-size: 0.8125rem; padding: 0.375rem 0.5rem; background: transparent; border-color: transparent; }
+  .docs-nav button.active { border-color: var(--accent); background: var(--surface); color: var(--accent); }
+  .nav-label { font-weight: 600; }
+  .nav-summary { font-size: 0.6875rem; color: var(--muted); }
+  .nav-foot { margin: 0.375rem 0 0; font-size: 0.6875rem; color: var(--muted); }
+  .docs-body { display: grid; gap: 0.75rem; align-content: start; min-width: 0; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .pill { display: inline-block; padding: 0.125rem 0.5rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.75rem; color: var(--muted); }
+  @media (max-width: 620px) {
+    .docs-layout { grid-template-columns: minmax(0, 1fr); }
+    .docs-nav-toggle { display: inline-flex; }
+    .docs-nav { display: none; }
+    .docs-layout.nav-open .docs-nav { display: grid; }
+    .docs-tools input { width: 100%; }
+  }
 </style>
