@@ -73,7 +73,9 @@ gateway_start_runtime_if_needed() {
 
   next="$ROOT/scripts/server.mjs"
   [ -f "$next" ] || gateway_fail "MSO runtime is down and the production entry point is missing; run: mso update"
-  [ -f "$ROOT/.next/BUILD_ID" ] || gateway_fail "MSO runtime is down and no production build exists; run: mso update"
+  if [ ! -f "$ROOT/frontend/svelte/build/index.html" ] && [ ! -f "$ROOT/.next/BUILD_ID" ]; then
+    gateway_fail "MSO runtime is down and no production build exists; run: mso update"
+  fi
   IFS=$'\t' read -r host port < <(gateway_loopback_host_port)
   [ "$host" = "127.0.0.1" ] || [ "$host" = "localhost" ] \
     || gateway_fail "detached fallback supports 127.0.0.1/localhost; start MSO manually for $host"

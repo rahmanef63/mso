@@ -161,7 +161,12 @@ export async function captureMsoScreen(opts?: {
     });
     if (cookie.success === false) throw new Error("Could not seed screenshot session cookie");
 
-    const shellPrefs = JSON.stringify({ desktop: shell, mobile: "ios" });
+    const isMobileShell = shell === "ios" || shell === "android";
+    const shellPrefs = JSON.stringify({
+      desktop: isMobileShell ? "macos" : shell,
+      mobile: isMobileShell ? shell : "ios",
+      override: shell,
+    });
     await cdp.call("Page.addScriptToEvaluateOnNewDocument", {
       source: `try { localStorage.setItem('sv:shell', ${JSON.stringify(shellPrefs)}); } catch {}`,
     });
@@ -171,7 +176,7 @@ export async function captureMsoScreen(opts?: {
     let ready = false;
     while (Date.now() < deadline) {
       const r = await cdp.call<{ result?: { value?: boolean } }>("Runtime.evaluate", {
-        expression: `Boolean(document.querySelector('#main-content[data-shell="${shell}"]'))`,
+        expression: `Boolean(document.querySelector('[data-chrome="${shell}"], #main-content[data-shell="${shell}"]'))`,
         returnByValue: true,
       }).catch(() => ({ result: { value: false } }));
       if (r.result?.value) { ready = true; break; }
@@ -179,6 +184,18 @@ export async function captureMsoScreen(opts?: {
     }
     if (!ready) throw new Error(`MSO shell did not become ready for screenshot (${shell})`);
     await new Promise((resolve) => setTimeout(resolve, 650));
+
+    const brokenCheck = await cdp.call<{ result?: { value?: string[] } }>("Runtime.evaluate", {
+      expression: `Array.from(document.querySelectorAll('img')).filter((img) => {
+        const rect = img.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && (!img.complete || img.naturalWidth === 0);
+      }).map((img) => img.getAttribute('src') || 'img')`,
+      returnByValue: true,
+    }).catch(() => ({ result: { value: [] } }));
+    const broken = brokenCheck.result?.value ?? [];
+    if (broken.length > 0) {
+      throw new Error(`MSO screenshot aborted: broken image assets (${broken.slice(0, 5).join(", ")})`);
+    }
 
     const shot = await cdp.call<{ data: string }>("Page.captureScreenshot", {
       format: "png",

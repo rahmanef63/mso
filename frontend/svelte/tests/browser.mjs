@@ -4,7 +4,7 @@ import { createServer as createNetServer } from "node:net";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
-import { chromium } from "@playwright/test";
+import { launchChromium } from "./_browser-launch.mjs";
 
 // Allocate an ephemeral loopback port so parallel agent worktrees can run browser E2E concurrently without colliding on 4173.
 async function findFreeLoopbackPort() {
@@ -75,7 +75,7 @@ try {
     await delay(100);
   }
   assert.ok(listening, output);
-  browser = await chromium.launch({ headless: true });
+  browser = await launchChromium();
 
   for (const colorScheme of ["light", "dark"]) {
     for (const width of [320, 390, 1440]) {

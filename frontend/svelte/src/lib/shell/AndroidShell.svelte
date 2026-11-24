@@ -334,7 +334,7 @@
     </div>
   {/if}
 
-  <main id="main-content" tabindex="-1" class="android-main">
+  <main id="main-content" tabindex="-1" data-shell={resolvedChrome} class="android-main">
     <div class="android-home-stage" hidden={showingWindows}>
       {#if authenticated}
         <section class="android-glance" aria-label="At a Glance">

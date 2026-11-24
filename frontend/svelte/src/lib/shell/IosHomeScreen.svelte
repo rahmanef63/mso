@@ -188,7 +188,7 @@
     </div>
   </header>
 
-  <main id="main-content" tabindex="-1" class="ios-main">
+  <main id="main-content" tabindex="-1" data-shell={resolvedChrome} class="ios-main">
     <div class="ios-home-stage" hidden={showingWindows}>
       <div class="ios-widget-surface" class:ios-login-wrap={!authenticated}>
         {@render monitorSlot()}

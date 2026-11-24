@@ -275,7 +275,7 @@
       </aside>
     {/if}
 
-    <main id="main-content" tabindex="-1" class="dash-main">
+    <main id="main-content" tabindex="-1" data-shell={resolvedChrome} class="dash-main">
       <div class="dash-canvas">
         <div class="dash-monitor-slot" class:dash-login-wrap={!authenticated}>
           {@render monitorSlot()}
