@@ -1,63 +1,89 @@
 <script lang="ts">
   import {
-    createChannelsController,
-    type ChannelItem,
-    type ChannelsState,
-  } from "./integrations-api.ts";
+    createChannelsWorkspaceController,
+    type ChannelsWorkspaceState,
+  } from "./channels-workspace.ts";
+  import type { ChannelDraft, ChannelRecordView } from "./channels-api.ts";
+  import { channelHealth, draftValid } from "./channels-draft.ts";
+  import ChannelCard from "./ChannelCard.svelte";
+  import ChannelEditor from "./ChannelEditor.svelte";
 
   let { role = null }: { role?: "viewer" | "operator" | "owner" | null } = $props();
 
-  let view = $state<ChannelsState>({ kind: "loading" });
+  let view = $state<ChannelsWorkspaceState>({ kind: "loading" });
   let filterQuery = $state("");
-  let controller: ReturnType<typeof createChannelsController> | undefined;
+  let editor = $state<ChannelRecordView | "new" | null>(null);
+  let editorBusy = $state(false);
+  let editorError = $state("");
+  let notice = $state("");
+  let controller: ReturnType<typeof createChannelsWorkspaceController> | undefined;
 
   let isOwner = $derived(role === "owner");
 
-  let visibleChannels = $derived.by<ChannelItem[]>(() => {
-    if (view.kind !== "ready") return [];
+  let channels = $derived.by<ChannelRecordView[]>(() => (view.kind === "ready" ? view.workspace.channels : []));
+  let workflowNames = $derived.by<Map<string, string>>(() => {
+    const map = new Map<string, string>();
+    if (view.kind === "ready") for (const workflow of view.workspace.workflows) map.set(workflow.id, workflow.name);
+    return map;
+  });
+
+  let visible = $derived.by<ChannelRecordView[]>(() => {
     const q = filterQuery.trim().toLowerCase();
-    if (!q) return view.snapshot.channels;
-    return view.snapshot.channels.filter((ch) =>
-      `${ch.name} ${ch.provider} ${ch.id} ${ch.credentialUser} ${ch.credentialConnection} ${ch.enabled ? "enabled" : "disabled"}`
-        .toLowerCase().includes(q));
+    if (!q) return channels;
+    return channels.filter((row) => {
+      const health = channelHealth({
+        enabled: row.enabled, connectionState: row.connectionState, connectionError: row.connectionError,
+        lastCheckOk: row.lastCheck ? row.lastCheck.ok : null,
+      });
+      return `${row.name} ${row.provider} ${row.credentialUser} ${row.credentialConnection} ${health} ${row.defaultTarget ?? ""}`
+        .toLowerCase().includes(q);
+    });
   });
 
   let stateTag = $derived.by(() => {
     if (!isOwner) return "owner-only";
     if (view.kind !== "ready") return view.kind;
-    if (view.snapshot.channels.length === 0) return "empty";
-    return visibleChannels.length === 0 ? "no-filter-matches" : "ready";
+    if (channels.length === 0) return "empty";
+    return visible.length === 0 ? "no-filter-matches" : "ready";
   });
-
-  function connectionTone(ch: ChannelItem): "ok" | "warn" | "danger" | "neutral" {
-    if (ch.connectionError || ch.connectionState === "missing" || ch.connectionState === "invalid") return "danger";
-    if (ch.connectionState === "verified" || ch.lastCheck?.ok === true) return "ok";
-    if (ch.lastCheck?.ok === false) return "danger";
-    if (ch.connectionState === "configured") return "warn";
-    return "neutral";
-  }
-
-  function formatTime(iso: string | null): string {
-    if (!iso) return "";
-    const parsed = Date.parse(iso);
-    return Number.isNaN(parsed) ? iso : new Date(parsed).toLocaleString();
-  }
 
   export function refresh() {
     if (isOwner) void controller?.refresh();
   }
 
-  function triggerTest(id: string) {
-    if (isOwner) void controller?.runTest(id);
+  function openEditor(target: ChannelRecordView | "new") {
+    editorError = "";
+    editor = target;
+  }
+
+  function closeEditor() {
+    editor = null;
+    editorError = "";
+  }
+
+  async function save(draft: ChannelDraft) {
+    if (!controller || editorBusy) return;
+    editorBusy = true;
+    editorError = "";
+    const row = editor === "new" ? null : editor;
+    const ok = await controller.save(row, draft);
+    editorBusy = false;
+    if (ok) {
+      notice = row ? `${draft.name} updated.` : `${draft.name} created.`;
+      editor = null;
+      return;
+    }
+    editorError = "The channel was not saved. Your draft is still here; reload the list to compare revisions.";
   }
 
   $effect(() => {
     if (!isOwner) {
       controller?.dispose();
       controller = undefined;
+      editor = null;
       return;
     }
-    const next = createChannelsController((s) => { view = s; });
+    const next = createChannelsWorkspaceController((state) => { view = state; });
     controller = next;
     void next.refresh();
     return () => {
@@ -67,24 +93,43 @@
   });
 </script>
 
-<section aria-labelledby="channels-title" aria-busy={isOwner && view.kind === "loading"} data-channels-state={stateTag}>
+<section aria-labelledby="channels-title" aria-busy={view.kind === "loading"} data-channels-state={stateTag}>
   <header class="feature-header">
     <h2 id="channels-title">Channels</h2>
     {#if isOwner}
-      <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
-        {view.kind === "loading" ? "Loading..." : "Refresh"}
-      </button>
+      <div class="actions">
+        <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
+          {view.kind === "loading" ? "Loading..." : "Refresh"}
+        </button>
+        <button type="button" class="primary" disabled={view.kind !== "ready"} onclick={() => openEditor("new")}>Add channel</button>
+      </div>
     {/if}
   </header>
 
   {#if !isOwner}
     <p class="feedback pending" role="status">
-      Owner role is required to view and test configured messaging channels. Sign in from an Owner device to check channel connectivity.
+      Owner role is required to view, test and edit messaging channels. Sign in from an Owner device to check
+      channel connectivity.
     </p>
   {:else}
+    {#if notice}<p class="feedback ok" role="status">{notice}</p>{/if}
+
+    {#if editor}
+      <ChannelEditor
+        row={editor === "new" ? null : editor}
+        credentials={view.kind === "ready" ? view.workspace.credentials : []}
+        workflows={view.kind === "ready" ? view.workspace.workflows : []}
+        groups={view.kind === "ready" ? view.workspace.groups : []}
+        busy={editorBusy}
+        error={editorError}
+        onSave={(draft) => void save(draft)}
+        onCancel={closeEditor}
+      />
+    {/if}
+
     <div class="ch-filter-wrap">
       <label for="channels-filter">Filter channels</label>
-      <input id="channels-filter" type="search" bind:value={filterQuery} placeholder="Name, platform, credential, or status" />
+      <input id="channels-filter" type="search" bind:value={filterQuery} placeholder="Name, provider, credential, or status" />
     </div>
 
     <div role="status" aria-live="polite">
@@ -92,57 +137,37 @@
         <p>Loading configured channels...</p>
       {:else if view.kind === "error"}
         <p class="feedback error" role="alert">{view.message}</p>
-      {:else if view.snapshot.channels.length === 0}
-        <p>No messaging channels configured yet.</p>
-      {:else if visibleChannels.length === 0}
+        <div class="actions"><button type="button" onclick={refresh}>Retry</button></div>
+      {:else if channels.length === 0}
+        <div class="ch-empty">
+          <h3>Connect MSO to a conversation channel</h3>
+          <p>
+            Telegram and Discord share one channel contract. Bot credentials stay in Integrations; verified inbound
+            events can start native workflows.
+          </p>
+          <div class="actions">
+            <button type="button" class="primary" onclick={() => openEditor("new")}>Add channel</button>
+            <button type="button" disabled>Open Integrations from the dock</button>
+          </div>
+        </div>
+      {:else if visible.length === 0}
         <p>No channels match "{filterQuery.trim()}".</p>
       {:else}
-        <ul class="ch-list" aria-label="Configured messaging channels">
-          {#each visibleChannels as ch (ch.id)}
-            {@const feedback = view.tests[ch.id]}
-            <li class="ch-row">
-              <div class="ch-info">
-                <div class="ch-heading">
-                  <strong>{ch.name}</strong>
-                  <span class="pill">{ch.provider}</span>
-                  <span class="pill" data-tone={ch.enabled ? "ok" : "neutral"}>
-                    {ch.enabled ? "enabled" : "disabled"}
-                  </span>
-                  {#if ch.connectionState}
-                    <span class="pill" data-tone={connectionTone(ch)}>{ch.connectionState}</span>
-                  {/if}
-                </div>
-                <p class="ch-meta">
-                  Credential: {ch.credentialUser}/{ch.credentialConnection}
-                  {#if ch.lastCheck} | Last check: {ch.lastCheck.ok ? "ok" : "failed"} ({formatTime(ch.lastCheck.at)}){/if}
-                </p>
-                {#if ch.connectionError}
-                  <p class="ch-err">Connection error: {ch.connectionError}</p>
-                {/if}
-                {#if feedback}
-                  <p
-                    class="feedback ch-feedback"
-                    class:ok={feedback.status === "ok"}
-                    class:error={feedback.status === "error"}
-                    class:pending={feedback.status === "testing"}
-                    role={feedback.status === "error" ? "alert" : "status"}
-                  >
-                    {feedback.message}
-                  </p>
-                {/if}
-              </div>
-              <div class="ch-actions">
-                <button
-                  type="button"
-                  disabled={feedback?.status === "testing"}
-                  onclick={() => triggerTest(ch.id)}
-                >
-                  {feedback?.status === "testing" ? "Testing..." : "Test"}
-                </button>
-              </div>
-            </li>
+        <div class="ch-grid" aria-label="Configured messaging channels">
+          {#each visible as row (row.id)}
+            {@const feedback = view.tests[row.id]}
+            <ChannelCard
+              {row}
+              workflowName={row.workflowId ? workflowNames.get(row.workflowId) ?? null : null}
+              {feedback}
+              onEdit={() => openEditor(row)}
+              onToggle={(enabled) => void controller?.toggle(row.id, enabled)}
+              onDelete={() => void controller?.remove(row.id)}
+              onTest={() => void controller?.runTest(row.id)}
+              onSend={(target, text) => void controller?.send(row.id, target, text)}
+            />
           {/each}
-        </ul>
+        </div>
       {/if}
     </div>
   {/if}
@@ -152,19 +177,10 @@
   .ch-filter-wrap { display: grid; gap: 0.375rem; margin: 1rem 0; }
   .ch-filter-wrap label { font-size: 0.875rem; font-weight: 600; color: var(--text); }
   .ch-filter-wrap input { width: 100%; min-width: 0; min-height: var(--ui-control-height); }
-  .ch-list { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.625rem; max-height: 24rem; overflow-y: auto; }
-  .ch-row {
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
-    padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel);
-  }
-  .ch-info { display: grid; gap: 0.25rem; min-width: 0; flex: 1 1 14rem; }
-  .ch-heading { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .ch-meta { margin: 0; font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .ch-err { margin: 0; font-size: 0.8125rem; color: var(--danger); }
-  .ch-feedback { margin-top: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
-  .ch-actions { display: flex; align-items: center; gap: 0.5rem; }
-  .pill { display: inline-block; padding: 0.125rem 0.5rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.75rem; color: var(--muted); }
-  .pill[data-tone="ok"] { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
-  .pill[data-tone="danger"] { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
-  .pill[data-tone="warn"] { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
+  .ch-grid { display: grid; gap: 0.625rem; grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr)); min-width: 0; }
+  .ch-empty { display: grid; gap: 0.5rem; padding: 0.875rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel); }
+  .ch-empty h3 { margin: 0; }
+  .ch-empty p { margin: 0; font-size: 0.875rem; color: var(--muted); }
+  section { display: grid; gap: 0.75rem; align-content: start; }
+  @media (max-width: 420px) { .actions button { flex: 1 1 100%; } }
 </style>
