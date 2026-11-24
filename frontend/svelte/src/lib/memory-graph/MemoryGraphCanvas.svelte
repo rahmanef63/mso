@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./MemoryGraphCanvas.css";
   import type { MemoryEdgeKind, MemoryGraphEdge, MemoryGraphNode } from "./memory-graph-api.ts";
   import {
     computeBounds,
@@ -214,17 +215,3 @@
     </g>
   </svg>
 </div>
-
-<style>
-  .mg-canvas { position: relative; min-width: 0; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel); overflow: hidden; }
-  .mg-canvas svg { display: block; width: 100%; height: 100%; min-height: 15rem; touch-action: none; cursor: grab; }
-  .mg-canvas svg:active { cursor: grabbing; }
-  .mg-zoom { position: absolute; top: 0.375rem; right: 0.375rem; z-index: 2; display: flex; gap: 0.25rem; }
-  .mg-zoom button { min-height: 1.9rem; padding: 0.15rem 0.5rem; font-size: 0.8125rem; line-height: 1; }
-  .mg-node { cursor: pointer; }
-  .mg-node.dimmed { opacity: 0.35; }
-  .mg-node text { pointer-events: none; }
-  @media (max-width: 26rem) {
-    .mg-canvas svg { min-height: 12rem; }
-  }
-</style>

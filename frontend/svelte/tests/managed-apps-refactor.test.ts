@@ -16,50 +16,19 @@ import {
 import { brandFor, loopbackUrl } from "../src/lib/managed-apps/appdeck-catalog.ts";
 import { createAppDeckDetail } from "../src/lib/managed-apps/appdeck-detail.ts";
 import { createAppDeckOverview } from "../src/lib/managed-apps/appdeck-overview.ts";
-import type { ManagedAppItem } from "../src/lib/managed-apps/managed-apps-api.ts";
-
-const SLICE = resolve(import.meta.dirname, "../src/lib/managed-apps");
-const signal = new AbortController().signal;
-
-const job = {
-  id: "a".repeat(24), applicationId: "hermes", kind: "update", argv: ["hermes", "update"],
-  status: "succeeded", startedAt: "2026-11-21T19:00:00.000Z", endedAt: "2026-11-21T19:01:00.000Z",
-  exitCode: 0, error: null, logOffset: 12, updatedAt: "2026-11-21T19:01:00.000Z",
-};
-
-const app = (over: Partial<ManagedAppItem> = {}): ManagedAppItem => ({
-  id: "hermes", name: "Hermes", description: "Agent runtime", installed: true, installationType: "systemd",
-  state: "running", healthy: true, version: "1.4.2", dashboardAvailable: true,
-  publicDashboardUrl: "https://hermes.example.com", supportedActions: ["start", "stop", "restart", "backup"],
-  diagnostic: null, ...over,
-});
+import {
+  SLICE, app, backupsPayload, createDetailFetcher, discoveryPayload, job, overviewFetcher,
+  packageUpdates, preflightPayload, signal, tunnelsPayload, updatePackagePayload, updateStatusPayload,
+} from "./managed-apps-refactor-fixtures.ts";
 
 test("schema parsers accept the documented payloads", () => {
   assert.equal(parseJobs({ jobs: [job] })[0]?.kind, "update");
   assert.equal(parseLogs({ available: true, entries: ["line"] }).entries.length, 1);
-  assert.equal(parseBackups({ backups: [{
-    id: "20261121T190000Z", applicationId: "hermes", createdAt: "2026-11-21T19:00:00.000Z",
-    source: "/home/a/.hermes", reason: "manual", files: 3, bytes: 4096,
-  }] })[0]?.reason, "manual");
-  assert.equal(parsePreflight({
-    appId: "hermes", appName: "Hermes", installed: true, ready: true, summary: "Ready",
-    backend: "user-systemd", checkedAt: "2026-11-21T19:00:00.000Z",
-    checks: [{ id: "disk", label: "Storage", status: "pass", detail: "24 GB free" }],
-  }).ready, true);
-  assert.equal(parseDiscovery({
-    checkedAt: "2026-11-21T19:00:00.000Z", dockerAvailable: false,
-    apps: [{ id: "x", name: "X", description: "", ownership: "detected-local", running: false, source: "port",
-      recommendedAction: "connect", hint: "Found on port 8080" }],
-  }).apps.length, 1);
-  assert.equal(parseTunnels({ sshAvailable: true, tunnels: [{
-    id: "t1", appId: "n8n", title: "n8n", sshUser: "u", sshHost: "h", sshPort: 22, remotePort: 5678,
-    localPort: 15678, active: true, pid: 42, localUrl: "http://127.0.0.1:15678", error: null,
-  }] }).tunnels[0]?.active, true);
-  assert.equal(parseUpdateStatus({
-    currentVersion: "1.0.0", latestVersion: "1.1.0", updateAvailable: true, detail: null,
-    channel: { value: "main", kind: "branch", available: [], switchable: false, reason: null },
-    installKind: "git", checkedAt: "2026-11-21T19:00:00.000Z", error: null,
-  }).updateAvailable, true);
+  assert.equal(parseBackups(backupsPayload)[0]?.reason, "manual");
+  assert.equal(parsePreflight(preflightPayload).ready, true);
+  assert.equal(parseDiscovery(discoveryPayload).apps.length, 1);
+  assert.equal(parseTunnels(tunnelsPayload).tunnels[0]?.active, true);
+  assert.equal(parseUpdateStatus(updateStatusPayload).updateAvailable, true);
 });
 
 test("schema parsers fail closed on foreign shapes", () => {
@@ -135,11 +104,7 @@ test("tunnel summary and job log helpers stay bounded", () => {
 });
 
 test("package cache view filters, counts, and sorts without mutating input", () => {
-  const updates = [
-    { name: "openssl", current: "3.0.13", candidate: "3.0.13.4", architecture: "amd64" },
-    { name: "curl", current: "8.5.0", candidate: "8.5.0" },
-    { name: "nodejs", candidate: "20.1.0", architecture: "arm64" },
-  ];
+  const updates = [...packageUpdates];
   assert.equal(packageStatus(updates[0]!), "upgradable");
   assert.equal(packageStatus(updates[1]!), "installed");
   assert.equal(packageStatus(updates[2]!), "unknown");
@@ -175,32 +140,7 @@ test("brand catalog covers every managed app id and refuses bogus ports", () => 
 test("detail controller loads tabs, re-reads after an action, and drops late answers", async () => {
   const seen: string[] = [];
   let lastDetail: Record<string, unknown> | null = null;
-  let actionPosts = 0;
-  const fetcher: typeof fetch = async (input, init) => {
-    const url = String(input);
-    seen.push(`${init?.method ?? "GET"} ${url}`);
-    if (init?.method === "POST") {
-      actionPosts++;
-      return Response.json({ app: app() });
-    }
-    if (url.endsWith("/preflight")) {
-      return Response.json({
-        appId: "hermes", appName: "Hermes", installed: true, ready: true, summary: "Ready",
-        backend: "user-systemd", checkedAt: "2026-11-21T19:00:00.000Z", checks: [],
-      });
-    }
-    if (url.endsWith("/update")) {
-      return Response.json({
-        currentVersion: "1.4.2", latestVersion: null, updateAvailable: false, detail: null,
-        channel: { value: "main", kind: "branch", available: [], switchable: false, reason: null },
-        installKind: "git", checkedAt: "2026-11-21T19:00:00.000Z", error: null,
-      });
-    }
-    if (url.endsWith("/jobs")) return Response.json({ jobs: [job] });
-    if (url.endsWith("/logs")) return Response.json({ available: true, entries: ["ok"] });
-    if (url.endsWith("/backups")) return Response.json({ backups: [] });
-    return Response.json({ error: "unexpected" }, { status: 500 });
-  };
+  const { fetcher, actionPosts } = createDetailFetcher(seen);
   const ctrl = createAppDeckDetail("hermes", (next) => { lastDetail = next as unknown as Record<string, unknown>; }, { fetcher });
   await ctrl.loadTab("lifecycle");
   assert.ok(seen.some((line) => line.endsWith("/preflight")));
@@ -210,7 +150,7 @@ test("detail controller loads tabs, re-reads after an action, and drops late ans
   assert.equal((lastDetail!.jobs as { kind: string }).kind, "ready");
   assert.equal((lastDetail!.logs as { kind: string }).kind, "ready");
   await ctrl.act("restart");
-  assert.equal(actionPosts, 1);
+  assert.equal(actionPosts(), 1);
   assert.match(String(lastDetail!.notice), /restart requested/);
   assert.equal(lastDetail!.busy, null);
   ctrl.dispose();
@@ -230,14 +170,7 @@ test("detail controller maps a refused lifecycle action without leaking the body
 });
 
 test("overview controller keeps discovery and tunnel failures independent", async () => {
-  const fetcher: typeof fetch = async (input) => {
-    const url = String(input);
-    if (url.endsWith("/managed-apps")) return Response.json({ apps: [app()] });
-    if (url.endsWith("/discover")) {
-      return Response.json({ checkedAt: "2026-11-21T19:00:00.000Z", dockerAvailable: false, apps: [] });
-    }
-    return Response.json({ error: "owner_required" }, { status: 403 });
-  };
+  const fetcher = overviewFetcher;
   let state: Record<string, unknown> | null = null;
   const ctrl = createAppDeckOverview((next) => { state = next as unknown as Record<string, unknown>; }, fetcher);
   ctrl.refresh();

@@ -4,28 +4,17 @@ import { runSavedProfile } from "./assistant-cockpit-api.ts";
 import { findPlaybook } from "./assistant-presets.ts";
 import type { AssistantMessage, AssistantState, AssistantToolCall } from "./assistant-types.ts";
 import { createWorkspaceActions } from "./assistant-workspace.ts";
+import { sendAssistantMessage, type SendContext } from "./assistant-send.ts";
 
 export type { AssistantMessage, AssistantState };
+export { initialAssistantState } from "./assistant-initial-state.ts";
+import { initialAssistantState } from "./assistant-initial-state.ts";
 export type AssistantControllerOptions = {
   fetcher?: typeof fetch;
   bridge?: ShellBridge;
   initialModel?: string;
   system?: string;
 };
-
-export function initialAssistantState(initialModel = ""): AssistantState {
-  return {
-    models: [], modelsLoading: false, selectedModel: initialModel,
-    messages: [], streaming: false, error: null,
-    threads: [], threadsStatus: "idle", threadsNote: null,
-    activeThreadId: null, activeThreadTitle: null, activeThreadCreatedAt: 0,
-    profiles: [], profilesStatus: "idle", profilesNote: null,
-    activeProfileId: null, activePlaybookId: null,
-    tools: [], toolsScope: "", toolsStatus: "idle", toolsNote: null,
-    sessions: [], sessionsStatus: "idle", sessionsNote: null,
-    cockpit: null, liveActivity: null,
-  };
-}
 
 export function createAssistantController(
   update: (state: AssistantState) => void,
@@ -65,6 +54,26 @@ export function createAssistantController(
     isChatCurrent: (gen) => gen === chatGen,
     toWireHistory,
   });
+
+  const sendCtx: SendContext = {
+    get state() { return state; },
+    fetcher,
+    getBridge,
+    workspace,
+    disposed: () => disposed,
+    nextId,
+    emit,
+    patchMessage,
+    toWireHistory,
+    buildSystemPrompt: () => buildSystemPrompt(),
+    beginStream: () => {
+      const chat = abortActiveStream();
+      const run = ++streamGen;
+      return { run, chatGen, chat };
+    },
+    setStreamAbort: (ctrl) => { streamAbort = ctrl; },
+    isStale: (run, chat, ctrl) => disposed || run !== streamGen || chat !== chatGen || ctrl.signal.aborted,
+  };
 
   async function loadModels(): Promise<void> {
     if (disposed) return;
@@ -106,105 +115,8 @@ export function createAssistantController(
     return parts.length ? parts.join("\n\n") : undefined;
   }
 
-  async function sendMessage(rawPrompt: string): Promise<void> {
-    if (disposed || state.streaming) return;
-    const prompt = rawPrompt.trim();
-    if (!prompt) return;
-
-    const run = ++streamGen, activeChat = chatGen, now = Date.now();
-    const activeProfile = state.activeProfileId
-      ? state.profiles.find((p) => p.id === state.activeProfileId && p.enabled) ?? null
-      : null;
-    const userMsg: AssistantMessage = { id: nextId(), role: "user", text: prompt, createdAt: now };
-    const assistantId = nextId();
-    const assistantMsg: AssistantMessage = {
-      id: assistantId, role: "assistant", text: "", createdAt: now,
-      ...(activeProfile ? { profileName: activeProfile.name } : {}),
-    };
-    const wireMessages = [...toWireHistory(state.messages), { role: "user" as const, text: prompt }];
-
-    emit({
-      messages: [...state.messages, userMsg, assistantMsg],
-      streaming: true,
-      error: null,
-      liveActivity: { label: activeProfile ? `Running ${activeProfile.name}...` : "Thinking...", state: "running", toolCount: 0 },
-    });
-    const ctrl = (streamAbort = new AbortController());
-    const stale = () => disposed || run !== streamGen || activeChat !== chatGen || ctrl.signal.aborted;
-
-    try {
-      if (activeProfile) {
-        const result = await runSavedProfile(
-          { profileId: activeProfile.id, profileRevision: activeProfile.revision, prompt },
-          ctrl.signal, fetcher, getBridge(),
-        );
-        if (stale()) return;
-        const toolCalls: AssistantToolCall[] = result.toolCalls.map((call, idx) => ({
-          id: `${result.runId}-tool-${idx}`, name: call.name, status: call.ok ? "done" : "error",
-        }));
-        patchMessage(
-          assistantId,
-          (m) => ({ ...m, text: result.text, ...(toolCalls.length ? { toolCalls } : {}) }),
-          {
-            streaming: false,
-            liveActivity: {
-              label: toolCalls.length ? `${activeProfile.name} completed (${toolCalls.length} tool calls)` : `${activeProfile.name} completed`,
-              state: "done", toolCount: toolCalls.length,
-            },
-          },
-        );
-        workspace.persistCurrentThread(state.messages);
-        return;
-      }
-
-      const system = buildSystemPrompt();
-      let toolCount = 0;
-      await streamAssistant(
-        {
-          messages: wireMessages,
-          ...(state.selectedModel ? { model: state.selectedModel } : {}),
-          ...(system ? { system } : {}),
-        },
-        {
-          onText(chunk) { if (!stale()) patchMessage(assistantId, (m) => ({ ...m, text: m.text + chunk })); },
-          onReasoning(chunk) { if (!stale()) patchMessage(assistantId, (m) => ({ ...m, reasoning: (m.reasoning ?? "") + chunk })); },
-          onToolUse(tool) {
-            if (stale()) return;
-            toolCount++;
-            patchMessage(
-              assistantId,
-              (m) => ({ ...m, toolCalls: [...(m.toolCalls ?? []), { id: tool.id, name: tool.name, input: tool.input, status: "done" }] }),
-              { liveActivity: { label: `Called ${tool.name}`, state: "running", toolName: tool.name, toolCount } },
-            );
-          },
-          onError(message) {
-            if (stale()) return;
-            patchMessage(assistantId, (m) => ({ ...m, error: message }), {
-              streaming: false, error: message, liveActivity: { label: "Turn failed", state: "error", toolCount },
-            });
-          },
-          onDone() {
-            if (stale()) return;
-            emit({
-              streaming: false,
-              liveActivity: { label: toolCount > 0 ? `Completed (${toolCount} tool calls)` : "Response complete", state: "done", toolCount },
-            });
-            workspace.persistCurrentThread(state.messages);
-          },
-        },
-        ctrl.signal, fetcher, getBridge(),
-      );
-    } catch (error) {
-      if (stale()) return;
-      const message = error instanceof ApiError ? error.message : "Could not reach Alfa Assistant. Check the backend and retry.";
-      patchMessage(assistantId, (m) => ({ ...m, error: message }), {
-        streaming: false, error: message, liveActivity: { label: "Turn failed", state: "error", toolCount: 0 },
-      });
-    } finally {
-      if (streamAbort === ctrl) streamAbort = undefined;
-      if (!stale() && state.streaming) emit({ streaming: false });
-    }
-  }
+  const sendMessage = async (rawPrompt: string): Promise<void> =>
+    sendAssistantMessage(sendCtx, rawPrompt);
 
   function stopStreaming(): void {
     if (disposed || !state.streaming) return;

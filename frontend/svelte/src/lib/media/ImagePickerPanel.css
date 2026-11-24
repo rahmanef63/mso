@@ -1,0 +1,19 @@
+  .image-picker { display: grid; gap: 0.75rem; min-width: 0; }
+  .source-row { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+  .source-row button { font-size: 0.8125rem; }
+  .source-row button.active { border-color: var(--accent); color: var(--accent); }
+  .bar { display: flex; align-items: flex-end; gap: 0.5rem; flex-wrap: wrap; }
+  .grow { flex: 1 1 14rem; }
+  .hint { margin: 0; font-size: 0.8125rem; color: var(--muted); }
+  .path-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .path-row code { font-size: 0.75rem; overflow-wrap: anywhere; }
+  .muted { font-size: 0.6875rem; color: var(--muted); }
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.625rem; }
+  .selected-card {
+    display: flex; gap: 0.75rem; flex-wrap: wrap; padding: 0.625rem;
+    border: 1px solid var(--accent); border-radius: 0.5rem; background: var(--panel);
+  }
+  .selected-card img { width: 5rem; height: 5rem; object-fit: cover; border-radius: 0.375rem; }
+  .selected-meta { display: grid; gap: 0.25rem; min-width: 0; flex: 1 1 10rem; }
+  .selected-meta code { font-size: 0.75rem; color: var(--muted); overflow-wrap: anywhere; }
+  .selected-actions { display: flex; gap: 0.375rem; flex-wrap: wrap; }

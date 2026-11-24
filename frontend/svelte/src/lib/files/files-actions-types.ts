@@ -1,0 +1,38 @@
+import type { FsEntryMeta } from "./files-api.ts";
+import type { FilesState } from "./files-controller-types.ts";
+import type { createFilesController } from "./files-controller-impl.ts";
+
+type FilesController = ReturnType<typeof createFilesController>;
+import type { UploadProgressState } from "./files-extended-api.ts";
+import type { FsUsageInfo } from "./files-extended-api.ts";
+import type { SortDir, SortField, UploadItem } from "./files-types.ts";
+
+export type FilesActionsDeps = {
+  readonly view: FilesState;
+  selectedNames: ReadonlySet<string>;
+  selectedName: string | null;
+  readonly filteredEntries: readonly FsEntryMeta[];
+  creatingFolder: boolean;
+  newFolderName: string;
+  renamingName: string | null;
+  renameDraft: string;
+  confirmDeleteName: string | null;
+  editing: boolean;
+  editPath: string | null;
+  draft: string;
+  uploading: boolean;
+  uploadCount: number;
+  uploadProgress: UploadProgressState | null;
+  dragActive: boolean;
+  diskUsage: FsUsageInfo | null;
+  usageLoading: boolean;
+  openMenuName: string | null;
+  sidebarOpen: boolean;
+  sortField: SortField;
+  sortDir: SortDir;
+  readonly newFolderInput: HTMLInputElement | undefined;
+  readonly editorEl: HTMLTextAreaElement | undefined;
+  readonly controller: FilesController | undefined;
+  readonly winId: string | undefined;
+  navigateHref: (winId: string | undefined, key: string, value: unknown) => void;
+};

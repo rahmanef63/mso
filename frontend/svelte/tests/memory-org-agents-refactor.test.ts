@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import {
   computeBounds, groupColor, neighbourhood, placeNodes, ringDepths,
 } from "../src/lib/memory-graph/memory-graph-layout.ts";
-import type { MemoryGraphEdge, MemoryGraphNode } from "../src/lib/memory-graph/memory-graph-api.ts";
 import {
   connector, layoutSeats, layoutUnits,
 } from "../src/lib/organization/org-layout.ts";
@@ -12,27 +11,17 @@ import {
   draftTarget, emptySeatDraft, emptyUnitDraft, seatDraftFrom, unitDraftFrom,
   validateSeatDraft, validateUnitDraft,
 } from "../src/lib/organization/org-mutations.ts";
-import type { OrganizationChart, OrganizationSeat, OrganizationUnit } from "../src/lib/organization/org-api.ts";
 import {
   createAgentGroup, deleteAgentGroup, emptyDraft, updateAgentGroup, validateDraft,
 } from "../src/lib/agent-group/agent-group-mutations.ts";
 import { parseInline, parseMarkdown, frontmatter, stripFrontmatter } from "../src/lib/agent-vault/markdown.ts";
 import { backlinksOf, normalizePath, outgoingLinks, resolveNoteLink, safeExternalLink } from "../src/lib/agent-vault/note-links.ts";
 import { ancestorsOf, buildTree, flattenTree } from "../src/lib/agent-vault/vault-tree.ts";
-import type { AgentVaultNote } from "../src/lib/agent-vault/agent-vault-api.ts";
-
-const signal = new AbortController().signal;
+import {
+  chart, graphEdges, graphNodes, jsonOf, notes, signal, unit,
+} from "./memory-org-agents-refactor-fixtures.ts";
 
 /* ---------- Memory graph layout ---------- */
-const node = (id: string, degree: number, extra: Partial<MemoryGraphNode> = {}): MemoryGraphNode => ({
-  id, title: id, kind: "note", group: "docs", degree, ...extra,
-});
-
-const graphNodes: MemoryGraphNode[] = [node("a", 2), node("b", 1), node("c", 1), node("z", 0, { kind: "ghost", group: "unlinked" })];
-const graphEdges: MemoryGraphEdge[] = [
-  { source: "a", target: "b", kind: "wikilink", resolved: true },
-  { source: "a", target: "c", kind: "mention", resolved: false },
-];
 
 test("memory graph layout is deterministic for every placement mode", () => {
   for (const layout of ["web", "radial", "layered"] as const) {
@@ -65,22 +54,6 @@ test("group color and neighbourhood stay inside the shipped palette and graph", 
 });
 
 /* ---------- Organization layout and drafts ---------- */
-const TS0 = "2026-11-01T00:00:00.000Z";
-const unit = (id: string, parent?: string): OrganizationUnit => ({
-  id, key: id, name: `Unit ${id}`, kind: "team", status: "active", sortOrder: 1,
-  createdAt: TS0, updatedAt: TS0, ...(parent ? { parentUnitId: parent } : {}),
-});
-const seat = (id: string, unitId: string, reportsTo?: string): OrganizationSeat => ({
-  id, unitId, name: `Seat ${id}`, title: `Title ${id}`, role: "engineer", state: "active",
-  seatMode: "permanent", responsibilities: ["Ship"], target: { kind: "none" }, sortOrder: 1,
-  createdAt: TS0, updatedAt: TS0, ...(reportsTo ? { reportsToSeatId: reportsTo } : {}),
-});
-
-const chart: OrganizationChart = {
-  version: 1, name: "MSO Fleet", revision: "rev-1", updatedAt: TS0,
-  units: [unit("root"), unit("child", "root"), unit("grand", "child")],
-  seats: [seat("s1", "root"), seat("s2", "root", "s1"), seat("s3", "child", "s1")],
-};
 
 test("org layout nests units by depth and never leaves a dangling parent", () => {
   const placed = layoutUnits(chart, { maxColumns: 3 });
@@ -131,8 +104,6 @@ test("org drafts convert to API payloads and reject invalid input early", () => 
 });
 
 /* ---------- Agent group drafts and mutations ---------- */
-const jsonOf = (body: unknown, status = 200): typeof fetch => async () =>
-  ({ ok: status >= 200 && status < 300, status, headers: new Headers({ "content-type": "application/json" }), json: async () => body } as Response);
 
 test("agent group draft validation catches empty names, profiles, and round bounds", () => {
   assert.match(String(validateDraft(emptyDraft())), /group name/);
@@ -174,10 +145,6 @@ test("agent group mutation errors map revision conflicts and owner requirements"
 });
 
 /* ---------- Agent vault markdown, links, and tree ---------- */
-const notes: AgentVaultNote[] = [
-  { path: "Snapshots/snap-1/overview/Beranda.md", title: "Beranda", kind: "overview", source: "generated" },
-  { path: "Snapshots/snap-1/progress/Plan.md", title: "Plan", kind: "progress", source: "docs/plan.md" },
-  { path: "Snapshots/snap-1/progress/Done.md", title: "Done", kind: "progress", source: "docs/done.md" }];
 
 test("markdown parses headings, lists, fences, quotes, and rules without HTML", () => {
   const blocks = parseMarkdown(

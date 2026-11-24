@@ -26,6 +26,9 @@ import {
 } from "../src/lib/creative/image-editor-state.ts";
 import { effectiveCanvasSize, stagePointToDocPoint } from "../src/lib/creative/image-editor-render.ts";
 import { exportFormatExtension, exportFormatMime, saveExportToVps } from "../src/lib/creative/image-editor-export.ts";
+import {
+  cropFixtureDoc, imageEditorFiles, shapeLayer, styledAdjustments, textLayer,
+} from "./creative-image-refactor-fixtures.ts";
 
 test("createBlankDocument, CANVAS_PRESETS, and defaultToolOptions provide bounded starter state", () => {
   assert.equal(CANVAS_PRESETS.length, 3);
@@ -57,18 +60,7 @@ test("buildStudioFilter builds full 9-adjustment CSS filter string and FILTER_PR
   const neutral = defaultStudioAdjustments();
   assert.equal(buildStudioFilter(neutral), "brightness(100%) contrast(100%) saturate(100%)");
 
-  const styled = buildStudioFilter({
-    ...neutral,
-    brightness: 110,
-    contrast: 120,
-    saturation: 90,
-    exposure: 50,
-    hueRotate: -15,
-    sepia: 25,
-    grayscale: 10,
-    blur: 2.5,
-    vignette: 40,
-  });
+  const styled = buildStudioFilter(styledAdjustments);
   assert.match(styled, /brightness\(156%\)/);
   assert.match(styled, /contrast\(120%\)/);
   assert.match(styled, /saturate\(90%\)/);
@@ -129,35 +121,6 @@ test("layer reorder, duplicate, stroke append, and hitTestLayer manage multi-lay
     assert.equal(strokeRes.doc.layers[1].strokes.length, 1);
   }
 
-  const textLayer = {
-    id: "txt-1",
-    name: "Title",
-    kind: "text" as const,
-    visible: true,
-    opacity: 1,
-    text: "Hello",
-    x: 100,
-    y: 120,
-    fontSize: 40,
-    fontWeight: "700" as const,
-    color: "#ffffff",
-  };
-  const shapeLayer = {
-    id: "shp-1",
-    name: "Box",
-    kind: "shape" as const,
-    visible: true,
-    opacity: 1,
-    shapeKind: "rect" as const,
-    x: 300,
-    y: 300,
-    width: 150,
-    height: 100,
-    strokeColor: "#000000",
-    fillColor: "#3b82f6",
-    filled: true,
-    strokeWidth: 4,
-  };
   const doc = { ...strokeRes.doc, layers: [...strokeRes.doc.layers, textLayer, shapeLayer] };
 
   assert.equal(hitTestLayer(doc, { x: 130, y: 140 })?.id, "txt-1");
@@ -186,34 +149,7 @@ test("crop aspect ratios, clamping, and applyCropToDocument shift coordinates ac
   const clamped = clampCropRect({ x: -20, y: 900, width: 500, height: 500 }, 1000, 1000);
   assert.deepEqual(clamped, { x: 0, y: 500, width: 500, height: 500 });
 
-  const base = createImageDocument("img.png", 1000, 800);
-  const doc = {
-    ...base,
-    layers: [
-      base.layers[0]!,
-      {
-        id: "d1",
-        name: "Draw",
-        kind: "drawing" as const,
-        visible: true,
-        opacity: 1,
-        strokes: [{ id: "s1", mode: "brush" as const, color: "#f00", size: 4, opacity: 1, points: [{ x: 250, y: 200 }] }],
-      },
-      {
-        id: "t1",
-        name: "Caption",
-        kind: "text" as const,
-        visible: true,
-        opacity: 1,
-        text: "Hi",
-        x: 300,
-        y: 250,
-        fontSize: 32,
-        fontWeight: "700" as const,
-        color: "#fff",
-      },
-    ],
-  };
+  const doc = cropFixtureDoc();
 
   const cropped = applyCropToDocument(doc, { x: 100, y: 50, width: 500, height: 400 });
   assert.equal(cropped.width, 500);
@@ -263,22 +199,7 @@ test("transform rotation, inverse stage-to-doc mapping, and VPS export helper wo
 
 test("Image Editor Svelte files comply with hard repo gates and modular <250 line budget", () => {
   const creativeDir = path.resolve(import.meta.dirname, "../src/lib/creative");
-  const files = [
-    "ImageEditorApp.svelte",
-    "ImageEditorTopBar.svelte",
-    "ImageEditorToolbar.svelte",
-    "ImageEditorStage.svelte",
-    "ImageEditorCropOverlay.svelte",
-    "ImageEditorInspector.svelte",
-    "ImageEditorAdjustments.svelte",
-    "ImageEditorLayers.svelte",
-    "ImageEditorExportModal.svelte",
-    "image-editor-types.ts",
-    "image-editor-state.ts",
-    "image-editor-render.ts",
-    "image-editor-export.ts",
-  ];
-  for (const file of files) {
+  for (const file of imageEditorFiles) {
     const content = readFileSync(path.join(creativeDir, file), "utf8");
     const lines = content.split("\n");
     assert.ok(lines.length < 250, `${file} must stay under 250 lines (got ${lines.length})`);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./InfrastructureView.css";
   import {
     type CloudflareZone, type DokployProject, type DoctorResult, type InfraProviderRow,
   } from "./infra-workspace-api.ts";
@@ -233,29 +234,3 @@
     {/if}
   {/if}
 </section>
-
-<style>
-  .infra-title-group { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .infra-tabs { display: flex; gap: 0.375rem; flex-wrap: wrap; margin: 0.875rem 0 0; }
-  .infra-tabs button { font-size: 0.8125rem; padding: 0.25rem 0.625rem; }
-  .infra-meta { margin: 0; font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
-  .infra-inventory { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.375rem; }
-  .infra-inventory li { display: flex; gap: 0.5rem; align-items: baseline; justify-content: space-between; flex-wrap: wrap; padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--panel); min-width: 0; }
-  .infra-inventory code { font-size: 0.7rem; color: var(--muted); overflow-wrap: anywhere; }
-  .infra-doctor { display: grid; gap: 0.5rem; }
-  .infra-doctor h3 { margin: 0; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-  .infra-doctor ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.375rem; }
-  .infra-doctor li { padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--panel); min-width: 0; }
-  .infra-doctor li[data-tone="danger"] { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
-  .infra-doctor li[data-tone="ok"] { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
-  .infra-doctor p { margin: 0.25rem 0 0; font-size: 0.75rem; color: var(--muted); overflow-wrap: anywhere; }
-  .pill { display: inline-block; padding: 0.125rem 0.5rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.7rem; color: var(--muted); }
-  .pill[data-tone="ok"] { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
-  .pill[data-tone="warn"] { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
-  .pill[data-tone="danger"] { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
-  section { display: grid; gap: 0.75rem; align-content: start; }
-  @media (max-width: 420px) {
-    .infra-tabs button { flex: 1 1 auto; }
-    .actions button { flex: 1 1 100%; }
-  }
-</style>

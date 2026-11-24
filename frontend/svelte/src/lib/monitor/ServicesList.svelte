@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./ServicesList.css";
   import { onMount } from "svelte";
   import {
     createServicesController,
@@ -214,43 +215,3 @@
     {/if}
   </div>
 </section>
-
-<style>
-  .service-controls { display: grid; gap: 0.75rem; margin: 1rem 0; }
-  .filter-chips { display: flex; gap: 0.375rem; flex-wrap: wrap; }
-  .chip {
-    display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.2rem 0.6rem;
-    border-radius: 999px; font-size: 0.8125rem; color: var(--muted);
-  }
-  .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
-  .chip-count { font-variant-numeric: tabular-nums; opacity: 0.8; }
-  .control-field { display: grid; gap: 0.375rem; min-width: 0; }
-  .control-field label { font-size: 0.875rem; font-weight: 600; color: var(--text); }
-  .control-field input { width: 100%; min-width: 0; min-height: var(--ui-control-height); }
-  .service-hint { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--muted); }
-  .service-list {
-    list-style: none; padding: 0; margin: 0.75rem 0 0; display: grid; gap: 0.625rem;
-    max-height: 26rem; overflow-y: auto;
-  }
-  .service-row {
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
-    padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel);
-  }
-  .service-info { display: grid; gap: 0.25rem; min-width: 0; flex: 1 1 14rem; }
-  .service-heading { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .service-heading code { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
-  .service-desc { margin: 0; font-size: 0.875rem; color: var(--muted); }
-  .dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--muted); flex: none; }
-  .dot[data-status="active"] { background: var(--ok); }
-  .dot[data-status="failed"] { background: var(--danger); }
-  .service-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .pill {
-    display: inline-block; padding: 0.125rem 0.5rem; border: 1px solid var(--border);
-    border-radius: 999px; font-size: 0.7rem; color: var(--muted);
-  }
-  .pill[data-active="on"] { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
-  .pill[data-active="failed"] { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
-  @media (max-width: 26rem) {
-    .service-actions { width: 100%; }
-  }
-</style>

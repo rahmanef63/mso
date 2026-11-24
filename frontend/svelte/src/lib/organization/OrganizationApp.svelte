@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./OrganizationApp.css";
   import { onMount } from "svelte";
   import {
     createOrganizationController,
@@ -233,12 +234,3 @@
     onclose={() => { editor = null; actionError = ""; }}
   />
 {/if}
-
-<style>
-  .org-filter-wrap { display: grid; gap: 0.375rem; margin: 1rem 0 0.5rem; }
-  .org-filter-wrap label { font-size: 0.875rem; font-weight: 600; color: var(--text); }
-  .org-filter-wrap input { width: 100%; min-width: 0; min-height: var(--ui-control-height); }
-  .org-workspace { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(15rem, 1fr); gap: 0.75rem; align-items: start; }
-  @media (max-width: 52rem) { .org-workspace { grid-template-columns: 1fr; } }
-  .org-main { min-width: 0; display: grid; gap: 0.5rem; }
-</style>

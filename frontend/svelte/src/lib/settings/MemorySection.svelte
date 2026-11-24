@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./MemorySection.css";
   import {
     addMemoryFact,
     ApiError,
@@ -379,76 +380,3 @@
     </div>
   {/if}
 </div>
-
-<style>
-  .memory-section { display: grid; gap: 0.75rem; min-width: 0; }
-  .settings-card {
-    display: grid;
-    gap: 0.75rem;
-    padding: 0.875rem 1rem;
-    background: var(--panel-solid);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    min-width: 0;
-  }
-  .card-heading { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--text); }
-  .sub-heading { margin: 0; font-size: 0.8125rem; font-weight: 600; color: var(--text); }
-  .card-head-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
-  .status-msg { margin: 0; font-size: 0.875rem; color: var(--muted); }
-  .add-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .fact-input { flex: 1 1 13rem; min-width: 0; }
-  .fact-input input { width: 100%; }
-  .action-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .badge-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-  .pill {
-    display: inline-block;
-    padding: 0.125rem 0.5rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    font-size: 0.72rem;
-    color: var(--muted);
-  }
-  .pill[data-tone="ok"] { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
-  .pill[data-tone="warn"] { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
-  .metric-grid {
-    display: grid;
-    gap: 0.625rem;
-    margin: 0;
-    grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
-  }
-  .metric-box {
-    padding: 0.625rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--surface);
-  }
-  .metric-box dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
-  .metric-box dd { margin: 0.25rem 0 0; font-size: 0.875rem; font-weight: 600; color: var(--text); }
-  .confirm-box, .result-card {
-    display: grid;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--surface);
-  }
-  .confirm-box { border-color: var(--accent); }
-  .confirm-box p, .result-title { margin: 0; font-size: 0.84rem; color: var(--text); }
-  .history-block { display: grid; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
-  .item-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
-  .item-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.625rem;
-    flex-wrap: wrap;
-    padding: 0.625rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--surface);
-  }
-  .item-copy { display: grid; gap: 0.15rem; min-width: 0; flex: 1 1 12rem; }
-  .fact-text { font-size: 0.875rem; color: var(--text); overflow-wrap: anywhere; }
-  .meta-line { font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }
-  .item-actions { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-</style>

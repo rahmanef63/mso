@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./InspectorDrawer.css";
   import { BUILTIN_PLAYBOOKS } from "./assistant-presets";
   import type {
     AgentProfileSummary,
@@ -164,62 +165,3 @@
     {/if}
   </div>
 </aside>
-
-<style>
-  .drawer-pane {
-    display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr);
-    gap: 0.5rem;
-    padding: 0.65rem;
-    border: 1px solid var(--border);
-    border-radius: 0.625rem;
-    background: var(--surface);
-    min-width: 0;
-    max-width: 100%;
-    max-height: 36rem;
-  }
-  .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: wrap; }
-  .drawer-head-actions { display: inline-flex; gap: 0.3rem; }
-  .cockpit-stats { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-  .stat-chip, .badge {
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 0.1rem 0.42rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--panel-solid);
-    color: var(--muted);
-  }
-  .drawer-tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; }
-  .tab-btn { min-height: 2rem; padding: 0.2rem 0.5rem; font-size: 0.75rem; flex: 1 1 auto; }
-  .tab-btn[aria-selected="true"] {
-    background: var(--accent);
-    color: var(--accent-text);
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-  .drawer-body { display: grid; align-content: start; gap: 0.45rem; overflow-y: auto; min-width: 0; }
-  .item-card {
-    display: grid;
-    gap: 0.25rem;
-    padding: 0.55rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--panel-solid);
-    color: var(--text);
-    text-align: left;
-    min-width: 0;
-    max-width: 100%;
-  }
-  .item-card.selectable { cursor: pointer; width: 100%; }
-  .item-card.selected {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 9%, var(--panel-solid));
-  }
-  .item-top { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: wrap; }
-  .item-top strong { font-size: 0.83rem; color: var(--text); overflow-wrap: anywhere; }
-  .item-meta, .item-desc, .empty-msg { margin: 0; font-size: 0.76rem; color: var(--muted); overflow-wrap: anywhere; }
-  .starter-list { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.15rem; }
-  .starter-chip { min-height: 1.85rem; padding: 0.2rem 0.45rem; font-size: 0.73rem; text-align: left; white-space: normal; }
-  .mini-btn { min-height: 1.9rem; padding: 0.18rem 0.5rem; font-size: 0.75rem; }
-</style>

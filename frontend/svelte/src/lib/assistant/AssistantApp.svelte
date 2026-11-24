@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./AssistantApp.css";
   import { onMount } from "svelte";
   import {
     createAssistantController,
@@ -177,56 +178,3 @@
     {/if}
   </div>
 </section>
-
-<style>
-  .assistant-shell { display: grid; gap: 0.75rem; min-width: 0; max-width: 100%; }
-  .assistant-header { align-items: center; }
-  .title-group { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
-  .active-thread-label {
-    font-size: 0.8rem;
-    color: var(--muted);
-    max-width: 16rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .assistant-controls { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; max-width: 100%; }
-  .toolbar-btn { min-height: 2.25rem; padding: 0.3rem 0.65rem; font-size: 0.82rem; }
-  .toolbar-btn[aria-pressed="true"] {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 14%, var(--panel-solid));
-  }
-  .assistant-banner { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin: 0; }
-  .assistant-banner p { margin: 0; color: inherit; min-width: 0; flex: 1 1 12rem; }
-  .cockpit-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.75rem;
-    align-items: start;
-    min-width: 0;
-    max-width: 100%;
-  }
-  @media (min-width: 760px) {
-    .cockpit-grid.has-threads { grid-template-columns: minmax(12.5rem, 15.5rem) minmax(0, 1fr); }
-    .cockpit-grid.has-inspector { grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem); }
-    .cockpit-grid.has-threads.has-inspector {
-      grid-template-columns: minmax(12rem, 14.5rem) minmax(0, 1fr) minmax(14rem, 17rem);
-    }
-  }
-  .chat-pane { display: grid; gap: 0.65rem; min-width: 0; max-width: 100%; }
-  .chat-log {
-    display: grid;
-    align-content: start;
-    gap: 0.65rem;
-    min-height: 16rem;
-    max-height: 28rem;
-    padding: 0.75rem;
-    overflow-y: auto;
-    overflow-x: hidden;
-    border: 1px solid var(--border);
-    border-radius: 0.625rem;
-    background: var(--surface);
-    min-width: 0;
-    max-width: 100%;
-  }
-</style>

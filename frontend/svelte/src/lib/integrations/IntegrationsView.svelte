@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./IntegrationsView.css";
   import {
     createIntegrationsController,
     type IntegrationConnectionSummary,
@@ -206,37 +207,3 @@
     {/if}
   {/if}
 </section>
-
-<style>
-  .int-toolbar { display: grid; gap: 0.625rem; margin: 1rem 0 0.75rem; min-width: 0; }
-  .int-search { display: grid; gap: 0.375rem; }
-  .int-search input { width: 100%; min-width: 0; min-height: var(--ui-control-height); }
-  .int-tabs { display: flex; flex-wrap: wrap; gap: 0.375rem; }
-  .int-tabs button { font-size: 0.8125rem; padding: 0.25rem 0.625rem; }
-  .int-grid {
-    list-style: none; margin: 0; padding: 0; display: grid; gap: 0.625rem;
-    grid-template-columns: repeat(auto-fill, minmax(min(13rem, 100%), 1fr));
-  }
-  .int-card { border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel); min-width: 0; }
-  .int-card[data-tone="ok"] { border-color: color-mix(in srgb, var(--ok) 55%, var(--border)); }
-  .int-card[data-tone="warn"] { border-color: color-mix(in srgb, var(--warn) 55%, var(--border)); }
-  .int-card-hit {
-    display: grid; gap: 0.25rem; width: 100%; height: 100%; text-align: left; padding: 0.75rem;
-    background: transparent; border: 0; border-radius: 0.5rem; cursor: pointer; color: inherit;
-  }
-  .int-card-hit:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-  .int-card-hit[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .int-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.375rem; flex-wrap: wrap; }
-  .int-card-desc { font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
-  .int-card-meta { font-size: 0.7rem; color: var(--muted); overflow-wrap: anywhere; }
-  .int-card-warn { font-size: 0.7rem; color: var(--warn); overflow-wrap: anywhere; }
-  .int-hint { margin: 0.5rem 0 0; font-size: 0.75rem; color: var(--muted); }
-  .pill { display: inline-block; padding: 0.125rem 0.5rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.7rem; color: var(--muted); }
-  .pill[data-tone="ok"] { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
-  .pill[data-tone="warn"] { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
-  section { display: grid; gap: 0.75rem; align-content: start; }
-  @media (max-width: 420px) {
-    .int-tabs button { flex: 1 1 auto; }
-    .actions button { flex: 1 1 auto; }
-  }
-</style>

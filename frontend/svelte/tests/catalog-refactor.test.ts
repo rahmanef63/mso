@@ -24,42 +24,8 @@ import {
   readSkillMarket,
   type SkillMarketState,
 } from "../src/lib/catalog/catalog-market.ts";
-import type { AppCatalogSnapshot, ModularFeatureSummary } from "../src/lib/catalog/catalog-api.ts";
-
-const signal = new AbortController().signal;
-const jsonFetch = (body: unknown): typeof fetch => async () =>
-  ({ ok: true, status: 200, headers: new Headers({ "content-type": "application/json" }), json: async () => body } as Response);
-
-const snapshot: AppCatalogSnapshot = {
-  status: "remote",
-  entries: [
-    { kind: "managed", id: "n8n" },
-    { kind: "managed", id: "hermes" },
-    {
-      kind: "connected",
-      manifest: {
-        id: "grafana", name: "Grafana Dashboards",
-        description: "Metrics and observability portal", launchUrl: "https://grafana.example.com",
-      },
-    },
-  ],
-};
-
-const marketPayload = {
-  root: "/home/operator/.mso/skills",
-  skills: [
-    {
-      id: "ponytail", title: "Ponytail", description: "Minimalist senior-dev coding mode.",
-      version: "4.9.0", source: "@dietrichgebert/ponytail", security: "clean",
-      state: "not-installed", canInstall: true, canRemove: false,
-    },
-    {
-      id: "rtk", title: "RTK", description: "Compress verbose shell output.",
-      version: "1", source: "mso-curated/rtk", security: "mso-safe-wrapper",
-      state: "installed", canInstall: true, canRemove: true,
-    },
-  ],
-};
+import type { ModularFeatureSummary } from "../src/lib/catalog/catalog-api.ts";
+import { jsonFetch, marketPayload, signal, snapshot } from "./catalog-refactor-fixtures.ts";
 
 test("safeExternalUrl admits only absolute http(s) URLs without credentials", () => {
   assert.equal(safeExternalUrl("https://grafana.example.com/dash"), "https://grafana.example.com/dash");

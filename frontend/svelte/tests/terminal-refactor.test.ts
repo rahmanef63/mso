@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import {
   MAX_OUTPUT_CHARS, appendTerminalSgrOutput, createTerminalController, sanitizeTerminalOutput,
-  sanitizeTerminalSgr, type EventSourceLike, type TerminalState,
+  sanitizeTerminalSgr, type TerminalState,
 } from "../src/lib/terminal/term-controller.ts";
 import { ansiColorCss, color256, highlightRuns, parseAnsiRuns, runsText, stripSgr } from "../src/lib/terminal/term-ansi.ts";
 import { findMatches, matchLabel, stepMatch } from "../src/lib/terminal/term-search.ts";
@@ -12,27 +12,7 @@ import { emptyHistory, pushHistory, stepHistory, MAX_HISTORY } from "../src/lib/
 import { applyMods, pressWithMods, isPrintable } from "../src/lib/terminal/term-keybar.ts";
 import { SNIPPETS, snippetCommand } from "../src/lib/terminal/term-snippets.ts";
 import { gridEquals, measureGrid, MAX_COLS, MAX_ROWS, MIN_COLS, MIN_ROWS } from "../src/lib/terminal/term-metrics.ts";
-
-const DIR = new URL("../src/lib/terminal/", import.meta.url);
-const b64 = (text: string) => Buffer.from(text, "utf8").toString("base64");
-
-class FakeEventSource implements EventSourceLike {
-  readyState = 0;
-  closed = false;
-  onopen: ((event: Event) => void) | null = null;
-  onerror: ((event: Event) => void) | null = null;
-  private listeners = new Map<string, Array<(event: MessageEvent<string>) => void>>();
-  addEventListener(type: string, listener: (event: MessageEvent<string>) => void): void {
-    const list = this.listeners.get(type) ?? [];
-    list.push(listener);
-    this.listeners.set(type, list);
-  }
-  emitOpen() { this.readyState = 1; this.onopen?.(new Event("open")); }
-  emitEvent(type: string, data: string) {
-    for (const fn of this.listeners.get(type) ?? []) fn({ data } as MessageEvent<string>);
-  }
-  close() { this.closed = true; this.readyState = 2; }
-}
+import { b64, DIR, FakeEventSource } from "./terminal-refactor-fixtures.ts";
 
 test("SGR parsing yields structured runs for 8/16 colours, bright, bold, dim, italic, underline and reset", () => {
   const runs = parseAnsiRuns("\x1b[31mred\x1b[0m \x1b[1mBold\x1b[22m \x1b[2mdim\x1b[0m \x1b[3mi\x1b[0m \x1b[4mu\x1b[0m \x1b[94mbright\x1b[0m \x1b[42mBg\x1b[49m");

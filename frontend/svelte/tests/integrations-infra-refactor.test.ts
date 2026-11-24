@@ -19,14 +19,18 @@ import {
   channelHealth, credentialValue, draftDirty, draftValid, healthLabel, inboundPath, splitCredential,
 } from "../src/lib/integrations/channels-draft.ts";
 import { SIGNAL, SETUP_TOKEN, catalogPayload, jsonOf } from "./_integrations-fixtures.ts";
+import {
+  channelDraftBase, connections, exportBundlePayload, importPlanPayload, providers, setupGrantPayload,
+  setupRequest, transferTreePayload,
+} from "./integrations-infra-refactor-fixtures.ts";
 
 test("catalog collapses the retired convex-cloud alias into one Convex provider", async () => {
-  const providers = await readIntegrationCatalog(SIGNAL(), jsonOf(catalogPayload));
-  const convex = providers.filter((provider) => provider.id === "convex");
+  const catalog = await readIntegrationCatalog(SIGNAL(), jsonOf(catalogPayload));
+  const convex = catalog.filter((provider) => provider.id === "convex");
   assert.equal(convex.length, 1);
   assert.equal(convex[0]?.sources.length, 2);
-  assert.equal(providers.some((provider) => provider.id === "convex-cloud"), false);
-  assert.deepEqual(providers.map((provider) => provider.id).sort(), ["composio", "convex"]);
+  assert.equal(catalog.some((provider) => provider.id === "convex-cloud"), false);
+  assert.deepEqual(catalog.map((provider) => provider.id).sort(), ["composio", "convex"]);
 
   for (const bad of [
     null, {}, { catalog: [null] },
@@ -57,34 +61,6 @@ test("catalog controller aborts superseded reads, maps 403, and honours dispose"
 });
 
 test("provider cards, categories and filters agree with the connection list", () => {
-  const providers = [
-    {
-      id: "convex", title: "Convex", description: "One Convex provider.",
-      sources: [{ id: "direct" as const, label: "MSO direct", methods: [] }],
-    },
-    {
-      id: "telegram", title: "Telegram", description: "Bot API.",
-      sources: [{ id: "direct" as const, label: "MSO direct", methods: [] }],
-    },
-  ];
-  const connections = [
-    {
-      user: "default", id: "prod", label: "Prod", provider: "convex", source: "direct" as const,
-      authMethod: "team", scope: "account", isDefault: true, missing: [], state: "verified",
-      verifiedAt: 1, lastCheckResult: null, lastCheckDetail: null,
-    },
-    {
-      user: "default", id: "bot", label: "Bot", provider: "telegram", source: "direct" as const,
-      authMethod: "direct", scope: "account", isDefault: false, missing: ["botToken"], state: "incomplete",
-      verifiedAt: null, lastCheckResult: null, lastCheckDetail: null,
-    },
-    {
-      user: "default", id: "prod-alias", label: "Prod alias", provider: "convex-cloud", source: "direct" as const,
-      authMethod: "deployment", scope: "deployment", isDefault: false, missing: [], state: "configured",
-      verifiedAt: null, lastCheckResult: null, lastCheckDetail: null,
-    },
-  ];
-
   assert.equal(categoryOf("convex-cloud"), "cloud");
   assert.equal(categoryOf("telegram"), "messaging");
   assert.equal(categoryOf("unknown-provider"), "other");
@@ -104,26 +80,12 @@ test("provider cards, categories and filters agree with the connection list", ()
 });
 
 test("setup grant validates the token, schema and field payload before use", async () => {
-  const grant = await openIntegrationSetup(
-    { provider: "convex-cloud", method: "team", user: "default", connection: "prod" },
-    SIGNAL(),
-    async (input, init) => {
-      assert.equal(input, "/api/v1/infra/setup");
-      assert.equal(init?.method, "POST");
-      assert.deepEqual(JSON.parse(String(init?.body)), {
-        provider: "convex-cloud", method: "team", user: "default", connection: "prod",
-      });
-      return Response.json({
-        token: SETUP_TOKEN,
-        setup: {
-          provider: "convex-cloud", title: "Convex", method: "team", label: "Prod", user: "default",
-          connection: "prod", source: "direct", authMethod: "team", scope: "account", expiresAt: 1,
-          store: "owner-only", fields: [{ key: "teamToken", label: "Team token", secret: true, required: true, description: "x", stored: true }],
-          guidance: { steps: ["Open Convex team settings."] },
-        },
-      });
-    },
-  );
+  const grant = await openIntegrationSetup(setupRequest, SIGNAL(), async (input, init) => {
+    assert.equal(input, "/api/v1/infra/setup");
+    assert.equal(init?.method, "POST");
+    assert.deepEqual(JSON.parse(String(init?.body)), setupRequest);
+    return Response.json(setupGrantPayload(SETUP_TOKEN));
+  });
   assert.equal(grant.schema.provider, "convex");
   assert.equal(grant.schema.methodId, "team");
   assert.deepEqual(grant.schema.steps, ["Open Convex team settings."]);
@@ -203,27 +165,11 @@ test("Composio key kind and session accept Connect keys and reject a non-Composi
 test("transfer tree, export and import preview never surface a credential value", async () => {
   const tree = await readTransferTree(SIGNAL(), async (_input, init) => {
     assert.deepEqual(JSON.parse(String(init?.body)), { action: "tree" });
-    return Response.json({
-      users: [{
-        id: "default", label: "Default",
-        providers: [{
-          id: "convex-cloud", title: "Convex",
-          connections: [{ id: "prod", label: "Prod", source: "direct", storedFields: 2 }],
-        }],
-      }],
-    });
+    return Response.json(transferTreePayload);
   });
   assert.equal(tree[0]?.providers[0]?.id, "convex");
 
-  const exportPreview = await prepareTransferExport(SIGNAL(), jsonOf({
-    bundle: {
-      mode: "metadata", producer: { name: "mso" },
-      users: [{
-        id: "default", label: "Default",
-        connections: [{ id: "prod", provider: "convex", values: { teamToken: "super-secret" } }],
-      }],
-    },
-  }));
+  const exportPreview = await prepareTransferExport(SIGNAL(), jsonOf(exportBundlePayload));
   assert.equal(exportPreview.users, 1);
   assert.equal(exportPreview.connections, 1);
   assert.equal(exportPreview.json.includes("super-secret"), false);
@@ -235,10 +181,7 @@ test("transfer tree, export and import preview never surface a credential value"
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     assert.equal(body.apply, false);
     assert.equal(body.action, "import");
-    return Response.json({
-      planId: "plan-1", canApply: true, connections: [{ id: "a" }], createUsers: [{ id: "b" }],
-      warnings: [{ reason: "external_authorization_required" }], requiresWarningAcceptance: true,
-    });
+    return Response.json(importPlanPayload);
   });
   assert.deepEqual(preview, {
     planId: "plan-1", canApply: true, connections: 1, createUsers: 1, warnings: 1, requiresWarningAcceptance: true,
@@ -267,10 +210,7 @@ test("channel draft helpers keep one health vocabulary and reject partial creden
   assert.equal(healthLabel("needs-setup"), "Needs setup");
   assert.equal(inboundPath("discord", "abc"), "/api/v1/channels/discord/abc");
 
-  const base = {
-    name: "Ops", provider: "telegram" as const, credential: "default::bot",
-    defaultTarget: "", workflowId: "", agentGroupId: "", enabled: true,
-  };
+  const base = channelDraftBase;
   assert.equal(draftDirty(base, { ...base }), false);
   assert.equal(draftDirty({ ...base, enabled: false }, base), true);
   assert.equal(draftValid(base), true);

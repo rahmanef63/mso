@@ -1,0 +1,98 @@
+  .threads-pane {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    background: var(--surface);
+    min-width: 0;
+    max-width: 100%;
+    max-height: 36rem;
+  }
+  .pane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  .pane-title-row { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .pane-head-actions { display: inline-flex; gap: 0.3rem; }
+  .count-pill {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.08rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel-solid);
+    color: var(--muted);
+  }
+  .search-wrap { display: block; min-width: 0; }
+  .search-wrap input { width: 100%; min-width: 0; font-size: 0.85rem; }
+  .pane-note, .pane-empty {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+  .thread-list {
+    display: grid;
+    align-content: start;
+    gap: 0.35rem;
+    overflow-y: auto;
+    min-width: 0;
+  }
+  .thread-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.45rem;
+    background: var(--panel-solid);
+    padding: 0.2rem;
+    min-width: 0;
+  }
+  .thread-row.active {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, var(--panel-solid));
+  }
+  .thread-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.3rem 0.45rem;
+  }
+  .thread-title {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .thread-time { font-size: 0.72rem; color: var(--muted); }
+  .thread-item-actions { display: inline-flex; gap: 0.2rem; flex-shrink: 0; }
+  .compact-btn, .icon-action {
+    min-height: 2rem;
+    padding: 0.2rem 0.45rem;
+    font-size: 0.75rem;
+  }
+  .danger-text { color: var(--danger); }
+  .confirm-strip, .rename-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 0.25rem 0.35rem;
+    min-width: 0;
+  }
+  .confirm-label { font-size: 0.78rem; font-weight: 600; color: var(--danger); }
+  .confirm-actions { display: inline-flex; gap: 0.25rem; }
+  .rename-strip input { flex: 1 1 6rem; min-width: 0; min-height: 2rem; font-size: 0.8rem; }

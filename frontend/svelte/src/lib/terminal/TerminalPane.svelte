@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./TerminalPane.css";
   // One PTY pane: owns the controller, scrollback search state and the resize
   // loop. Panes stay mounted while hidden so switching tabs never kills a
   // shell; the PTY opens on first activation to save host slots.
@@ -209,20 +210,3 @@
 
   <TerminalKeyBar disabled={!canType} onpress={(seq) => void controller?.sendRaw(seq)} />
 </div>
-
-<style>
-  .pane { display: flex; flex-direction: column; gap: 0.5rem; min-height: 0; min-width: 0; height: 100%; }
-  .pane.hidden { display: none; }
-  .pane-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
-  .pill {
-    display: inline-flex; align-items: center; padding: 0.125rem 0.625rem; border-radius: 999px;
-    border: 1px solid var(--border); font-size: 0.75rem; font-weight: 600; color: var(--muted); background: var(--surface);
-  }
-  .pill-connected { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
-  .pill-connecting { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
-  .pill-error { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
-  .copied { font-size: 0.75rem; color: var(--ok); }
-  .feedback p { margin: 0; color: inherit; }
-  .hint { margin-top: 0.375rem; font-size: 0.875rem; }
-  .stage { flex: 1 1 auto; min-height: 8rem; min-width: 0; display: flex; }
-</style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "./MemoryGraphApp.css";
   import {
     createMemoryGraphController,
     type MemoryGraphEdge,
@@ -236,14 +237,3 @@
     {/if}
   {/if}
 </section>
-
-<style>
-  .mg-layout-picker { display: inline-flex; gap: 0.25rem; flex-wrap: wrap; }
-  .mg-layout-picker button { text-transform: capitalize; }
-  .mg-workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(15rem, 1fr); gap: 0.75rem; align-items: start; }
-  @media (max-width: 52rem) { .mg-workspace { grid-template-columns: 1fr; } }
-  .mg-canvas-slot { display: grid; gap: 0.375rem; min-width: 0; }
-  .mg-canvas-slot :global(.mg-canvas) { min-height: 24rem; height: min(58vh, 32rem); }
-  @media (max-width: 52rem) { .mg-canvas-slot :global(.mg-canvas) { height: 18rem; } }
-  .mg-meta { margin: 0; font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
-</style>
