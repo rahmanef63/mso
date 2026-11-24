@@ -11,6 +11,13 @@
   import AccountOnboardingCard from "../auth/AccountOnboardingCard.svelte";
   import SoftwareUpdateCard from "./SoftwareUpdateCard.svelte";
   import AuditLogCard from "./AuditLogCard.svelte";
+  import AiModelsSection from "./AiModelsSection.svelte";
+  import McpSection from "./McpSection.svelte";
+  import MemorySection from "./MemorySection.svelte";
+  import SystemSection from "./SystemSection.svelte";
+  import AboutSection from "./AboutSection.svelte";
+  import ThemePresetGallery from "./ThemePresetGallery.svelte";
+  import { applyThemePresetToDom } from "./theme-presets.ts";
   import { CHROME_PROFILES, isChromeChoice, type ChromeChoice, type ChromeProfile } from "../shell/chrome-profile.ts";
   import { designProfileFor, type MobileNavSpec } from "../shell/shell-design.ts";
   import {
@@ -25,7 +32,9 @@
   import { isWallpaperId, WALLPAPERS, type WallpaperId } from "../shell/wallpaper-store.ts";
   import { getWinState, setWinState } from "../shell/window-feature-state.ts";
 
-  type SettingsSectionId = "appearance" | "quicklinks" | "account" | "updates" | "audit";
+  type SettingsSectionId =
+  | "appearance" | "models" | "mcp" | "memory" | "system"
+  | "quicklinks" | "account" | "updates" | "audit" | "about";
 
   type SectionMeta = {
     id: SettingsSectionId;
@@ -38,9 +47,14 @@
   const SECTIONS: readonly SectionMeta[] = [
     { id: "appearance", label: "Appearance & Shell", subtitle: "OS shell, theme, wallpaper, accessibility", glyph: "Aa", tint: "#2563eb" },
     { id: "quicklinks", label: "Quicklinks", subtitle: "Saved bookmarks and workspace shortcuts", glyph: "QL", tint: "#0891b2" },
+    { id: "models", label: "AI Models", subtitle: "Providers, BYOK keys, catalog, and connection tests", glyph: "AI", tint: "#db2777" },
+    { id: "mcp", label: "MCP Servers", subtitle: "Model Context Protocol servers, toolsets, and scopes", glyph: "MC", tint: "#0d9488" },
+    { id: "memory", label: "Memory", subtitle: "Agent memory stores, retention, and retrieval", glyph: "MM", tint: "#9333ea" },
+    { id: "system", label: "System & Storage", subtitle: "Cleanup, federation workers, update automation", glyph: "SY", tint: "#b45309" },
     { id: "account", label: "Account & Device", subtitle: "Role, onboarding, and pairing status", glyph: "ID", tint: "#7c3aed" },
     { id: "updates", label: "Software Update", subtitle: "Version status and release channel", glyph: "UP", tint: "#059669" },
     { id: "audit", label: "Audit Log", subtitle: "Recent host actions and security events", glyph: "AU", tint: "#d97706" },
+    { id: "about", label: "About", subtitle: "Version, changelog, and build provenance", glyph: "AB", tint: "#475569" },
   ];
 
   let {
@@ -175,6 +189,11 @@
     if (isIosStyleVariant(val)) updateShell({ ...shellPrefs, iosStyle: val });
   }
 
+  function handlePresetSelect(presetName: string | null) {
+    applyThemePresetToDom(presetName);
+    void savePatch({ preset: presetName });
+  }
+
   function handleThemeChange(nextTheme: ThemeMode) {
     applyAppearanceToDom({ theme: nextTheme });
     notifyTheme(nextTheme);
@@ -233,6 +252,16 @@
     <div class="detail-body"><SoftwareUpdateCard {role} /></div>
   {:else if section === "audit"}
     <div class="detail-body"><AuditLogCard {role} /></div>
+  {:else if section === "models"}
+    <div class="detail-body"><AiModelsSection {role} /></div>
+  {:else if section === "mcp"}
+    <div class="detail-body"><McpSection {role} /></div>
+  {:else if section === "memory"}
+    <div class="detail-body"><MemorySection {role} /></div>
+  {:else if section === "system"}
+    <div class="detail-body"><SystemSection {role} /></div>
+  {:else if section === "about"}
+    <div class="detail-body"><AboutSection {role} {deviceLabel} resolvedChrome={resolvedChrome} /></div>
   {:else}
     {#if !isOwner}
       <p class="feedback pending">Local shell preferences save on this device. Owner role is required to sync shared workspace settings.</p>
@@ -285,6 +314,15 @@
                 </select>
               </div>
             </div>
+          </div>
+
+          <div class="settings-card">
+            <h3 class="card-heading">Theme Presets</h3>
+            <ThemePresetGallery
+              activePreset={view.prefs.tweaks?.preset ?? null}
+              disabled={!isOwner || view.saving}
+              onSelect={handlePresetSelect}
+            />
           </div>
 
           <div class="settings-card">
