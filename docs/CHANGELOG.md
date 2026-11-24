@@ -4,6 +4,38 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-25
+
+**Added**
+
+- `svelte/files` grid view, quick look, upload bar, zip panel, entry menu
+- `svelte/settings` wire AI models, MCP, memory, system, about sections and theme presets
+- `svelte/assistant` chat composer, message content, threads sidebar, inspector
+- `svelte/editor` code editor tabs, find/replace, markdown preview, run drawer
+- `svelte/creative` image editor toolbar, crop overlay, layers, and export modal
+- `svelte/creative` reel editor timeline, asset bin, inspector, and media studio models
+- `svelte/workflows` workflow studio with palette, inspector, runs panel, canvas math, and draft ops
+- `svelte/monitor` restore System Monitor sparklines, sortable processes, and Service Center journal logs
+- `svelte/integrations,infra` restore Integrations, Channels CRUD, and Dokploy/Cloudflare Infrastructure UI
+- `svelte/agents` restore Memory Graph SVG canvas, Org Chart, Agent Group room, and Obsidian-style Agent Vault
+- `svelte/media,runtime,docs,create` restore Media Viewer, Pickers, Runtime Apps, Docs, and Create App UI
+- `svelte/managed-apps` restore AppDeck lifecycle, preflight, logs, backups, discovery, and Packages UI
+- `svelte/catalog` restore App Store card grid/detail drawer and Extensions + Skill Market UI
+- `svelte/terminal` restore multi-tab PTY terminal, safe ANSI color rendering, scrollback search, and mobile keybar
+
+**Fixed**
+
+- `svelte/workflows,creative` replace structuredClone with JSON clone so Svelte 5 $state proxies no longer crash window mounts
+
+**Changed**
+
+- `svelte` split oversized settings, files, workflows, creative, editor, catalog, runtime-apps, assistant modules to satisfy architecture ratchets
+- `svelte/files,workflows` split FilesManager and WorkflowsApp into focused child components to meet repo module budgets
+
+**Tests**
+
+- `svelte/media` replace operator home path with portable demo fixture in instance-literal guard
+
 ## 2026-11-24
 
 **Added**
@@ -1313,30 +1345,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Docs**
 
 - `plugin` clarify extension taxonomy
-
-## 2026-09-15
-
-**Added**
-
-- `workflows` finish edge controls and directory
-- `workflows` complete canvas runtime
-- `canvas` unify organization and workflow navigation
-- `organization` surface as first-class app
-- `organization` add agent org chart and routing
-- `workflows` complete server-native automation parity
-- `workflows` add server-native workflow graph
-
-**Fixed**
-
-- `responsive` reflow feature panes
-- `workflows` separate runtime input from graph secret guards
-- `workflows` allow inbound webhook trigger boundary
-- `workflows` honor responsive shell modal policy
-- `workflows` compact graph mcp surface
-- `workflows` complete cli and release gates
-- `mcp` expose downstream project tool results (#43)
-
-**Tests**
-
-- `mcp` register organization parity boundaries
-- `cli` include organization command module in route coverage
