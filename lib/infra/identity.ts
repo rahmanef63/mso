@@ -20,7 +20,7 @@ export type IntegrationConnection = {
 export type IntegrationUser = { id: string; uid:string; label: string; connections: Record<string, Record<string, IntegrationConnection>>; defaults: Record<string, string> };
 export type IntegrationBinding = { path: string; user: string; connections: Record<string, string> };
 export type IntegrationState = { version: 2; instanceId:string; defaultUser: string | null; users: Record<string, IntegrationUser>; bindings: IntegrationBinding[]; variables?: Record<string, {provider:string;user:string;connection:string}>; migratedAt?: number };
-export class IntegrationError extends Error { constructor(public readonly code: string, public readonly status = 400) { super(code); } }
+export class IntegrationError extends Error { readonly code: string; readonly status: number; constructor(code: string, status = 400) { super(code); this.code = code; this.status = status; } }
 export const emptyIntegrationState = (): IntegrationState => ({ version: 2, instanceId:randomUUID(), defaultUser: null, users: {}, bindings: [] });
 export function identity(value: unknown, name = "identity"): string {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value) || ["__proto__", "constructor", "prototype"].includes(value)) throw new IntegrationError(`invalid_${name}`);

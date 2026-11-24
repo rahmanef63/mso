@@ -10,7 +10,9 @@ import { isHostname, readAppDomainState, mutateAppDomainState, withAppDomainOper
 
 export type { AppDomainErrorCode, AppDomainPhase, AppDomainRecord, AppDomainTarget, DomainProviderId } from "@/lib/contracts/app-domain";
 export class AppDomainError extends Error {
-  constructor(readonly code: AppDomainErrorCode, readonly status: 400 | 404 | 409 | 503, message: string) { super(message); this.name = "AppDomainError"; }
+  readonly code: AppDomainErrorCode;
+  readonly status: 400 | 404 | 409 | 503;
+  constructor(code: AppDomainErrorCode, status: 400 | 404 | 409 | 503, message: string) { super(message); this.code = code; this.status = status; this.name = "AppDomainError"; }
 }
 const ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const LOOPBACK = ["127.0.0.1", "localhost", "[::1]"];

@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `runtime` enable erasableSyntaxOnly and replace parameter properties breaking 109/128 API routes under Node strip-types
 - `csp,install` inject per-request CSP nonce into Svelte HTML and remove remaining next build calls
 - `deploy` promote Svelte 5 + Rust builds in self-update and verify /_app/immutable assets
 - `managed-apps` route probe errors through errorMessage, closing CodeQL #210 (#364)

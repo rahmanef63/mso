@@ -11,7 +11,8 @@ export const ACP_MAX_LINE_BYTES = 1_048_576;
 /** Incremental newline splitter. Returns the lines found, or signals overflow. */
 export class AcpLineReader {
   private buffer = "";
-  constructor(private readonly maxLineBytes: number) {}
+  private readonly maxLineBytes: number;
+  constructor(maxLineBytes: number) { this.maxLineBytes = maxLineBytes; }
   /** Feeds one chunk. Calls `onLine` per complete line; returns false when over cap. */
   push(chunk: Buffer, onLine: (line: string) => void): boolean {
     this.buffer += chunk.toString("utf8");

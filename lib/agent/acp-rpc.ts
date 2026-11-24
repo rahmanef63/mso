@@ -9,11 +9,19 @@ export class AcpRpc {
   private nextId = 1;
   private readonly pending = new Map<number, Pending>();
 
+  private readonly send: (message: unknown) => void;
+  private readonly fail: (error: AcpError) => void;
+  private readonly onDiagnostic: (text: string) => void;
+
   constructor(
-    private readonly send: (message: unknown) => void,
-    private readonly fail: (error: AcpError) => void,
-    private readonly onDiagnostic: (text: string) => void,
-  ) {}
+    send: (message: unknown) => void,
+    fail: (error: AcpError) => void,
+    onDiagnostic: (text: string) => void,
+  ) {
+    this.send = send;
+    this.fail = fail;
+    this.onDiagnostic = onDiagnostic;
+  }
 
   request<T = unknown>(method: string, params: unknown, timeoutMs: number): Promise<T> {
     const id = this.nextId++;

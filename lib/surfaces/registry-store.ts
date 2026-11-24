@@ -5,7 +5,8 @@ import { withSecurityStoreLock } from "@/lib/security-store-lock";
 
 const MAX_BYTES = 16_384;
 export class SurfaceConfigError extends Error {
-  constructor(message: string, readonly status = 400) { super(message); }
+  readonly status: number;
+  constructor(message: string, status = 400) { super(message); this.status = status; }
 }
 export const registryRevision = (raw: string) => createHash("sha256").update(raw).digest("hex");
 export async function readSurfaceRegistry() {

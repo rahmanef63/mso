@@ -19,7 +19,7 @@ export type { DemoCredentialRecord, DemoCredentialSummary } from "@/lib/contract
 export const DEMO_STORE_PATH = path.join(path.dirname(INFRA_STORE_PATH), "demo-credentials.json");
 const MAX = 1024 * 1024;
 type Store = { version: 1; records: DemoCredentialRecord[] };
-export class DemoCredentialError extends Error { constructor(public readonly code: string, public readonly status = 400) { super(code); } }
+export class DemoCredentialError extends Error { readonly code: string; readonly status: number; constructor(code: string, status = 400) { super(code); this.code = code; this.status = status; } }
 /** Rebuild a validated string one bounded code unit at a time, so the stored value
  *  is never a reference to request text (CodeQL js/http-to-file-access). */
 function copyUnits(value: string): string { let out = ""; for (let i = 0; i < value.length; i++) out += String.fromCharCode(value.charCodeAt(i)); return out; }

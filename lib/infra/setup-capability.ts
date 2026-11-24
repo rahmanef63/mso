@@ -17,8 +17,11 @@ export const SETUP_MAX_BODY = 16 * 1024;
 const ROOT = path.join(path.dirname(INFRA_STORE_PATH), "integration-setup");
 type Grant = { user: string; connection: string; uid: string; revision: number; provider: InfraProviderId; method: SetupMethod; principal: string; expiresAt: number; attempts: number; used: boolean };
 export class SetupError extends Error {
+  readonly code: string;
+  readonly status: number;
+  readonly detail?: string;
   /** `detail` is a provider-safe status string (never a credential or response body). */
-  constructor(public readonly code: string, public readonly status: number, public readonly detail?: string) { super(code); }
+  constructor(code: string, status: number, detail?: string) { super(code); this.code = code; this.status = status; this.detail = detail; }
 }
 const invalid = () => new SetupError("setup_expired_or_invalid", 401);
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");

@@ -17,6 +17,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "erasableSyntaxOnly": true,
     "incremental": true,
     "baseUrl": ".",
     "paths": {

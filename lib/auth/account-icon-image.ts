@@ -40,15 +40,10 @@ export type ConvertedIcon = {
 };
 
 export class AccountIconError extends Error {
-  constructor(
-    readonly code:
-      | "too_large"
-      | "too_many_pixels"
-      | "unsupported_type"
-      | "invalid_image"
-      | "webp_too_large",
-  ) {
+  readonly code: "too_large" | "too_many_pixels" | "unsupported_type" | "invalid_image" | "webp_too_large";
+  constructor(code: "too_large" | "too_many_pixels" | "unsupported_type" | "invalid_image" | "webp_too_large") {
     super(code);
+    this.code = code;
     this.name = "AccountIconError";
   }
 }

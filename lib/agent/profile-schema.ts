@@ -1,7 +1,8 @@
 import { PROFILE_READ_TOOLS, type AgentProfileConfig, type AgentProfileStore } from "@/lib/contracts/agent-profile";
 
 export class AgentProfileError extends Error {
-  constructor(message: string, public readonly status = 400) { super(message); this.name = "AgentProfileError"; }
+  readonly status: number;
+  constructor(message: string, status = 400) { super(message); this.status = status; this.name = "AgentProfileError"; }
 }
 export function profilePrincipal(principal: string) {
   if (!/^web:[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(principal)) throw new AgentProfileError("profile_owner_unsupported", 403);

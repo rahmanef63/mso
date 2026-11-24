@@ -20,8 +20,10 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 
 /** Why a change did not land. A status code or a network reason, never a body. */
 class NakamaSyncError extends Error {
-  constructor(readonly reason: string) {
+  readonly reason: string;
+  constructor(reason: string) {
     super(reason);
+    this.reason = reason;
     this.name = "NakamaSyncError";
   }
 }

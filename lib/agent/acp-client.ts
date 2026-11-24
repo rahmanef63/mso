@@ -52,7 +52,10 @@ export class AcpClient {
   /** Current permission gate. Null or absent means DENY every request. */
   permissionPolicy: AcpPermissionPolicy | null;
 
-  constructor(private readonly options: AcpClientOptions) {
+  private readonly options: AcpClientOptions;
+
+  constructor(options: AcpClientOptions) {
+    this.options = options;
     this.controlMs = options.controlTimeoutMs ?? ACP_CONTROL_TIMEOUT_MS;
     this.promptMs = options.promptTimeoutMs ?? ACP_PROMPT_TIMEOUT_MS;
     this.reader = new AcpLineReader(options.maxLineBytes ?? ACP_MAX_LINE_BYTES);

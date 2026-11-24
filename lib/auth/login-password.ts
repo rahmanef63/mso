@@ -22,8 +22,10 @@ export type LoginPasswordCode =
   | "rate_limited";
 
 export class LoginPasswordError extends Error {
-  constructor(readonly code: LoginPasswordCode) {
+  readonly code: LoginPasswordCode;
+  constructor(code: LoginPasswordCode) {
     super(code);
+    this.code = code;
     this.name = "LoginPasswordError";
   }
 }

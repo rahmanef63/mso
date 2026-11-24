@@ -6,7 +6,8 @@ import { MAX_STORE_BYTES, validateSnapshot, type TenantSnapshot } from "./persis
 
 export class TenantStoreConflict extends Error {}
 export class TenantCommitUncertain extends Error {
-  constructor(readonly operationId: string) { super("tenant commit durability is uncertain; reconcile operation ID before retry"); }
+  readonly operationId: string;
+  constructor(operationId: string) { super("tenant commit durability is uncertain; reconcile operation ID before retry"); this.operationId = operationId; }
 }
 type Pin = { dev: number; ino: number };
 const safeFile = (s: Stats) =>

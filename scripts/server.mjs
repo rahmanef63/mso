@@ -100,7 +100,8 @@ const server = createServer(async (incoming, outgoing) => {
       outgoing.write(chunk);
     }
     outgoing.end();
-  } catch {
+  } catch (error) {
+    console.error("[mso-server] unhandled request error:", error instanceof Error ? error.message : "unknown_error");
     if (!outgoing.headersSent) outgoing.writeHead(502);
     outgoing.end();
   }

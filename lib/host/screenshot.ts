@@ -21,7 +21,9 @@ type CdpMessage = { id?: number; result?: unknown; error?: { message?: string };
 class CdpClient {
   private next = 1;
   private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
-  constructor(private ws: WebSocket) {
+  private ws: WebSocket;
+  constructor(ws: WebSocket) {
+    this.ws = ws;
     ws.addEventListener("message", (event) => {
       const raw = typeof event.data === "string" ? event.data : String(event.data);
       let msg: CdpMessage;

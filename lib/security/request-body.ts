@@ -1,6 +1,7 @@
 /** Bounded readers for public ingress. Count actual bytes before decoding/parsing. */
 export class RequestBodyError extends Error {
-  constructor(public readonly status: number, message: string) { super(message); this.name = "RequestBodyError"; }
+  readonly status: number;
+  constructor(status: number, message: string) { super(message); this.status = status; this.name = "RequestBodyError"; }
 }
 export async function readRequestText(req: Request, maxBytes: number, timeoutMs = 5_000): Promise<string> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 2 * 1024 * 1024) throw new Error("invalid request body limit");

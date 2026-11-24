@@ -20,8 +20,10 @@ const DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/]+={0,2})
 const LIBRARY_ICON = /^(emoji:[^\s]{1,8}|lucide:[A-Za-z0-9]+|phosphor:[A-Za-z0-9]+)(\?c=[0-9a-fA-F]{6})?$/;
 
 export class AccountProfileError extends Error {
-  constructor(readonly code: "corrupt" | "invalid") {
+  readonly code: "corrupt" | "invalid";
+  constructor(code: "corrupt" | "invalid") {
     super(code);
+    this.code = code;
     this.name = "AccountProfileError";
   }
 }

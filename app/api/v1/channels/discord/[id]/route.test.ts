@@ -6,7 +6,9 @@ vi.mock("@/lib/host/rate-limit", () => ({ rateLimitedUntrusted: mocks.rate }));
 vi.mock("../../workflow-runtime", () => ({ channelWorkflowRuntime: () => ({ scope: "exec", resolveTool: () => undefined }) }));
 vi.mock("@/lib/channels", () => {
   class ChannelError extends Error {
-    constructor(public readonly code: string, public readonly status = 400) { super(code); }
+    readonly code: string;
+    readonly status: number;
+    constructor(code: string, status = 400) { super(code); this.code = code; this.status = status; }
   }
   return { ChannelError, receiveDiscord: mocks.receive, dispatchChannelInbound: mocks.dispatch };
 });
