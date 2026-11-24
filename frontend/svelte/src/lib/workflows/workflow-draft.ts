@@ -8,9 +8,10 @@ import {
   type WorkflowNodeType,
   type WorkflowPaletteItem,
 } from "./workflow-types.ts";
+import { jsonClone } from "./json-clone.ts";
 
 export function cloneDraft(draft: WorkflowGraphDraft): WorkflowGraphDraft {
-  return structuredClone(draft);
+  return jsonClone(draft);
 }
 
 export function draftFromDetail(detail: WorkflowGraphDetail): WorkflowGraphDraft {
@@ -77,7 +78,7 @@ export function addNodeToDraft(
     name: item.defaultName,
     type: item.type,
     position,
-    config: structuredClone(item.defaults),
+    config: jsonClone(item.defaults),
   };
   let nextEdges = draft.edges;
   if (anchor && !isTriggerNodeType(item.type) && anchor.type !== "output") {

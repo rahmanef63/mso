@@ -1,4 +1,5 @@
 import type { EditorDocument } from "./image-editor-types.ts";
+import { jsonClone } from "./json-clone.ts";
 
 let uidCounter = 0;
 
@@ -8,7 +9,7 @@ export function createId(prefix: string): string {
 }
 
 export function cloneDocument(doc: EditorDocument): EditorDocument {
-  return structuredClone(doc);
+  return jsonClone(doc);
 }
 
 export function clampNumber(value: number, min: number, max: number): number {

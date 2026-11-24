@@ -19,6 +19,7 @@ export {
   runWorkflowGraphApi,
   stopWorkflowRunApi,
 } from "./workflow-runs-api.ts";
+import { jsonClone } from "./json-clone.ts";
 
 const GRAPH_STATUSES = new Set<WorkflowGraphStatus>(["draft", "active", "archived"]);
 const NODE_TYPE_SET = new Set<string>(WORKFLOW_NODE_TYPES);
@@ -36,7 +37,7 @@ function parseNode(raw: unknown, index: number): WorkflowNode | null {
     name: raw.name,
     type: raw.type as WorkflowNodeType,
     position: { x, y },
-    config: isRecord(raw.config) ? structuredClone(raw.config) : {},
+    config: isRecord(raw.config) ? jsonClone(raw.config) : {},
     ...(raw.disabled === true ? { disabled: true } : {}),
   };
 }
@@ -99,7 +100,7 @@ export function normalizeGraphDetail(item: unknown): WorkflowGraphDetail {
     name: item.name,
     description: item.description,
     status: item.status as WorkflowGraphStatus,
-    inputs: isRecord(item.inputs) ? structuredClone(item.inputs) : {},
+    inputs: isRecord(item.inputs) ? jsonClone(item.inputs) : {},
     nodes,
     edges,
     metadata,

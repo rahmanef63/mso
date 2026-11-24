@@ -3,6 +3,7 @@ import {
   type EditorLayer, type Point, type ShapeLayer,
 } from "./image-editor-types.ts";
 import { clampNumber, cloneDocument, createId } from "./image-editor-doc-utils.ts";
+import { jsonClone } from "./json-clone.ts";
 
 export function reorderLayer(layers: readonly EditorLayer[], id: string, delta: -1 | 1): EditorLayer[] {
   const idx = layers.findIndex((l) => l.id === id);
@@ -18,7 +19,7 @@ export function reorderLayer(layers: readonly EditorLayer[], id: string, delta: 
 export function duplicateLayer(layers: readonly EditorLayer[], id: string): { layers: EditorLayer[]; newId: string | null } {
   const idx = layers.findIndex((l) => l.id === id);
   if (idx < 0) return { layers: [...layers], newId: null };
-  const clone = structuredClone(layers[idx]!);
+  const clone = jsonClone(layers[idx]!);
   clone.id = createId(clone.kind);
   clone.name = `${clone.name} Copy`;
   if (clone.kind === "text" || clone.kind === "shape") {
