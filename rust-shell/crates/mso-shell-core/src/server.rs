@@ -1492,15 +1492,32 @@ mod tests {
             s1.flush().unwrap();
             drop(s1);
 
+            let drain_post = |sock: &mut TcpStream, body_len: usize| {
+                let mut got = Vec::new();
+                let mut tmp = [0u8; 4096];
+                loop {
+                    let n = sock.read(&mut tmp).unwrap();
+                    if n == 0 {
+                        break;
+                    }
+                    got.extend_from_slice(&tmp[..n]);
+                    if let Some(sep) = got.windows(4).position(|w| w == b"\r\n\r\n") {
+                        if got.len() >= sep + 4 + body_len {
+                            break;
+                        }
+                    }
+                }
+            };
+
             // 2. Upstream 401 JSON error on POST /api/assistant
             let (mut s2, _) = up_listener.accept().unwrap();
-            let _ = s2.read(&mut buf).unwrap();
+            drain_post(&mut s2, 2);
             s2.write_all(b"HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\n\r\n{\"error\":\"unauthorized\"}").unwrap();
             drop(s2);
 
             // 3. Upstream 400 JSON error on POST /api/assistant
             let (mut s3, _) = up_listener.accept().unwrap();
-            let _ = s3.read(&mut buf).unwrap();
+            drain_post(&mut s3, 2);
             s3.write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\n\r\n{\"error\":\"empty\"}").unwrap();
             drop(s3);
         });

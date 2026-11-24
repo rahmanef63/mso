@@ -84,8 +84,8 @@
   color: #f8fafc;
   background: var(--glass-bar);
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(var(--blur)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);
+  backdrop-filter: blur(var(--blur)) saturate(180%);
 }
 
 .workspace-header h1 {
@@ -154,8 +154,8 @@
   border: 1px solid var(--glass-border);
   border-radius: 1.25rem;
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(var(--blur)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);
+  backdrop-filter: blur(var(--blur)) saturate(180%);
 }
 .app-dock::-webkit-scrollbar { display: none; }
 
@@ -408,8 +408,8 @@
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.48),
     0 8px 24px -8px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(28px) saturate(200%);
   -webkit-backdrop-filter: blur(28px) saturate(200%);
+  backdrop-filter: blur(28px) saturate(200%);
 }
 
 .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-shell .ios-brand-pill {
@@ -418,8 +418,8 @@
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.48),
     0 4px 12px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(20px) saturate(190%);
   -webkit-backdrop-filter: blur(20px) saturate(190%);
+  backdrop-filter: blur(20px) saturate(190%);
 }
 
 .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-shell .ios-status-bar button,
@@ -441,8 +441,8 @@
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.48),
     0 16px 36px -10px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(24px) saturate(195%);
   -webkit-backdrop-filter: blur(24px) saturate(195%);
+  backdrop-filter: blur(24px) saturate(195%);
 }
 
 .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-shell .ios-glass-pill {
@@ -452,8 +452,8 @@
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.48),
     0 10px 26px -6px rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(26px) saturate(200%);
   -webkit-backdrop-filter: blur(26px) saturate(200%);
+  backdrop-filter: blur(26px) saturate(200%);
 }
 
 .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-shell .ios-glass-pill:hover {
@@ -468,8 +468,8 @@
     inset 0 0.5px 0 rgba(255, 255, 255, 0.48),
     inset 0 -0.5px 0 rgba(255, 255, 255, 0.14),
     0 18px 42px -8px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(32px) saturate(210%);
   -webkit-backdrop-filter: blur(32px) saturate(210%);
+  backdrop-filter: blur(32px) saturate(210%);
 }
 
 .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-shell .ios-home-pill {
@@ -487,14 +487,14 @@
 .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-library-sheet,
 .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-widget-surface section {
   background: var(--panel-solid);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-sheet-windows pre,
 .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-sheet-windows code {
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* Accessibility fallbacks for iOS Modern: reduce-glass, high-contrast, reduced-motion */
@@ -505,8 +505,8 @@
   background: #151925;
   border-color: rgba(255, 255, 255, 0.28);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 :root[data-reduce-glass="true"] .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-shell .ios-brand-pill,
@@ -515,8 +515,8 @@
   background: #232838;
   border-color: rgba(255, 255, 255, 0.3);
   box-shadow: none;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 :root[data-reduce-glass="true"] .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-shell .ios-home-pill {
@@ -535,8 +535,8 @@
   color: #ffffff;
   border: 2px solid #ffffff;
   box-shadow: none;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 :root[data-high-contrast="true"] .workspace[data-chrome="ios"][data-ios-style="modern"] .ios-shell .ios-home-pill {

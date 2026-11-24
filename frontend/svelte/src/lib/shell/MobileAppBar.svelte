@@ -96,8 +96,8 @@
     border-bottom: 1px solid var(--border);
     background: var(--window-head);
     color: var(--text);
-    backdrop-filter: blur(var(--blur)) saturate(180%);
     -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);
+    backdrop-filter: blur(var(--blur)) saturate(180%);
     flex-shrink: 0;
   }
 
@@ -110,8 +110,8 @@
     min-height: 3.5rem;
     padding-inline: 0.5rem;
     background: var(--panel-solid);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   .mab-btn {
@@ -198,7 +198,7 @@
 
   :global([data-reduce-glass="true"]) .mobile-app-bar {
     background: var(--panel-solid);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 </style>

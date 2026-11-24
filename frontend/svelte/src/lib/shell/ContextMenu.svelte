@@ -224,8 +224,8 @@
     border-radius: 0.75rem;
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--panel) 94%, var(--panel-solid));
-    backdrop-filter: blur(var(--blur, 24px)) saturate(180%);
     -webkit-backdrop-filter: blur(var(--blur, 24px)) saturate(180%);
+    backdrop-filter: blur(var(--blur, 24px)) saturate(180%);
     box-shadow: var(--shadow-pop, 0 14px 38px -8px rgba(0, 0, 0, 0.35));
     color: var(--text);
     display: grid;

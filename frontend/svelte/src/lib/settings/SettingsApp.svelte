@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import {
     createPrefsController,
     isSafeQuicklinkUrl,
@@ -113,17 +113,21 @@
   }
 
   $effect(() => {
-    if (!onMobileNavChange) return;
-    if (isMobileStack && activeSection) {
-      const meta = SECTIONS.find((s) => s.id === activeSection);
-      onMobileNavChange({
-        title: meta?.label ?? "Settings",
-        backLabel: "Settings",
-        onBack: () => selectSection(null),
-      });
-    } else {
-      onMobileNavChange(null);
-    }
+    const mobile = isMobileStack;
+    const section = activeSection;
+    untrack(() => {
+      if (!onMobileNavChange) return;
+      if (mobile && section) {
+        const meta = SECTIONS.find((s) => s.id === section);
+        onMobileNavChange({
+          title: meta?.label ?? "Settings",
+          backLabel: "Settings",
+          onBack: () => selectSection(null),
+        });
+      } else {
+        onMobileNavChange(null);
+      }
+    });
   });
 
   function notifyTheme(theme: ThemeMode) {
@@ -549,8 +553,8 @@
     padding: 0;
     background: transparent;
     border: 0;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   /* Shared content cards */

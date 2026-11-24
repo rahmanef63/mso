@@ -367,8 +367,8 @@
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.42),
       0 18px 50px -10px rgba(0, 0, 0, 0.48);
-    backdrop-filter: blur(24px) saturate(185%);
     -webkit-backdrop-filter: blur(24px) saturate(185%);
+    backdrop-filter: blur(24px) saturate(185%);
   }
 
   .macos-dock.cramped {
@@ -439,8 +439,8 @@
     background: rgba(22, 24, 34, 0.86);
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
-    backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
     transition: opacity 130ms ease, transform 130ms ease, visibility 130ms ease;
     z-index: 8150;
   }

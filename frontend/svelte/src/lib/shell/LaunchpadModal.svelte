@@ -159,8 +159,8 @@
     border: 0;
     border-radius: 0;
     background: rgba(10, 12, 22, 0.62);
-    backdrop-filter: blur(28px) saturate(160%);
     -webkit-backdrop-filter: blur(28px) saturate(160%);
+    backdrop-filter: blur(28px) saturate(160%);
     cursor: default;
   }
 
@@ -186,8 +186,8 @@
     border-radius: 0.625rem;
     background: rgba(255, 255, 255, 0.16);
     border: 1px solid rgba(255, 255, 255, 0.28);
-    backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
     color: #ffffff;
   }
 

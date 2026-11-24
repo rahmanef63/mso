@@ -6,7 +6,7 @@ import { currentSessionPolicy, listDevices } from "@/lib/auth/device-store";
 import { signSession, MIN_SECRET_LEN } from "@/lib/auth/session";
 import { configuredSessionCookieScope } from "@/lib/auth/session-cookie";
 
-export type ScreenshotShell = "macos" | "windows" | "dashboard";
+export type ScreenshotShell = "macos" | "windows" | "dashboard" | "ios" | "android";
 
 export interface ScreenshotResult {
   mimeType: "image/png";
@@ -99,7 +99,7 @@ export async function captureMsoScreen(opts?: {
   width?: number;
   height?: number;
 }): Promise<ScreenshotResult> {
-  const shell: ScreenshotShell = opts?.shell && ["macos", "windows", "dashboard"].includes(opts.shell)
+  const shell: ScreenshotShell = opts?.shell && ["macos", "windows", "dashboard", "ios", "android"].includes(opts.shell)
     ? opts.shell
     : "macos";
   const width = clamp(opts?.width, 900, 1920, 1440);

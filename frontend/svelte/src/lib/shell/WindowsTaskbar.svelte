@@ -254,8 +254,8 @@
     background: rgba(243, 243, 246, 0.88);
     color: #1c1c1f;
     box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
-    backdrop-filter: blur(26px) saturate(180%);
     -webkit-backdrop-filter: blur(26px) saturate(180%);
+    backdrop-filter: blur(26px) saturate(180%);
     display: flex;
     align-items: center;
     justify-content: space-between;

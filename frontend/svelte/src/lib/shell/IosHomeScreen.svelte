@@ -428,8 +428,8 @@
     background: rgba(15, 18, 28, 0.72);
     border-bottom: 1px solid rgba(255, 255, 255, 0.16);
     color: #f8fafc;
-    backdrop-filter: blur(22px) saturate(180%);
     -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
     min-width: 0;
     max-width: 100%;
   }
@@ -588,8 +588,8 @@
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 24px;
     padding: 12px 8px;
-    backdrop-filter: blur(18px) saturate(160%);
     -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
     min-width: 0;
     max-width: 100%;
   }
@@ -707,8 +707,8 @@
     color: #ffffff;
     font-size: 0.8125rem;
     font-weight: 500;
-    backdrop-filter: blur(18px) saturate(180%);
     -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
     transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
     max-width: 100%;
@@ -766,8 +766,8 @@
     background: rgba(18, 22, 34, 0.68);
     border: 1px solid rgba(255, 255, 255, 0.24);
     box-shadow: 0 14px 36px rgba(0, 0, 0, 0.36);
-    backdrop-filter: blur(26px) saturate(180%);
     -webkit-backdrop-filter: blur(26px) saturate(180%);
+    backdrop-filter: blur(26px) saturate(180%);
   }
 
   .ios-shell .ios-dock.app-dock::-webkit-scrollbar {
@@ -850,8 +850,8 @@
     place-items: end center;
     padding: 12px;
     background: rgba(6, 10, 20, 0.55);
-    backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
 
   .ios-library-sheet {

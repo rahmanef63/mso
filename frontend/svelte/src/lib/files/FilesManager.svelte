@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import { bytes } from "../format.ts";
   import { createFilesController, joinFsPath, type FilesState } from "./files-controller.ts";
   import { buildPathSegments } from "./files-path-utils.ts";
@@ -49,13 +49,14 @@
 
   $effect(() => { onDirtyChange?.(isDirty); setWinState<SavedDraft>(winId, "files.draft", { editing, editPath, draft }); });
   $effect(() => {
-    if (!onMobileNavChange) return;
-    if (!isMobileVariant || view.kind !== "ready") { onMobileNavChange(null); return; }
-    if (view.preview.kind !== "idle") {
-      onMobileNavChange({ title: view.preview.name, backLabel: folderTitle, onBack: () => { editing = false; editPath = null; controller?.closePreview(); } });
-    } else if (view.parent) {
-      onMobileNavChange({ title: folderTitle, backLabel: parentTitle, onBack: () => void controller?.goParent() });
-    } else { onMobileNavChange(null); }
+    const mobile = isMobileVariant, cur = view, fTitle = folderTitle, pTitle = parentTitle;
+    untrack(() => {
+      if (!onMobileNavChange) return;
+      if (!mobile || cur.kind !== "ready") { onMobileNavChange(null); return; }
+      if (cur.preview.kind !== "idle") onMobileNavChange({ title: cur.preview.name, backLabel: fTitle, onBack: () => { editing = false; editPath = null; controller?.closePreview(); } });
+      else if (cur.parent) onMobileNavChange({ title: fTitle, backLabel: pTitle, onBack: () => void controller?.goParent() });
+      else onMobileNavChange(null);
+    });
   });
 
   function setMode(next: FilesViewMode) { viewMode = next; setWinState(winId, "files.viewMode", next); }
@@ -141,7 +142,7 @@
       {#if variant === "finder" || variant === "explorer"}
         <FilesChromeParts mode="sidebar" {variant} currentPath={ready.path} parent={ready.parent} {parentTitle} {sidebarOpen} onNavigate={navigateTo} onGoParent={() => void controller?.goParent()} />
       {/if}
-      <div class="files-main" class:columns-mode={variant === "finder" && viewMode === "columns"}>
+      <div class="files-main" class:has-preview={ready.preview.kind !== "idle"} class:columns-mode={variant === "finder" && viewMode === "columns"}>
         {#if !(isMobileVariant && ready.preview.kind !== "idle")}
           <div class="entry-pane">
             {#if filteredEntries.length === 0}

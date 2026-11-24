@@ -93,7 +93,8 @@
   );
   let ownerDevicesOpened = $state(false);
   let clockNow = $state(new Date());
-  let mobileNavByWin = $state<Record<string, MobileNavSpec | null>>({});
+  let mobileNavByWin = $state<Record<string, { title: string; backLabel: string } | null>>({});
+  const mobileNavHandlers = new Map<string, () => void>();
   let monitorRef: { refresh: () => void } | undefined;
 
   let pendingDeepLink: { app: string; path?: string } | null = null;
@@ -119,7 +120,7 @@
   let focusedWin = $derived(layout.focused ? layout.windows[layout.focused] ?? null : null);
   let focusedTitle = $derived(focusedWin?.title ?? "Desktop");
   const PINNED_DOCK_APPS = new Set([
-    "assistant", "files", "editor", "terminal", "camoufox", "workflows",
+    "assistant", "files", "editor", "terminal", "processes", "camoufox", "workflows",
     "agent-group", "apps", "integrations", "settings", "devices", "inspector",
   ]);
   let dockApps = $derived(visibleDockApps(activeSession?.role));
@@ -127,9 +128,17 @@
   let isDesktopShell = $derived(resolvedChrome === "macos" || resolvedChrome === "windows");
   let isMobileShell = $derived(resolvedChrome === "ios" || resolvedChrome === "android");
   let activeDesign = $derived(designProfileFor(resolvedChrome));
-  let activeMobileNav = $derived<MobileNavSpec | null>(
-    layout.focused ? (mobileNavByWin[layout.focused] ?? null) : null,
-  );
+  let activeMobileNav = $derived.by<MobileNavSpec | null>(() => {
+    const id = layout.focused;
+    if (!id) return null;
+    const meta = mobileNavByWin[id];
+    if (!meta) return null;
+    return {
+      title: meta.title,
+      backLabel: meta.backLabel,
+      onBack: () => mobileNavHandlers.get(id)?.(),
+    };
+  });
   let isDesktopFloating = $derived(isDesktopShell && effectiveViewportWidth >= 720 && Boolean(activeSession?.authenticated));
   let desktopBounds = $derived<DesktopBounds>({
     width: Math.max(360, effectiveViewportWidth),
@@ -221,13 +230,17 @@
 
   function handleMobileNavChange(winId: string, nav: MobileNavSpec | null) {
     if (nav === null) {
+      mobileNavHandlers.delete(winId);
       if (!(winId in mobileNavByWin)) return;
       const next = { ...mobileNavByWin };
       delete next[winId];
       mobileNavByWin = next;
       return;
     }
-    mobileNavByWin = { ...mobileNavByWin, [winId]: nav };
+    mobileNavHandlers.set(winId, nav.onBack);
+    const prev = mobileNavByWin[winId];
+    if (prev && prev.title === nav.title && prev.backLabel === nav.backLabel) return;
+    mobileNavByWin = { ...mobileNavByWin, [winId]: { title: nav.title, backLabel: nav.backLabel } };
   }
 
   function closeWindowSafely(id: string) {

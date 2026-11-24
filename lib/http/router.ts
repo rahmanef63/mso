@@ -29,26 +29,13 @@ type CompiledRoute = {
 };
 
 const MIME_BY_EXT: Record<string, string> = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "application/javascript; charset=utf-8",
-  ".mjs": "application/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".webmanifest": "application/manifest+json; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".webp": "image/webp",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-  ".pdf": "application/pdf",
-  ".webm": "video/webm",
-  ".wav": "audio/wav",
-  ".txt": "text/plain; charset=utf-8",
+  ".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
+  ".mjs": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg", ".gif": "image/gif", ".ico": "image/x-icon", ".woff2": "font/woff2",
+  ".pdf": "application/pdf", ".webm": "video/webm", ".wav": "audio/wav", ".txt": "text/plain; charset=utf-8",
 };
-
 const RESERVED_STATIC_PREFIXES = ["/api", "/_next", "/mcp", "/oauth", "/.well-known", "/a2a"];
 
 function scanRouteFiles(dir: string, out: string[] = []): string[] {

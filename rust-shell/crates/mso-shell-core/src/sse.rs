@@ -68,7 +68,9 @@ pub fn stream_sse_request(client: &mut TcpStream, upstream: &HostOrigin, req: &S
         wire.push_str(&format!("Content-Type: {ct}\r\nContent-Length: {}\r\n", req.body.len()));
     }
     wire.push_str("\r\n");
-    if up.write_all(wire.as_bytes()).is_err() || (!req.body.is_empty() && up.write_all(req.body).is_err()) {
+    let mut out = wire.into_bytes();
+    out.extend_from_slice(req.body);
+    if up.write_all(&out).is_err() {
         return reject(client, 502, "upstream_write_failed");
     }
     let (mut raw, mut buf) = (Vec::new(), [0u8; 2048]);

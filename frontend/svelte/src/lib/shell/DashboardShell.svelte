@@ -333,8 +333,8 @@
     background: var(--panel-solid);
     color: var(--text);
     border-bottom: 1px solid var(--border);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     min-width: 0;
     max-width: 100%;
   }
@@ -565,8 +565,8 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   @media (min-width: 48rem) {

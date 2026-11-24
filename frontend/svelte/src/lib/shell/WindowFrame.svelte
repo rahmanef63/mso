@@ -588,8 +588,8 @@
     border-radius: 0.75rem;
     border: 2px solid var(--accent, #1f6df0);
     background: color-mix(in srgb, var(--accent, #1f6df0) 18%, transparent);
-    backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     box-shadow: 0 10px 30px rgba(31, 109, 240, 0.22);
     transition: left 90ms ease, top 90ms ease, width 90ms ease, height 90ms ease;
   }
@@ -602,8 +602,8 @@
     min-width: 0;
     max-width: 100%;
     background: var(--window-bg);
-    backdrop-filter: blur(var(--blur)) saturate(170%);
     -webkit-backdrop-filter: blur(var(--blur)) saturate(170%);
+    backdrop-filter: blur(var(--blur)) saturate(170%);
     border: 1px solid var(--border);
     border-radius: 0.875rem;
     box-shadow: var(--shadow-win);
@@ -624,8 +624,8 @@
     border-radius: 0;
     box-shadow: none;
     background: var(--surface);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   .win-body.edge-to-edge {
@@ -776,8 +776,8 @@
     border-radius: 0.625rem;
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--panel) 95%, var(--panel-solid));
-    backdrop-filter: blur(var(--blur, 24px)) saturate(180%);
     -webkit-backdrop-filter: blur(var(--blur, 24px)) saturate(180%);
+    backdrop-filter: blur(var(--blur, 24px)) saturate(180%);
     box-shadow: var(--shadow-pop);
     display: grid;
     gap: 0.375rem;

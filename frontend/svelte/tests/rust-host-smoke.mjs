@@ -55,6 +55,7 @@ const backend = createServer(async (req, res) => {
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") {
     res.setHeader("Set-Cookie", ["session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"]); res.end(JSON.stringify({ success: true }));
   } else if (url.pathname === "/api/auth/devices") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? devices : {})); }
+  else if (url.pathname === "/api/prefs") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? { tweaks: {} } : {})); }
   else { res.statusCode = 404; res.end("{}"); }
 });
 
