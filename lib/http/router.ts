@@ -29,19 +29,14 @@ type CompiledRoute = {
 };
 
 const MIME_BY_EXT: Record<string, string> = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "application/javascript; charset=utf-8",
-  ".mjs": "application/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-  ".txt": "text/plain; charset=utf-8",
+  ".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
+  ".mjs": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg", ".gif": "image/gif", ".ico": "image/x-icon", ".woff2": "font/woff2",
+  ".pdf": "application/pdf", ".webm": "video/webm", ".wav": "audio/wav", ".txt": "text/plain; charset=utf-8",
 };
+const RESERVED_STATIC_PREFIXES = ["/api", "/_next", "/mcp", "/oauth", "/.well-known", "/a2a"];
 
 function scanRouteFiles(dir: string, out: string[] = []): string[] {
   let entries: fs.Dirent[];
@@ -140,16 +135,24 @@ function copyProxyResponseHeaders(target: Headers, proxyRes: Response): void {
 }
 
 function tryServeStatic(rootDir: string, pathname: string, nonce: string | null): Response | null {
+  const lowerPath = pathname.toLowerCase();
+  if (RESERVED_STATIC_PREFIXES.some((p) => lowerPath === p || lowerPath.startsWith(`${p}/`))) {
+    return null;
+  }
   const safeRel = path.posix.normalize(pathname).replace(/^\/+/, "");
   if (safeRel.includes("..")) return null;
   const svelteBuild = path.join(rootDir, "frontend/svelte/build");
   const publicDir = path.join(rootDir, "public");
-  const candidates = [
-    path.join(svelteBuild, safeRel),
-    path.join(publicDir, safeRel),
-    path.join(svelteBuild, safeRel, "index.html"),
-    path.join(svelteBuild, "index.html"),
-  ];
+  const lastSegment = safeRel.split("/").pop() ?? "";
+  const isExtensionedAsset = lastSegment.includes(".");
+  const candidates = isExtensionedAsset
+    ? [path.join(svelteBuild, safeRel), path.join(publicDir, safeRel)]
+    : [
+        path.join(svelteBuild, safeRel),
+        path.join(publicDir, safeRel),
+        path.join(svelteBuild, safeRel, "index.html"),
+        path.join(svelteBuild, "index.html"),
+      ];
   for (const candidate of candidates) {
     let body: Buffer;
     try {

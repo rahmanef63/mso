@@ -19,6 +19,7 @@
     openAppSet,
     minimizedWindows = [],
     onOpenApp,
+    onFocusOrOpenApp,
     onLaunchpad,
     onMissionControl,
     onRestoreWindow,
@@ -28,6 +29,7 @@
     openAppSet: ReadonlySet<string>;
     minimizedWindows?: readonly WindowState[];
     onOpenApp: (app: string, title: string, payload?: unknown, multi?: boolean) => void;
+    onFocusOrOpenApp?: (item: DockAppDef) => void;
     onLaunchpad: () => void;
     onMissionControl: () => void;
     onRestoreWindow: (id: string) => void;
@@ -119,7 +121,13 @@
 
   function handlePointerMove(event: PointerEvent) {
     if (event.pointerType !== "mouse" || fit.cramped) return;
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (
+      typeof window !== "undefined"
+      && (
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        || document.documentElement.dataset.reducedMotion === "true"
+      )
+    ) {
       return;
     }
     mouseX = event.clientX;
@@ -133,6 +141,14 @@
 
   function markImageBroken(key: string) {
     brokenImages = { ...brokenImages, [key]: true };
+  }
+
+  function handleAppClick(item: DockAppDef) {
+    if (onFocusOrOpenApp) {
+      onFocusOrOpenApp(item);
+      return;
+    }
+    onOpenApp(item.app, item.title, item.payload, item.multi);
   }
 
   function handleContextMenu(event: MouseEvent, item: DockAppDef) {
@@ -208,7 +224,7 @@
                 class="macos-dock-btn"
                 aria-label={slot.item.label}
                 title={slot.item.title}
-                onclick={() => onOpenApp(slot.item.app, slot.item.title, slot.item.payload, slot.item.multi)}
+                onclick={() => handleAppClick(slot.item)}
                 oncontextmenu={(e) => handleContextMenu(e, slot.item)}
               >
                 <span class="macos-icon-squircle" style:background={visual.gradient} aria-hidden="true">
@@ -351,8 +367,8 @@
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.42),
       0 18px 50px -10px rgba(0, 0, 0, 0.48);
-    backdrop-filter: blur(24px) saturate(185%);
     -webkit-backdrop-filter: blur(24px) saturate(185%);
+    backdrop-filter: blur(24px) saturate(185%);
   }
 
   .macos-dock.cramped {
@@ -423,8 +439,8 @@
     background: rgba(22, 24, 34, 0.86);
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
-    backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
     transition: opacity 130ms ease, transform 130ms ease, visibility 130ms ease;
     z-index: 8150;
   }

@@ -1,0 +1,215 @@
+.files-shell {
+  container-type: inline-size;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.5rem;
+  background: transparent;
+  border: 0;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 1. macOS Finder */
+.files-shell .finder-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.45rem 0.625rem;
+  background: color-mix(in srgb, var(--window-head) 90%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+}
+.files-shell .finder-nav-group,
+.files-shell .finder-actions { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
+.files-shell .finder-icon-btn { min-width: 2rem; min-height: 2rem; padding: 0.15rem 0.5rem; font-size: 1.1rem; line-height: 1; }
+.files-shell .finder-title { font-weight: 600; font-size: 0.9375rem; color: var(--text); }
+.files-shell .finder-segment {
+  display: inline-flex;
+  padding: 0.125rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  gap: 0.125rem;
+}
+.files-shell .finder-segment button { min-height: 1.75rem; padding: 0.15rem 0.55rem; font-size: 0.78rem; border: 0; background: transparent; border-radius: 0.375rem; }
+.files-shell .finder-segment button.active { background: var(--panel-solid); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14); font-weight: 600; }
+.files-shell .finder-pathbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.625rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.files-shell .finder-crumbs { display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; }
+
+/* 2. Windows 11 File Explorer */
+.files-shell .explorer-chrome { display: grid; gap: 0.5rem; }
+.files-shell .explorer-cmdbar {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  padding: 0.375rem 0.5rem;
+  background: color-mix(in srgb, var(--panel-solid) 94%, var(--accent) 3%);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+}
+.files-shell .explorer-cmdbar button { min-height: 2rem; padding: 0.25rem 0.625rem; font-size: 0.8125rem; border-radius: 0.25rem; }
+.files-shell .explorer-cmdbar button.active { border-color: #0078d4; color: #0078d4; font-weight: 600; }
+.files-shell .explorer-addr-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.files-shell .explorer-address {
+  flex: 1 1 14rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  min-height: 2.125rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: var(--panel-solid);
+  font-size: 0.8125rem;
+}
+.files-shell .explorer-root-tag { font-weight: 600; color: var(--text); }
+.files-shell .addr-edit-btn { margin-left: auto; min-height: 1.65rem; padding: 0.1rem 0.45rem; font-size: 0.72rem; border-radius: 0.2rem; }
+.files-shell .explorer-addr-form { flex: 1 1 14rem; display: flex; gap: 0.375rem; }
+.files-shell .explorer-addr-form input { flex: 1 1 auto; min-height: 2.125rem; border-radius: 0.25rem; }
+.files-shell .explorer-filter { width: 12rem; min-height: 2.125rem; border-radius: 0.25rem; font-size: 0.8125rem; }
+.files-shell .explorer-table { display: grid; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--panel-solid); overflow: hidden; }
+.files-shell .exp-head,
+.files-shell .exp-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) 6rem 5rem auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.625rem;
+}
+.files-shell .exp-head { font-size: 0.75rem; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--surface); }
+.files-shell .exp-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-size: 0.84rem; }
+.files-shell .exp-row:last-child { border-bottom: 0; }
+.files-shell .exp-row.selected { background: color-mix(in srgb, #0078d4 14%, transparent); }
+.files-shell .exp-open {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.35rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  min-width: 0;
+}
+.files-shell .exp-glyph { font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 0.2rem; background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--muted); flex-shrink: 0; }
+.files-shell .exp-glyph.dir { background: color-mix(in srgb, #eab308 26%, transparent); color: #a16207; }
+.files-shell .exp-name { overflow-wrap: anywhere; font-weight: 500; }
+.files-shell .exp-type,
+.files-shell .exp-size { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.files-shell .explorer-statusbar { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.35rem 0.5rem; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--muted); }
+
+/* 3. iOS Files */
+.files-shell .ios-files-top { display: grid; gap: 0.5rem; }
+.files-shell .ios-files-search {
+  width: 100%;
+  min-height: 2.5rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  padding: 0.45rem 0.875rem;
+}
+.files-shell .ios-files-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.files-shell .ios-seg { display: inline-flex; padding: 0.15rem; border-radius: 0.625rem; background: color-mix(in srgb, var(--text) 9%, transparent); gap: 0.15rem; }
+.files-shell .ios-seg button { min-height: 2.25rem; border: 0; background: transparent; border-radius: 0.5rem; font-size: 0.84rem; }
+.files-shell .ios-seg button.active { background: var(--panel-solid); font-weight: 600; }
+.files-shell.is-ios-files .entry-list { border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; gap: 0; background: var(--panel-solid); }
+.files-shell.is-ios-files .entry-item { border-bottom: 1px solid var(--border); padding: 0.25rem 0.5rem; }
+.files-shell.is-ios-files .entry-item:last-child { border-bottom: 0; }
+.files-shell.is-ios-files .entry-row { border: 0; background: transparent; min-height: 3rem; border-radius: 0; }
+.files-shell .ios-chev { font-size: 1.2rem; color: var(--muted); }
+
+/* 4. Android Material You Files */
+.files-shell .m3-files-top { display: grid; gap: 0.5rem; }
+.files-shell .m3-crumb-strip { display: flex; gap: 0.375rem; overflow-x: auto; padding-bottom: 0.15rem; }
+.files-shell .m3-crumb-chip {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  padding: 0.25rem 0.875rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel-solid));
+  border: 1px solid var(--border);
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+.files-shell .m3-files-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.files-shell .m3-files-search { flex: 1 1 10rem; min-height: 2.75rem; border-radius: 999px; padding: 0.45rem 1rem; }
+.files-shell .m3-tonal-btn { min-height: 2.75rem; border-radius: 999px; background: color-mix(in srgb, var(--accent) 16%, var(--panel-solid)); color: var(--text); font-weight: 600; }
+.files-shell.is-android-files .entry-row { min-height: 3.25rem; border-radius: 1.125rem; background: color-mix(in srgb, var(--panel-solid) 94%, var(--accent) 4%); }
+.files-shell.is-android-files .kind-badge { border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, var(--panel-solid)); }
+
+/* 5. Dashboard & shared layout */
+.files-shell .dash-head-label { font-weight: 700; font-size: 0.9375rem; }
+.files-shell .path-group { display: grid; gap: 0.2rem; min-width: 0; }
+.files-shell .current-path { font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
+.files-shell .files-body { display: grid; gap: 0.75rem; min-width: 0; }
+.files-shell .files-body.has-sidebar { grid-template-columns: 11rem minmax(0, 1fr); align-items: start; }
+.files-shell .files-sidebar { display: grid; gap: 0.2rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem; background: color-mix(in srgb, var(--surface) 82%, transparent); }
+.files-shell .sidebar-group-title { margin: 0 0 0.25rem; padding: 0 0.375rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.files-shell .place-item { display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 2rem; padding: 0.25rem 0.5rem; border: 0; border-radius: 0.375rem; background: transparent; text-align: left; font-size: 0.8125rem; }
+.files-shell .place-item.active { background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 600; color: var(--accent); }
+.files-shell .place-glyph { width: 1.25rem; text-align: center; font-weight: 700; font-size: 0.72rem; color: var(--muted); }
+.files-shell .nav-toggle-btn { display: none; min-height: 2rem; font-size: 0.78rem; }
+.files-shell .files-main { display: grid; gap: 0.75rem; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+@container (min-width: 44rem) {
+  .files-shell .files-main.has-preview { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .files-shell .files-main.has-preview.columns-mode { grid-template-columns: minmax(0, 14rem) minmax(0, 1fr); }
+}
+@container (max-width: 36rem) {
+  .files-shell .files-body.has-sidebar { grid-template-columns: minmax(0, 1fr); }
+  .files-shell .files-sidebar { display: none; }
+  .files-shell .files-sidebar.open { display: grid; }
+  .files-shell .nav-toggle-btn { display: inline-flex; }
+  .files-shell .exp-head,
+  .files-shell .exp-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .files-shell .exp-type,
+  .files-shell .exp-size,
+  .files-shell .exp-head span:nth-child(2),
+  .files-shell .exp-head span:nth-child(3) { display: none; }
+}
+.files-shell .crumb-btn { min-height: 1.65rem; padding: 0.1rem 0.35rem; border: 0; background: transparent; font-size: inherit; color: var(--text); border-radius: 0.25rem; }
+.files-shell .crumb-btn:hover { background: color-mix(in srgb, var(--text) 9%, transparent); }
+.files-shell .crumb-sep { color: var(--muted); }
+.files-shell .inline-form { display: grid; gap: 0.5rem; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 0.5rem; }
+.files-shell .inline-form-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.files-shell .inline-form-row input { flex: 1 1 11rem; min-width: 0; }
+.files-shell .entry-pane, .files-shell .entry-name, .files-shell .preview-meta, .files-shell .editor-wrap { min-width: 0; }
+.files-shell .entry-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; min-width: 0; }
+.files-shell .entry-item { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
+.files-shell .entry-row { flex: 1 1 11rem; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.625rem; min-height: var(--ui-control-height, 2.5rem); padding: 0.45rem 0.75rem; text-align: left; background: var(--panel-solid); color: var(--text); border: 1px solid var(--border); border-radius: 0.5rem; }
+.files-shell .entry-row:hover, .files-shell .entry-row.selected { border-color: var(--accent); }
+.files-shell .entry-trailing, .files-shell .entry-actions, .files-shell .preview-actions, .files-shell .editor-actions { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+.files-shell .entry-delete { padding: 0.35rem 0.625rem; font-size: 0.8rem; }
+.files-shell .entry-name { display: flex; align-items: center; gap: 0.5rem; overflow-wrap: anywhere; }
+.files-shell .kind-badge, .files-shell .size-badge { flex-shrink: 0; font-size: 0.72rem; padding: 0.1rem 0.45rem; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); }
+.files-shell .entry-row.is-dir .kind-badge { color: var(--accent); border-color: var(--accent); }
+.files-shell .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.25rem, 1fr)); gap: 0.625rem; }
+.files-shell .icon-cell { display: grid; gap: 0.35rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.625rem; background: var(--panel-solid); }
+.files-shell .icon-cell.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel-solid)); }
+.files-shell .icon-open { display: grid; justify-items: center; gap: 0.3rem; border: 0; background: transparent; padding: 0.25rem; text-align: center; }
+.files-shell .icon-art { display: grid; place-items: center; width: 2.75rem; height: 2.25rem; border-radius: 0.45rem; background: color-mix(in srgb, var(--text) 10%, transparent); font-size: 0.7rem; font-weight: 700; color: var(--muted); }
+.files-shell .icon-art.dir { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+.files-shell .icon-label { font-size: 0.8rem; font-weight: 500; overflow-wrap: anywhere; }
+.files-shell .icon-sub { font-size: 0.7rem; color: var(--muted); }
+.files-shell .icon-cell-actions { display: flex; justify-content: center; gap: 0.25rem; }
+.files-shell .preview-pane { display: grid; gap: 0.75rem; min-width: 0; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel-solid); }
+.files-shell .preview-header { display: flex; align-items: center; justify-content: space-between; gap: 0.625rem; flex-wrap: wrap; }
+.files-shell .preview-meta { display: grid; gap: 0.125rem; }
+.files-shell .preview-meta code { font-size: 0.75rem; color: var(--muted); overflow-wrap: anywhere; }
+.files-shell .preview-code { margin: 0; padding: 0.75rem; max-height: 24rem; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 0.375rem; font-size: 0.8125rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.files-shell .editor-wrap { display: grid; gap: 0.625rem; }
+.files-shell .preview-editor { width: 100%; min-width: 0; min-height: 14rem; padding: 0.75rem; resize: vertical; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 0.375rem; font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.5; }
+.files-shell .dirty-notice { font-size: 0.875rem; color: var(--warn); font-weight: 600; }
+.files-shell .empty-msg, .files-shell .files-status { margin: 0; color: var(--muted); font-size: 0.875rem; }

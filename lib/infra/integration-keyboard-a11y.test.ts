@@ -19,9 +19,12 @@ const read = (p: string) => readFileSync(p, "utf8");
 
 describe("skip link reaches the primary content", () => {
   it("targets a focusable main landmark in the Svelte 5 shell", () => {
-    const page = read("frontend/svelte/src/routes/+page.svelte");
-    expect(page).toContain('href="#main-content"');
-    expect(page).toContain('<main id="main-content" tabindex="-1"');
+    const route = read("frontend/svelte/src/routes/+page.svelte");
+    expect(route).toContain("WorkspaceRoot");
+    const root = read("frontend/svelte/src/lib/shell/WorkspaceRoot.svelte");
+    expect(root).toContain('href="#main-content"');
+    expect(root).toContain('id="main-content"');
+    expect(root).toContain('tabindex="-1"');
   });
 });
 

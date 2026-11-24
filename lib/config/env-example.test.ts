@@ -101,6 +101,12 @@ const NOT_A_KNOB: Record<string, string> = {
   OS_MEDIA_DEVICE: "scripts/gen-readme-media.mjs only",
   MSO_RUST_SHELL_BIN: "frontend/svelte/tests/rust-host-smoke.mjs smoke harness override; not production config",
   MSO_SVELTE_BUILD_DIR: "frontend/svelte/tests/rust-host-smoke.mjs smoke harness override; not production config",
+  GITHUB_SHA: "GitHub Actions CI commit SHA read during Vite build metadata stamping; not operator config",
+  VERCEL_GIT_COMMIT_SHA: "Vercel platform commit SHA read during static demo build metadata stamping; not operator config",
+  MSO_BUILD_SHA: "build-time commit SHA override for frontend/svelte/tooling/public-assets.mjs; not runtime config",
+  PLAYWRIGHT_BROWSERS_PATH: "Playwright test browser cache override in frontend/svelte/tests/_browser-launch.mjs; test harness",
+  PLAYWRIGHT_CHROMIUM_EXECUTABLE: "Playwright Chromium binary override in frontend/svelte/tests/_browser-launch.mjs; test harness",
+  PLAYWRIGHT_WEBKIT_EXECUTABLE: "Playwright WebKit binary override in frontend/svelte/tests/_browser-launch.mjs; test harness",
 };
 
 function usedEnvNames(): string[] {

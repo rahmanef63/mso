@@ -164,8 +164,8 @@
     border-radius: 1.25rem;
     padding: 1.5rem;
     box-shadow: var(--shadow-win);
-    backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
     min-width: 0;
   }
 

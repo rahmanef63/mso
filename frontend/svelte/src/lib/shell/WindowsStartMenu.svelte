@@ -270,8 +270,8 @@
     color: #1c1c1f;
     border: 1px solid rgba(0, 0, 0, 0.12);
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
   }
 
   @media (prefers-color-scheme: dark) {

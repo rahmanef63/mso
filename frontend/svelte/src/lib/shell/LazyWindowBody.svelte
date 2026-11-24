@@ -2,11 +2,16 @@
   import type { Component } from "svelte";
   import type { Session } from "../host-api";
   import type { ChromeChoice, ChromeProfile } from "./chrome-profile";
+  import type { MobileNavSpec } from "./shell-design";
+  import type { ShellPrefs } from "./shell-prefs-store";
+  import type { WallpaperId } from "./wallpaper-store";
   import type { ShellLayoutState, WindowState } from "./window-store";
 
   let {
     win, session, layout, chromeChoice, resolvedChrome, viewportWidth,
-    onFilesPathChange, onThemeChange, onChromeChange, onEditorDirtyChange, onOpenInEditor,
+    shellPrefs, wallpaper,
+    onFilesPathChange, onThemeChange, onChromeChange, onShellPrefsChange, onWallpaperChange,
+    onEditorDirtyChange, onOpenInEditor, onMobileNavChange,
   }: {
     win: WindowState;
     session: Session;
@@ -14,11 +19,16 @@
     chromeChoice: ChromeChoice;
     resolvedChrome: ChromeProfile;
     viewportWidth: number;
-    onFilesPathChange: (path: string) => void;
+    shellPrefs?: ShellPrefs;
+    wallpaper?: WallpaperId;
+    onFilesPathChange: (winId: string, path: string) => void;
     onThemeChange: (theme: string) => void;
     onChromeChange: (c: ChromeChoice) => void;
+    onShellPrefsChange?: (prefs: ShellPrefs) => void;
+    onWallpaperChange?: (w: WallpaperId) => void;
     onEditorDirtyChange: (winId: string, dirty: boolean) => void;
     onOpenInEditor: (path: string) => void;
+    onMobileNavChange?: (winId: string, nav: MobileNavSpec | null) => void;
   } = $props();
 
   type AnySliceComponent = Component<Record<string, unknown>>;
@@ -75,16 +85,50 @@
   }
 
   function sliceProps(): Record<string, unknown> {
-    if (win.app === "files") return { initialPath: typeof win.payload === "string" ? win.payload : "~", onPathChange: onFilesPathChange };
+    if (win.app === "files") {
+      return {
+        winId: win.id,
+        initialPath: typeof win.payload === "string" ? win.payload : "~",
+        resolvedChrome,
+        onPathChange: (path: string) => onFilesPathChange(win.id, path),
+        onDirtyChange: (dirty: boolean) => onEditorDirtyChange(win.id, dirty),
+        onMobileNavChange: (nav: MobileNavSpec | null) => onMobileNavChange?.(win.id, nav),
+      };
+    }
     if (win.app === "editor") {
       return {
+        winId: win.id,
         initialPath: typeof win.payload === "string" ? win.payload : undefined,
         onDirtyChange: (dirty: boolean) => onEditorDirtyChange(win.id, dirty),
       };
     }
     if (win.app === "media" || win.app === "image-editor") return { initialPath: typeof win.payload === "string" ? win.payload : undefined };
-    if (win.app === "settings") return { role: session.role, deviceLabel: session.deviceLabel, onThemeChange };
-    if (win.app === "shell-settings") return { role: session.role, chromeChoice, onChromeChange, onThemeChange };
+    if (win.app === "settings") {
+      return {
+        winId: win.id,
+        role: session.role,
+        deviceLabel: session.deviceLabel,
+        resolvedChrome,
+        shellPrefs,
+        wallpaper,
+        onShellPrefsChange,
+        onWallpaperChange,
+        onThemeChange,
+        onMobileNavChange: (nav: MobileNavSpec | null) => onMobileNavChange?.(win.id, nav),
+      };
+    }
+    if (win.app === "shell-settings") {
+      return {
+        role: session.role,
+        chromeChoice,
+        shellPrefs,
+        wallpaper,
+        onChromeChange,
+        onShellPrefsChange,
+        onWallpaperChange,
+        onThemeChange,
+      };
+    }
     if (win.app === "devices") return { currentDeviceId: session.deviceId };
     if (win.app === "memory") return { role: session.role, onOpenFile: onOpenInEditor };
     if (win.app === "inspector") return { layout, resolvedChrome, viewportWidth, role: session.role };

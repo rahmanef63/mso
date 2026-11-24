@@ -7,7 +7,7 @@ import { once } from "node:events";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "@playwright/test";
+import { launchChromium } from "./_browser-launch.mjs";
 
 // Synthetic backend only: proves compiled Rust Stage R3G+R4 `mso-shell-host` serves Svelte in Chromium with
 // /healthz + opt-in --native-metrics (Linux /proc) + --native-fs-root (fs/list + fs/read + fs/search without Node!).
@@ -55,6 +55,7 @@ const backend = createServer(async (req, res) => {
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") {
     res.setHeader("Set-Cookie", ["session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"]); res.end(JSON.stringify({ success: true }));
   } else if (url.pathname === "/api/auth/devices") { res.statusCode = authed ? 200 : 403; res.end(JSON.stringify(authed ? devices : {})); }
+  else if (url.pathname === "/api/prefs") { res.statusCode = authed ? 200 : 401; res.end(JSON.stringify(authed ? { tweaks: {} } : {})); }
   else { res.statusCode = 404; res.end("{}"); }
 });
 
@@ -94,7 +95,7 @@ try {
   assert.equal((await rawHttp(hostPort, `POST /api/v1/fs/upload HTTP/1.1\r\nHost: ${expectedHost}\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`)).status, 403);
   assert.equal(calls.length, beforeNative);
 
-  browser = await chromium.launch({ headless: true });
+  browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
   const page = await context.newPage(), errors = [];
   page.on("pageerror", (e) => errors.push(e.message));

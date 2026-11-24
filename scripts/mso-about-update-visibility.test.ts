@@ -6,8 +6,8 @@ const readSettings = (name: string) => readFileSync(`frontend/svelte/src/lib/set
 describe("software update visibility contract (Svelte 5 Settings)", () => {
   it("exposes Software update as a top-level Settings tab", () => {
     const app = readSettings("SettingsApp.svelte");
-    expect(app).toContain('type SettingsTab = "prefs" | "account" | "updates" | "audit"');
-    expect(app).toContain('tab === "updates"');
+    expect(app).toContain('"updates"');
+    expect(app).toContain('section === "updates"');
     expect(app).toContain("SoftwareUpdateCard");
   });
 

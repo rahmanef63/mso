@@ -129,6 +129,23 @@ describe("zero-Next Web HTTP shim & router", () => {
       expect(match?.[1]).toBeTruthy();
       const body = await res.text();
       expect(body).toContain(`<script nonce="${match![1]}">boot()</script>`);
+
+      // Deep links serve SPA HTML with nonce; missing static assets return 404, never wrong-MIME HTML.
+      const deepRes = await dispatchMsoRequest(new Request("https://mso.example.com/files/home/demo", {
+        headers: { host: "mso.example.com" },
+      }), tmpRoot);
+      expect(deepRes.status).toBe(200);
+      expect(deepRes.headers.get("content-type")).toContain("text/html");
+
+      const missingImg = await dispatchMsoRequest(new Request("https://mso.example.com/wallpapers/missing.webp", {
+        headers: { host: "mso.example.com" },
+      }), tmpRoot);
+      expect(missingImg.status).toBe(404);
+
+      const missingChunk = await dispatchMsoRequest(new Request("https://mso.example.com/_app/immutable/missing.js", {
+        headers: { host: "mso.example.com" },
+      }), tmpRoot);
+      expect(missingChunk.status).toBe(404);
     } finally {
       fs.rmSync(tmpRoot, { recursive: true, force: true });
     }

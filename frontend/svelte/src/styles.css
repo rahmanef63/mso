@@ -224,8 +224,8 @@ button:disabled { opacity: 0.6; cursor: progress; }
 
 section {
   background: var(--panel);
-  backdrop-filter: blur(var(--blur));
   -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
   border: 1px solid var(--border);
   border-radius: 0.875rem;
   padding: 1rem 1.125rem;
@@ -286,6 +286,66 @@ dl > div, .metric {
 }
 dt { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
 dd { margin: 0.15rem 0 0; font-size: 0.9375rem; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; color: var(--text); }
+
+:root[data-reduce-glass="true"] {
+  --blur: 0px;
+  --panel: var(--panel-solid);
+  --window-bg: var(--panel-solid);
+  --window-head: var(--panel-solid);
+  --dock-bg: var(--panel-solid);
+  --glass-bar: #161820;
+  --glass-card: var(--panel-solid);
+}
+
+:root[data-reduce-glass="true"] *,
+:root[data-reduce-glass="true"] *::before,
+:root[data-reduce-glass="true"] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-high-contrast="true"] {
+  --border: rgba(0, 0, 0, 0.44);
+  --muted: #27272a;
+  --glass-border: rgba(0, 0, 0, 0.48);
+}
+
+:root[data-theme="dark"][data-high-contrast="true"] {
+  --border: rgba(255, 255, 255, 0.48);
+  --muted: #e4e4e7;
+  --glass-border: rgba(255, 255, 255, 0.52);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-high-contrast="true"] {
+    --border: rgba(255, 255, 255, 0.48);
+    --muted: #e4e4e7;
+    --glass-border: rgba(255, 255, 255, 0.52);
+  }
+}
+
+:root[data-high-contrast="true"] :focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+:root[data-high-contrast="true"] button,
+:root[data-high-contrast="true"] input,
+:root[data-high-contrast="true"] select,
+:root[data-high-contrast="true"] section,
+:root[data-high-contrast="true"] .win-frame {
+  border-width: 1.5px;
+}
+
+:root[data-reduced-motion="true"],
+:root[data-reduced-motion="true"] *,
+:root[data-reduced-motion="true"] *::before,
+:root[data-reduced-motion="true"] *::after {
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+}
 
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }

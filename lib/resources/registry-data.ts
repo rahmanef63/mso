@@ -48,6 +48,11 @@ export const REGISTRY: readonly SliceBudgetEntry[] = [
     { max: 120, file: "lib/mcp/tools-edit.ts", line: 13, note: "fs.edit limiter: 120 per 60 s" },
     "Image Editor, Media Studio, and Reel Editor persist edits through bounded fs writes.",
   ),
+  bounded(
+    "demo",
+    { file: "frontend/svelte/src/lib/demo/demo-adapter.ts", line: 6, note: "in-memory offline demo fetch interceptor; zero live host calls or background workers" },
+    "Offline synthetic demo adapter and viewport preview banner for standalone demos.",
+  ),
   limited(
     "docs",
     STATIC,

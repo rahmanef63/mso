@@ -3,14 +3,14 @@
 > **Current reference.** Counts are checked against the directory tree by
 > `scripts/check-docs.mjs`; `frontend/svelte/src/lib/` remains the final authority.
 
-<!-- slice-catalog: svelte-modules=22 -->
+<!-- slice-catalog: svelte-modules=23 -->
 
 Every cockpit application lives under `frontend/svelte/src/lib/` and talks to the MSO
 backend (`lib/` + `app/api/**`) or native Rust shell (`rust-shell/`). The legacy Next.js /
 React `frontend/slices/` tree was archived to the private `mso-nextjs-checkpoint` repo and
 removed during the Svelte 5 + Rust Shell full cutover.
 
-## Svelte 5 Feature Modules (22)
+## Svelte 5 Feature Modules (23)
 
 | Module | Purpose |
 |---|---|
@@ -21,6 +21,7 @@ removed during the Svelte 5 + Rust Shell full cutover.
 | `catalog` | App Store and Extensions (MCP + Skills) catalog |
 | `create-app` | Create App manifest authoring surface |
 | `creative` | Image Editor, Media Studio, and Reel Editor |
+| `demo` | Offline synthetic demo fetch adapter and viewport preview banner |
 | `docs` | In-app documentation browser |
 | `editor` | Code/text editor |
 | `files` | VPS Files manager |

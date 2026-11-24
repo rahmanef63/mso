@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, type Snippet } from "svelte";
+  import MobileAppBar from "./MobileAppBar.svelte";
   import { resolveAppIcon } from "./app-icons.ts";
+  import type { MobileNavSpec } from "./shell-design.ts";
   import {
     CHROME_PROFILES,
     isChromeChoice,
@@ -14,6 +16,8 @@
     authenticated = false,
     role = null,
     focusedTitle = "Home",
+    focusedWinId = null,
+    mobileNav = null,
     chromeChoice,
     resolvedChrome,
     dockApps,
@@ -25,6 +29,7 @@
     onRestoreWindow,
     onMinimizeWindow,
     onMinimizeAll,
+    onCloseWindow,
     onFocusWindow,
     onOpenPalette,
     onOpenControl,
@@ -38,6 +43,8 @@
     authenticated?: boolean;
     role?: string | null;
     focusedTitle?: string;
+    focusedWinId?: string | null;
+    mobileNav?: MobileNavSpec | null;
     chromeChoice: ChromeChoice;
     resolvedChrome: ChromeProfile;
     dockApps: readonly DockAppDef[];
@@ -49,6 +56,7 @@
     onRestoreWindow?: (id: string) => void;
     onMinimizeWindow?: (id: string) => void;
     onMinimizeAll?: () => void;
+    onCloseWindow?: (id: string) => void;
     onFocusWindow?: (id: string) => void;
     onOpenPalette: () => void;
     onOpenControl: () => void;
@@ -188,7 +196,7 @@
     </div>
   </header>
 
-  <main id="main-content" tabindex="-1" class="ios-main">
+  <main id="main-content" tabindex="-1" data-shell={resolvedChrome} class="ios-main">
     <div class="ios-home-stage" hidden={showingWindows}>
       <div class="ios-widget-surface" class:ios-login-wrap={!authenticated}>
         {@render monitorSlot()}
@@ -251,24 +259,14 @@
 
     {#if showingWindows}
       <div class="ios-sheet-stage" data-open-windows={activeWindows.length}>
-        <div class="ios-sheet-bar">
-          <button type="button" class="ios-home-btn" onclick={goHome}>
-            Home
-          </button>
-          <div class="ios-sheet-tabs" role="tablist" aria-label="Open sheets">
-            {#each activeWindows as win (win.id)}
-              <button
-                type="button"
-                role="tab"
-                class="ios-sheet-tab"
-                aria-selected={win.title === focusedTitle}
-                onclick={() => onFocusWindow?.(win.id)}
-              >
-                {win.title}
-              </button>
-            {/each}
-          </div>
-        </div>
+        <MobileAppBar
+          variant="ios"
+          appTitle={focusedTitle}
+          {mobileNav}
+          onBackHome={goHome}
+          onOpenAi={() => onOpenApp("assistant", "Alfa Assistant")}
+          onCloseApp={focusedWinId && onCloseWindow ? () => onCloseWindow(focusedWinId) : undefined}
+        />
 
         {#if windowsSlot}
           <div class="window-area ios-sheet-windows">
@@ -430,8 +428,8 @@
     background: rgba(15, 18, 28, 0.72);
     border-bottom: 1px solid rgba(255, 255, 255, 0.16);
     color: #f8fafc;
-    backdrop-filter: blur(22px) saturate(180%);
     -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
     min-width: 0;
     max-width: 100%;
   }
@@ -442,7 +440,8 @@
     gap: 6px;
     min-width: 0;
     max-width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
 
   .ios-time {
@@ -452,6 +451,7 @@
     font-variant-numeric: tabular-nums;
     color: #ffffff;
     padding: 0 2px;
+    flex-shrink: 0;
   }
 
   .ios-brand-pill {
@@ -465,6 +465,7 @@
     font-size: 0.75rem;
     font-weight: 600;
     color: #ffffff;
+    flex-shrink: 0;
   }
 
   .ios-brand-mark {
@@ -475,6 +476,7 @@
   }
 
   .ios-active-title {
+    min-width: 0;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -490,6 +492,10 @@
     max-width: 100%;
   }
 
+  .ios-status-actions::-webkit-scrollbar {
+    display: none;
+  }
+
   .ios-shell .ios-status-bar button,
   .ios-shell .ios-status-bar select {
     min-height: 30px;
@@ -501,11 +507,30 @@
     border-radius: 999px;
     max-width: 100%;
     min-width: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background-color 140ms ease, border-color 140ms ease;
   }
 
   .ios-shell .ios-status-bar select option {
     background: #141724;
     color: #f8fafc;
+  }
+
+  @media (max-width: 40rem) {
+    .ios-shell .ios-status-bar.workspace-header {
+      padding: 6px 8px;
+      gap: 4px 6px;
+    }
+
+    .ios-status-actions {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      width: 100%;
+      justify-content: flex-start;
+      padding-bottom: 1px;
+    }
   }
 
   .ios-main {
@@ -563,8 +588,8 @@
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 24px;
     padding: 12px 8px;
-    backdrop-filter: blur(18px) saturate(160%);
     -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
     min-width: 0;
     max-width: 100%;
   }
@@ -682,9 +707,10 @@
     color: #ffffff;
     font-size: 0.8125rem;
     font-weight: 500;
-    backdrop-filter: blur(18px) saturate(180%);
     -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+    transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
     max-width: 100%;
   }
 
@@ -704,68 +730,6 @@
     gap: 10px;
     width: 100%;
     min-width: 0;
-  }
-
-  .ios-sheet-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 8px 10px;
-    border-radius: 18px;
-    background: rgba(15, 20, 34, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(20px) saturate(170%);
-    -webkit-backdrop-filter: blur(20px) saturate(170%);
-    min-width: 0;
-  }
-
-  .ios-home-btn {
-    min-height: 34px;
-    padding: 5px 12px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
-    border: 1px solid rgba(255, 255, 255, 0.24);
-    color: #ffffff;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-
-  .ios-home-btn:hover {
-    background: rgba(255, 255, 255, 0.26);
-  }
-
-  .ios-sheet-tabs {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .ios-sheet-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .ios-sheet-tab {
-    flex: 0 0 auto;
-    min-height: 32px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: rgba(248, 250, 252, 0.86);
-    font-size: 0.78rem;
-  }
-
-  .ios-sheet-tab[aria-selected="true"] {
-    background: #ffffff;
-    color: #0f172a;
-    border-color: #ffffff;
-    font-weight: 600;
   }
 
   .ios-sheet-windows {
@@ -802,8 +766,8 @@
     background: rgba(18, 22, 34, 0.68);
     border: 1px solid rgba(255, 255, 255, 0.24);
     box-shadow: 0 14px 36px rgba(0, 0, 0, 0.36);
-    backdrop-filter: blur(26px) saturate(180%);
     -webkit-backdrop-filter: blur(26px) saturate(180%);
+    backdrop-filter: blur(26px) saturate(180%);
   }
 
   .ios-shell .ios-dock.app-dock::-webkit-scrollbar {
@@ -886,8 +850,8 @@
     place-items: end center;
     padding: 12px;
     background: rgba(6, 10, 20, 0.55);
-    backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
 
   .ios-library-sheet {

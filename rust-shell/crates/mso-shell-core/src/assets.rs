@@ -126,12 +126,18 @@ fn content_type_for(path: &Path) -> &'static str {
         "js" | "mjs" => "application/javascript; charset=utf-8",
         "css" => "text/css; charset=utf-8",
         "json" => "application/json; charset=utf-8",
+        "webmanifest" => "application/manifest+json; charset=utf-8",
         "svg" => "image/svg+xml",
         "png" => "image/png",
         "webp" => "image/webp",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
         "ico" => "image/x-icon",
         "woff2" => "font/woff2",
         "wasm" => "application/wasm",
+        "pdf" => "application/pdf",
+        "webm" => "video/webm",
+        "wav" => "audio/wav",
         "txt" => "text/plain; charset=utf-8",
         _ => "application/octet-stream",
     }
@@ -164,6 +170,7 @@ mod tests {
         assert_eq!(js.content_type, "application/javascript; charset=utf-8");
 
         assert_eq!(root.resolve("/_app/immutable/missing.js"), Err(AssetError::NotFound));
+        assert_eq!(root.resolve("/wallpapers/missing.webp"), Err(AssetError::NotFound));
         assert_eq!(root.resolve("/api/auth/me"), Err(AssetError::ReservedPath));
         assert_eq!(root.resolve("/_next/static/chunk.js"), Err(AssetError::ReservedPath));
         assert_eq!(root.resolve("/mcp"), Err(AssetError::ReservedPath));

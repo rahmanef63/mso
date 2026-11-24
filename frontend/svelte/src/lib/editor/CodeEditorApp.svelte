@@ -1,8 +1,19 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { countStats, createEditorController, type EditorState } from "./editor-api.ts";
+  import { getWinState, setWinState } from "../shell/window-feature-state.ts";
 
-  let { initialPath = "", onDirtyChange }: { initialPath?: string; onDirtyChange?: (dirty: boolean) => void } = $props();
+  type EditorDraftSnapshot = { path: string; content: string; dirty: boolean };
+
+  let {
+    winId,
+    initialPath = "",
+    onDirtyChange,
+  }: {
+    winId?: string;
+    initialPath?: string;
+    onDirtyChange?: (dirty: boolean) => void;
+  } = $props();
 
   let view = $state<EditorState>({ kind: "idle" });
   let pathInput = $state("");
@@ -38,17 +49,29 @@
   }
 
   onMount(() => {
+    const saved = getWinState<EditorDraftSnapshot | null>(winId, "editor.draft", null);
     controller = createEditorController(
       (next) => {
         view = next;
-        if (next.kind === "ready") pathInput = next.path;
+        if (next.kind === "ready") {
+          pathInput = next.path;
+          setWinState<EditorDraftSnapshot>(winId, "editor.draft", {
+            path: next.path,
+            content: next.content,
+            dirty: next.dirty,
+          });
+        }
       },
       { onDirtyChange: (dirty) => onDirtyChange?.(dirty) },
     );
-    const trimmed = initialPath.trim();
-    if (trimmed) {
-      pathInput = trimmed;
-      void controller.open(trimmed);
+    const targetPath = (saved?.path || initialPath).trim();
+    if (targetPath) {
+      pathInput = targetPath;
+      void controller.open(targetPath).then(() => {
+        if (saved?.dirty && saved.path === targetPath) {
+          controller?.updateContent(saved.content);
+        }
+      });
     }
     return () => controller?.dispose();
   });

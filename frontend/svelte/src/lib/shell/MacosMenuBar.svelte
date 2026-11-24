@@ -435,8 +435,8 @@
     line-height: 1;
     background: rgba(20, 22, 30, 0.72);
     border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-    backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
     user-select: none;
     flex-wrap: wrap;
     max-width: 100%;
@@ -524,8 +524,8 @@
     box-shadow:
       inset 0 0 0 0.5px rgba(255, 255, 255, 0.2),
       0 12px 40px rgba(0, 0, 0, 0.32);
-    backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
     display: flex;
     flex-direction: column;
     gap: 1px;
