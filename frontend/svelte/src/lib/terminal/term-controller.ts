@@ -17,6 +17,8 @@ export type EventSourceFactory = (url: string, init?: { withCredentials?: boolea
 export type TerminalControllerOptions = {
   fetcher?: typeof fetch; bridge?: ShellBridge; createEventSource?: EventSourceFactory;
   cols?: number; rows?: number;
+  /** Keep SGR colour sequences so the run renderer can style text safely. */
+  preserveSgr?: boolean;
 };
 
 export const MAX_OUTPUT_CHARS = 65_536;
@@ -39,8 +41,27 @@ export function sanitizeTerminalOutput(text: string): string {
   return text.replace(ANSI_RE, "").replace(/\r\n/g, "\n").replace(CTRL_RE, "");
 }
 
+// Non-SGR escapes: OSC/DCS/APC/PM strings, CSI sequences that are not `m`, and
+// the two-byte escape forms. SGR (`ESC [ ... m`) survives for the run renderer.
+const NON_SGR_RE = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[PX^_][\s\S]*?\x1b\\|\x1b\[[0-9;]*[A-LN-Za-ln-z]|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-Z\\-_]/g;
+
+/** Sanitize while keeping SGR colour/style sequences intact for term-ansi. */
+export function sanitizeTerminalSgr(text: string): string {
+  return text
+    .replace(/\x1b\[([0-9;]*)m/g, "\uE000$1\uE001")
+    .replace(NON_SGR_RE, "")
+    .replace(/\r\n/g, "\n")
+    .replace(CTRL_RE, "")
+    .replace(/\uE000([0-9;]*)\uE001/g, (_m, body: string) => `\x1b[${body}m`);
+}
+
 export function appendTerminalOutput(current: string, chunk: string, maxChars = MAX_OUTPUT_CHARS): string {
   const next = current + sanitizeTerminalOutput(chunk);
+  return next.length > maxChars ? next.slice(next.length - maxChars) : next;
+}
+
+export function appendTerminalSgrOutput(current: string, chunk: string, maxChars = MAX_OUTPUT_CHARS): string {
+  const next = current + sanitizeTerminalSgr(chunk);
   return next.length > maxChars ? next.slice(next.length - maxChars) : next;
 }
 
@@ -54,7 +75,8 @@ export function createTerminalController(
 ) {
   const fetcher = options.fetcher ?? fetch;
   const createEs = options.createEventSource ?? defaultEventSource;
-  const cols = options.cols ?? 80, rows = options.rows ?? 24;
+  let cols = options.cols ?? 80, rows = options.rows ?? 24;
+  const append = options.preserveSgr ? appendTerminalSgrOutput : appendTerminalOutput;
   let state: TerminalState = initialTerminalState();
   let gen = 0, disposed = false;
   let stream: EventSourceLike | null = null;
@@ -81,7 +103,7 @@ export function createTerminalController(
     es.addEventListener("data", (event) => {
       if (disposed || run !== gen) return;
       const chunk = decodeBase64Utf8(String(event.data ?? ""));
-      emit({ status: state.status === "connecting" ? "connected" : state.status, output: appendTerminalOutput(state.output, chunk) });
+      emit({ status: state.status === "connecting" ? "connected" : state.status, output: append(state.output, chunk) });
     });
     es.addEventListener("exit", (event) => {
       es.close();
@@ -140,6 +162,13 @@ export function createTerminalController(
 
   return {
     connect, sendLine: (text: string) => sendRaw(`${text}\r`), sendRaw,
+    /** Remember the real grid size so a later connect opens at the right size. */
+    setSize(nextCols: number, nextRows: number): void {
+      if (!Number.isInteger(nextCols) || !Number.isInteger(nextRows)) return;
+      if (nextCols < 2 || nextRows < 2 || nextCols > 500 || nextRows > 500) return;
+      cols = nextCols;
+      rows = nextRows;
+    },
     resize: (c: number, r: number) =>
       disposed || !state.sessionId ? Promise.resolve() : resizeTerminal(state.sessionId, c, r, undefined, fetcher, getBridge()).catch(() => {}),
     clearOutput: () => { if (!disposed) emit({ output: "" }); },
