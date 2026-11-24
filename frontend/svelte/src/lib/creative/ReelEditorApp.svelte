@@ -1,209 +1,220 @@
 <script lang="ts">
-  import { classifyMediaKind, resolveRawMediaUrl } from "../media/media-api.ts";
+  import "./ReelEditorApp.css";
+  import { moveItem } from "./creative-state.ts";
   import {
-    clampClipDuration, createReelClip, formatTimecode, moveItem, resolveClipAtTime,
-    totalDurationSec, type ReelClip,
-  } from "./creative-state.ts";
+    createCaption,
+    createTimelineClip,
+    defaultReelProject,
+    totalTimelineDuration,
+    type AspectRatioId,
+    type ClipTransition,
+    type HistoryStack,
+    type ReelAudioTrack,
+    type ReelCaption,
+    type ReelFps,
+    type ReelProjectState,
+    type ReelTimelineClip,
+  } from "./reel-model.ts";
+  import {
+    buildStoryboardExport,
+    clipStartTime,
+    createHistory,
+    duplicateClip,
+    patchClipTrim,
+    pushHistory,
+    redoHistory,
+    resolveActiveCaptions,
+    resolveTimelineClipAtTime,
+    splitClipAtTime,
+    undoHistory,
+  } from "./reel-ops.ts";
+  import { captureStageSnapshot, downloadJsonFile, slugifyFilename } from "./reel-snapshot.ts";
+  import ReelInspectorBin from "./ReelInspectorBin.svelte";
+  import ReelProjectBar from "./ReelProjectBar.svelte";
+  import ReelStagePreview from "./ReelStagePreview.svelte";
+  import ReelTimeline from "./ReelTimeline.svelte";
 
-  let clips = $state<ReelClip[]>([]);
-  let scrubSec = $state(0);
-  let titleInput = $state("");
-  let pathInput = $state("");
-  let durationInput = $state("5");
-  let captionInput = $state("");
-  let feedback = $state<string | null>(null);
+  const initialProject = defaultReelProject();
+  let history = $state<HistoryStack<ReelProjectState>>(createHistory(initialProject));
+  let project = $derived(history.present);
+  let canUndo = $derived(history.past.length > 0);
+  let canRedo = $derived(history.future.length > 0);
 
-  let totalSec = $derived(totalDurationSec(clips));
-  let safeScrub = $derived(totalSec > 0 ? Math.min(totalSec, Math.max(0, scrubSec)) : 0);
-  let active = $derived(resolveClipAtTime(clips, safeScrub));
-  let activeKind = $derived(active?.clip.path ? classifyMediaKind(active.clip.path) : "unsupported");
-  let activeUrl = $derived.by<string | null>(() => {
-    if (!active?.clip.path) return null;
-    if (activeKind !== "image" && activeKind !== "video") return null;
-    try { return resolveRawMediaUrl(active.clip.path); } catch { return null; }
+  let playheadSec = $state(0);
+  let playing = $state(false);
+  let looping = $state(true);
+  let showSafeZone = $state(false);
+  let selectedClipId = $state<string | null>(initialProject.clips[0]?.id ?? null);
+  let selectedCaptionId = $state<string | null>(initialProject.captions[0]?.id ?? null);
+  let notice = $state<{ tone: "ok" | "error"; text: string } | null>(null);
+  let stageMediaEl = $state<HTMLImageElement | HTMLVideoElement | null>(null);
+
+  let totalSec = $derived(totalTimelineDuration(project.clips));
+  let safePlayhead = $derived(totalSec > 0 ? Math.min(totalSec, Math.max(0, playheadSec)) : 0);
+  let active = $derived(resolveTimelineClipAtTime(project.clips, safePlayhead));
+  let activeCaption = $derived(resolveActiveCaptions(project.captions, safePlayhead)[0] ?? null);
+  let selectedClip = $derived(
+    project.clips.find((c) => c.id === selectedClipId) ?? active?.clip ?? project.clips[0] ?? null,
+  );
+  let selectedCaption = $derived(
+    project.captions.find((c) => c.id === selectedCaptionId) ?? activeCaption ?? project.captions[0] ?? null,
+  );
+
+  function commit(updater: (curr: ReelProjectState) => ReelProjectState) {
+    history = pushHistory(history, updater(project));
+  }
+
+  $effect(() => {
+    if (!playing || totalSec <= 0) return;
+    let last = performance.now();
+    const id = setInterval(() => {
+      const now = performance.now();
+      const dt = (now - last) / 1000;
+      last = now;
+      const next = playheadSec + dt;
+      if (next >= totalSec) {
+        if (looping) playheadSec = 0;
+        else { playheadSec = totalSec; playing = false; }
+      } else {
+        playheadSec = Math.round(next * 10) / 10;
+      }
+    }, 100);
+    return () => clearInterval(id);
   });
 
-  function addClip(event: SubmitEvent) {
-    event.preventDefault();
-    if (!titleInput.trim() && !pathInput.trim()) {
-      feedback = "Enter a clip title or host media path.";
+  function handleUndo() {
+    if (!canUndo) return;
+    playing = false;
+    history = undoHistory(history);
+    notice = { tone: "ok", text: "Undid last edit." };
+  }
+
+  function handleRedo() {
+    if (!canRedo) return;
+    playing = false;
+    history = redoHistory(history);
+    notice = { tone: "ok", text: "Redid edit." };
+  }
+
+  function jumpClipDelta(delta: number) {
+    if (project.clips.length === 0) return;
+    const nextIdx = Math.min(project.clips.length - 1, Math.max(0, (active?.index ?? 0) + delta));
+    playheadSec = clipStartTime(project.clips, nextIdx);
+    selectedClipId = project.clips[nextIdx]?.id ?? null;
+  }
+
+  function selectClip(id: string) {
+    selectedClipId = id;
+    const idx = project.clips.findIndex((c) => c.id === id);
+    if (idx >= 0) playheadSec = clipStartTime(project.clips, idx);
+  }
+
+  function handleAddClip(input: Parameters<typeof createTimelineClip>[0]) {
+    const created = createTimelineClip(input);
+    const startOfNew = totalSec;
+    commit((curr) => ({ ...curr, clips: [...curr.clips, created] }));
+    selectedClipId = created.id;
+    playheadSec = startOfNew;
+    notice = { tone: "ok", text: `Added "${created.title}" to timeline.` };
+  }
+
+  function handleSplit(id: string) {
+    const res = splitClipAtTime(project.clips, id, safePlayhead);
+    if (!res.createdId) {
+      notice = { tone: "error", text: "Clip must be at least 1s long to split." };
       return;
     }
-    const created = createReelClip(
-      titleInput,
-      pathInput,
-      clampClipDuration(Number(durationInput)),
-      captionInput,
-    );
-    const startOfNew = totalSec;
-    clips = [...clips, created];
-    scrubSec = startOfNew;
-    titleInput = "";
-    pathInput = "";
-    durationInput = "5";
-    captionInput = "";
-    feedback = null;
+    commit((curr) => ({ ...curr, clips: res.clips }));
+    selectedClipId = res.createdId;
+    notice = { tone: "ok", text: "Split clip into two segments." };
   }
 
-  function reorderClip(index: number, delta: number) {
-    clips = moveItem(clips, index, delta);
+  function handleDuplicate(id: string) {
+    const res = duplicateClip(project.clips, id);
+    if (!res.createdId) return;
+    commit((curr) => ({ ...curr, clips: res.clips }));
+    selectedClipId = res.createdId;
+    notice = { tone: "ok", text: "Duplicated clip." };
   }
 
-  function removeClip(id: string) {
-    clips = clips.filter((clip) => clip.id !== id);
-    const nextTotal = totalDurationSec(clips);
-    if (scrubSec > nextTotal) scrubSec = nextTotal;
+  function handleDeleteClip(id: string) {
+    commit((curr) => ({ ...curr, clips: curr.clips.filter((c) => c.id !== id) }));
+    if (selectedClipId === id) selectedClipId = project.clips[0]?.id ?? null;
   }
 
-  function jumpToClip(targetIndex: number) {
-    let offset = 0;
-    for (let i = 0; i < targetIndex && i < clips.length; i += 1) {
-      offset += clips[i]!.durationSec;
-    }
-    scrubSec = offset;
+  function handlePatchClip(id: string, patch: Partial<ReelTimelineClip>) {
+    commit((curr) => ({ ...curr, clips: curr.clips.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
+  }
+
+  function handlePatchTrim(id: string, trimIn: number, trimOut: number) {
+    commit((curr) => ({ ...curr, clips: curr.clips.map((c) => (c.id === id ? patchClipTrim(c, trimIn, trimOut) : c)) }));
+  }
+
+  function handleAddCaption(text = "New caption") {
+    const created = createCaption({ text, startSec: safePlayhead, endSec: Math.max(totalSec, safePlayhead + 3) });
+    commit((curr) => ({ ...curr, captions: [...curr.captions, created] }));
+    selectedCaptionId = created.id;
+  }
+
+  function handlePatchCaption(id: string, patch: Partial<ReelCaption>) {
+    commit((curr) => ({ ...curr, captions: curr.captions.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
+  }
+
+  function handleDeleteCaption(id: string) {
+    commit((curr) => ({ ...curr, captions: curr.captions.filter((c) => c.id !== id) }));
+    if (selectedCaptionId === id) selectedCaptionId = project.captions[0]?.id ?? null;
+  }
+
+  function exportJson() {
+    const filename = `${slugifyFilename(project.title, "reel")}-storyboard.json`;
+    const ok = downloadJsonFile(filename, buildStoryboardExport(project));
+    notice = ok
+      ? { tone: "ok", text: `Exported ${filename}.` }
+      : { tone: "error", text: "JSON export is unavailable in this environment." };
+  }
+
+  function exportSnapshot() {
+    const res = captureStageSnapshot({
+      title: project.title,
+      aspect: project.aspect,
+      activeClip: active?.clip ?? null,
+      caption: activeCaption,
+      timeLabel: `${safePlayhead.toFixed(1)}s`,
+      mediaEl: stageMediaEl,
+    });
+    notice = { tone: res.ok ? "ok" : "error", text: res.message };
   }
 </script>
 
-<section aria-labelledby="reel-editor-title">
-  <header class="feature-header">
-    <h2 id="reel-editor-title">Reel Editor</h2>
-    <span class="role-badge">{formatTimecode(safeScrub)} / {formatTimecode(totalSec)}</span>
-  </header>
+<section class="reel-root" aria-labelledby="reel-editor-title">
+  <ReelProjectBar title={project.title} aspect={project.aspect} fps={project.fps}
+    {canUndo}
+    {canRedo} onTitleChange={(title) => commit((curr) => ({ ...curr, title }))} onAspectChange={(aspect: AspectRatioId) => commit((curr) => ({ ...curr, aspect }))} onFpsChange={(fps: ReelFps) => commit((curr) => ({ ...curr, fps }))} onUndo={handleUndo} onRedo={handleRedo} onExportSnapshot={exportSnapshot} onExportJson={exportJson}
+  />
 
-  <div class="reel-layout">
-    <div class="preview-col">
-      <div class="reel-frame" role="region" aria-label="9 by 16 reel preview" aria-live="polite">
-        {#if active}
-          <div class="frame-badge">
-            Clip {active.index + 1}/{clips.length}: {active.clip.title} ({formatTimecode(active.offsetSec)} / {formatTimecode(active.clip.durationSec)})
-          </div>
-          {#if activeKind === "image" && activeUrl}
-            <img class="frame-media" src={activeUrl} alt={active.clip.title} />
-          {:else if activeKind === "video" && activeUrl}
-            <!-- svelte-ignore a11y_media_has_caption -->
-            <video class="frame-media" controls src={activeUrl}></video>
-          {:else}
-            <div class="frame-card">
-              <strong>{active.clip.title}</strong>
-              {#if active.clip.path}
-                <code>{active.clip.path}</code>
-              {/if}
-            </div>
-          {/if}
-          {#if active.clip.caption}
-            <p class="caption-overlay">{active.clip.caption}</p>
-          {/if}
-        {:else}
-          <p class="frame-empty">Add clips to build a vertical 9:16 reel.</p>
-        {/if}
-      </div>
+  {#if notice}
+    <p class="feedback {notice.tone}" role="status">{notice.text}</p>
+  {/if}
 
-      <div class="field scrub-box">
-        <label for="reel-scrub">Timeline scrub ({formatTimecode(safeScrub)} / {formatTimecode(totalSec)})</label>
-        <input
-          id="reel-scrub"
-          type="range"
-          min="0"
-          max={Math.max(0, totalSec)}
-          step="1"
-          disabled={clips.length === 0}
-          value={safeScrub}
-          oninput={(e) => { scrubSec = Number(e.currentTarget.value); }}
-        />
-      </div>
-    </div>
-
-    <div class="editor-col">
-      <form class="clip-form" onsubmit={addClip}>
-        <h3>Add clip</h3>
-        <div class="form-row">
-          <div class="field grow">
-            <label for="reel-title">Title</label>
-            <input id="reel-title" type="text" bind:value={titleInput} placeholder="Intro hook" autocomplete="off" />
-          </div>
-          <div class="field dur">
-            <label for="reel-dur">Seconds (1-60)</label>
-            <input id="reel-dur" type="number" min="1" max="60" bind:value={durationInput} />
-          </div>
-        </div>
-        <div class="field">
-          <label for="reel-path">Host media path (optional)</label>
-          <input id="reel-path" type="text" bind:value={pathInput} placeholder="/path/to/shot.mp4 or ~/cover.png" autocomplete="off" />
-        </div>
-        <div class="field">
-          <label for="reel-caption">Caption overlay</label>
-          <input id="reel-caption" type="text" bind:value={captionInput} placeholder="Live caption shown on screen" autocomplete="off" />
-        </div>
-        <button type="submit" class="primary">Add clip</button>
-      </form>
-
-      {#if feedback}
-        <p class="feedback error" role="alert">{feedback}</p>
-      {/if}
-
-      <div class="timeline-box">
-        <h3>Timeline ({clips.length} {clips.length === 1 ? "clip" : "clips"})</h3>
-        {#if clips.length === 0}
-          <p class="empty">No clips on the timeline yet.</p>
-        {:else}
-          <ol class="clip-list">
-            {#each clips as clip, index (clip.id)}
-              <li class="clip-row" class:active={active?.clip.id === clip.id}>
-                <button type="button" class="clip-jump" onclick={() => jumpToClip(index)}>
-                  <span class="clip-title">{index + 1}. {clip.title}</span>
-                  <span class="clip-meta">{formatTimecode(clip.durationSec)}{clip.caption ? ` | ${clip.caption}` : ""}</span>
-                </button>
-                <div class="row-actions">
-                  <button type="button" aria-label="Move {clip.title} up" disabled={index === 0} onclick={() => reorderClip(index, -1)}>Up</button>
-                  <button type="button" aria-label="Move {clip.title} down" disabled={index === clips.length - 1} onclick={() => reorderClip(index, 1)}>Down</button>
-                  <button type="button" class="danger" aria-label="Remove {clip.title}" onclick={() => removeClip(clip.id)}>Remove</button>
-                </div>
-              </li>
-            {/each}
-          </ol>
-        {/if}
-      </div>
-    </div>
+  <div class="workspace-grid">
+    <ReelStagePreview aspect={project.aspect}
+      {active} clipCount={project.clips.length}
+      {activeCaption} playheadSec={safePlayhead}
+      {totalSec}
+      {playing}
+      {looping}
+      {showSafeZone} onTogglePlay={() => { playing = !playing; }} onPrevClip={() => jumpClipDelta(-1)} onNextClip={() => jumpClipDelta(1)} onToggleLoop={() => { looping = !looping; }} onToggleSafeZone={() => { showSafeZone = !showSafeZone; }} onMediaRef={(el) => { stageMediaEl = el; }}
+    />
+    <ReelInspectorBin
+      {selectedClip}
+      {selectedCaption} onPatchClip={handlePatchClip} onPatchTrim={handlePatchTrim} onPatchCaption={handlePatchCaption} onAddClip={handleAddClip} onAddCaption={handleAddCaption}
+    />
   </div>
-</section>
 
-<style>
-  .reel-layout { display: grid; gap: 1rem; grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr); margin-top: 1rem; align-items: start; }
-  @media (max-width: 44rem) { .reel-layout { grid-template-columns: 1fr; } }
-  .preview-col, .editor-col { display: grid; gap: 0.75rem; }
-  .reel-frame {
-    position: relative; aspect-ratio: 9 / 16; width: 100%; max-width: 17rem; justify-self: center;
-    display: grid; place-items: center; overflow: hidden; border-radius: 0.75rem;
-    border: 1px solid var(--border); background: #141414; color: #f5f5f5;
-  }
-  .frame-media { width: 100%; height: 100%; object-fit: cover; }
-  .frame-card { display: grid; gap: 0.375rem; padding: 1rem; text-align: center; overflow-wrap: anywhere; }
-  .frame-empty { margin: 0; padding: 1rem; text-align: center; color: #d4d4d4; }
-  .frame-badge {
-    position: absolute; top: 0.5rem; left: 0.5rem; right: 0.5rem; padding: 0.375rem 0.5rem;
-    border-radius: 0.375rem; background: rgba(0, 0, 0, 0.78); color: #ffffff; font-size: 0.75rem; z-index: 1;
-  }
-  .caption-overlay {
-    position: absolute; bottom: 0.75rem; left: 0.5rem; right: 0.5rem; margin: 0; padding: 0.5rem 0.625rem;
-    border-radius: 0.375rem; background: rgba(0, 0, 0, 0.82); color: #ffffff; text-align: center; font-size: 0.875rem;
-  }
-  .scrub-box input[type="range"] { min-height: 2rem; padding: 0; border: 0; background: transparent; accent-color: var(--accent); }
-  .clip-form, .timeline-box {
-    display: grid; gap: 0.625rem; padding: 0.875rem; border: 1px solid var(--border);
-    border-radius: 0.5rem; background: var(--surface);
-  }
-  .form-row { display: flex; gap: 0.625rem; flex-wrap: wrap; }
-  .grow { flex: 1 1 11rem; }
-  .dur { flex: 0 1 7.5rem; }
-  .clip-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
-  .clip-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;
-    padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--panel);
-  }
-  .clip-row.active { border-color: var(--accent); }
-  .clip-jump { flex: 1 1 10rem; display: grid; text-align: left; border: 0; background: transparent; padding: 0.25rem; }
-  .clip-title { font-weight: 600; color: var(--text); }
-  .clip-meta { font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
-  .row-actions { display: flex; gap: 0.375rem; flex-wrap: wrap; }
-  .empty { margin: 0; font-size: 0.875rem; }
-</style>
+  <ReelTimeline clips={project.clips} captions={project.captions} audio={project.audio}
+    {playing}
+    {totalSec} playheadSec={safePlayhead} selectedClipId={selectedClip?.id ?? null} selectedCaptionId={selectedCaption?.id ?? null} onSeek={(sec) => { playing = false; playheadSec = sec; }} onSelectClip={selectClip} onSelectCaption={(id) => { selectedCaptionId = id; }} onSplitClip={handleSplit} onDuplicateClip={handleDuplicate}
+    onReorderClip={(idx, delta) => commit((curr) => ({ ...curr, clips: moveItem(curr.clips, idx, delta) }))} onDeleteClip={handleDeleteClip} onTransitionChange={(id, transition: ClipTransition) => handlePatchClip(id, { transition })} onAddCaptionAtPlayhead={() => handleAddCaption("New caption")} onDeleteCaption={handleDeleteCaption}
+    onAudioPatch={(patch: Partial<ReelAudioTrack>) => commit((curr) => ({ ...curr, audio: { ...curr.audio, ...patch } }))}
+  />
+</section>
