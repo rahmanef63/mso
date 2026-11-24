@@ -1,16 +1,41 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { createAssistantController, initialAssistantState, type AssistantState } from "./assistant-controller";
+  import {
+    createAssistantController,
+    initialAssistantState,
+    type AssistantState,
+  } from "./assistant-controller";
+  import { DEFAULT_STARTERS, findPlaybook } from "./assistant-presets";
+  import AssistantEmptyState from "./AssistantEmptyState.svelte";
+  import ChatComposer from "./ChatComposer.svelte";
+  import ChatMessageItem from "./ChatMessageItem.svelte";
+  import InspectorDrawer from "./InspectorDrawer.svelte";
+  import ThreadsSidebar from "./ThreadsSidebar.svelte";
 
   let { autoLoadModels = true }: { autoLoadModels?: boolean } = $props();
 
   let view = $state<AssistantState>(initialAssistantState());
   let draft = $state("");
+  let showThreads = $state(false);
+  let showInspector = $state(false);
   let logEl = $state<HTMLDivElement | undefined>(undefined);
   let controller: ReturnType<typeof createAssistantController> | undefined;
 
   let hasUserMessages = $derived(view.messages.some((m) => m.role === "user"));
-  let canSend = $derived(draft.trim().length > 0 && !view.streaming);
+  let activeProfile = $derived(view.profiles.find((p) => p.id === view.activeProfileId) ?? null);
+  let activePlaybook = $derived(findPlaybook(view.activePlaybookId));
+  let activeModeLabel = $derived(
+    activeProfile ? `Profile: ${activeProfile.name}` : activePlaybook ? `Playbook: ${activePlaybook.name}` : null,
+  );
+  let promptStarters = $derived(
+    [...new Set([...(activePlaybook?.starters ?? []), ...DEFAULT_STARTERS])].slice(0, 6),
+  );
+  let lastAssistantIdx = $derived.by(() => {
+    for (let i = view.messages.length - 1; i >= 0; i--) {
+      if (view.messages[i].role === "assistant") return i;
+    }
+    return -1;
+  });
 
   $effect(() => {
     void view.messages;
@@ -18,24 +43,31 @@
   });
 
   onMount(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 900) showThreads = true;
     controller = createAssistantController((next) => { view = next; });
-    if (autoLoadModels) void controller.loadModels();
+    if (autoLoadModels) {
+      void controller.loadModels();
+      void controller.loadWorkspace();
+    }
     return () => controller?.dispose();
   });
 
   function submitDraft() {
-    if (!canSend) return;
     const text = draft.trim();
+    if (!text || view.streaming) return;
     draft = "";
     void controller?.sendMessage(text);
   }
 
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.isComposing || event.keyCode === 229) return;
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      submitDraft();
-    }
+  function pickStarter(prompt: string) {
+    if (view.streaming) return;
+    draft = "";
+    void controller?.sendMessage(prompt);
+  }
+
+  function handleSelectThread(id: string) {
+    void controller?.selectThread(id);
+    if (typeof window !== "undefined" && window.innerWidth < 760) showThreads = false;
   }
 </script>
 
@@ -46,28 +78,20 @@
   data-assistant-streaming={view.streaming ? "true" : "false"}
 >
   <header class="feature-header assistant-header">
-    <h2 id="assistant-title">Alfa Assistant</h2>
+    <div class="title-group">
+      <h2 id="assistant-title">Alfa Assistant</h2>
+      {#if view.activeThreadTitle}
+        <span class="active-thread-label">{view.activeThreadTitle}</span>
+      {/if}
+    </div>
     <div class="assistant-controls">
-      <label class="model-picker" for="assistant-model">
-        <span class="sr-only">Model</span>
-        <select
-          id="assistant-model"
-          value={view.selectedModel}
-          disabled={view.modelsLoading || view.streaming || view.models.length === 0}
-          onchange={(event) => controller?.selectModel(event.currentTarget.value)}
-        >
-          {#if view.modelsLoading}
-            <option value="">Loading models...</option>
-          {:else if view.models.length === 0}
-            <option value="">Default host model</option>
-          {:else}
-            {#each view.models as model (model.ref)}
-              <option value={model.ref}>{model.name}</option>
-            {/each}
-          {/if}
-        </select>
-      </label>
-      <button type="button" onclick={() => controller?.newChat()}>New chat</button>
+      <button type="button" class="toolbar-btn" aria-pressed={showThreads} onclick={() => { showThreads = !showThreads; }}>
+        Threads ({view.threads.length})
+      </button>
+      <button type="button" class="toolbar-btn" aria-pressed={showInspector} onclick={() => { showInspector = !showInspector; }}>
+        Profiles & Tools
+      </button>
+      <button type="button" class="toolbar-btn" onclick={() => controller?.newChat()}>New chat</button>
     </div>
   </header>
 
@@ -84,89 +108,125 @@
     </div>
   {/if}
 
-  <div bind:this={logEl} class="chat-log" role="log" aria-live="polite" aria-label="Alfa Assistant conversation">
-    {#if view.messages.length === 0}
-      <p class="empty-hint">Ask Alfa about this host, logs, services, or files.</p>
-    {:else}
-      {#each view.messages as msg (msg.id)}
-        <article class={`chat-msg chat-${msg.role}`} data-role={msg.role}>
-          <header class="msg-meta">{msg.role === "user" ? "You" : "Alfa"}</header>
-          {#if msg.reasoning}
-            <details class="reasoning-box">
-              <summary>Reasoning</summary>
-              <pre class="reasoning-text">{msg.reasoning}</pre>
-            </details>
-          {/if}
-          {#if msg.text}
-            <p class="msg-text">{msg.text}</p>
-          {:else if msg.role === "assistant" && view.streaming && !msg.error}
-            <p class="msg-pending">Thinking...</p>
-          {/if}
-          {#if msg.error}
-            <div class="msg-error" role="alert">
-              <span>{msg.error}</span>
-              <button type="button" disabled={view.streaming} onclick={() => void controller?.retryLast()}>Retry</button>
-            </div>
-          {/if}
-        </article>
-      {/each}
+  <div class="cockpit-grid" class:has-threads={showThreads} class:has-inspector={showInspector}>
+    {#if showThreads}
+      <ThreadsSidebar
+        threads={view.threads}
+        activeThreadId={view.activeThreadId}
+        status={view.threadsStatus}
+        note={view.threadsNote}
+        onSelect={handleSelectThread}
+        onNew={() => controller?.newChat()}
+        onRename={(id, title) => void controller?.renameThread(id, title)}
+        onDelete={(id) => void controller?.deleteThread(id)}
+        onClose={() => { showThreads = false; }}
+      />
+    {/if}
+
+    <div class="chat-pane">
+      <div bind:this={logEl} class="chat-log" role="log" aria-live="polite" aria-label="Alfa Assistant conversation">
+        {#if view.messages.length === 0}
+          <AssistantEmptyState prompts={promptStarters} disabled={view.streaming} onPick={pickStarter} />
+        {:else}
+          {#each view.messages as msg, idx (msg.id)}
+            <ChatMessageItem
+              {msg}
+              streaming={view.streaming}
+              isLastAssistant={idx === lastAssistantIdx}
+              onRetry={() => void controller?.retryLast()}
+            />
+          {/each}
+        {/if}
+      </div>
+
+      <ChatComposer
+        bind:draft
+        models={view.models}
+        modelsLoading={view.modelsLoading}
+        selectedModel={view.selectedModel}
+        streaming={view.streaming}
+        {activeModeLabel}
+        onSelectModel={(model) => controller?.selectModel(model)}
+        onClearMode={() => { controller?.selectProfile(null); controller?.selectPlaybook(null); }}
+        onSubmit={submitDraft}
+        onStop={() => controller?.stopStreaming()}
+      />
+    </div>
+
+    {#if showInspector}
+      <InspectorDrawer
+        profiles={view.profiles}
+        profilesStatus={view.profilesStatus}
+        profilesNote={view.profilesNote}
+        activeProfileId={view.activeProfileId}
+        activePlaybookId={view.activePlaybookId}
+        tools={view.tools}
+        toolsScope={view.toolsScope}
+        toolsStatus={view.toolsStatus}
+        toolsNote={view.toolsNote}
+        sessions={view.sessions}
+        sessionsStatus={view.sessionsStatus}
+        sessionsNote={view.sessionsNote}
+        cockpit={view.cockpit}
+        onSelectProfile={(id) => controller?.selectProfile(id)}
+        onSelectPlaybook={(id) => controller?.selectPlaybook(id)}
+        onPickStarter={pickStarter}
+        onRefresh={() => void controller?.refreshInspector()}
+        onClose={() => { showInspector = false; }}
+      />
     {/if}
   </div>
-
-  <form class="composer" onsubmit={(event) => { event.preventDefault(); submitDraft(); }}>
-    <label for="assistant-prompt" class="sr-only">Message Alfa Assistant</label>
-    <textarea
-      id="assistant-prompt"
-      class="composer-input"
-      rows="2"
-      bind:value={draft}
-      onkeydown={handleKeydown}
-      placeholder="Ask Alfa anything (Enter to send, Shift+Enter for newline)"
-      disabled={view.streaming}
-    ></textarea>
-    <div class="composer-actions">
-      {#if view.streaming}
-        <button type="button" class="danger" onclick={() => controller?.stopStreaming()}>Stop</button>
-      {:else}
-        <button type="submit" class="primary" disabled={!canSend}>Send</button>
-      {/if}
-    </div>
-  </form>
 </section>
 
 <style>
-  .assistant-shell { display: grid; gap: 0.875rem; min-width: 0; max-width: 100%; }
+  .assistant-shell { display: grid; gap: 0.75rem; min-width: 0; max-width: 100%; }
   .assistant-header { align-items: center; }
-  .assistant-controls { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-width: 0; max-width: 100%; }
-  .model-picker { display: inline-flex; min-width: 0; max-width: 100%; flex: 1 1 11rem; }
-  .model-picker select { width: 100%; max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+  .title-group { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
+  .active-thread-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .assistant-controls { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; max-width: 100%; }
+  .toolbar-btn { min-height: 2.25rem; padding: 0.3rem 0.65rem; font-size: 0.82rem; }
+  .toolbar-btn[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, var(--panel-solid));
+  }
   .assistant-banner { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin: 0; }
   .assistant-banner p { margin: 0; color: inherit; min-width: 0; flex: 1 1 12rem; }
+  .cockpit-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    min-width: 0;
+    max-width: 100%;
+  }
+  @media (min-width: 760px) {
+    .cockpit-grid.has-threads { grid-template-columns: minmax(12.5rem, 15.5rem) minmax(0, 1fr); }
+    .cockpit-grid.has-inspector { grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem); }
+    .cockpit-grid.has-threads.has-inspector {
+      grid-template-columns: minmax(12rem, 14.5rem) minmax(0, 1fr) minmax(14rem, 17rem);
+    }
+  }
+  .chat-pane { display: grid; gap: 0.65rem; min-width: 0; max-width: 100%; }
   .chat-log {
-    display: grid; align-content: start; gap: 0.75rem; min-height: 14rem; max-height: 28rem; padding: 0.875rem;
-    overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border); border-radius: 0.5rem;
-    background: var(--surface); min-width: 0; max-width: 100%;
+    display: grid;
+    align-content: start;
+    gap: 0.65rem;
+    min-height: 16rem;
+    max-height: 28rem;
+    padding: 0.75rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    background: var(--surface);
+    min-width: 0;
+    max-width: 100%;
   }
-  .empty-hint { margin: 0; color: var(--muted); }
-  .chat-msg {
-    display: grid; gap: 0.375rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem;
-    background: var(--panel); color: var(--text); min-width: 0; max-width: 100%;
-  }
-  .chat-user { border-color: var(--accent); }
-  .msg-meta { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
-  .msg-text { margin: 0; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
-  .msg-pending { margin: 0; color: var(--muted); font-style: italic; }
-  .reasoning-box { border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.375rem 0.625rem; background: var(--surface); }
-  .reasoning-box summary { cursor: pointer; font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
-  .reasoning-text { margin: 0.5rem 0 0; font-size: 0.8125rem; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); }
-  .msg-error {
-    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; padding: 0.5rem 0.625rem;
-    border-radius: 0.375rem; border: 1px solid var(--danger); background: var(--danger-bg); color: var(--danger); font-size: 0.875rem;
-  }
-  .composer { display: flex; align-items: flex-end; gap: 0.5rem; flex-wrap: wrap; width: 100%; max-width: 100%; }
-  .composer-input {
-    flex: 1 1 13rem; min-width: 0; max-width: 100%; min-height: var(--ui-control-height); padding: 0.5rem 0.75rem;
-    resize: vertical; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 0.375rem; font: inherit;
-  }
-  .composer-actions { display: flex; gap: 0.5rem; flex: 0 0 auto; }
 </style>
