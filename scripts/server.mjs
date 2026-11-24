@@ -1,9 +1,25 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { register } from "node:module";
+import path from "node:path";
 import { Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
 import { attachSocketProxy } from "./server-sockets.mjs";
 import { requestBodyLimit } from "./server-body-policy.mjs";
+
+if (!process.env.NEXT_PUBLIC_COMMIT_SHA || !process.env.NEXT_PUBLIC_BUILD_ID) {
+  try {
+    const metaPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../frontend/svelte/build/build-meta.json");
+    const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+    if (!process.env.NEXT_PUBLIC_COMMIT_SHA && typeof meta.buildSha === "string" && meta.buildSha) {
+      process.env.NEXT_PUBLIC_COMMIT_SHA = meta.buildSha;
+    }
+    if (!process.env.NEXT_PUBLIC_BUILD_ID && typeof meta.buildId === "string" && meta.buildId) {
+      process.env.NEXT_PUBLIC_BUILD_ID = meta.buildId;
+    }
+  } catch { /* fallback to env/dev when build-meta.json is absent */ }
+}
 
 if (!process.versions.bun) {
   register("./lib/ts-alias-loader.mjs", import.meta.url);

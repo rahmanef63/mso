@@ -28,6 +28,8 @@ describe("served Next asset graph", () => {
   it("deduplicates and extracts all referenced JS/CSS assets", () => {
     expect(referencedStaticAssets('<script src="/_next/static/chunks/a.js"></script><script src="/_next/static/chunks/a.js"></script><link href="/_next/static/css/b.css">'))
       .toEqual(["/_next/static/chunks/a.js", "/_next/static/css/b.css"]);
+    expect(referencedStaticAssets('<link href="/_app/immutable/entry/start.abc.js" rel="modulepreload"><link rel="stylesheet" href="/_app/immutable/assets/0.def.css"><link href="/_app/immutable/entry/start.abc.js">'))
+      .toEqual(["/_app/immutable/entry/start.abc.js", "/_app/immutable/assets/0.def.css"]);
   });
   it("passes only when every referenced asset is healthy with the right MIME", async () => {
     const base = await serve(false); await expect(verifyServedStaticAssets(base)).resolves.toMatchObject({ assetCount: 2 });

@@ -30,8 +30,8 @@ mkdir -p "$(dirname "$LOG")"
 exec >"$LOG" 2>&1
 
 # systemd hands a unit /usr/local/sbin:…:/usr/bin and nothing else. bun lives in
-# ~/.bun/bin — the same gap that made managed apps read as "not installed".
-export PATH="$HOME/.bun/bin:$HOME/.local/bin:$PATH"
+# ~/.bun/bin and cargo lives in ~/.cargo/bin — include both so Rust + Svelte builds succeed.
+export PATH="$HOME/.bun/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 export NO_COLOR=1 TERM=dumb
 
 step() { printf '\n[%s] == %s\n' "$(date -Is)" "$*"; }
@@ -135,27 +135,35 @@ if [ "$REBUILD_ONLY" -eq 0 ]; then
   node -e "require('node-pty')" || die "node-pty did not load after install — every /api/v1 route imports it"
 fi
 
-STAGED_NEXT="$ROOT/.next-staged"
-rm -rf "$STAGED_NEXT"
+STAGED_SVELTE="$ROOT/frontend/svelte/.build-staged"
+rm -rf "$STAGED_SVELTE"
+BUILD_SHA="$(git rev-parse --short HEAD)"
 
 if [ "$SHIP_FINALIZE" -eq 1 ]; then
   step "using the exact commit already proven by the pre-push out-of-tree build"
   [ "$(git rev-parse HEAD)" = "$EXPECTED_SHA" ] && [ -z "$(git status --porcelain)" ] \
     || die "checkout moved before the in-place build"
 else
-  step "verifying compile + browser release gates out-of-tree (staging verified .next)"
-  if ! NEXT_PUBLIC_COMMIT_SHA="$(git rev-parse --short HEAD)" MSO_EXPORT_NEXT_DIR="$STAGED_NEXT" MSO_E2E_JOBS="${MSO_E2E_JOBS:-2}" bash scripts/verify-build.sh; then
-    rm -rf "$STAGED_NEXT"
+  step "verifying compile + browser release gates out-of-tree (staging verified Svelte 5 build)"
+  if ! NEXT_PUBLIC_COMMIT_SHA="$BUILD_SHA" MSO_EXPORT_SVELTE_DIR="$STAGED_SVELTE" MSO_E2E_JOBS="${MSO_E2E_JOBS:-2}" bash scripts/verify-build.sh; then
+    rm -rf "$STAGED_SVELTE"
     die "out-of-tree verification failed at the stage shown above — nothing was deployed"
   fi
 fi
 
-if promote_staged_next_build "$ROOT" "$STAGED_NEXT"; then
-  step "promoted verified .next artifact atomically (skipped duplicate build)"
+if promote_staged_svelte_build "$ROOT" "$STAGED_SVELTE"; then
+  step "promoted verified Svelte 5 artifact atomically (skipped duplicate build)"
 else
-  step "building in place"
-  node node_modules/next/dist/bin/next build || die "in-place build failed — check the build output above and disk space"
+  step "building Svelte 5 bundle in place"
+  NEXT_PUBLIC_COMMIT_SHA="$BUILD_SHA" bun run svelte:build || die "in-place Svelte build failed — check the build output above and disk space"
 fi
+
+if command -v cargo >/dev/null 2>&1 && [ -f "$ROOT/rust-shell/Cargo.toml" ]; then
+  step "building Rust shell host binary (mso-shell-host)"
+  (cd "$ROOT/rust-shell" && cargo build --release --bin mso-shell-host) || die "Rust shell build failed"
+fi
+
+printf '{"buildSha":"%s","buildId":"%s"}\n' "$BUILD_SHA" "$BUILD_SHA" > "$ROOT/frontend/svelte/build/build-meta.json"
 
 step "restarting mso.service (same-user signal; no sudo)"
 # mso.service runs as the owner and has Restart=always. Signalling its MainPID is

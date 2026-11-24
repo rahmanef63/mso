@@ -1,7 +1,7 @@
 const MAX_ASSETS = 120;
 
 export function referencedStaticAssets(html) {
-  const matches = html.match(/\/_next\/static\/[^"'\s)<>]+\.(?:js|css)(?:\?[^"'\s)<>]*)?/g) ?? [];
+  const matches = html.match(/\/(?:_app\/immutable|_next\/static)\/[^"'\s)<>]+\.(?:js|css)(?:\?[^"'\s)<>]*)?/g) ?? [];
   return [...new Set(matches)].slice(0, MAX_ASSETS);
 }
 
@@ -19,7 +19,7 @@ export async function verifyServedStaticAssets(baseUrl) {
   if (!home.ok) throw new Error(`root HTML returned ${home.status}`);
   const html = await home.text();
   const assets = referencedStaticAssets(html);
-  if (!assets.length) throw new Error("root HTML references no Next static JS/CSS assets");
+  if (!assets.length) throw new Error("root HTML references no static JS/CSS assets");
 
   const failures = [];
   for (const asset of assets) {
