@@ -9,6 +9,7 @@ export const FEATURE_CONTRACTS: Record<string, { surfaceKind: SurfaceKind; descr
   catalog: { surfaceKind: "frame", description: "App Store and Extensions catalog" },
   "create-app": { surfaceKind: "frame", description: "Create App manifest authoring surface" },
   creative: { surfaceKind: "frame", description: "Image Editor, Media Studio, and Reel Editor" },
+  demo: { surfaceKind: "support", description: "Offline synthetic demo fetch adapter and viewport preview banner" },
   docs: { surfaceKind: "frame", description: "In-app documentation viewer" },
   editor: { surfaceKind: "frame", description: "Code and text editor" },
   files: { surfaceKind: "frame", description: "VPS filesystem browser and editor" },

@@ -18,6 +18,8 @@
   import IosHomeScreen from "./IosHomeScreen.svelte";
   import AndroidShell from "./AndroidShell.svelte";
   import DashboardShell from "./DashboardShell.svelte";
+  import DemoBanner from "../demo/DemoBanner.svelte";
+  import { installDemoFetch, isDemoMode, uninstallDemoFetch, type PreviewDevice } from "../demo/demo-adapter";
   import { createNotificationStore, type NotificationItem } from "./notifications-store";
   import { createContextMenuStore, type ContextMenuItem, type ContextMenuState } from "./context-menu-store";
   import { CHROME_PROFILES, type ChromeChoice } from "./chrome-profile";
@@ -52,6 +54,8 @@
 
   const BUILD_SHA = typeof __MSO_BUILD_SHA__ === "string" ? __MSO_BUILD_SHA__ : "dev";
   const BUILD_MODE = typeof __MSO_BUILD_MODE__ === "string" ? __MSO_BUILD_MODE__ : "dev";
+  const DEMO_ACTIVE = typeof window !== "undefined" && isDemoMode(window.location, BUILD_MODE);
+  if (DEMO_ACTIVE) installDemoFetch();
   const APP_BY_ID = new Map(DOCK_APPS.map((item) => [item.app, item]));
 
   const winStore = createWindowStore();
@@ -79,8 +83,14 @@
   let wallpaper = $state<WallpaperId>("auto");
   let shellPrefs = $state<ShellPrefs>({ ...DEFAULT_SHELL_PREFS });
   let hadLocalShellChoice = $state(false);
+  let demoPreviewDevice = $state<PreviewDevice>("desktop");
   let viewportWidth = $state(1440);
   let viewportHeight = $state(900);
+  let effectiveViewportWidth = $derived(
+    DEMO_ACTIVE
+      ? (demoPreviewDevice === "phone" ? 390 : demoPreviewDevice === "tablet" ? 820 : viewportWidth)
+      : viewportWidth,
+  );
   let ownerDevicesOpened = $state(false);
   let clockNow = $state(new Date());
   let mobileNavByWin = $state<Record<string, MobileNavSpec | null>>({});
@@ -95,7 +105,7 @@
   let resolvedChrome = $derived(
     resolveActiveShell(
       shellPrefs,
-      viewportWidth,
+      effectiveViewportWidth,
       typeof navigator === "undefined" ? "" : navigator.userAgent,
       { preferAndroidUaWhenDefault: !hadLocalShellChoice },
     ),
@@ -120,9 +130,9 @@
   let activeMobileNav = $derived<MobileNavSpec | null>(
     layout.focused ? (mobileNavByWin[layout.focused] ?? null) : null,
   );
-  let isDesktopFloating = $derived(isDesktopShell && viewportWidth >= 720 && Boolean(activeSession?.authenticated));
+  let isDesktopFloating = $derived(isDesktopShell && effectiveViewportWidth >= 720 && Boolean(activeSession?.authenticated));
   let desktopBounds = $derived<DesktopBounds>({
-    width: Math.max(360, viewportWidth),
+    width: Math.max(360, effectiveViewportWidth),
     height: Math.max(320, viewportHeight - (resolvedChrome === "macos" ? 106 : 48)),
     top: 0,
     bottom: 0,
@@ -139,14 +149,14 @@
   function setShellPrefs(next: ShellPrefs, persist = true) {
     closeShellOverlays();
     shellPrefs = next;
-    if (persist) {
+    if (persist && !DEMO_ACTIVE) {
       hadLocalShellChoice = true;
       writeLocalShellPrefs(next);
     }
   }
 
   function setChrome(next: ChromeChoice) {
-    setShellPrefs(applyQuickShellChoice(shellPrefs, next, viewportWidth), true);
+    setShellPrefs(applyQuickShellChoice(shellPrefs, next, effectiveViewportWidth), true);
   }
 
   function setWallpaper(next: WallpaperId) {
@@ -187,6 +197,26 @@
     const title = def?.title ?? app[0].toUpperCase() + app.slice(1);
     const multi = Boolean(def?.multi);
     openApp(app, title, payload ?? def?.payload, multi);
+  }
+
+  function focusOrOpenApp(item: DockAppDef) {
+    closeShellOverlays();
+    const appWins = openWindows.filter((w) => w.app === item.app);
+    if (appWins.length > 0) {
+      const top = appWins.reduce((a, b) => (a.z >= b.z ? a : b));
+      winStore.restoreWindow(top.id);
+      return;
+    }
+    openApp(item.app, item.title, item.payload, item.multi);
+  }
+
+  function toggleTaskbarApp(item: DockAppDef) {
+    closeShellOverlays();
+    if (focusedWin?.app === item.app && !focusedWin.minimized) {
+      winStore.minimizeWindow(focusedWin.id);
+      return;
+    }
+    focusOrOpenApp(item);
   }
 
   function handleMobileNavChange(winId: string, nav: MobileNavSpec | null) {
@@ -369,10 +399,12 @@
   onMount(() => {
     viewportWidth = window.innerWidth;
     viewportHeight = window.innerHeight;
-    const local = readLocalShellPrefs();
+    const local = DEMO_ACTIVE
+      ? { prefs: { ...DEFAULT_SHELL_PREFS }, hadStored: false, corrupt: false }
+      : readLocalShellPrefs();
     shellPrefs = local.prefs;
     hadLocalShellChoice = local.hadStored;
-    if (local.corrupt) writeLocalShellPrefs(local.prefs);
+    if (!DEMO_ACTIVE && local.corrupt) writeLocalShellPrefs(local.prefs);
 
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     prefersDark = mq.matches;
@@ -408,6 +440,7 @@
       unsubNotif();
       unsubCtx();
       notifStore.dispose();
+      if (DEMO_ACTIVE) uninstallDemoFetch();
     };
   });
 
@@ -533,16 +566,25 @@
 <svelte:window onkeydown={handleGlobalKeydown} />
 <svelte:head><title>MSO</title></svelte:head>
 <a class="skip-link" href="#main-content">Skip to content</a>
+<DemoBanner
+  visible={DEMO_ACTIVE}
+  buildSha={BUILD_SHA}
+  previewDevice={demoPreviewDevice}
+  onPreviewDeviceChange={(next) => { demoPreviewDevice = next; }}
+/>
 
 <div
   class="workspace"
   class:signed-out={!activeSession?.authenticated}
   class:desktop-fixed={isDesktopFloating}
+  inert={locked || undefined}
   data-chrome={resolvedChrome}
   data-ios-style={shellPrefs.iosStyle}
   data-build-sha={BUILD_SHA}
-  data-build-mode={BUILD_MODE}
+  data-build-mode={DEMO_ACTIVE ? "demo" : BUILD_MODE}
   style:background-image={wallpaperBg}
+  style:max-width={DEMO_ACTIVE && demoPreviewDevice !== "desktop" ? `${effectiveViewportWidth}px` : undefined}
+  style:margin-inline={DEMO_ACTIVE && demoPreviewDevice !== "desktop" ? "auto" : undefined}
 >
   {#if resolvedChrome === "ios"}
     <IosHomeScreen
@@ -689,6 +731,7 @@
         {openAppSet}
         {minimizedWindows}
         onOpenApp={openApp}
+        onFocusOrOpenApp={focusOrOpenApp}
         onLaunchpad={() => { launchpadOpen = !launchpadOpen; missionOpen = false; }}
         onMissionControl={() => { missionOpen = !missionOpen; launchpadOpen = false; }}
         onRestoreWindow={(id) => winStore.restoreWindow(id)}
@@ -708,6 +751,7 @@
         {signingOut}
         onToggleStart={() => { startMenuOpen = !startMenuOpen; missionOpen = false; }}
         onOpenApp={openApp}
+        onToggleApp={toggleTaskbarApp}
         onCommandPalette={() => { paletteOpen = true; }}
         onMissionControl={() => { missionOpen = !missionOpen; startMenuOpen = false; }}
         onControlCenter={() => { controlOpen = true; }}
