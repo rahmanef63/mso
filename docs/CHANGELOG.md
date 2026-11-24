@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `ui` restore authentic MSO OS shell UI (wallpapers, lockscreen, glass dock, macOS/Windows/iOS/Android chrome)
 - `ci` upgrade dynamic pre-push gate for Rust/Svelte/docs-only and parallel agent worktrees (#365)
 
 **Fixed**

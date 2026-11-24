@@ -81,6 +81,7 @@
   <div class="widget-group widget-jumps" role="group" aria-label="Quick app jumps">
     <button type="button" onclick={() => onOpenApp("assistant", "Alfa Assistant")}>Alfa</button>
     <button type="button" onclick={() => onOpenApp("files", "Files")}>Files</button>
+    <button type="button" onclick={() => onOpenApp("terminal", "Terminal")}>Terminal</button>
     <button type="button" onclick={() => onOpenApp("settings", "Settings")}>Settings</button>
   </div>
 </section>
@@ -92,10 +93,11 @@
     justify-content: space-between;
     gap: 0.75rem;
     flex-wrap: wrap;
-    padding: 0.625rem 0.875rem;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 0.625rem;
+    padding: 0.5rem 0.875rem;
+    background: color-mix(in srgb, var(--panel) 82%, transparent);
+    border: 1px solid var(--glass-border);
+    border-radius: 0.875rem;
+    box-shadow: var(--shadow-pop);
     min-width: 0;
   }
 
@@ -111,10 +113,10 @@
     display: inline-flex;
     align-items: baseline;
     gap: 0.5rem;
-    padding: 0.375rem 0.625rem;
+    padding: 0.3rem 0.625rem;
     border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    background: var(--surface);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--panel-solid) 70%, transparent);
     font-variant-numeric: tabular-nums;
   }
 
@@ -125,7 +127,7 @@
   }
 
   .clock-date {
-    font-size: 0.8125rem;
+    font-size: 0.78rem;
     color: var(--muted);
   }
 
@@ -133,58 +135,42 @@
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
-    min-height: var(--ui-control-height);
-    padding: 0.375rem 0.75rem;
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
+    min-height: 2.1rem;
+    padding: 0.25rem 0.625rem;
     font-variant-numeric: tabular-nums;
   }
 
-  .widget-counter:hover {
-    border-color: var(--accent);
-  }
-
   .counter-value {
-    display: inline-grid;
-    place-items: center;
-    min-width: 1.5rem;
-    padding: 0.0625rem 0.375rem;
-    border-radius: 999px;
-    background: var(--accent);
-    color: var(--accent-text);
-    font-size: 0.8125rem;
     font-weight: 700;
+    color: var(--accent);
   }
 
   .counter-label {
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: 0.8125rem;
+    color: var(--muted);
   }
 
   .widget-pill {
     display: inline-flex;
     align-items: center;
-    padding: 0.25rem 0.625rem;
+    padding: 0.2rem 0.55rem;
     border: 1px solid var(--border);
     border-radius: 999px;
-    background: var(--surface);
-    color: var(--text);
+    background: color-mix(in srgb, var(--panel-solid) 64%, transparent);
     font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
+    color: var(--muted);
+    white-space: nowrap;
   }
 
   .widget-role {
     text-transform: uppercase;
-    color: var(--muted);
+    letter-spacing: 0.04em;
+    font-weight: 600;
   }
 
   .widget-jumps button {
-    min-height: var(--ui-control-height);
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-    font-weight: 600;
+    min-height: 2.1rem;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.8125rem;
   }
 </style>

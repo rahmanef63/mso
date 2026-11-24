@@ -10,6 +10,7 @@
   import { createNotificationStore, type NotificationItem } from "../lib/shell/notifications-store";
   import { CHROME_PROFILES, isChromeChoice, resolveChromeProfile, type ChromeChoice } from "../lib/shell/chrome-profile";
   import { APP_SLUGS, SHORTCUTS, buildShellCommands, visibleDockApps } from "../lib/shell/shell-registry";
+  import { resolveAppIcon } from "../lib/shell/app-icons";
   import { createWindowStore, stateToUrl, urlToApp, type ShellLayoutState, type WindowState } from "../lib/shell/window-store";
   import { logoutSession, type Session } from "../lib/host-api";
   import "../styles.css";
@@ -26,11 +27,15 @@
   let controlOpen = $state(false), forceQuitOpen = $state(false), locked = $state(false);
   let themeMode = $state<"system" | "light" | "dark">("system");
   let chromeChoice = $state<ChromeChoice>("auto"), viewportWidth = $state(1440), ownerDevicesOpened = $state(false);
+  let clockNow = $state(new Date());
   let monitorRef: { refresh: () => void } | undefined;
 
   let resolvedChrome = $derived(resolveChromeProfile(chromeChoice, viewportWidth, typeof navigator === "undefined" ? "" : navigator.userAgent));
   let openWindows = $derived(layout.order.map((id) => layout.windows[id]).filter((w): w is WindowState => Boolean(w)));
+  let openAppSet = $derived(new Set(openWindows.map((w) => w.app)));
+  let focusedTitle = $derived(layout.focused ? layout.windows[layout.focused]?.title ?? "Desktop" : "Desktop");
   let dockApps = $derived(visibleDockApps(activeSession?.role));
+  let headerClock = $derived(clockNow.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }));
 
   function openApp(app: string, title: string, payload?: unknown, multi = false) {
     winStore.openWindow(app, title, undefined, payload, multi ? { multi: true } : undefined);
@@ -84,6 +89,7 @@
     viewportWidth = window.innerWidth;
     const onResize = () => { viewportWidth = window.innerWidth; };
     window.addEventListener("resize", onResize, { passive: true });
+    const clockTimer = setInterval(() => { clockNow = new Date(); }, 30_000);
     const unsubWin = winStore.subscribe((next) => {
       layout = next;
       if (activeSession?.authenticated) {
@@ -94,7 +100,13 @@
     const unsubNotif = notifStore.subscribe((next) => { toasts = next; });
     const deep = urlToApp(window.location.pathname, APP_SLUGS);
     if (deep?.app) openApp(deep.app, deep.app[0].toUpperCase() + deep.app.slice(1), deep.path, deep.app === "files" || deep.app === "editor");
-    return () => { window.removeEventListener("resize", onResize); unsubWin(); unsubNotif(); notifStore.dispose(); };
+    return () => {
+      clearInterval(clockTimer);
+      window.removeEventListener("resize", onResize);
+      unsubWin();
+      unsubNotif();
+      notifStore.dispose();
+    };
   });
 
   function handleSessionChange(next: Session | null) {
@@ -113,11 +125,17 @@
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
-<svelte:head><title>MSO | Svelte migration preview</title></svelte:head>
+<svelte:head><title>MSO</title></svelte:head>
 <a class="skip-link" href="#main-content">Skip to content</a>
-<div class="workspace" data-chrome={resolvedChrome}>
+<div class="workspace" class:signed-out={!activeSession?.authenticated} data-chrome={resolvedChrome}>
   <header class="workspace-header">
-    <div class="brand"><h1>MSO</h1><span>Svelte + Rust preview</span></div>
+    <div class="brand">
+      <img src="/icon.svg" alt="" class="brand-mark" width="20" height="20" />
+      <h1>MSO</h1>
+      {#if activeSession?.authenticated}
+        <span class="header-subtitle">{focusedTitle}</span>
+      {/if}
+    </div>
     <div class="session-actions">
       <button type="button" onclick={() => { paletteOpen = true; }}>Commands</button>
       <button type="button" onclick={() => { controlOpen = true; }}>Controls</button>
@@ -130,22 +148,14 @@
         <span class="role-badge">{activeSession.role}</span>
         <button disabled={signingOut} onclick={() => void handleSignOut()}>{signingOut ? "Signing out..." : "Sign out"}</button>
       {/if}
+      <time class="header-clock" datetime={clockNow.toISOString()}>{headerClock}</time>
     </div>
   </header>
+
   <main id="main-content" tabindex="-1" class="workspace-stack">
     <Monitor bind:this={monitorRef} onSessionChange={handleSessionChange} />
     {#if activeSession?.authenticated}
       <WidgetsBar openWindowCount={openWindows.length} {resolvedChrome} role={activeSession.role} onOpenApp={(app, title) => openApp(app, title)} />
-      <nav class="app-dock" aria-label="Workspace apps">
-        {#each dockApps as item (item.app)}
-          <button type="button" onclick={() => openApp(item.app, item.title, item.payload, item.multi)}>{item.label}</button>
-        {/each}
-        {#each layout.order as id (id)}
-          {@const win = layout.windows[id]}
-          {#if win?.minimized}<button type="button" class="minimized-chip" onclick={() => winStore.restoreWindow(id)}>Restore {win.title}</button>{/if}
-        {/each}
-      </nav>
-      <DesktopIcons role={activeSession.role} onOpenApp={openApp} />
       {#if layout.order.length > 0}
         <div class="window-area" data-open-windows={layout.order.length}>
           {#each layout.order as id (id)}
@@ -158,9 +168,44 @@
           {/each}
         </div>
       {/if}
+      <DesktopIcons role={activeSession.role} chrome={resolvedChrome} onOpenApp={openApp} />
     {/if}
   </main>
-  <footer>Existing host API, CSRF depth-2, and device permissions. Production cockpit unchanged.</footer>
+
+  {#if activeSession?.authenticated}
+    <div class="dock-shell">
+      <nav class="app-dock" aria-label="Workspace apps">
+        {#each dockApps as item (item.app)}
+          {@const visual = resolveAppIcon(item.app, resolvedChrome)}
+          <button
+            type="button"
+            class="dock-item"
+            aria-label={item.label}
+            title={item.title}
+            onclick={() => openApp(item.app, item.title, item.payload, item.multi)}
+          >
+            <span class="dock-icon-box" style:background={visual.gradient} aria-hidden="true">
+              {#if visual.image}
+                <img src={visual.image} alt="" loading="lazy" width="38" height="38" />
+              {:else}
+                <span class="dock-icon-mono">{visual.monogram}</span>
+              {/if}
+            </span>
+            <span class="dock-label" aria-hidden="true">{item.title}</span>
+            {#if openAppSet.has(item.app)}
+              <span class="dock-running-dot" aria-hidden="true"></span>
+            {/if}
+          </button>
+        {/each}
+        {#each layout.order as id (id)}
+          {@const win = layout.windows[id]}
+          {#if win?.minimized}
+            <button type="button" class="minimized-chip" onclick={() => winStore.restoreWindow(id)}>Restore {win.title}</button>
+          {/if}
+        {/each}
+      </nav>
+    </div>
+  {/if}
 </div>
 <LazyModals
   {paletteOpen} {controlOpen} {forceQuitOpen} {shortcutsOpen} {locked}

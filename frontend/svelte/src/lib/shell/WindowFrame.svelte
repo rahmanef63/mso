@@ -34,12 +34,12 @@
   <header class="win-bar">
     <h2 class="win-title">{win.title}</h2>
     <div class="win-controls">
-      <button type="button" class="win-btn" aria-label={`Minimize ${win.title}`} onpointerdown={stopFocus} onclick={() => onMinimize(win.id)}>
-        _
+      <button type="button" class="win-btn win-btn-min" aria-label={`Minimize ${win.title}`} onpointerdown={stopFocus} onclick={() => onMinimize(win.id)}>
+        -
       </button>
       <button
         type="button"
-        class="win-btn"
+        class="win-btn win-btn-max"
         aria-label={win.maximized ? `Restore ${win.title}` : `Maximize ${win.title}`}
         aria-pressed={win.maximized}
         onpointerdown={stopFocus}
@@ -47,7 +47,7 @@
       >
         {win.maximized ? "[]" : "+"}
       </button>
-      <button type="button" class="win-btn win-close" aria-label={`Close ${win.title}`} onpointerdown={stopFocus} onclick={() => onClose(win.id)}>
+      <button type="button" class="win-btn win-btn-close win-close" aria-label={`Close ${win.title}`} onpointerdown={stopFocus} onclick={() => onClose(win.id)}>
         x
       </button>
     </div>
@@ -72,24 +72,73 @@
 
 <style>
   .win-frame {
-    display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0;
-    background: var(--panel); border: 1px solid var(--border); border-radius: .625rem; overflow: hidden;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-width: 0;
+    background: var(--window-bg);
+    backdrop-filter: blur(var(--blur)) saturate(170%);
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(170%);
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+    box-shadow: var(--shadow-win);
+    overflow: hidden;
   }
-  .win-frame.focused { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-  .win-frame.maximized { width: 100%; min-height: 60vh; }
+  .win-frame.focused {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  }
+  .win-frame.maximized {
+    width: 100%;
+    min-height: 68vh;
+  }
   .win-bar {
-    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
-    padding: .5rem .75rem; background: var(--surface); border-bottom: 1px solid var(--border); min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    background: var(--window-head);
+    border-bottom: 1px solid var(--border);
+    min-width: 0;
   }
-  .win-frame.focused .win-bar { border-bottom-color: var(--accent); }
-  .win-title { margin: 0; font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .win-controls { display: flex; align-items: center; gap: .375rem; flex-shrink: 0; }
-  .win-btn { min-width: 2.25rem; min-height: 2.25rem; padding: .25rem .5rem; font-size: .875rem; line-height: 1; }
-  .win-close:hover { border-color: var(--danger); color: var(--danger); }
-  .win-body { padding: var(--feature-padding, 1rem); min-width: 0; overflow: auto; }
+  .win-title {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .win-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
+  }
+  .win-btn {
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0.2rem 0.45rem;
+    font-size: 0.8125rem;
+    line-height: 1;
+  }
+  .win-close:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .win-body {
+    padding: var(--feature-padding, 1rem);
+    min-width: 0;
+    overflow: auto;
+  }
   .win-crash {
-    display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--danger);
-    border-radius: .5rem; background: var(--danger-bg); color: var(--danger);
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--danger);
+    border-radius: 0.5rem;
+    background: var(--danger-bg);
+    color: var(--danger);
   }
   .win-crash p { margin: 0; color: inherit; }
 </style>
