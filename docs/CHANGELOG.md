@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `csp,install` inject per-request CSP nonce into Svelte HTML and remove remaining next build calls
 - `deploy` promote Svelte 5 + Rust builds in self-update and verify /_app/immutable assets
 - `managed-apps` route probe errors through errorMessage, closing CodeQL #210 (#364)
 - `security` prove exception messages are stack-free at the JSON sink (#210)

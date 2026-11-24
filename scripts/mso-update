@@ -301,7 +301,13 @@ offline_build_locked() {
   update_gateway_quiesce_all
   (cd "$ROOT" && bun install) || fail "dependency install failed"
   (cd "$ROOT" && bash scripts/verify-build.sh) || fail "candidate build verification failed"
-  (cd "$ROOT" && node node_modules/next/dist/bin/next build) || fail "production build failed"
+  (cd "$ROOT" && bun run svelte:build) || fail "production build failed"
+  if command -v cargo >/dev/null 2>&1 && [ -f "$ROOT/rust-shell/Cargo.toml" ]; then
+    (cd "$ROOT/rust-shell" && cargo build --release --bin mso-shell-host) || fail "Rust shell build failed"
+  fi
+  if [ -d "$ROOT/frontend/svelte/build" ]; then
+    printf '{"buildSha":"%s","buildId":"%s"}\n' "${head:0:8}" "${head:0:8}" > "$ROOT/frontend/svelte/build/build-meta.json"
+  fi
   write_receipt
   runtime_exclusion_release
   update_gateway_restore_all

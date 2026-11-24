@@ -68,17 +68,17 @@ else
 fi
 
 INSTALL_PHASE=build
-# ---- build ----
-# Do not invoke Next through `bun run build` here. Bun resolves package binaries
-# through node_modules/.bin metadata, and Bun 1.3.x can occasionally leave that
-# metadata unreadable on WSL even when node_modules/next itself is intact. The
-# package entrypoint is ordinary Node.js, so invoke it directly and bypass the
-# remapper entirely. Only force-reinstall when the package payload itself is absent.
-NEXT_BIN="$DIR/node_modules/next/dist/bin/next"
-if [ ! -f "$NEXT_BIN" ]; then
-  warn "Next.js package entrypoint is missing after bun install — repairing dependencies once…"
-  bun install --force --frozen-lockfile || bun install --force
+# ---- build (Svelte 5 static UI + optional Rust shell host) ----
+SVELTE_DIR="$DIR/frontend/svelte"
+if [ ! -d "$SVELTE_DIR/node_modules" ]; then
+  info "installing Svelte 5 UI dependencies…"
+  (cd "$SVELTE_DIR" && (bun install --frozen-lockfile || bun install))
 fi
-[ -f "$NEXT_BIN" ] || die "Next.js package entrypoint is still missing after dependency repair: $NEXT_BIN"
-info "building (next build via Node entrypoint)…"
-node "$NEXT_BIN" build
+info "building Svelte 5 production UI…"
+(cd "$DIR" && bun run svelte:build) || die "Svelte 5 production build failed."
+if command -v cargo >/dev/null 2>&1 && [ -f "$DIR/rust-shell/Cargo.toml" ]; then
+  info "building Rust shell host (mso-shell-host)…"
+  (cd "$DIR/rust-shell" && cargo build --release --bin mso-shell-host) || warn "Rust shell build skipped; standalone scripts/server.mjs remains available."
+fi
+BUILD_SHA="$(git -C "$DIR" rev-parse --short HEAD 2>/dev/null || echo "dev")"
+printf '{"buildSha":"%s","buildId":"%s"}\n' "$BUILD_SHA" "$BUILD_SHA" > "$SVELTE_DIR/build/build-meta.json"

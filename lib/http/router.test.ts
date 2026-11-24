@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { NextRequest, NextResponse, parseRelativeURL } from "./next-server-shim";
-import { compileRoutePattern, dispatchMsoRequest } from "./router";
+import { compileRoutePattern, dispatchMsoRequest, injectScriptNonces } from "./router";
 
 describe("zero-Next Web HTTP shim & router", () => {
   it("normalizes loopback hosts on NextRequest.nextUrl and parses cookies", () => {
@@ -102,6 +102,35 @@ describe("zero-Next Web HTTP shim & router", () => {
     ]) {
       const source = fs.readFileSync(new URL(rel, import.meta.url), "utf8");
       expect(source).not.toContain("String(error)");
+    }
+  });
+
+  it("injects the per-request CSP nonce into inline and module <script> tags without duplicating existing nonces", () => {
+    const html = '<script>boot()</script><script type="module" src="/a.js"></script><script nonce="keep">x()</script>';
+    const out = injectScriptNonces(html, "abcDEF123+/=");
+    expect(out).toContain('<script nonce="abcDEF123+/=">boot()</script>');
+    expect(out).toContain('<script nonce="abcDEF123+/=" type="module" src="/a.js"></script>');
+    expect(out).toContain('<script nonce="keep">x()</script>');
+    expect(injectScriptNonces(html, 'bad"nonce')).toBe(html);
+  });
+
+  it("stamps proxy.ts Content-Security-Policy nonce onto served Svelte HTML bootstrap scripts", async () => {
+    const tmpRoot = fs.mkdtempSync(path.join(process.cwd(), ".tmp-router-csp-"));
+    try {
+      const buildDir = path.join(tmpRoot, "frontend/svelte/build");
+      fs.mkdirSync(buildDir, { recursive: true });
+      fs.writeFileSync(path.join(buildDir, "index.html"), "<!doctype html><html><body><script>boot()</script></body></html>");
+      const res = await dispatchMsoRequest(new Request("https://mso.example.com/", {
+        headers: { host: "mso.example.com" },
+      }), tmpRoot);
+      expect(res.status).toBe(200);
+      const csp = res.headers.get("content-security-policy") ?? "";
+      const match = /'nonce-([^']+)'/.exec(csp);
+      expect(match?.[1]).toBeTruthy();
+      const body = await res.text();
+      expect(body).toContain(`<script nonce="${match![1]}">boot()</script>`);
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
 });

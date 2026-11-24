@@ -64,7 +64,7 @@ const CAMOUFOX_NOVNC_URL =
 // must be blockable on an app host, so they reach middleware now and are waved
 // through here instead — identical outcome on the cockpit (no nonce, no policy, no
 // per-asset work). Prefix semantics kept exactly as the old negative lookahead's.
-const MATCHER_EXCLUDED = /^\/(?:_next\/static|_next\/image|favicon\.ico)/;
+const MATCHER_EXCLUDED = /^\/(?:_app\/immutable|_next\/static|_next\/image|favicon\.ico)/;
 
 function blocked() {
   return NextResponse.json({ error: "cross_origin_blocked" }, { status: 403 });

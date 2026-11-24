@@ -147,7 +147,7 @@ describe("one-line installer contract", () => {
     const src = installerSource();
     const begin = src.indexOf("install_runtime_lifecycle_begin");
     const deps = src.indexOf("INSTALL_PHASE=dependencies");
-    const build = src.indexOf('node "$NEXT_BIN" build');
+    const build = src.indexOf("bun run svelte:build");
     const service = src.indexOf("# ---- systemd unit ----");
     const finish = src.indexOf("install_runtime_lifecycle_finish");
     expect(begin).toBeGreaterThan(0);
@@ -159,14 +159,13 @@ describe("one-line installer contract", () => {
     expect(src).toContain('scripts/lib/install-runtime-lifecycle.sh');
   });
 
-  it("bypasses Bun bin remapping for production build and repairs only a missing package payload", () => {
+  it("builds the Svelte 5 static UI (and optional Rust shell) without invoking Next.js", () => {
     const src = installerSource();
-    expect(src).toContain('NEXT_BIN="$DIR/node_modules/next/dist/bin/next"');
-    expect(src).toContain('node "$NEXT_BIN" build');
+    expect(src).toContain("bun run svelte:build");
+    expect(src).toContain("build-meta.json");
     expect(src).not.toMatch(/^\s*bun run build\s*$/m);
-    expect(src).toContain('if [ ! -f "$NEXT_BIN" ]; then');
-    expect(src).toContain("bun install --force --frozen-lockfile || bun install --force");
-    expect(src.indexOf('if [ ! -f "$NEXT_BIN" ]; then')).toBeGreaterThan(src.indexOf("bun install --frozen-lockfile || bun install"));
+    expect(src).not.toContain("node_modules/next/dist/bin/next");
+    expect(src.indexOf("bun run svelte:build")).toBeGreaterThan(src.indexOf("bun install --frozen-lockfile || bun install"));
   });
 
   it("requires systemd as PID 1 before service setup and gates onboarding on verified health", () => {

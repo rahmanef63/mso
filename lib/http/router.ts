@@ -7,7 +7,10 @@ import { pathToFileURL } from "node:url";
 import { NextRequest, NextResponse } from "./next-server-shim";
 import { runWithRequestHeaders } from "./next-headers-shim";
 import { onRequestError } from "./server-bootstrap";
+import { injectScriptNonces } from "./csp-nonce";
 import { proxy } from "../../proxy";
+
+export { injectScriptNonces };
 
 type RouteHandler = (
   req: NextRequest,
@@ -136,7 +139,7 @@ function copyProxyResponseHeaders(target: Headers, proxyRes: Response): void {
   });
 }
 
-function tryServeStatic(rootDir: string, pathname: string): Response | null {
+function tryServeStatic(rootDir: string, pathname: string, nonce: string | null): Response | null {
   const safeRel = path.posix.normalize(pathname).replace(/^\/+/, "");
   if (safeRel.includes("..")) return null;
   const svelteBuild = path.join(rootDir, "frontend/svelte/build");
@@ -155,8 +158,12 @@ function tryServeStatic(rootDir: string, pathname: string): Response | null {
       continue;
     }
     const ext = path.extname(candidate).toLowerCase();
+    const payload =
+      ext === ".html" && nonce
+        ? Buffer.from(injectScriptNonces(body.toString("utf8"), nonce), "utf8")
+        : body;
     // Copy into a plain Uint8Array: the DOM BodyInit union rejects Buffer/ArrayBufferLike views.
-    return new NextResponse(new Uint8Array(body), {
+    return new NextResponse(new Uint8Array(payload), {
       status: 200,
       headers: { "content-type": MIME_BY_EXT[ext] ?? "application/octet-stream" },
     });
@@ -224,7 +231,7 @@ export async function dispatchMsoRequest(rawReq: Request, rootDir = process.cwd(
     }
   }
 
-  const staticRes = tryServeStatic(rootDir, pathname);
+  const staticRes = tryServeStatic(rootDir, pathname, overriddenHeaders.get("x-nonce"));
   if (staticRes) {
     copyProxyResponseHeaders(staticRes.headers, proxyRes);
     return staticRes;

@@ -114,7 +114,7 @@ describe("mso update without a running web API", () => {
     expect(out).toContain("No system service was active; run: mso web");
     expect(git(f.repo, "rev-parse", "HEAD")).toBe(f.newer);
     const calls = fs.readFileSync(f.capture, "utf8"); expect(calls).toContain("bun install");
-    expect(calls).toContain("node node_modules/next/dist/bin/next build");
+    expect(calls).toContain("bun run svelte:build");
     expect(calls).toContain("gateway runtime-stop");
     expect(calls).toContain("gateway local-start");
     const status = execFileSync(SCRIPT, ["status"], { env: f.env, encoding: "utf8" });
@@ -131,7 +131,7 @@ describe("mso update without a running web API", () => {
     const calls = fs.existsSync(f.capture) ? fs.readFileSync(f.capture, "utf8") : "";
     expect(calls).toContain("runtime-assert-update-safe");
     expect(calls).not.toContain("bun install");
-    expect(calls).not.toContain("node node_modules/next/dist/bin/next build");
+    expect(calls).not.toContain("bun run svelte:build");
   });
 
 
@@ -200,7 +200,7 @@ describe("mso update without a running web API", () => {
     expect(a.code).toBe(0); expect(b.code).toBe(0);
     const calls = fs.readFileSync(f.capture, "utf8");
     expect((calls.match(/bun install/g) ?? [])).toHaveLength(1);
-    expect((calls.match(/node node_modules\/next\/dist\/bin\/next build/g) ?? [])).toHaveLength(1);
+    expect((calls.match(/bun run svelte:build/g) ?? [])).toHaveLength(1);
     expect((calls.match(/gateway runtime-stop/g) ?? [])).toHaveLength(1);
     expect((calls.match(/gateway local-start/g) ?? [])).toHaveLength(1);
     expect([a.stdout, b.stdout].join("\n")).toContain("offline deployment receipt matches");
