@@ -26,11 +26,6 @@
   aria-label="Desktop shortcuts"
   data-icon-count={icons.length}
 >
-  <header class="desktop-icons-header">
-    <h2>Applications</h2>
-    <span class="desktop-icons-count">{icons.length} apps</span>
-  </header>
-
   <ul class="desktop-icons-grid" role="list">
     {#each icons as icon (icon.app)}
       {@const visual = resolveAppIcon(icon.app, chrome)}
@@ -44,15 +39,12 @@
         >
           <span class="desktop-icon-art" style:background={visual.gradient} aria-hidden="true">
             {#if visual.image}
-              <img src={visual.image} alt="" loading="lazy" width="44" height="44" />
+              <img src={visual.image} alt="" loading="lazy" width="48" height="48" />
             {:else}
               <span class="desktop-icon-badge">{icon.badge}</span>
             {/if}
           </span>
           <span class="desktop-icon-label">{icon.title}</span>
-          {#if icon.ownerOnly}
-            <span class="desktop-icon-tag">Owner</span>
-          {/if}
         </button>
       </li>
     {/each}
@@ -61,37 +53,8 @@
 
 <style>
   .desktop-icons {
-    display: grid;
-    gap: 0.75rem;
-    padding: 0.875rem 1rem;
-    background: color-mix(in srgb, var(--panel) 74%, transparent);
-    backdrop-filter: blur(var(--blur)) saturate(160%);
-    -webkit-backdrop-filter: blur(var(--blur)) saturate(160%);
-    border: 1px solid var(--glass-border);
-    border-radius: 1rem;
-    box-shadow: var(--shadow-pop);
     min-width: 0;
-  }
-
-  .desktop-icons-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .desktop-icons-header h2 {
-    margin: 0;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .desktop-icons-count {
-    font-size: 0.75rem;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
+    width: 100%;
   }
 
   .desktop-icons-grid {
@@ -99,8 +62,8 @@
     margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(5.75rem, 100%), 1fr));
-    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(min(5.25rem, 100%), 1fr));
+    gap: 0.5rem 0.375rem;
     min-width: 0;
   }
 
@@ -110,39 +73,39 @@
 
   .desktop-icon-tile {
     width: 100%;
-    min-height: 5.5rem;
-    padding: 0.5rem 0.375rem;
+    min-height: 5.25rem;
+    padding: 0.4rem 0.25rem;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
+    justify-content: flex-start;
+    gap: 0.35rem;
     text-align: center;
     background: transparent;
-    color: var(--text);
+    color: #ffffff;
     border: 1px solid transparent;
-    border-radius: 0.75rem;
-    transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+    border-radius: 0.625rem;
+    transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
   }
 
   .desktop-icon-tile:hover {
-    border-color: var(--glass-border);
-    background: color-mix(in srgb, var(--panel-solid) 68%, transparent);
-    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.28);
+    backdrop-filter: blur(8px);
   }
 
   .desktop-icon-tile:active {
-    transform: translateY(0);
+    transform: scale(0.96);
   }
 
   .desktop-icon-art {
-    width: 2.85rem;
-    height: 2.85rem;
+    width: 3rem;
+    height: 3rem;
     border-radius: 22%;
     overflow: hidden;
     display: grid;
     place-items: center;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.34);
     flex-shrink: 0;
   }
 
@@ -154,23 +117,18 @@
   }
 
   .desktop-icon-badge {
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     color: #ffffff;
   }
 
   .desktop-icon-label {
-    font-size: 0.75rem;
-    font-weight: 500;
+    font-size: 0.72rem;
+    font-weight: 600;
     line-height: 1.2;
+    color: #ffffff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.55);
     overflow-wrap: anywhere;
-  }
-
-  .desktop-icon-tag {
-    font-size: 0.625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
   }
 </style>

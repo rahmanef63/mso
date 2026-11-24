@@ -17,7 +17,8 @@
   onMount(() => {
     monitor = createMonitor((next) => {
       state = next;
-      onSessionChange?.(next.kind === "ready" ? next.session : null);
+      if (next.kind === "ready") onSessionChange?.(next.session);
+      else if (next.kind === "signed-out") onSessionChange?.(null);
     });
     void monitor.refresh();
     return () => monitor?.dispose();

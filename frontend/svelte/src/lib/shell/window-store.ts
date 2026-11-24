@@ -1,8 +1,10 @@
 export type WinId = string;
 export type WindowRect = { x: number; y: number; w: number; h: number };
+export type SnapZone = "left" | "right" | "top" | "bottom" | "tl" | "tr" | "bl" | "br" | "full";
+export type DesktopBounds = { width: number; height: number; top?: number; bottom?: number };
 export type WindowState = {
   id: WinId; app: string; title: string; x: number; y: number; w: number; h: number; z: number;
-  minimized: boolean; maximized: boolean; prevRect?: WindowRect; payload?: unknown;
+  minimized: boolean; maximized: boolean; pinned?: boolean; prevRect?: WindowRect; payload?: unknown;
 };
 export type ShellLayoutState = { windows: Record<WinId, WindowState>; order: WinId[]; focused: WinId | null };
 export type AppSlugMap = Record<string, string>;
@@ -10,6 +12,7 @@ export type AppSlugMap = Record<string, string>;
 const RESERVED_PREFIXES = ["/api", "/_next", "/mcp", "/oauth", "/.well-known", "/a2a"];
 const BLOCKED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 const MIN_W = 240, MIN_H = 180;
+const SNAP_GAP = 8;
 const emptyLayout = (): ShellLayoutState => ({ windows: {}, order: [], focused: null });
 const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 function readRect(v: unknown): WindowRect | null {
@@ -40,6 +43,52 @@ function cloneState(input?: ShellLayoutState): ShellLayoutState {
 }
 const initialSeq = (s: ShellLayoutState) =>
   s.order.reduce((m, id) => { const hit = /^w(\d+)$/.exec(id); return hit ? Math.max(m, Number(hit[1])) : m; }, 0);
+
+function resolveWorkArea(bounds: DesktopBounds) {
+  const width = Number.isFinite(bounds.width) && bounds.width > 0 ? bounds.width : 1280;
+  const height = Number.isFinite(bounds.height) && bounds.height > 0 ? bounds.height : 720;
+  const topInset = Number.isFinite(bounds.top) && (bounds.top ?? 0) > 0 ? (bounds.top as number) : 0;
+  const bottomInset = Number.isFinite(bounds.bottom) && (bounds.bottom ?? 0) > 0 ? (bounds.bottom as number) : 0;
+  const x0 = SNAP_GAP;
+  const y0 = Math.round(topInset + SNAP_GAP);
+  const availW = Math.max(MIN_W, Math.round(width - SNAP_GAP * 2));
+  const availH = Math.max(MIN_H, Math.round(height - topInset - bottomInset - SNAP_GAP * 2));
+  return { x0, y0, availW, availH };
+}
+
+export function computeSnapRect(
+  zone: SnapZone,
+  bounds: { width: number; height: number; top?: number; bottom?: number },
+): WindowRect {
+  const { x0, y0, availW, availH } = resolveWorkArea(bounds);
+  const halfW = Math.max(MIN_W, Math.floor((availW - SNAP_GAP) / 2));
+  const rightW = Math.max(MIN_W, availW - halfW - SNAP_GAP);
+  const rightX = x0 + halfW + SNAP_GAP;
+  const halfH = Math.max(MIN_H, Math.floor((availH - SNAP_GAP) / 2));
+  const bottomH = Math.max(MIN_H, availH - halfH - SNAP_GAP);
+  const bottomY = y0 + halfH + SNAP_GAP;
+
+  switch (zone) {
+    case "left":
+      return { x: x0, y: y0, w: halfW, h: availH };
+    case "right":
+      return { x: rightX, y: y0, w: rightW, h: availH };
+    case "top":
+      return { x: x0, y: y0, w: availW, h: halfH };
+    case "bottom":
+      return { x: x0, y: bottomY, w: availW, h: bottomH };
+    case "tl":
+      return { x: x0, y: y0, w: halfW, h: halfH };
+    case "tr":
+      return { x: rightX, y: y0, w: rightW, h: halfH };
+    case "bl":
+      return { x: x0, y: bottomY, w: halfW, h: bottomH };
+    case "br":
+      return { x: rightX, y: bottomY, w: rightW, h: bottomH };
+    case "full":
+      return { x: x0, y: y0, w: availW, h: availH };
+  }
+}
 
 export function createWindowStore(initial?: ShellLayoutState) {
   let state = cloneState(initial);
@@ -89,6 +138,118 @@ export function createWindowStore(initial?: ShellLayoutState) {
     return true;
   }
 
+  function togglePin(id: WinId) {
+    const cur = state.windows[id];
+    if (!cur) return;
+    patch(id, { pinned: !cur.pinned });
+  }
+
+  function snapWindow(id: WinId, zone: SnapZone, bounds: DesktopBounds) {
+    const cur = state.windows[id];
+    if (!cur) return;
+    const rect = computeSnapRect(zone, bounds);
+    const prevRect = cur.prevRect ?? { x: cur.x, y: cur.y, w: cur.w, h: cur.h };
+    patch(
+      id,
+      { ...rect, minimized: false, maximized: zone === "full", prevRect, z: topZ(state) + 1 },
+      id,
+    );
+  }
+
+  function cascadeWindows(bounds: DesktopBounds) {
+    const visible = state.order.filter((id) => state.windows[id] && !state.windows[id].minimized);
+    if (visible.length === 0) return;
+    const { x0, y0, availW, availH } = resolveWorkArea(bounds);
+    const step = 32;
+    const w = Math.max(MIN_W, Math.min(Math.round(availW * 0.68), availW));
+    const h = Math.max(MIN_H, Math.min(Math.round(availH * 0.72), availH));
+    const maxOffset = Math.max(0, Math.min(availW - w, availH - h));
+    const maxSlots = Math.max(1, Math.floor(maxOffset / step) + 1);
+    const baseZ = topZ(state);
+    const windows = { ...state.windows };
+    visible.forEach((id, index) => {
+      const slot = index % maxSlots;
+      const cur = windows[id];
+      windows[id] = {
+        ...cur,
+        x: x0 + slot * step,
+        y: y0 + slot * step,
+        w,
+        h,
+        maximized: false,
+        prevRect: undefined,
+        z: baseZ + index + 1,
+      };
+    });
+    state = { ...state, windows, focused: visible[visible.length - 1] };
+    emit();
+  }
+
+  function tileWindows(bounds: DesktopBounds) {
+    const visible = state.order.filter((id) => state.windows[id] && !state.windows[id].minimized);
+    const count = visible.length;
+    if (count === 0) return;
+    const { x0, y0, availW, availH } = resolveWorkArea(bounds);
+    const windows = { ...state.windows };
+
+    if (count === 1) {
+      const id = visible[0];
+      windows[id] = {
+        ...windows[id],
+        x: x0,
+        y: y0,
+        w: availW,
+        h: availH,
+        maximized: false,
+        prevRect: undefined,
+      };
+    } else {
+      const cols = Math.ceil(Math.sqrt(count));
+      const rows = Math.ceil(count / cols);
+      const cellH = Math.max(MIN_H, Math.floor((availH - SNAP_GAP * (rows - 1)) / rows));
+      let idx = 0;
+      for (let r = 0; r < rows; r += 1) {
+        const remaining = count - idx;
+        const rowCols = r === rows - 1 ? remaining : cols;
+        const cellW = Math.max(MIN_W, Math.floor((availW - SNAP_GAP * (rowCols - 1)) / rowCols));
+        const y = y0 + r * (cellH + SNAP_GAP);
+        const h = r === rows - 1 ? Math.max(MIN_H, availH - (y - y0)) : cellH;
+        for (let c = 0; c < rowCols; c += 1) {
+          const id = visible[idx++];
+          const x = x0 + c * (cellW + SNAP_GAP);
+          const w = c === rowCols - 1 ? Math.max(MIN_W, availW - (x - x0)) : cellW;
+          windows[id] = {
+            ...windows[id],
+            x,
+            y,
+            w,
+            h,
+            maximized: false,
+            prevRect: undefined,
+          };
+        }
+      }
+    }
+
+    state = { ...state, windows };
+    emit();
+  }
+
+  function minimizeAll() {
+    let changed = state.focused !== null;
+    const windows = { ...state.windows };
+    for (const id of state.order) {
+      const cur = windows[id];
+      if (cur && !cur.minimized) {
+        windows[id] = { ...cur, minimized: true };
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    state = { ...state, windows, focused: null };
+    emit();
+  }
+
   return {
     subscribe(listener: (next: ShellLayoutState) => void) {
       listeners.add(listener); listener(state);
@@ -127,6 +288,11 @@ export function createWindowStore(initial?: ShellLayoutState) {
     resizeWindow: (id: WinId, w: number, h: number) => {
       if (Object.hasOwn(state.windows, id) && Number.isFinite(w) && Number.isFinite(h)) patch(id, { w: Math.max(MIN_W, w), h: Math.max(MIN_H, h) });
     },
+    togglePin,
+    snapWindow,
+    cascadeWindows,
+    tileWindows,
+    minimizeAll,
   };
 }
 
@@ -173,13 +339,18 @@ export function hydrateLayout(raw: string): ShellLayoutState {
   for (const entry of parsed.windows) {
     const rect = readRect(entry);
     if (!isRecord(entry) || !rect) continue;
-    const { id, app, title, z, minimized, maximized, prevRect, payload } = entry;
+    const { id, app, title, z, minimized, maximized, pinned, prevRect, payload } = entry;
     if (typeof id !== "string" || !id || BLOCKED_KEYS.has(id) || Object.hasOwn(windows, id)) continue;
     if (typeof app !== "string" || !app || typeof title !== "string") continue;
     if (typeof z !== "number" || !Number.isFinite(z) || typeof minimized !== "boolean" || typeof maximized !== "boolean") continue;
     const prev = prevRect === undefined ? undefined : readRect(prevRect);
     if (prevRect !== undefined && !prev) continue;
-    windows[id] = { id, app, title, ...rect, z, minimized, maximized, ...(prev ? { prevRect: prev } : {}), ...(payload !== undefined ? { payload } : {}) };
+    windows[id] = {
+      id, app, title, ...rect, z, minimized, maximized,
+      ...(typeof pinned === "boolean" ? { pinned } : {}),
+      ...(prev ? { prevRect: prev } : {}),
+      ...(payload !== undefined ? { payload } : {}),
+    };
     order.push(id);
   }
   const focused = typeof parsed.focused === "string" && Object.hasOwn(windows, parsed.focused) && !windows[parsed.focused].minimized
