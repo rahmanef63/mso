@@ -6,8 +6,13 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-24
 
+**Added**
+
+- `ci` upgrade dynamic pre-push gate for Rust/Svelte/docs-only and parallel agent worktrees (#365)
+
 **Fixed**
 
+- `managed-apps` route probe errors through errorMessage, closing CodeQL #210 (#364)
 - `security` prove exception messages are stack-free at the JSON sink (#210)
 
 **Docs**
