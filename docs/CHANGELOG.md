@@ -25,6 +25,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `proxy` allow GET /api/v1/sys/services/logs in dev and Rust proxy allowlists
 - `svelte/workflows,creative` replace structuredClone with JSON clone so Svelte 5 $state proxies no longer crash window mounts
 
 **Changed**
