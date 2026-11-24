@@ -1,6 +1,6 @@
 import { clampClipDuration, createReelClip, type ReelClip } from "./creative-state.ts";
 
-export type * from "./reel-model-types.ts";
+export * from "./reel-model-types.ts";
 import type {
   AspectPreset, AspectRatioId, CaptionPosition, CaptionStylePreset, ClipFitMode, ClipFilterPreset,
   ClipTransition, ReelCaption, ReelFps, ReelProjectState, ReelTimelineClip,

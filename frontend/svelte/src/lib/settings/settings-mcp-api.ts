@@ -7,7 +7,7 @@ import { isRecord, requestJson } from "./settings-request.ts";
 // MCP Server
 // ---------------------------------------------------------------------------
 
-export type * from "./settings-mcp-types.ts";
+export * from "./settings-mcp-types.ts";
 export { normalizeMcpOrigin } from "./settings-mcp-origin.ts";
 export { buildMcpClientGuides } from "./settings-mcp-guides.ts";
 import type { McpActivityEntry, McpScope, McpStatusPayload, McpTokenRow } from "./settings-mcp-types.ts";

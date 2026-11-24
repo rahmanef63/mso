@@ -43,7 +43,14 @@ test("parseMarkdown handles headings, lists, inline code, fenced blocks, blockqu
     assert.ok(blocks[1].segments.some((s) => s.kind === "strong" && s.text === "CPU"));
     assert.ok(blocks[1].segments.some((s) => s.kind === "em" && s.text === "nominal"));
     assert.ok(blocks[1].segments.some((s) => s.kind === "link" && s.href === "https://example.com/docs"));
-    assert.ok(!blocks[1].segments.some((s) => s.kind === "link" && s.href.startsWith("javascript:")));
+    // Assert the real invariant: no rendered link may use a scheme outside the
+    // http/https allowlist. Checking a single "javascript:" prefix is exactly the
+    // CodeQL js/incomplete-url-scheme-check shape, because it misses vbscript:,
+    // data:, file: and any other scheme the sanitizer rejects.
+    for (const segment of blocks[1].segments) {
+      if (segment.kind !== "link") continue;
+      assert.equal(isSafeHttpUrl(segment.href), true, `rendered link used a non-http scheme: ${segment.href}`);
+    }
   }
   assert.equal(blocks[2].kind, "list");
   assert.equal(blocks[3].kind, "list");

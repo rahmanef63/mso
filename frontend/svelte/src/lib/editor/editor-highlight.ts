@@ -100,7 +100,10 @@ function tokenizeMdLine(line: string): CodeToken[] {
 }
 
 function tokenizeMarkupLine(line: string): CodeToken[] {
-  const re = /(<!--[\s\S]*?-->)|(<\/?[A-Za-z][\w:-]*|\/>|>)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g;
+  // The comment arm accepts the legacy `--!>` terminator as well as `-->`; a regex
+  // that only knows `-->` is the CodeQL js/bad-tag-filter shape and also mis-colours
+  // real markup that closes a comment the old way.
+  const re = /(<!--[\s\S]*?--!?>)|(<\/?[A-Za-z][\w:-]*|\/>|>)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g;
   const out: CodeToken[] = [];
   let last = 0;
   let m: RegExpExecArray | null;

@@ -7,7 +7,7 @@ import { isRecord, requestJson } from "./settings-request.ts";
 // System & Maintenance (Cleanup, Federation, Update Automation)
 // ---------------------------------------------------------------------------
 
-export type * from "./settings-sys-types.ts";
+export * from "./settings-sys-types.ts";
 import type {
   CleanupItem, CleanupPreview, CleanupRunResult, FederationStatus, UpdateAutomationView,
 } from "./settings-sys-types.ts";

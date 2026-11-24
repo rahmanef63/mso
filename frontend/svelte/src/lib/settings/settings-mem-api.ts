@@ -7,7 +7,7 @@ import { isRecord, requestJson } from "./settings-request.ts";
 // Memory & Server Backup
 // ---------------------------------------------------------------------------
 
-export type * from "./settings-mem-types.ts";
+export * from "./settings-mem-types.ts";
 import type {
   MemoryBackupHistoryEntry, MemoryBackupScan, MemoryBackupSummary, MemoryBackupVerification, MemoryFact,
 } from "./settings-mem-types.ts";
