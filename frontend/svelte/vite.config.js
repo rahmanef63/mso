@@ -41,9 +41,6 @@ export default defineConfig(({ mode }) => {
       msoPublicAssetsPlugin({
         publicDir: PUBLIC_DIR,
         buildDir: BUILD_DIR,
-        repoRoot: REPO_ROOT,
-        buildSha,
-        buildMode,
       }),
     ],
     server: { host: "127.0.0.1", port: 5173, strictPort: true, proxy },

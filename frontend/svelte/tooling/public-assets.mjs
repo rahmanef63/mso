@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
@@ -53,8 +53,13 @@ function resolveSafeFile(baseDir, rawPathname) {
 }
 
 function collectRelativeFiles(dir, prefix = "", out = []) {
-  if (!existsSync(dir)) return out;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) collectRelativeFiles(full, rel, out);
@@ -77,18 +82,39 @@ export function resolveBuildSha(repoRoot) {
   }
 }
 
+function isFsError(err, code) {
+  return Boolean(err && typeof err === "object" && "code" in err && err.code === code);
+}
+
 export function syncPublicAssets(publicDir, buildDir, meta = {}) {
   mkdirSync(buildDir, { recursive: true });
   const copied = [];
   for (const entry of PUBLIC_ASSET_ENTRIES) {
     const src = path.join(publicDir, entry);
-    if (!existsSync(src)) continue;
     const dst = path.join(buildDir, entry);
-    cpSync(src, dst, { recursive: true, force: true });
-    if (statSync(src).isDirectory()) {
-      for (const rel of collectRelativeFiles(dst, entry)) copied.push(`/${rel}`);
-    } else {
-      copied.push(`/${entry}`);
+    try {
+      cpSync(src, dst, { recursive: true, force: true });
+    } catch (err) {
+      if (isFsError(err, "ENOENT")) continue;
+      throw err;
+    }
+    try {
+      const entries = readdirSync(dst, { withFileTypes: true });
+      for (const child of entries) {
+        const rel = `${entry}/${child.name}`;
+        const full = path.join(dst, child.name);
+        if (child.isDirectory()) {
+          for (const nested of collectRelativeFiles(full, rel)) copied.push(`/${nested}`);
+        } else if (child.isFile()) {
+          copied.push(`/${rel}`);
+        }
+      }
+    } catch (err) {
+      if (isFsError(err, "ENOTDIR")) {
+        copied.push(`/${entry}`);
+      } else {
+        throw err;
+      }
     }
   }
   copied.sort();
@@ -102,38 +128,35 @@ export function syncPublicAssets(publicDir, buildDir, meta = {}) {
   return buildMeta;
 }
 
-function trySendFile(filePath, res) {
-  if (!filePath || !existsSync(filePath)) return false;
-  const st = statSync(filePath);
-  if (!st.isFile()) return false;
+export function trySendFile(filePath, res, method = "GET") {
+  if (!filePath) return false;
+  let body;
+  try {
+    body = readFileSync(filePath);
+  } catch {
+    return false;
+  }
   const ext = path.extname(filePath).toLowerCase();
   res.statusCode = 200;
   res.setHeader("Content-Type", MIME_TYPES[ext] ?? "application/octet-stream");
-  res.setHeader("Content-Length", String(st.size));
-  res.end(readFileSync(filePath));
+  res.setHeader("Content-Length", String(body.byteLength));
+  res.end(method === "HEAD" ? undefined : body);
   return true;
 }
 
-export function msoPublicAssetsPlugin({ publicDir, buildDir, repoRoot, buildSha, buildMode }) {
+export function msoPublicAssetsPlugin({ publicDir, buildDir }) {
   return {
     name: "mso-public-assets",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
+        if (req.method !== "GET" && req.method !== "HEAD") return next();
         const pathname = (req.url ?? "/").split("?")[0] ?? "/";
         if (isReservedPath(pathname)) return next();
         let filePath = null;
         try { filePath = resolveSafeFile(publicDir, pathname); } catch { return next(); }
-        if (trySendFile(filePath, res)) return;
+        if (trySendFile(filePath, res, req.method)) return;
         next();
       });
-    },
-    closeBundle() {
-      if (existsSync(buildDir)) {
-        syncPublicAssets(publicDir, buildDir, {
-          sha: buildSha ?? resolveBuildSha(repoRoot),
-          mode: buildMode ?? "production",
-        });
-      }
     },
     configurePreviewServer(server) {
       server.middlewares.use((req, res, next) => {
@@ -143,7 +166,7 @@ export function msoPublicAssetsPlugin({ publicDir, buildDir, repoRoot, buildSha,
 
         let buildFile = null;
         try { buildFile = resolveSafeFile(buildDir, pathname); } catch { return next(); }
-        if (trySendFile(buildFile, res)) return;
+        if (trySendFile(buildFile, res, req.method)) return;
 
         // Missing extensioned assets (e.g. /wallpapers/missing.webp or /_app/immutable/x.js)
         // must fail with 404, never fall back to index.html with wrong MIME.
@@ -151,12 +174,12 @@ export function msoPublicAssetsPlugin({ publicDir, buildDir, repoRoot, buildSha,
         if (lastSegment.includes(".")) {
           res.statusCode = 404;
           res.setHeader("Content-Type", "text/plain; charset=utf-8");
-          res.end("Not Found");
+          res.end(req.method === "HEAD" ? undefined : "Not Found");
           return;
         }
 
         const indexHtml = path.join(buildDir, "index.html");
-        if (trySendFile(indexHtml, res)) return;
+        if (trySendFile(indexHtml, res, req.method)) return;
         next();
       });
     },
