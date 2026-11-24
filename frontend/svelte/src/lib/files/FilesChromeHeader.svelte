@@ -14,12 +14,15 @@
     loading,
     busy,
     viewMode,
+    previewOpen = false,
     filterText = $bindable(""),
     sidebarOpen = $bindable(false),
     creatingFolder,
     onGoParent,
     onNavigate,
     onViewMode,
+    onTogglePreview,
+    onTriggerUpload,
     onToggleNewFolder,
     onRefresh,
   }: {
@@ -32,12 +35,15 @@
     loading: boolean;
     busy: boolean;
     viewMode: FilesViewMode;
+    previewOpen?: boolean;
     filterText: string;
     sidebarOpen: boolean;
     creatingFolder: boolean;
     onGoParent: () => void;
     onNavigate: (p: string) => void;
     onViewMode: (m: FilesViewMode) => void;
+    onTogglePreview?: () => void;
+    onTriggerUpload?: () => void;
     onToggleNewFolder: () => void;
     onRefresh: () => void;
   } = $props();
@@ -71,6 +77,12 @@
       <button type="button" class:active={viewMode === "columns"} aria-pressed={viewMode === "columns"} onclick={() => onViewMode("columns")}>Columns</button>
     </div>
     <div class="finder-actions">
+      {#if onTriggerUpload}
+        <button type="button" disabled={loading || busy} onclick={onTriggerUpload}>Upload</button>
+      {/if}
+      {#if onTogglePreview}
+        <button type="button" class:active={previewOpen} aria-pressed={previewOpen} disabled={loading} onclick={onTogglePreview}>Quick Look</button>
+      {/if}
       <button type="button" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>New folder</button>
       <button type="button" disabled={loading || busy} onclick={onRefresh}>{loading ? "Loading..." : "Refresh"}</button>
     </div>
@@ -79,8 +91,14 @@
   <div class="explorer-chrome">
     <div class="explorer-cmdbar" role="toolbar" aria-label="File Explorer commands">
       <button type="button" class="primary" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>+ New folder</button>
+      {#if onTriggerUpload}
+        <button type="button" disabled={loading || busy} onclick={onTriggerUpload}>Upload</button>
+      {/if}
       <button type="button" class:active={viewMode === "list"} onclick={() => onViewMode("list")}>Details</button>
       <button type="button" class:active={viewMode === "grid"} onclick={() => onViewMode("grid")}>Tiles</button>
+      {#if onTogglePreview}
+        <button type="button" class:active={previewOpen} aria-pressed={previewOpen} disabled={loading} onclick={onTogglePreview}>Preview pane</button>
+      {/if}
       <button type="button" disabled={loading || busy} onclick={onRefresh}>Refresh</button>
       <button type="button" class="nav-toggle-btn" aria-expanded={sidebarOpen} onclick={() => { sidebarOpen = !sidebarOpen; }}>Navigation pane</button>
     </div>
@@ -115,7 +133,12 @@
         <button type="button" class:active={viewMode === "list"} onclick={() => onViewMode("list")}>List</button>
         <button type="button" class:active={viewMode === "grid"} onclick={() => onViewMode("grid")}>Icons</button>
       </div>
-      <button type="button" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>+ New folder</button>
+      <div class="actions">
+        {#if onTriggerUpload}
+          <button type="button" disabled={loading || busy} onclick={onTriggerUpload}>Upload</button>
+        {/if}
+        <button type="button" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>+ New folder</button>
+      </div>
     </div>
   </div>
 {:else if variant === "android-files"}
@@ -128,6 +151,12 @@
     <div class="m3-files-actions">
       <label class="sr-only" for={`${uid}-m3-filter`}>Filter files</label>
       <input id={`${uid}-m3-filter`} class="m3-files-search" type="search" bind:value={filterText} placeholder="Filter this folder" />
+      <button type="button" class="m3-tonal-btn" onclick={() => onViewMode(viewMode === "grid" ? "list" : "grid")}>
+        {viewMode === "grid" ? "List" : "Grid"}
+      </button>
+      {#if onTriggerUpload}
+        <button type="button" class="m3-tonal-btn" disabled={loading || busy} onclick={onTriggerUpload}>Upload</button>
+      {/if}
       <button type="button" class="m3-tonal-btn" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>New folder</button>
     </div>
   </div>
@@ -139,6 +168,14 @@
     </div>
     <div class="actions">
       <button type="button" disabled={!canGoParent || busy} onclick={onGoParent}>Up</button>
+      <button type="button" class:active={viewMode === "list"} onclick={() => onViewMode("list")}>List</button>
+      <button type="button" class:active={viewMode === "grid"} onclick={() => onViewMode("grid")}>Grid</button>
+      {#if onTogglePreview}
+        <button type="button" class:active={previewOpen} aria-pressed={previewOpen} disabled={loading} onclick={onTogglePreview}>Preview</button>
+      {/if}
+      {#if onTriggerUpload}
+        <button type="button" disabled={loading || busy} onclick={onTriggerUpload}>Upload</button>
+      {/if}
       <button type="button" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>New folder</button>
       <button type="button" disabled={loading || busy} onclick={onRefresh}>{loading ? "Loading..." : "Refresh"}</button>
     </div>

@@ -3,6 +3,8 @@ import { ApiError } from "../host-api.ts";
 import { detectShellBridge, resolveApiUrl, type ShellBridge } from "../shell-bridge.ts";
 
 export { ApiError };
+export type FsEntryMeta = FsEntry & { mtime?: number };
+export type FsListMeta = Omit<FsList, "entries"> & { entries: FsEntryMeta[] };
 export type { FsEntry, FsList, FsRoot, ShellBridge };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -61,12 +63,19 @@ async function fetchFsJson(
   }
 }
 
-function validateEntry(raw: unknown): FsEntry {
+function validateEntry(raw: unknown): FsEntryMeta {
   if (!isRecord(raw) || typeof raw.name !== "string" || !raw.name
       || (raw.kind !== "dir" && raw.kind !== "file") || !isNonNegative(raw.size)
       || (raw.ext !== undefined && typeof raw.ext !== "string")
       || (raw.mime !== undefined && typeof raw.mime !== "string")) {
     throw new ApiError("The MSO directory listing response is invalid.", 502);
+  }
+  let mtime: number | undefined;
+  if (isNonNegative(raw.mtime)) {
+    mtime = raw.mtime;
+  } else if (typeof raw.mtime === "string") {
+    const parsed = Date.parse(raw.mtime);
+    if (Number.isFinite(parsed) && parsed >= 0) mtime = parsed;
   }
   return {
     name: raw.name,
@@ -74,6 +83,7 @@ function validateEntry(raw: unknown): FsEntry {
     size: raw.size,
     ...(raw.ext !== undefined ? { ext: raw.ext } : {}),
     ...(raw.mime !== undefined ? { mime: raw.mime } : {}),
+    ...(mtime !== undefined ? { mtime } : {}),
   };
 }
 
@@ -93,7 +103,7 @@ export async function listDirectory(
   signal: AbortSignal,
   fetcher = fetch,
   bridge = detectShellBridge(),
-): Promise<FsList> {
+): Promise<FsListMeta> {
   const query = new URLSearchParams({ path: path || "~" }).toString();
   const value = await fetchFsJson(`/api/v1/fs/list?${query}`, signal, fetcher, bridge);
   if (!isRecord(value) || typeof value.path !== "string" || !value.path || !Array.isArray(value.entries)
