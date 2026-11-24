@@ -1,190 +1,208 @@
 <script lang="ts">
+  import "./CodeEditorApp.css";
   import { onMount } from "svelte";
-  import { countStats, createEditorController, type EditorState } from "./editor-api.ts";
   import { getWinState, setWinState } from "../shell/window-feature-state.ts";
+  import { countStats, defaultRunCommand, isMarkdownFile, runEditorFile, type EditorExecResult } from "./editor-api.ts";
+  import { findMatches, replaceAllMatches, replaceMatchAt } from "./editor-highlight.ts";
+  import { createMultiTabEditor, type EditorWorkspaceSnapshot, type MultiTabState } from "./editor-tabs.ts";
+  import EditorSurface from "./EditorSurface.svelte";
+  import EditorToolbar from "./EditorToolbar.svelte";
+  import FileExplorerSidebar from "./FileExplorerSidebar.svelte";
+  import FindReplaceBar from "./FindReplaceBar.svelte";
+  import MarkdownPreview from "./MarkdownPreview.svelte";
+  import RunOutputDrawer from "./RunOutputDrawer.svelte";
+  import StatusBar from "./StatusBar.svelte";
+  import TabBar from "./TabBar.svelte";
 
-  type EditorDraftSnapshot = { path: string; content: string; dirty: boolean };
+  type LegacyDraft = { path: string; content: string; dirty: boolean };
+  type StoredDraft = EditorWorkspaceSnapshot | LegacyDraft;
 
-  let {
-    winId,
-    initialPath = "",
-    onDirtyChange,
-  }: {
-    winId?: string;
-    initialPath?: string;
-    onDirtyChange?: (dirty: boolean) => void;
+  let { winId, initialPath = "", onDirtyChange }: {
+    winId?: string; initialPath?: string; onDirtyChange?: (dirty: boolean) => void;
   } = $props();
 
-  let view = $state<EditorState>({ kind: "idle" });
+  let ws = $state<MultiTabState>({ tabs: [], activePath: null, anyDirty: false, globalError: null });
   let pathInput = $state("");
-  let gutterEl = $state<HTMLPreElement | undefined>(undefined);
-  let controller: ReturnType<typeof createEditorController> | undefined;
+  let explorerOpen = $state(true);
+  let wordWrap = $state(false);
+  let fontSize = $state(13);
+  let showPreview = $state(false);
+  let barMode = $state<"find" | "goto" | null>(null);
+  let findQuery = $state("");
+  let replaceText = $state("");
+  let caseSensitive = $state(false);
+  let matchIndex = $state(0);
+  let pendingClosePath = $state<string | null>(null);
+  let consoleOpen = $state(false);
+  let runCommand = $state("");
+  let running = $state(false);
+  let runResult = $state<EditorExecResult | null>(null);
+  let surfaceRef = $state<{ focusSelection: (s: number, e: number) => void; jumpToLine: (ln: number) => void } | undefined>(undefined);
+  let editor: ReturnType<typeof createMultiTabEditor> | undefined;
+  let runAbort: AbortController | undefined;
 
-  let stats = $derived(view.kind === "ready" ? countStats(view.content) : { lines: 0, chars: 0, bytes: 0 });
-  let lineNumbers = $derived(Array.from({ length: Math.max(1, stats.lines) }, (_, i) => i + 1).join("\n"));
+  let activeTab = $derived(ws.activePath ? ws.tabs.find((t) => t.path === ws.activePath) ?? null : null);
+  let editorStateKind = $derived(
+    !activeTab ? (ws.globalError ? "error" : "idle") : activeTab.loading ? "loading" : activeTab.error ? "error" : "ready",
+  );
+  let stats = $derived(activeTab && !activeTab.loading && !activeTab.error ? countStats(activeTab.content) : { lines: 0, chars: 0, bytes: 0 });
+  let isMarkdown = $derived(activeTab ? isMarkdownFile(activeTab.path, activeTab.language) : false);
+  let matches = $derived(activeTab && findQuery ? findMatches(activeTab.content, findQuery, caseSensitive) : []);
+  let clampedMatchIndex = $derived(matches.length > 0 ? ((matchIndex % matches.length) + matches.length) % matches.length : 0);
+
+  $effect(() => {
+    if (activeTab) {
+      pathInput = activeTab.path;
+      runCommand = defaultRunCommand(activeTab.path, activeTab.language);
+    }
+  });
 
   export function open(path: string) {
     pathInput = path;
-    return controller?.open(path);
+    return editor?.openTab(path);
   }
 
-  function handleOpenSubmit(event: SubmitEvent) {
-    event.preventDefault();
-    void controller?.open(pathInput);
+  function handleCreateTab(path?: string): void {
+    if (path) { editor?.createTab(path); return; }
+    let idx = 1;
+    let candidate = `~/untitled-${idx}.txt`;
+    while (ws.tabs.some((t) => t.path === candidate)) { idx++; candidate = `~/untitled-${idx}.txt`; }
+    editor?.createTab(candidate);
   }
 
-  function handleEditorInput(event: Event) {
-    controller?.updateContent((event.currentTarget as HTMLTextAreaElement).value);
+  function handleRequestClose(path: string): void {
+    const res = editor?.closeTab(path, false);
+    if (res === "needs-confirm") pendingClosePath = path;
+    else if (pendingClosePath === path) pendingClosePath = null;
   }
 
-  function handleScroll(event: Event) {
-    if (gutterEl) gutterEl.scrollTop = (event.currentTarget as HTMLTextAreaElement).scrollTop;
+  async function handleSaveAndClose(path: string): Promise<void> {
+    if (await editor?.saveTab(path)) { editor?.closeTab(path, true); pendingClosePath = null; }
   }
 
-  function handleKeydown(event: KeyboardEvent) {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+  function focusMatch(index: number): void {
+    if (matches.length === 0) return;
+    const safe = ((index % matches.length) + matches.length) % matches.length;
+    matchIndex = safe;
+    surfaceRef?.focusSelection(matches[safe].start, matches[safe].end);
+  }
+
+  function handleReplaceCurrent(): void {
+    if (!activeTab || matches.length === 0) return;
+    editor?.updateContent(replaceMatchAt(activeTab.content, matches[clampedMatchIndex], replaceText));
+  }
+
+  function handleReplaceAll(): void {
+    if (!activeTab || !findQuery) return;
+    const res = replaceAllMatches(activeTab.content, findQuery, replaceText, caseSensitive);
+    if (res.count > 0) editor?.updateContent(res.next);
+  }
+
+  async function handleRunFile(): Promise<void> {
+    if (!activeTab || editorStateKind !== "ready" || running) return;
+    consoleOpen = true;
+    running = true;
+    runAbort?.abort();
+    const ctrl = (runAbort = new AbortController());
+    runResult = await runEditorFile(
+      { path: activeTab.path, language: activeTab.language, content: activeTab.content, command: runCommand },
+      ctrl.signal,
+    );
+    running = false;
+  }
+
+  function handleKeydown(event: KeyboardEvent): void {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    const key = event.key.toLowerCase();
+    if (key === "s") {
       event.preventDefault();
-      if (view.kind === "ready" && view.dirty && !view.saving) void controller?.save();
-    }
+      if (activeTab?.dirty && !activeTab.saving) void editor?.saveTab();
+    } else if (key === "f") { event.preventDefault(); barMode = "find"; }
+    else if (key === "g") { event.preventDefault(); barMode = "goto"; }
   }
 
   onMount(() => {
-    const saved = getWinState<EditorDraftSnapshot | null>(winId, "editor.draft", null);
-    controller = createEditorController(
-      (next) => {
-        view = next;
-        if (next.kind === "ready") {
-          pathInput = next.path;
-          setWinState<EditorDraftSnapshot>(winId, "editor.draft", {
-            path: next.path,
-            content: next.content,
-            dirty: next.dirty,
-          });
-        }
-      },
+    editor = createMultiTabEditor(
+      (next) => { ws = next; if (editor) setWinState<EditorWorkspaceSnapshot>(winId, "editor.draft", editor.snapshot()); },
       { onDirtyChange: (dirty) => onDirtyChange?.(dirty) },
     );
-    const targetPath = (saved?.path || initialPath).trim();
-    if (targetPath) {
-      pathInput = targetPath;
-      void controller.open(targetPath).then(() => {
-        if (saved?.dirty && saved.path === targetPath) {
-          controller?.updateContent(saved.content);
-        }
-      });
+    const saved = getWinState<StoredDraft | null>(winId, "editor.draft", null);
+    if (saved && "tabs" in saved && Array.isArray(saved.tabs) && saved.tabs.length > 0) {
+      editor.restoreSnapshot(saved);
+    } else if (saved && "path" in saved && saved.path) {
+      pathInput = saved.path;
+      void editor.openTab(saved.path).then(() => { if (saved.dirty) editor?.updateContent(saved.content, saved.path); });
+    } else if (initialPath.trim()) {
+      pathInput = initialPath.trim();
+      void editor.openTab(initialPath.trim());
     }
-    return () => controller?.dispose();
+    return () => { runAbort?.abort(); editor?.dispose(); };
   });
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<section
-  aria-labelledby="editor-title"
-  aria-busy={view.kind === "loading" || (view.kind === "ready" && view.saving)}
-  data-editor-state={view.kind}
-  data-editor-dirty={view.kind === "ready" ? String(view.dirty) : "false"}
-  onkeydown={handleKeydown}
+<section class="ide-root" aria-labelledby="editor-title" aria-busy={editorStateKind === "loading" || Boolean(activeTab?.saving) || running} data-editor-state={editorStateKind} data-editor-dirty={String(ws.anyDirty)} onkeydown={handleKeydown}
 >
-  <header class="feature-header">
-    <h2 id="editor-title">Code Editor</h2>
-    <div class="editor-badges" aria-label="Buffer status">
-      {#if view.kind === "ready"}
-        <span class="role-badge">{view.language}</span>
-        <span class="role-badge">{stats.lines} lines</span>
-        <span class="role-badge">{stats.chars} chars</span>
-        <span class="role-badge">{stats.bytes} B</span>
-        {#if view.dirty}
-          <span class="role-badge unsaved-badge">Unsaved changes</span>
-        {/if}
+  <EditorToolbar
+    {pathInput} loading={editorStateKind === "loading"}
+    {explorerOpen}
+    {wordWrap}
+    {barMode}
+    {isMarkdown}
+    {showPreview} canRun={Boolean(activeTab && editorStateKind === "ready")}
+    {running}
+    {consoleOpen} onPathInput={(v) => { pathInput = v; }} onOpenSubmit={() => void editor?.openTab(pathInput)} onToggleExplorer={() => { explorerOpen = !explorerOpen; }} onToggleWrap={() => { wordWrap = !wordWrap; }} onDecreaseFont={() => { fontSize = Math.max(11, fontSize - 1); }} onIncreaseFont={() => { fontSize = Math.min(20, fontSize + 1); }}
+    onToggleFind={() => { barMode = barMode === "find" ? null : "find"; }} onToggleGoto={() => { barMode = barMode === "goto" ? null : "goto"; }} onTogglePreview={() => { showPreview = !showPreview; }} onRun={() => void handleRunFile()} onToggleConsole={() => { consoleOpen = !consoleOpen; }}
+  />
+
+  <div class="ide-body" class:with-sidebar={explorerOpen}>
+    {#if explorerOpen}
+      <FileExplorerSidebar activePath={ws.activePath} onOpenFile={(p) => void editor?.openTab(p)} onCreateFile={(p) => handleCreateTab(p)} onClose={() => { explorerOpen = false; }}
+      />
+    {/if}
+
+    <div class="ide-main">
+      <TabBar tabs={ws.tabs} activePath={ws.activePath}
+        {pendingClosePath} onSelect={(p) => { editor?.selectTab(p); pendingClosePath = null; }} onRequestClose={handleRequestClose} onSaveAndClose={(p) => void handleSaveAndClose(p)} onDiscardClose={(p) => { editor?.closeTab(p, true); pendingClosePath = null; }} onCancelClose={() => { pendingClosePath = null; }} onNewFile={() => handleCreateTab()}
+      />
+
+      {#if barMode && activeTab && editorStateKind === "ready"}
+        <FindReplaceBar mode={barMode} query={findQuery} replacement={replaceText} {caseSensitive} matchCount={matches.length} activeIndex={clampedMatchIndex} lineCount={stats.lines} onQueryChange={(q) => { findQuery = q; matchIndex = 0; }} onReplacementChange={(r) => { replaceText = r; }} onToggleCase={() => { caseSensitive = !caseSensitive; matchIndex = 0; }}
+          onPrev={() => focusMatch(clampedMatchIndex - 1)} onNext={() => focusMatch(clampedMatchIndex + 1)} onReplace={handleReplaceCurrent} onReplaceAll={handleReplaceAll} onJumpToLine={(ln) => surfaceRef?.jumpToLine(ln)} onClose={() => { barMode = null; }}
+        />
       {/if}
-    </div>
-  </header>
 
-  <form class="path-bar" onsubmit={handleOpenSubmit} novalidate>
-    <label class="sr-only" for="editor-path-input">File path</label>
-    <input
-      id="editor-path-input"
-      type="text"
-      bind:value={pathInput}
-      placeholder="~/path/to/file.ts"
-      disabled={view.kind === "loading"}
-      autocomplete="off"
-      spellcheck={false}
-    />
-    <button type="submit" class="primary" disabled={view.kind === "loading"}>
-      {view.kind === "loading" ? "Opening..." : "Open"}
-    </button>
-    {#if view.kind === "ready"}
-      <button
-        type="button"
-        class="primary"
-        disabled={!view.dirty || view.saving}
-        onclick={() => void controller?.save()}
-        title="Save file (Ctrl+S or Cmd+S)"
-      >
-        {view.saving ? "Saving..." : "Save"}
-      </button>
-      <button type="button" disabled={!view.dirty || view.saving} onclick={() => controller?.revert()}>
-        Revert
-      </button>
-    {/if}
-  </form>
+      {#if ws.globalError}<p class="inline-feedback error" role="alert">{ws.globalError}</p>{/if}
+      {#if activeTab?.notice}<p class="inline-feedback ok" role="status">{activeTab.notice}</p>{/if}
+      {#if activeTab?.actionError}<p class="inline-feedback error" role="alert">{activeTab.actionError}</p>{/if}
 
-  <div role="status" aria-live="polite">
-    {#if view.kind === "idle"}
-      <p class="editor-empty">Enter a file path above and select Open to view or edit a text file.</p>
-    {:else if view.kind === "loading"}
-      <p>Opening <code>{view.path}</code>...</p>
-    {:else if view.kind === "error"}
-      <p class="feedback error" role="alert">{view.message}</p>
-    {:else}
-      {#if view.notice}<p class="feedback ok">{view.notice}</p>{/if}
-      {#if view.actionError}<p class="feedback error" role="alert">{view.actionError}</p>{/if}
-
-      <div class="editor-surface">
-        <pre class="editor-gutter" aria-hidden="true" bind:this={gutterEl}>{lineNumbers}</pre>
-        <label class="sr-only" for="editor-textarea">Editor contents for {view.path}</label>
-        <textarea
-          id="editor-textarea"
-          class="editor-textarea"
-          value={view.content}
-          disabled={view.saving}
-          wrap="off"
-          spellcheck={false}
-          aria-label={`Code buffer for ${view.path}`}
-          oninput={handleEditorInput}
-          onscroll={handleScroll}
-        ></textarea>
+      <div class="workspace-split" class:split-active={showPreview && isMarkdown && editorStateKind === "ready"}>
+        {#if !activeTab}
+          <div class="empty-state">
+            <p>Select a file from the Explorer, open a path above, or create a new buffer.</p>
+            <button type="button" class="primary empty-btn" onclick={() => handleCreateTab()}>New file</button>
+          </div>
+        {:else if activeTab.loading}
+          <div class="empty-state" role="status"><p>Opening <code>{activeTab.path}</code>...</p></div>
+        {:else if activeTab.error}
+          <div class="empty-state">
+            <p class="error-text" role="alert">{activeTab.error}</p>
+            <button type="button" class="empty-btn" onclick={() => void editor?.openTab(activeTab.path)}>Retry</button>
+          </div>
+        {:else}
+          <EditorSurface bind:this={surfaceRef} path={activeTab.path} content={activeTab.content} language={activeTab.language} disabled={activeTab.saving} {wordWrap} {fontSize} activeLine={activeTab.cursor.ln} onChange={(next) => editor?.updateContent(next)} onCursorChange={(pos) => editor?.setCursor(pos)}
+          />
+          {#if showPreview && isMarkdown}
+            <div class="preview-slot"><MarkdownPreview path={activeTab.path} content={activeTab.content} /></div>
+          {/if}
+        {/if}
       </div>
-      <p class="editor-hint">Shortcut: press Ctrl+S or Cmd+S to save changes.</p>
-    {/if}
+
+      <RunOutputDrawer open={consoleOpen} {running} command={runCommand} result={runResult} canRun={Boolean(activeTab && editorStateKind === "ready")} onCommandChange={(cmd) => { runCommand = cmd; }} onRun={() => void handleRunFile()} onClear={() => { runResult = null; }} onToggle={() => { consoleOpen = !consoleOpen; }}
+      />
+
+      <StatusBar path={activeTab?.path ?? null} language={activeTab?.language ?? "Plain Text"} cursor={activeTab?.cursor ?? { ln: 1, col: 1 }} {stats} dirty={Boolean(activeTab?.dirty)} saving={Boolean(activeTab?.saving)} onLanguageChange={(lang) => editor?.setLanguage(lang)} onOpenGoto={() => { barMode = "goto"; }} onSave={() => void editor?.saveTab()} onRevert={() => editor?.revertTab()}
+      />
+    </div>
   </div>
 </section>
-
-<style>
-  .editor-badges { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
-  .unsaved-badge { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); font-weight: 600; }
-  .path-bar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.875rem; }
-  .path-bar input { flex: 1 1 14rem; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .editor-empty { margin: 1rem 0 0; }
-  .editor-surface {
-    display: grid; grid-template-columns: auto minmax(0, 1fr); margin-top: 0.875rem;
-    border: 1px solid var(--border); border-radius: 0.5rem; background: var(--surface);
-    overflow: hidden; min-height: 18rem; max-height: 32rem;
-  }
-  .editor-gutter, .editor-textarea {
-    margin: 0; padding: 0.75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.875rem; line-height: 1.5; tab-size: 2;
-  }
-  .editor-gutter {
-    min-width: 3rem; padding-inline: 0.625rem; text-align: right; color: var(--muted);
-    background: var(--panel); border-right: 1px solid var(--border); overflow: hidden; user-select: none;
-  }
-  .editor-textarea {
-    width: 100%; min-width: 0; min-height: 18rem; resize: vertical; border: 0;
-    background: transparent; color: var(--text); white-space: pre; overflow: auto;
-  }
-  .editor-textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .editor-hint { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--muted); }
-  @media (max-width: 30rem) { .path-bar button { flex: 1 1 auto; } }
-</style>
