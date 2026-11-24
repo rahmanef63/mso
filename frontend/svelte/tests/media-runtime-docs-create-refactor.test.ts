@@ -47,7 +47,7 @@ test("media viewer, pickers, runtime apps, docs, and create app render without r
 });
 
 test("sibling helpers page through previewable files and wrap at both ends", () => {
-  assert.equal(parentDirectory("/home/rahman/Pictures/a.png"), "/home/rahman/Pictures");
+  assert.equal(parentDirectory("/home/demo/Pictures/a.png"), "/home/demo/Pictures");
   assert.equal(parentDirectory("/a.png"), "/");
   assert.equal(parentDirectory("a.png"), "~");
   assert.equal(joinPath("/srv/assets", "b.jpg"), "/srv/assets/b.jpg");
