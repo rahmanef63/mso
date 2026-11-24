@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
+import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -14,7 +15,7 @@ const REPO_ROOT = path.resolve(SVELTE_DIR, "../..");
 const BUILD_DIR = process.env.MSO_SVELTE_BUILD_DIR || path.join(SVELTE_DIR, "build");
 export const RUST_BIN = process.env.MSO_RUST_SHELL_BIN || path.join(REPO_ROOT, "rust-shell/target/release/mso-shell-host");
 export const SCREENSHOT_DIR = process.env.MSO_SCREENSHOT_DIR
-  || "/home/rahman/.gemini/antigravity/brain/3ae791c6-30f4-4c8b-b6f6-bc78392ad68e/screenshots";
+  || path.join(os.tmpdir(), "mso-os-shell-matrix-screenshots");
 
 const REQUIRED_ASSETS = [
   { path: "/wallpapers/aurora.webp", mimePrefix: "image/webp" },

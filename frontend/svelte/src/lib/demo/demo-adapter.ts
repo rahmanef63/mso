@@ -186,7 +186,7 @@ export function createDemoFetch(baseFetch?: typeof fetch): typeof fetch {
     if (p === "/api/v1/agent-vault" && method === "POST") return json({ ...(staticGet["/api/v1/agent-vault"] as Record<string, unknown>), changed: false });
     if (p === "/api/v1/agent-groups" && method === "POST") return json({ id: "run-demo", groupId: "grp-ops", prompt: "Demo run", turns: [], state: "completed", startedAt: TS, updatedAt: TS });
     if (p === "/api/assistant") return new Response('data: {"type":"delta","text":"Offline demo mode is active."}\n\ndata: {"type":"done","stopReason":"end_turn"}\n\n', { status: 200, headers: { "content-type": "text/event-stream" } });
-    if (p === "/api/v1/term/open") return json({ id: "demo-term" });
+    if (p.startsWith("/api/v1/term/")) return json({ id: "demo-term", ok: true });
     return Object.prototype.hasOwnProperty.call(staticGet, p) ? json(staticGet[p]) : json({ ok: true, demo: true });
   };
 }
