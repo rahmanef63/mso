@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { bytes } from "../format.ts";
   import type { FilesPresentation } from "../shell/shell-design.ts";
   import type { PathCrumb } from "./FilesChromeHeader.svelte";
+  import type { FsUsageInfo } from "./files-extended-api.ts";
 
   const PLACES = [
     { label: "Home", path: "~", glyph: "H" },
@@ -16,7 +18,11 @@
     sidebarOpen = false,
     pathSegments = [],
     itemCount = 0,
+    selectedCount = 0,
     selectedName = null,
+    diskUsage = null,
+    usageLoading = false,
+    onRefreshUsage,
     onNavigate,
     onGoParent,
   }: {
@@ -28,10 +34,26 @@
     sidebarOpen?: boolean;
     pathSegments?: readonly PathCrumb[];
     itemCount?: number;
+    selectedCount?: number;
     selectedName?: string | null;
+    diskUsage?: FsUsageInfo | null;
+    usageLoading?: boolean;
+    onRefreshUsage?: () => void;
     onNavigate: (p: string) => void;
     onGoParent: () => void;
   } = $props();
+
+  let usageLabel = $derived.by(() => {
+    if (!diskUsage) return "Not checked";
+    if (diskUsage.kind === "disk") {
+      return `${bytes(diskUsage.used)} / ${bytes(diskUsage.total)}`;
+    }
+    return `${bytes(diskUsage.bytes)} (${diskUsage.files} files)`;
+  });
+
+  let usagePct = $derived(
+    diskUsage?.kind === "disk" ? Math.round(diskUsage.ratio * 100) : null,
+  );
 </script>
 
 {#if mode === "sidebar"}
@@ -58,6 +80,28 @@
         <span>Parent ({parentTitle})</span>
       </button>
     {/if}
+
+    <div class="sidebar-usage" data-disk-usage>
+      <div class="usage-head">
+        <span class="sidebar-group-title">Storage</span>
+        {#if onRefreshUsage}
+          <button
+            type="button"
+            class="usage-refresh-btn"
+            disabled={usageLoading}
+            onclick={onRefreshUsage}
+          >
+            {usageLoading ? "..." : diskUsage ? "Refresh" : "Check"}
+          </button>
+        {/if}
+      </div>
+      {#if usagePct !== null}
+        <div class="usage-track" role="progressbar" aria-label="Disk usage" aria-valuenow={usagePct} aria-valuemin={0} aria-valuemax={100}>
+          <div class="usage-fill" style={`width: ${usagePct}%`}></div>
+        </div>
+      {/if}
+      <p class="usage-text">{usageLabel}</p>
+    </div>
   </aside>
 {:else if variant === "finder"}
   <footer class="finder-pathbar" aria-label="Finder path bar">
@@ -69,11 +113,38 @@
         </button>
       {/each}
     </div>
-    <span class="status-count">{itemCount} items</span>
+    <div class="footer-meta">
+      <span class="status-count">{itemCount} items</span>
+      {#if selectedCount > 0}<span class="status-count">{selectedCount} selected</span>{/if}
+      {#if diskUsage}<span class="status-usage" data-footer-usage>{usageLabel}</span>{/if}
+    </div>
   </footer>
 {:else if variant === "explorer"}
   <footer class="explorer-statusbar">
     <span>{itemCount} items</span>
-    {#if selectedName}<span>Selected: {selectedName}</span>{/if}
+    {#if selectedCount > 1}
+      <span>{selectedCount} selected</span>
+    {:else if selectedName}
+      <span>Selected: {selectedName}</span>
+    {/if}
+    {#if diskUsage}<span class="status-usage" data-footer-usage>{usageLabel}</span>{/if}
+  </footer>
+{:else}
+  <footer class="files-compact-footer" aria-label="Folder summary">
+    <span>{itemCount} {itemCount === 1 ? "item" : "items"}</span>
+    {#if selectedCount > 0}<span>{selectedCount} selected</span>{/if}
+    <span class="compact-usage" data-disk-usage>
+      {#if usagePct !== null}
+        <span class="usage-inline-track" aria-hidden="true">
+          <span class="usage-fill" style={`width: ${usagePct}%`}></span>
+        </span>
+      {/if}
+      <span>{diskUsage ? usageLabel : "Storage"}</span>
+      {#if onRefreshUsage}
+        <button type="button" class="usage-refresh-btn" disabled={usageLoading} onclick={onRefreshUsage}>
+          {usageLoading ? "..." : diskUsage ? "Refresh" : "Check"}
+        </button>
+      {/if}
+    </span>
   </footer>
 {/if}

@@ -23,7 +23,7 @@
   border-radius: 0.625rem;
 }
 .files-shell .finder-nav-group,
-.files-shell .finder-actions { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
+.files-shell .finder-actions { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; min-width: 0; }
 .files-shell .finder-icon-btn { min-width: 2rem; min-height: 2rem; padding: 0.15rem 0.5rem; font-size: 1.1rem; line-height: 1; }
 .files-shell .finder-title { font-weight: 600; font-size: 0.9375rem; color: var(--text); }
 .files-shell .finder-segment {
@@ -39,13 +39,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.35rem 0.625rem;
   border-top: 1px solid var(--border);
   font-size: 0.78rem;
   color: var(--muted);
 }
-.files-shell .finder-crumbs { display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; }
+.files-shell .finder-crumbs,
+.files-shell .footer-meta { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
 
 /* 2. Windows 11 File Explorer */
 .files-shell .explorer-chrome { display: grid; gap: 0.5rem; }
@@ -60,7 +62,7 @@
   border-radius: 0.25rem;
 }
 .files-shell .explorer-cmdbar button { min-height: 2rem; padding: 0.25rem 0.625rem; font-size: 0.8125rem; border-radius: 0.25rem; }
-.files-shell .explorer-cmdbar button.active { border-color: #0078d4; color: #0078d4; font-weight: 600; }
+.files-shell .explorer-cmdbar button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .files-shell .explorer-addr-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .files-shell .explorer-address {
   flex: 1 1 14rem;
@@ -80,19 +82,21 @@
 .files-shell .explorer-addr-form { flex: 1 1 14rem; display: flex; gap: 0.375rem; }
 .files-shell .explorer-addr-form input { flex: 1 1 auto; min-height: 2.125rem; border-radius: 0.25rem; }
 .files-shell .explorer-filter { width: 12rem; min-height: 2.125rem; border-radius: 0.25rem; font-size: 0.8125rem; }
-.files-shell .explorer-table { display: grid; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--panel-solid); overflow: hidden; }
+.files-shell .explorer-table { display: grid; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--panel-solid); overflow: visible; }
 .files-shell .exp-head,
 .files-shell .exp-row {
   display: grid;
-  grid-template-columns: minmax(8rem, 1fr) 6rem 5rem auto;
+  grid-template-columns: 1.5rem minmax(8rem, 1fr) 8.5rem 6rem 5rem auto;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   padding: 0.35rem 0.625rem;
 }
 .files-shell .exp-head { font-size: 0.75rem; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--surface); }
+.files-shell .exp-sort-btn { min-height: 1.75rem; padding: 0.1rem 0.25rem; border: 0; background: transparent; color: var(--muted); font-size: 0.75rem; font-weight: 600; text-align: left; }
+.files-shell .exp-sort-btn:hover { color: var(--text); }
 .files-shell .exp-row { border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-size: 0.84rem; }
 .files-shell .exp-row:last-child { border-bottom: 0; }
-.files-shell .exp-row.selected { background: color-mix(in srgb, #0078d4 14%, transparent); }
+.files-shell .exp-row.selected { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .files-shell .exp-open {
   display: flex;
   align-items: center;
@@ -105,11 +109,12 @@
   min-width: 0;
 }
 .files-shell .exp-glyph { font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 0.2rem; background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--muted); flex-shrink: 0; }
-.files-shell .exp-glyph.dir { background: color-mix(in srgb, #eab308 26%, transparent); color: #a16207; }
+.files-shell .exp-glyph.dir { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
 .files-shell .exp-name { overflow-wrap: anywhere; font-weight: 500; }
+.files-shell .exp-mtime,
 .files-shell .exp-type,
 .files-shell .exp-size { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.files-shell .explorer-statusbar { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.35rem 0.5rem; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--muted); }
+.files-shell .explorer-statusbar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; padding: 0.35rem 0.5rem; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--muted); }
 
 /* 3. iOS Files */
 .files-shell .ios-files-top { display: grid; gap: 0.5rem; }
@@ -121,11 +126,11 @@
   background: color-mix(in srgb, var(--text) 9%, transparent);
   padding: 0.45rem 0.875rem;
 }
-.files-shell .ios-files-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.files-shell .ios-files-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
 .files-shell .ios-seg { display: inline-flex; padding: 0.15rem; border-radius: 0.625rem; background: color-mix(in srgb, var(--text) 9%, transparent); gap: 0.15rem; }
 .files-shell .ios-seg button { min-height: 2.25rem; border: 0; background: transparent; border-radius: 0.5rem; font-size: 0.84rem; }
 .files-shell .ios-seg button.active { background: var(--panel-solid); font-weight: 600; }
-.files-shell.is-ios-files .entry-list { border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; gap: 0; background: var(--panel-solid); }
+.files-shell.is-ios-files .entry-list { border: 1px solid var(--border); border-radius: 1rem; overflow: visible; gap: 0; background: var(--panel-solid); }
 .files-shell.is-ios-files .entry-item { border-bottom: 1px solid var(--border); padding: 0.25rem 0.5rem; }
 .files-shell.is-ios-files .entry-item:last-child { border-bottom: 0; }
 .files-shell.is-ios-files .entry-row { border: 0; background: transparent; min-height: 3rem; border-radius: 0; }
@@ -155,30 +160,93 @@
 .files-shell .path-group { display: grid; gap: 0.2rem; min-width: 0; }
 .files-shell .current-path { font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
 .files-shell .files-body { display: grid; gap: 0.75rem; min-width: 0; }
-.files-shell .files-body.has-sidebar { grid-template-columns: 11rem minmax(0, 1fr); align-items: start; }
-.files-shell .files-sidebar { display: grid; gap: 0.2rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem; background: color-mix(in srgb, var(--surface) 82%, transparent); }
-.files-shell .sidebar-group-title { margin: 0 0 0.25rem; padding: 0 0.375rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.files-shell .files-body.has-sidebar { grid-template-columns: 11.5rem minmax(0, 1fr); align-items: start; }
+.files-shell .files-sidebar { display: grid; gap: 0.25rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem; background: color-mix(in srgb, var(--surface) 82%, transparent); }
+.files-shell .sidebar-group-title { margin: 0 0 0.2rem; padding: 0 0.25rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .files-shell .place-item { display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 2rem; padding: 0.25rem 0.5rem; border: 0; border-radius: 0.375rem; background: transparent; text-align: left; font-size: 0.8125rem; }
 .files-shell .place-item.active { background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 600; color: var(--accent); }
 .files-shell .place-glyph { width: 1.25rem; text-align: center; font-weight: 700; font-size: 0.72rem; color: var(--muted); }
 .files-shell .nav-toggle-btn { display: none; min-height: 2rem; font-size: 0.78rem; }
 .files-shell .files-main { display: grid; gap: 0.75rem; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+
+/* Sort, Filter & Batch bars */
+.files-shell .files-controls-wrap { display: grid; gap: 0.5rem; min-width: 0; }
+.files-shell .files-sortbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
+.files-shell .sort-group { display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+.files-shell .sort-label { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+.files-shell .sort-select { min-height: 2rem; padding: 0.2rem 0.5rem; font-size: 0.8rem; }
+.files-shell .quick-filter { flex: 1 1 9rem; min-width: 0; min-height: 2rem; padding: 0.25rem 0.6rem; font-size: 0.8125rem; }
+.files-shell .compact-btn,
+.files-shell .compact-link { min-height: 2rem; padding: 0.25rem 0.55rem; font-size: 0.78rem; border-radius: 0.375rem; }
+.files-shell .compact-btn.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.files-shell .compact-link { display: inline-flex; align-items: center; text-decoration: none; border: 1px solid var(--border); background: var(--panel-solid); color: var(--text); }
+.files-shell .batch-bar { display: grid; gap: 0.5rem; padding: 0.55rem 0.75rem; border: 1px solid var(--accent); border-radius: 0.5rem; background: color-mix(in srgb, var(--accent) 9%, var(--panel-solid)); }
+.files-shell .batch-count { font-size: 0.8125rem; font-weight: 600; color: var(--text); }
+.files-shell .batch-actions { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+.files-shell .batch-dest-form { display: grid; gap: 0.35rem; padding-top: 0.35rem; border-top: 1px solid var(--border); }
+
+/* Upload, Drop & Zip */
+.files-shell .drop-banner { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; padding: 0.625rem 0.875rem; border: 2px dashed var(--accent); border-radius: 0.5rem; background: color-mix(in srgb, var(--accent) 12%, var(--panel-solid)); font-size: 0.85rem; }
+.files-shell .upload-progress-bar { display: grid; gap: 0.35rem; padding: 0.55rem 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--surface); font-size: 0.8rem; }
+.files-shell .upload-meta { display: flex; justify-content: space-between; gap: 0.5rem; }
+.files-shell .zip-panel { display: grid; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--surface); }
+.files-shell .zip-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.files-shell .zip-row { display: grid; gap: 0.25rem; }
+.files-shell .zip-excludes { margin: 0; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.375rem; }
+.files-shell .zip-excludes legend { font-size: 0.75rem; color: var(--muted); padding: 0 0.25rem; }
+.files-shell .zip-checks { display: flex; flex-wrap: wrap; gap: 0.5rem 0.875rem; }
+.files-shell .zip-check { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; cursor: pointer; }
+.files-shell .zip-check input { min-height: auto; width: 1rem; height: 1rem; padding: 0; }
+.files-shell .zip-download-link { display: inline-flex; align-items: center; min-height: var(--ui-control-height, 2.5rem); padding: 0.4rem 0.85rem; border-radius: 0.5rem; background: var(--accent); color: var(--accent-text); text-decoration: none; font-weight: 600; font-size: 0.85rem; }
+
+/* Disk Usage */
+.files-shell .sidebar-usage { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); display: grid; gap: 0.35rem; }
+.files-shell .usage-head { display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; }
+.files-shell .usage-refresh-btn { min-height: 1.5rem; padding: 0.1rem 0.4rem; font-size: 0.7rem; border-radius: 0.3rem; }
+.files-shell .usage-track { height: 0.4rem; border-radius: 999px; background: color-mix(in srgb, var(--text) 12%, transparent); overflow: hidden; }
+.files-shell .usage-fill { height: 100%; border-radius: 999px; background: var(--accent); transition: width 200ms ease; }
+.files-shell .usage-text { margin: 0; font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.files-shell .files-compact-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; padding: 0.35rem 0.5rem; border-top: 1px solid var(--border); font-size: 0.76rem; color: var(--muted); }
+.files-shell .compact-usage { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; font-family: var(--font-mono); font-size: 0.72rem; }
+.files-shell .usage-inline-track { display: inline-block; width: 3.5rem; height: 0.35rem; border-radius: 999px; background: color-mix(in srgb, var(--text) 12%, transparent); overflow: hidden; }
+.files-shell .usage-inline-track .usage-fill { display: block; }
+.files-shell .status-usage { font-family: var(--font-mono); font-size: 0.72rem; }
+
+/* Entry Checkbox, Inline Rename & Action Menu */
+.files-shell .entry-check { width: 1.05rem; height: 1.05rem; min-height: auto; padding: 0; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.files-shell .rename-inline-row { flex: 1 1 11rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; min-width: 0; }
+.files-shell .rename-inline-row input,
+.files-shell .rename-inline-form input { flex: 1 1 8rem; min-width: 0; min-height: 2rem; padding: 0.2rem 0.5rem; font-size: 0.82rem; }
+.files-shell .rename-inline-form { display: grid; gap: 0.35rem; }
+.files-shell .rename-inline-actions { display: flex; gap: 0.25rem; justify-content: center; flex-wrap: wrap; }
+.files-shell .entry-menu-wrap { position: relative; }
+.files-shell .entry-menu-btn { min-height: 2rem; min-width: 2rem; padding: 0.15rem 0.45rem; font-size: 0.82rem; font-weight: 700; }
+.files-shell .entry-menu-pop { position: absolute; right: 0; top: calc(100% + 0.25rem); z-index: 40; min-width: 10.5rem; display: grid; gap: 0.15rem; padding: 0.3rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel-solid); box-shadow: var(--shadow-pop); }
+.files-shell .menu-item { width: 100%; min-height: 2rem; padding: 0.3rem 0.55rem; border: 0; border-radius: 0.35rem; background: transparent; color: var(--text); text-align: left; font-size: 0.8rem; }
+.files-shell .menu-item:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.files-shell .menu-item.danger { color: var(--danger); }
+.files-shell .menu-link { display: flex; align-items: center; text-decoration: none; }
+
 @container (min-width: 44rem) {
   .files-shell .files-main.has-preview { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   .files-shell .files-main.has-preview.columns-mode { grid-template-columns: minmax(0, 14rem) minmax(0, 1fr); }
 }
-@container (max-width: 36rem) {
+@container (max-width: 38rem) {
   .files-shell .files-body.has-sidebar { grid-template-columns: minmax(0, 1fr); }
   .files-shell .files-sidebar { display: none; }
   .files-shell .files-sidebar.open { display: grid; }
   .files-shell .nav-toggle-btn { display: inline-flex; }
   .files-shell .exp-head,
-  .files-shell .exp-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .files-shell .exp-row { grid-template-columns: 1.5rem minmax(0, 1fr) auto; }
+  .files-shell .exp-mtime,
   .files-shell .exp-type,
   .files-shell .exp-size,
-  .files-shell .exp-head span:nth-child(2),
-  .files-shell .exp-head span:nth-child(3) { display: none; }
+  .files-shell .exp-col-mtime,
+  .files-shell .exp-col-type,
+  .files-shell .exp-col-size { display: none; }
+  .files-shell .mtime-badge { display: none; }
 }
+
 .files-shell .crumb-btn { min-height: 1.65rem; padding: 0.1rem 0.35rem; border: 0; background: transparent; font-size: inherit; color: var(--text); border-radius: 0.25rem; }
 .files-shell .crumb-btn:hover { background: color-mix(in srgb, var(--text) 9%, transparent); }
 .files-shell .crumb-sep { color: var(--muted); }
@@ -188,27 +256,48 @@
 .files-shell .entry-pane, .files-shell .entry-name, .files-shell .preview-meta, .files-shell .editor-wrap { min-width: 0; }
 .files-shell .entry-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; min-width: 0; }
 .files-shell .entry-item { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
-.files-shell .entry-row { flex: 1 1 11rem; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.625rem; min-height: var(--ui-control-height, 2.5rem); padding: 0.45rem 0.75rem; text-align: left; background: var(--panel-solid); color: var(--text); border: 1px solid var(--border); border-radius: 0.5rem; }
+.files-shell .entry-row { flex: 1 1 10rem; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.625rem; min-height: var(--ui-control-height, 2.5rem); padding: 0.45rem 0.75rem; text-align: left; background: var(--panel-solid); color: var(--text); border: 1px solid var(--border); border-radius: 0.5rem; }
 .files-shell .entry-row:hover, .files-shell .entry-row.selected { border-color: var(--accent); }
 .files-shell .entry-trailing, .files-shell .entry-actions, .files-shell .preview-actions, .files-shell .editor-actions { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
 .files-shell .entry-delete { padding: 0.35rem 0.625rem; font-size: 0.8rem; }
 .files-shell .entry-name { display: flex; align-items: center; gap: 0.5rem; overflow-wrap: anywhere; }
-.files-shell .kind-badge, .files-shell .size-badge { flex-shrink: 0; font-size: 0.72rem; padding: 0.1rem 0.45rem; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); }
+.files-shell .kind-badge, .files-shell .size-badge, .files-shell .mtime-badge { flex-shrink: 0; font-size: 0.72rem; padding: 0.1rem 0.45rem; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .files-shell .entry-row.is-dir .kind-badge { color: var(--accent); border-color: var(--accent); }
-.files-shell .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.25rem, 1fr)); gap: 0.625rem; }
-.files-shell .icon-cell { display: grid; gap: 0.35rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.625rem; background: var(--panel-solid); }
+
+/* Icon Grid */
+.files-shell .icon-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); gap: 0.625rem; }
+.files-shell .icon-cell { display: grid; gap: 0.35rem; padding: 0.45rem; border: 1px solid var(--border); border-radius: 0.625rem; background: var(--panel-solid); align-content: start; }
 .files-shell .icon-cell.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel-solid)); }
-.files-shell .icon-open { display: grid; justify-items: center; gap: 0.3rem; border: 0; background: transparent; padding: 0.25rem; text-align: center; }
-.files-shell .icon-art { display: grid; place-items: center; width: 2.75rem; height: 2.25rem; border-radius: 0.45rem; background: color-mix(in srgb, var(--text) 10%, transparent); font-size: 0.7rem; font-weight: 700; color: var(--muted); }
+.files-shell .icon-cell-top { display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; }
+.files-shell .icon-open { display: grid; justify-items: center; gap: 0.3rem; border: 0; background: transparent; padding: 0.25rem; text-align: center; width: 100%; }
+.files-shell .icon-thumb { width: 100%; max-width: 5.5rem; height: 3.75rem; object-fit: cover; border-radius: 0.4rem; border: 1px solid var(--border); }
+.files-shell .icon-art { display: grid; place-items: center; width: 3rem; height: 2.35rem; border-radius: 0.45rem; background: color-mix(in srgb, var(--text) 10%, transparent); font-size: 0.7rem; font-weight: 700; color: var(--muted); }
 .files-shell .icon-art.dir { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
 .files-shell .icon-label { font-size: 0.8rem; font-weight: 500; overflow-wrap: anywhere; }
 .files-shell .icon-sub { font-size: 0.7rem; color: var(--muted); }
-.files-shell .icon-cell-actions { display: flex; justify-content: center; gap: 0.25rem; }
+.files-shell .icon-cell-actions { display: flex; justify-content: center; gap: 0.25rem; flex-wrap: wrap; }
+
+/* Quick Look Preview */
 .files-shell .preview-pane { display: grid; gap: 0.75rem; min-width: 0; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--panel-solid); }
 .files-shell .preview-header { display: flex; align-items: center; justify-content: space-between; gap: 0.625rem; flex-wrap: wrap; }
 .files-shell .preview-meta { display: grid; gap: 0.125rem; }
 .files-shell .preview-meta code { font-size: 0.75rem; color: var(--muted); overflow-wrap: anywhere; }
-.files-shell .preview-code { margin: 0; padding: 0.75rem; max-height: 24rem; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 0.375rem; font-size: 0.8125rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.files-shell .ql-meta-strip { margin: 0; grid-template-columns: repeat(auto-fit, minmax(min(6rem, 100%), 1fr)); }
+.files-shell .ql-media-stage { display: grid; place-items: center; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 0.375rem; overflow: hidden; }
+.files-shell .ql-image { max-width: 100%; max-height: 22rem; object-fit: contain; border-radius: 0.25rem; }
+.files-shell .ql-audio { width: 100%; }
+.files-shell .ql-video { width: 100%; max-height: 22rem; border-radius: 0.25rem; background: #000; }
+.files-shell .ql-binary-card { display: grid; gap: 0.5rem; justify-items: start; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 0.375rem; }
+.files-shell .ql-md-toolbar { display: flex; gap: 0.35rem; }
+.files-shell .ql-markdown { display: grid; gap: 0.5rem; padding: 0.75rem; max-height: 24rem; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 0.375rem; }
+.files-shell .ql-md-h { margin: 0; font-weight: 700; color: var(--text); }
+.files-shell .ql-md-h1 { font-size: 1.15rem; }
+.files-shell .ql-md-h2 { font-size: 1rem; }
+.files-shell .ql-md-h3, .files-shell .ql-md-h4 { font-size: 0.9rem; }
+.files-shell .ql-md-p { margin: 0; color: var(--text); font-size: 0.875rem; overflow-wrap: anywhere; }
+.files-shell .ql-md-quote { margin: 0; padding: 0.35rem 0.75rem; border-left: 3px solid var(--accent); color: var(--muted); font-size: 0.85rem; }
+.files-shell .ql-md-list { margin: 0; padding-left: 1.25rem; display: grid; gap: 0.25rem; font-size: 0.875rem; color: var(--text); }
+.files-shell .preview-code { margin: 0; padding: 0.75rem; max-height: 24rem; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 0.375rem; font-size: 0.8125rem; font-family: var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .files-shell .editor-wrap { display: grid; gap: 0.625rem; }
 .files-shell .preview-editor { width: 100%; min-width: 0; min-height: 14rem; padding: 0.75rem; resize: vertical; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 0.375rem; font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.5; }
 .files-shell .dirty-notice { font-size: 0.875rem; color: var(--warn); font-weight: 600; }
