@@ -12,7 +12,6 @@ use profiles::{
     DEFAULT_LOCAL_PROFILE_LABEL,
 };
 use std::sync::Mutex;
-use tauri::Manager;
 
 const DEFAULT_HOST_ORIGIN: &str = DEFAULT_LOCAL_HOST_ORIGIN;
 const HOST_ORIGIN_ENV: &str = "MSO_DESKTOP_HOST_ORIGIN";
