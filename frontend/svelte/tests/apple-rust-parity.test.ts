@@ -191,7 +191,7 @@ test("tauri main.rs consumes the Rust apple_shell constants for window validatio
   assert.match(TAURI_MAIN, /use mso_shell_core::apple_shell::\{[^}]*APPLE_DEVICES[^}]*\}/);
   assert.match(TAURI_MAIN, /use mso_shell_core::apple_shell::\{[^}]*CHROME_GEOMETRY[^}]*\}/);
   assert.match(TAURI_MAIN, /fn validate_main_window_geometry/);
-  assert.match(TAURI_MAIN, /validate_main_window_geometry\(\s*window_config\.width,/);
+  assert.match(TAURI_MAIN, /validate_main_window_geometry\(\s*Some\(window_config\.width\),\s*Some\(window_config\.height\),\s*window_config\.min_height,/);
   assert.match(TAURI_MAIN, /fn desktop_frame_floor/);
   assert.equal(/resolve_device_mode\(w\)/.test(TAURI_MAIN), true);
   assert.equal(/mac_menu_bar \+ CHROME_GEOMETRY\.mac_toolbar/.test(TAURI_MAIN), true);
