@@ -17,6 +17,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 mso-shell-core = { path = "../crates/mso-shell-core" }
 tauri = { version = "2", features = [] }
+# Tauri generate_context! expands to serde_json calls in this crate.
+serde_json = "1"
 
 [profile.release]
 opt-level = "z"
