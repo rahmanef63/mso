@@ -210,8 +210,8 @@ fn main() {
                 })?;
 
             validate_main_window_geometry(
-                window_config.width,
-                window_config.height,
+                Some(window_config.width),
+                Some(window_config.height),
                 window_config.min_height,
             )
             .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))?;
