@@ -3,12 +3,17 @@
 // Renders the five shells with the fixture backend, captures screenshots, and
 // measures the specific 1:1 claims from the plan. Read-only: no writes outside
 // the screenshot dir, no network beyond loopback.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { createFixtureBackend, startVitePreview } from "../frontend/svelte/tests/_os-matrix-servers.mjs";
 import { launchChromium } from "../frontend/svelte/tests/_browser-launch.mjs";
 
-const OUT = process.env.MSO_VISUAL_DIR || "/tmp/mso-apple-v2-visual";
-mkdirSync(OUT, { recursive: true });
+const outputParent = process.env.MSO_VISUAL_DIR;
+if (outputParent) mkdirSync(outputParent, { recursive: true });
+// Keep reports and screenshots in a fresh private directory for each run.
+const OUT = mkdtempSync(path.join(outputParent || tmpdir(), "apple-shell-visual-"));
+console.log(`Visual QA artifacts: ${OUT}`);
 
 const SHOTS = [
   { name: "macos-light", shell: "macos", theme: "light", viewport: { width: 1440, height: 900 } },
@@ -100,5 +105,5 @@ try {
   await new Promise((r) => backend.close(r));
 }
 
-writeFileSync(`${OUT}/measurements.json`, JSON.stringify(report, null, 2));
+writeFileSync(path.join(OUT, "measurements.json"), JSON.stringify(report, null, 2), { flag: "wx", mode: 0o600 });
 console.log(JSON.stringify(report, null, 2));

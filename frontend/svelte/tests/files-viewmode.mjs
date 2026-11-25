@@ -1,7 +1,8 @@
 // Browser coverage for the Finder view-mode contract.
 // Guards: clicking Icons must immediately set aria-pressed and render the grid DOM,
 // and the chosen mode must survive closing and reopening the Files window.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,8 +11,11 @@ const SVELTE_TESTS = HERE;
 const { createFixtureBackend, startVitePreview } = await import(path.join(SVELTE_TESTS, "_os-matrix-servers.mjs"));
 const { launchChromium } = await import(path.join(SVELTE_TESTS, "_browser-launch.mjs"));
 
-const OUT = process.env.MSO_VISUAL_DIR || "/tmp/mso-finder-viewmode";
-mkdirSync(OUT, { recursive: true });
+const outputParent = process.env.MSO_VISUAL_DIR;
+if (outputParent) mkdirSync(outputParent, { recursive: true });
+// Keep reports and screenshots in a fresh private directory for each run.
+const OUT = mkdtempSync(path.join(outputParent || tmpdir(), "finder-viewmode-"));
+console.log(`Visual QA artifacts: ${OUT}`);
 
 const { server: backend, state } = createFixtureBackend();
 await new Promise((r) => backend.listen(0, "127.0.0.1", r));
@@ -110,6 +114,6 @@ try {
   await new Promise((r) => backend.close(r));
 }
 
-writeFileSync(`${OUT}/viewmode.json`, JSON.stringify(results, null, 2));
+writeFileSync(path.join(OUT, "viewmode.json"), JSON.stringify(results, null, 2), { flag: "wx", mode: 0o600 });
 console.log(JSON.stringify(results, null, 2));
 if (results.failures.length) { console.error("FAILURES:", results.failures.join(", ")); process.exitCode = 1; }
