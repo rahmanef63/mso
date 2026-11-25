@@ -55,7 +55,7 @@
   let filteredEntries = $derived.by(() => (view.kind === "ready"
     ? filterAndSortEntries(view.entries, { query: filterText, showHidden, sort: { field: sortField, dir: sortDir } })
     : []));
-  let pathSegments = $derived(buildPathSegments(view.path));
+  let pathSegments = $derived(buildPathSegments(view.path, view.kind === "ready" ? view.roots : []));
   let folderTitle = $derived(pathSegments.at(-1)?.label ?? "Files");
   let parentTitle = $derived(pathSegments.length > 1 ? pathSegments.at(-2)?.label ?? "Files" : "Home");
   let isDirty = $derived(editing && view.kind === "ready" && view.preview.kind === "ready"
@@ -95,6 +95,7 @@
     get usageLoading() { return usageLoading; }, set usageLoading(v) { usageLoading = v; },
     get openMenuName() { return openMenuName; }, set openMenuName(v) { openMenuName = v; },
     get sidebarOpen() { return sidebarOpen; }, set sidebarOpen(v) { sidebarOpen = v; },
+    get viewMode() { return viewMode; }, set viewMode(v) { viewMode = v; },
     get sortField() { return sortField; }, set sortField(v) { sortField = v; },
     get sortDir() { return sortDir; }, set sortDir(v) { sortDir = v; },
     get newFolderInput() { return newFolderInput; }, get editorEl() { return editorEl; },
@@ -164,7 +165,7 @@
 
     <div class="files-body" class:has-sidebar={variant === "finder" || variant === "explorer"}>
       {#if variant === "finder" || variant === "explorer"}
-        <FilesChromeParts mode="sidebar" {variant} currentPath={ready.path} parent={ready.parent} {parentTitle} {sidebarOpen} {diskUsage} {usageLoading} onRefreshUsage={() => void loadUsage(ready.path)} onNavigate={navigateTo} onGoParent={() => void controller?.goParent()} />
+        <FilesChromeParts mode="sidebar" {variant} currentPath={ready.path} parent={ready.parent} {parentTitle} {sidebarOpen} roots={ready.roots} {diskUsage} {usageLoading} onRefreshUsage={() => void loadUsage(ready.path)} onNavigate={navigateTo} onGoParent={() => void controller?.goParent()} />
       {/if}
       <div class="files-main" class:has-preview={ready.preview.kind !== "idle"} class:columns-mode={variant === "finder" && viewMode === "columns"}>
         {#if !(isMobileVariant && ready.preview.kind !== "idle")}

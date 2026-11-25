@@ -1,6 +1,7 @@
 <script lang="ts">
   import "./SettingsApp.css";
   import { onMount, untrack } from "svelte";
+  import { fly } from "svelte/transition";
   import {
     createPrefsController,
     isSafeQuicklinkUrl,
@@ -18,6 +19,9 @@
   import SystemSection from "./SystemSection.svelte";
   import AboutSection from "./AboutSection.svelte";
   import ThemePresetGallery from "./ThemePresetGallery.svelte";
+  import AppleSegmented from "../shell/AppleSegmented.svelte";
+  import AppleAccentPicker from "../shell/AppleAccentPicker.svelte";
+  import AppleSwitch from "../shell/AppleSwitch.svelte";
   import { applyThemePresetToDom } from "./theme-presets.ts";
   import { CHROME_PROFILES, isChromeChoice, type ChromeChoice, type ChromeProfile } from "../shell/chrome-profile.ts";
   import { designProfileFor, type MobileNavSpec } from "../shell/shell-design.ts";
@@ -41,21 +45,27 @@
     id: SettingsSectionId;
     label: string;
     subtitle: string;
-    glyph: string;
+    icon: string;
     tint: string;
   };
 
   const SECTIONS: readonly SectionMeta[] = [
-    { id: "appearance", label: "Appearance & Shell", subtitle: "OS shell, theme, wallpaper, accessibility", glyph: "Aa", tint: "#2563eb" },
-    { id: "quicklinks", label: "Quicklinks", subtitle: "Saved bookmarks and workspace shortcuts", glyph: "QL", tint: "#0891b2" },
-    { id: "models", label: "AI Models", subtitle: "Providers, BYOK keys, catalog, and connection tests", glyph: "AI", tint: "#db2777" },
-    { id: "mcp", label: "MCP Servers", subtitle: "Model Context Protocol servers, toolsets, and scopes", glyph: "MC", tint: "#0d9488" },
-    { id: "memory", label: "Memory", subtitle: "Agent memory stores, retention, and retrieval", glyph: "MM", tint: "#9333ea" },
-    { id: "system", label: "System & Storage", subtitle: "Cleanup, federation workers, update automation", glyph: "SY", tint: "#b45309" },
-    { id: "account", label: "Account & Device", subtitle: "Role, onboarding, and pairing status", glyph: "ID", tint: "#7c3aed" },
-    { id: "updates", label: "Software Update", subtitle: "Version status and release channel", glyph: "UP", tint: "#059669" },
-    { id: "audit", label: "Audit Log", subtitle: "Recent host actions and security events", glyph: "AU", tint: "#d97706" },
-    { id: "about", label: "About", subtitle: "Version, changelog, and build provenance", glyph: "AB", tint: "#475569" },
+    { id: "appearance", label: "Appearance & Shell", subtitle: "OS shell, theme, wallpaper, accessibility", icon: "g-moon", tint: "#2563eb" },
+    { id: "quicklinks", label: "Quicklinks", subtitle: "Saved bookmarks and workspace shortcuts", icon: "g-share", tint: "#0e7490" },
+    { id: "models", label: "AI Models", subtitle: "Providers, BYOK keys, catalog, and connection tests", icon: "g-sliders", tint: "#db2777" },
+    { id: "mcp", label: "MCP Servers", subtitle: "Model Context Protocol servers, toolsets, and scopes", icon: "g-globe", tint: "#0f766e" },
+    { id: "memory", label: "Memory", subtitle: "Agent memory stores, retention, and retrieval", icon: "g-clock", tint: "#9333ea" },
+    { id: "system", label: "System & Storage", subtitle: "Cleanup, federation workers, update automation", icon: "g-disk", tint: "#b45309" },
+    { id: "account", label: "Account & Device", subtitle: "Role, onboarding, and pairing status", icon: "g-people", tint: "#7c3aed" },
+    { id: "updates", label: "Software Update", subtitle: "Version status and release channel", icon: "g-download", tint: "#047857" },
+    { id: "audit", label: "Audit Log", subtitle: "Recent host actions and security events", icon: "g-lock", tint: "#a16207" },
+    { id: "about", label: "About", subtitle: "Version, changelog, and build provenance", icon: "g-info", tint: "#475569" },
+  ];
+
+  const THEME_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+    { value: "system", label: "System" },
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
   ];
 
   let {
@@ -108,6 +118,9 @@
   let reducedMotion = $derived<boolean>(Boolean(tweaks.reducedMotion));
   let reduceGlass = $derived<boolean>(Boolean(tweaks.reduceGlass));
   let highContrast = $derived<boolean>(Boolean(tweaks.highContrast));
+  let activeAccent = $derived<string>(
+    typeof tweaks.accent === "string" && /^#[0-9a-f]{6}$/i.test(tweaks.accent) ? tweaks.accent : "#0a84ff",
+  );
   let quicklinks = $derived<Quicklink[]>(view.kind === "ready" ? (view.prefs.quicklinks ?? []) : []);
 
   let filteredSections = $derived.by(() => {
@@ -199,6 +212,18 @@
     applyAppearanceToDom({ theme: nextTheme });
     notifyTheme(nextTheme);
     void savePatch({ theme: nextTheme });
+  }
+
+  function handleAccentChange(hex: string) {
+    applyAccentToDom(hex);
+    void savePatch({ accent: hex });
+  }
+
+  function applyAccentToDom(hex: string | null | undefined) {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (typeof hex === "string" && /^#[0-9a-f]{6}$/i.test(hex)) root.style.setProperty("--tint", hex);
+    else root.style.removeProperty("--tint");
   }
 
   function handleWallpaperChange(event: Event) {
@@ -329,18 +354,23 @@
           <div class="settings-card">
             <h3 class="card-heading">Theme &amp; Accessibility</h3>
             <div class="settings-grid">
-              <div class="field">
-                <label for="settings-theme">Theme mode</label>
-                <select
-                  id="settings-theme"
+              <div class="field field-wide">
+                <span class="field-label" id="settings-theme-label">Theme mode</span>
+                <AppleSegmented
+                  options={THEME_OPTIONS}
                   value={themeMode}
+                  ariaLabel="Theme mode"
                   disabled={!isOwner || view.saving}
-                  onchange={(e) => handleThemeChange((e.currentTarget as HTMLSelectElement).value as ThemeMode)}
-                >
-                  <option value="system">System</option>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
+                  onChange={(next) => handleThemeChange(next as ThemeMode)}
+                />
+              </div>
+              <div class="field field-wide">
+                <span class="field-label" id="settings-accent-label">Accent color</span>
+                <AppleAccentPicker
+                  value={activeAccent}
+                  disabled={!isOwner || view.saving}
+                  onChange={handleAccentChange}
+                />
               </div>
               <div class="field">
                 <label for="settings-wallpaper">Wallpaper</label>
@@ -358,36 +388,36 @@
             </div>
 
             <div class="toggle-list">
-              <label class="toggle-row" for="settings-reduce-glass">
+              <div class="toggle-row">
                 <span>Reduce glass transparency</span>
-                <input
+                <AppleSwitch
                   id="settings-reduce-glass"
-                  type="checkbox"
                   checked={reduceGlass}
                   disabled={!isOwner || view.saving}
-                  onchange={(e) => handleA11yToggle("reduceGlass", (e.currentTarget as HTMLInputElement).checked)}
+                  ariaLabel="Reduce glass transparency"
+                  onChange={(next) => handleA11yToggle("reduceGlass", next)}
                 />
-              </label>
-              <label class="toggle-row" for="settings-high-contrast">
+              </div>
+              <div class="toggle-row">
                 <span>High contrast borders and text</span>
-                <input
+                <AppleSwitch
                   id="settings-high-contrast"
-                  type="checkbox"
                   checked={highContrast}
                   disabled={!isOwner || view.saving}
-                  onchange={(e) => handleA11yToggle("highContrast", (e.currentTarget as HTMLInputElement).checked)}
+                  ariaLabel="High contrast borders and text"
+                  onChange={(next) => handleA11yToggle("highContrast", next)}
                 />
-              </label>
-              <label class="toggle-row" for="settings-reduced-motion">
+              </div>
+              <div class="toggle-row">
                 <span>Reduce motion</span>
-                <input
+                <AppleSwitch
                   id="settings-reduced-motion"
-                  type="checkbox"
                   checked={reducedMotion}
                   disabled={!isOwner || view.saving}
-                  onchange={(e) => handleA11yToggle("reducedMotion", (e.currentTarget as HTMLInputElement).checked)}
+                  ariaLabel="Reduce motion"
+                  onChange={(next) => handleA11yToggle("reducedMotion", next)}
                 />
-              </label>
+              </div>
             </div>
           </div>
         {:else if section === "quicklinks"}
@@ -453,25 +483,33 @@
   {#if navMode === "ios-stack"}
     <!-- iOS: two-level inset grouped stack; shell MobileAppBar owns title & Back -->
     <div class="ios-settings-wrap">
-      {#if activeSection === null}
-        <div class="ios-search-wrap">
-          <label class="sr-only" for="ios-settings-search">Search settings</label>
-          <input id="ios-settings-search" class="ios-search-input" type="search" bind:value={query} placeholder="Search" />
-        </div>
-        <nav class="ios-inset-group" aria-label="Settings sections">
-          {#each filteredSections as sec (sec.id)}
-            <button type="button" class="ios-group-row" data-settings-section={sec.id} onclick={() => selectSection(sec.id)}>
-              <span class="ios-row-icon" style:background={sec.tint} aria-hidden="true">{sec.glyph}</span>
-              <span class="ios-row-label">{sec.label}</span>
-              <span class="ios-row-chevron" aria-hidden="true">&#8250;</span>
-            </button>
-          {/each}
-        </nav>
-      {:else}
-        <div class="ios-detail-pane">
-          {@render sectionContent(activeSection)}
-        </div>
-      {/if}
+      {#key activeSection}
+        {#if activeSection === null}
+          <div class="ios-root-pane" in:fly={{ x: -24, duration: 220 }}>
+            <h1 class="ios-large-title">Settings</h1>
+            <div class="ios-search-wrap">
+              <label class="sr-only" for="ios-settings-search">Search settings</label>
+              <input id="ios-settings-search" class="ios-search-input" type="search" bind:value={query} placeholder="Search" />
+            </div>
+            <nav class="ios-inset-group" aria-label="Settings sections">
+              {#each filteredSections as sec (sec.id)}
+                <button type="button" class="ios-group-row" data-settings-section={sec.id} onclick={() => selectSection(sec.id)}>
+                  <span class="ios-row-icon" style:background={sec.tint} aria-hidden="true">
+                    <svg class="ios-row-glyph" viewBox="0 0 24 24"><use href={`#${sec.icon}`} /></svg>
+                  </span>
+                  <span class="ios-row-label">{sec.label}</span>
+                  <span class="ios-row-chevron" aria-hidden="true">&#8250;</span>
+                </button>
+              {/each}
+            </nav>
+          </div>
+        {:else}
+          <div class="ios-detail-pane" in:fly={{ x: 28, duration: 220 }}>
+            <h1 class="ios-large-title">{activeMeta.label}</h1>
+            {@render sectionContent(activeSection)}
+          </div>
+        {/if}
+      {/key}
     </div>
   {:else if navMode === "android-list"}
     <!-- Android: Material You expressive list with tonal circular icons & subtitles -->
@@ -484,7 +522,9 @@
         <nav class="m3-settings-list" aria-label="Settings sections">
           {#each filteredSections as sec (sec.id)}
             <button type="button" class="m3-list-row" data-settings-section={sec.id} onclick={() => selectSection(sec.id)}>
-              <span class="m3-tonal-icon" style:--m3-tint={sec.tint} aria-hidden="true">{sec.glyph}</span>
+              <span class="m3-tonal-icon" style:--m3-tint={sec.tint} aria-hidden="true">
+                <svg class="m3-tonal-glyph" viewBox="0 0 24 24"><use href={`#${sec.icon}`} /></svg>
+              </span>
               <span class="m3-row-copy">
                 <span class="m3-row-title">{sec.label}</span>
                 <span class="m3-row-sub">{sec.subtitle}</span>
@@ -519,7 +559,9 @@
               {#if navMode === "windows-rail"}
                 <span class="win-nav-indicator" aria-hidden="true"></span>
               {/if}
-              <span class="sidebar-glyph" style:--glyph-tint={sec.tint} aria-hidden="true">{sec.glyph}</span>
+              <span class="sidebar-glyph" style:--glyph-tint={sec.tint} aria-hidden="true">
+                <svg class="sidebar-glyph-svg" viewBox="0 0 24 24"><use href={`#${sec.icon}`} /></svg>
+              </span>
               <span class="sidebar-label">{sec.label}</span>
             </button>
           {/each}

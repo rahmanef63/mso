@@ -4,10 +4,7 @@
   import type { PathCrumb } from "./FilesChromeHeader.svelte";
   import type { FsUsageInfo } from "./files-extended-api.ts";
 
-  const PLACES = [
-    { label: "Home", path: "~", glyph: "H" },
-    { label: "Root", path: "/", glyph: "/" },
-  ];
+  const PLACE_GLYPHS = ["g-folder-fill", "g-disk", "g-share", "g-clock"] as const;
 
   let {
     mode,
@@ -17,6 +14,7 @@
     parentTitle,
     sidebarOpen = false,
     pathSegments = [],
+    roots = [],
     itemCount = 0,
     selectedCount = 0,
     selectedName = null,
@@ -33,6 +31,7 @@
     parentTitle: string;
     sidebarOpen?: boolean;
     pathSegments?: readonly PathCrumb[];
+    roots?: readonly { label: string; path: string }[];
     itemCount?: number;
     selectedCount?: number;
     selectedName?: string | null;
@@ -63,20 +62,24 @@
     aria-label={variant === "finder" ? "Finder Favorites" : "Quick access"}
   >
     <p class="sidebar-group-title">{variant === "finder" ? "Favorites" : "Quick access"}</p>
-    {#each PLACES as place (place.path)}
+    {#each roots as place, i (place.path)}
       <button
         type="button"
         class="place-item"
         class:active={currentPath === place.path}
         onclick={() => onNavigate(place.path)}
       >
-        <span class="place-glyph" aria-hidden="true">{place.glyph}</span>
+        <span class="place-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><use href={`#${PLACE_GLYPHS[i % PLACE_GLYPHS.length]}`} /></svg>
+        </span>
         <span>{place.label}</span>
       </button>
     {/each}
     {#if parent}
       <button type="button" class="place-item" onclick={onGoParent}>
-        <span class="place-glyph" aria-hidden="true">..</span>
+        <span class="place-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><use href="#g-chevron-left" /></svg>
+        </span>
         <span>Parent ({parentTitle})</span>
       </button>
     {/if}

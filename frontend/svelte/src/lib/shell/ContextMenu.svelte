@@ -15,7 +15,7 @@
   } = $props();
 
   let menuEl = $state<HTMLDivElement | null>(null);
-  let measuredW = $state(224);
+  let measuredW = $state(206);
   let measuredH = $state(180);
 
   let hasCheckColumn = $derived(
@@ -25,7 +25,7 @@
   let estimatedH = $derived.by(() => {
     let total = 12 + (menu.title ? 26 : 0);
     for (const item of menu.items) {
-      total += item.type === "sep" ? 9 : 32;
+      total += item.type === "sep" ? 11 : 30;
     }
     return total;
   });
@@ -33,7 +33,7 @@
   let position = $derived.by(() => {
     const vw = typeof window === "undefined" ? 1440 : window.innerWidth;
     const vh = typeof window === "undefined" ? 900 : window.innerHeight;
-    const w = measuredW > 0 ? measuredW : 224;
+    const w = measuredW > 0 ? measuredW : 206;
     const h = measuredH > 0 ? measuredH : estimatedH;
     return clampMenuPosition(menu.x, menu.y, w, h, vw, vh);
   });
@@ -206,93 +206,147 @@
 {/if}
 
 <style>
+  @keyframes ctxIn {
+    from {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
   .ctx-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 1200;
+    z-index: 8500;
     background: transparent;
   }
 
   .ctx-menu {
     position: fixed;
-    z-index: 1201;
-    min-width: 13.5rem;
+    z-index: 8501;
+    min-width: 206px;
     max-width: min(19rem, calc(100vw - 16px));
     max-height: calc(100dvh - 16px);
     overflow-y: auto;
-    padding: 0.3125rem;
-    border-radius: 0.75rem;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--panel) 94%, var(--panel-solid));
-    -webkit-backdrop-filter: blur(var(--blur, 24px)) saturate(180%);
-    backdrop-filter: blur(var(--blur, 24px)) saturate(180%);
-    box-shadow: var(--shadow-pop, 0 14px 38px -8px rgba(0, 0, 0, 0.35));
-    color: var(--text);
+    padding: 5px;
+    border-radius: 11px;
+    border: 0.5px solid var(--glass-stroke, rgba(255, 255, 255, 0.7));
+    background: var(--glass-bg, rgba(252, 252, 254, 0.62));
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    backdrop-filter: blur(30px) saturate(180%);
+    box-shadow:
+      0 14px 44px var(--glass-shadow, rgba(0, 0, 0, 0.18)),
+      inset 0 0.5px 0 var(--glass-hi, rgba(255, 255, 255, 0.95));
+    color: var(--label, #1c1c1e);
     display: grid;
-    gap: 0.125rem;
+    gap: 1px;
     outline: none;
+    animation: ctxIn 0.12s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .ctx-menu {
+      border-color: var(--glass-stroke, rgba(255, 255, 255, 0.14));
+      background: var(--glass-bg, rgba(44, 44, 50, 0.55));
+      box-shadow:
+        0 14px 44px var(--glass-shadow, rgba(0, 0, 0, 0.55)),
+        inset 0 0.5px 0 var(--glass-hi, rgba(255, 255, 255, 0.2));
+      color: var(--label, #ffffff);
+    }
+  }
+
+  :global(:root[data-theme="dark"]) .ctx-menu {
+    border-color: var(--glass-stroke, rgba(255, 255, 255, 0.14));
+    background: var(--glass-bg, rgba(44, 44, 50, 0.55));
+    box-shadow:
+      0 14px 44px var(--glass-shadow, rgba(0, 0, 0, 0.55)),
+      inset 0 0.5px 0 var(--glass-hi, rgba(255, 255, 255, 0.2));
+    color: var(--label, #ffffff);
   }
 
   .ctx-title {
-    padding: 0.25rem 0.625rem 0.3125rem;
-    font-size: 0.6875rem;
-    font-weight: 700;
+    padding: 3px 12px 4px;
+    font-size: 11px;
+    font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--label2, rgba(60, 60, 67, 0.6));
     user-select: none;
   }
 
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .ctx-title {
+      color: var(--label2, rgba(235, 235, 245, 0.6));
+    }
+  }
+
+  :global(:root[data-theme="dark"]) .ctx-title {
+    color: var(--label2, rgba(235, 235, 245, 0.6));
+  }
+
   .ctx-sep {
-    height: 1px;
-    margin: 0.25rem 0.375rem;
-    background: var(--border);
+    height: 0.5px;
+    margin: 5px 8px;
+    background: var(--sep, rgba(60, 60, 67, 0.16));
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .ctx-sep {
+      background: var(--sep, rgba(255, 255, 255, 0.1));
+    }
+  }
+
+  :global(:root[data-theme="dark"]) .ctx-sep {
+    background: var(--sep, rgba(255, 255, 255, 0.1));
   }
 
   .ctx-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 8px;
     width: 100%;
-    min-height: 2rem;
-    padding: 0.3125rem 0.625rem;
+    min-height: 28px;
+    padding: 5px 12px;
     border: 0;
-    border-radius: 0.4375rem;
+    border-radius: 6px;
     background: transparent;
-    color: var(--text);
-    font-size: 0.8125rem;
-    font-weight: 500;
+    color: inherit;
+    font-size: 13.5px;
+    font-weight: 400;
     line-height: 1.25;
     text-align: left;
-    cursor: pointer;
+    cursor: default;
     transition: background-color 80ms ease, color 80ms ease;
   }
 
   .ctx-item:hover:not(:disabled),
   .ctx-item:focus-visible:not(:disabled) {
-    background: #1f6df0;
+    background: var(--tint, var(--accent, #007aff));
     color: #ffffff;
     outline: none;
   }
 
   .ctx-item.danger {
-    color: var(--danger);
+    color: #ff453a;
   }
 
   .ctx-item.danger:hover:not(:disabled),
   .ctx-item.danger:focus-visible:not(:disabled) {
-    background: #dc2626;
+    background: #ff453a;
     color: #ffffff;
   }
 
   .ctx-item:disabled {
     opacity: 0.45;
-    cursor: not-allowed;
+    cursor: default;
   }
 
   .ctx-check {
-    width: 0.875rem;
-    height: 0.875rem;
+    width: 14px;
+    height: 14px;
     display: inline-grid;
     place-items: center;
     flex-shrink: 0;
@@ -308,11 +362,11 @@
 
   .ctx-shortcut {
     flex-shrink: 0;
-    margin-left: 0.75rem;
-    font-size: 0.75rem;
-    font-family: var(--font-mono);
+    margin-left: 20px;
+    font-size: 12px;
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
-    opacity: 0.68;
+    opacity: 0.5;
   }
 
   .ctx-item:hover:not(:disabled) .ctx-shortcut,
@@ -323,8 +377,14 @@
 
   @media (pointer: coarse) {
     .ctx-item {
-      min-height: 2.75rem;
-      font-size: 0.9375rem;
+      min-height: 2.5rem;
+      font-size: 15px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ctx-menu {
+      animation: none;
     }
   }
 </style>

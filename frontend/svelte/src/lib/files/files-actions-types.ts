@@ -5,6 +5,7 @@ import type { createFilesController } from "./files-controller-impl.ts";
 type FilesController = ReturnType<typeof createFilesController>;
 import type { UploadProgressState } from "./files-extended-api.ts";
 import type { FsUsageInfo } from "./files-extended-api.ts";
+import type { FilesViewMode } from "./FilesChromeHeader.svelte";
 import type { SortDir, SortField, UploadItem } from "./files-types.ts";
 
 export type FilesActionsDeps = {
@@ -28,6 +29,7 @@ export type FilesActionsDeps = {
   usageLoading: boolean;
   openMenuName: string | null;
   sidebarOpen: boolean;
+  viewMode: FilesViewMode;
   sortField: SortField;
   sortDir: SortDir;
   readonly newFolderInput: HTMLInputElement | undefined;

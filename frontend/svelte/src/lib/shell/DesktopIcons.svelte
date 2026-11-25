@@ -124,11 +124,28 @@
   }
 
   .desktop-icon-label {
+    display: block;
+    width: 100%;
+    max-width: 100%;
     font-size: 0.72rem;
     font-weight: 600;
-    line-height: 1.2;
+    line-height: 1.25;
+    color: var(--label, #1c1c1e);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .desktop-icon-label {
+      color: #ffffff;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.55);
+    }
+  }
+
+  :global(:root[data-theme="dark"]) .desktop-icon-label {
     color: #ffffff;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.55);
-    overflow-wrap: anywhere;
   }
 </style>

@@ -73,7 +73,16 @@
         </form>
       {:else}
         <button type="button" class="entry-row" class:is-dir={entry.kind === "dir"} class:selected={selectedNames.has(entry.name) || selectedName === entry.name || previewName === entry.name} disabled={busy} data-entry-open={entry.name} onclick={(e) => onActivate(entry, e)}>
-          <span class="entry-name"><span class="kind-badge">{entryBadgeText(entry)}</span><span>{entry.name}</span></span>
+          <span class="entry-name">
+            {#if entry.kind === "dir"}
+              <svg class="folder-glyph" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-folder-fill" /></svg>
+            {:else}
+              <span class="doc-card" aria-hidden="true">
+                <span class="doc-card-ext">{entryBadgeText(entry)}</span>
+              </span>
+            {/if}
+            <span class="entry-label">{entry.name}</span>
+          </span>
           <span class="entry-trailing">
             {#if entry.mtime}<span class="mtime-badge">{formatMtime(entry.mtime)}</span>{/if}
             {#if entry.kind === "file"}<span class="size-badge">{bytes(entry.size)}</span>{/if}
@@ -86,7 +95,18 @@
           <button type="button" class="compact-btn danger" disabled={busy} onclick={() => onConfirmDelete(entry.name)}>Confirm delete</button>
           <button type="button" class="compact-btn" disabled={busy} onclick={onCancelDelete}>Cancel</button>
         {:else}
-          <FilesEntryMenu {entry} {dirPath} {busy} open={openMenuName === entry.name} onToggle={() => onToggleMenu(entry.name)} onClose={onCloseMenu} onOpen={() => onActivate(entry)} onPreview={() => onPreview(entry)} onRename={() => onStartRename(entry.name)} onCopyPath={() => onCopyPath(joinFsPath(dirPath, entry.name))} onZip={() => onZipEntry(entry.name)} onDelete={() => onStartDelete(entry.name)} />
+          <FilesEntryMenu
+            {entry} {dirPath} {busy}
+            open={openMenuName === entry.name}
+            onToggle={() => onToggleMenu(entry.name)}
+            onClose={onCloseMenu}
+            onOpen={() => onActivate(entry)}
+            onPreview={() => onPreview(entry)}
+            onRename={() => onStartRename(entry.name)}
+            onCopyPath={() => onCopyPath(joinFsPath(dirPath, entry.name))}
+            onZip={() => onZipEntry(entry.name)}
+            onDelete={() => onStartDelete(entry.name)}
+          />
           <button type="button" class="entry-delete" disabled={busy} data-delete-entry={entry.name} aria-label={`Delete ${entry.name}`} onclick={() => onStartDelete(entry.name)}>Delete</button>
         {/if}
       </div>

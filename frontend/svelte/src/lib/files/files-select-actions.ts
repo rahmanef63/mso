@@ -6,7 +6,11 @@ import type { FilesViewMode } from "./FilesChromeHeader.svelte";
 
 export function createSelectActions(deps: FilesActionsDeps) {
 function setMode(next: FilesViewMode): void {
+  // Persist for the next mount and update the live state: the reactive view mode is
+  // read only once at mount, so persisting alone leaves the toolbar aria-pressed
+  // and the rendered grid stale until the window is reopened.
   deps.navigateHref(deps.winId, "files.viewMode", next);
+  deps.viewMode = next;
 }
 
 function closePreview(): void {

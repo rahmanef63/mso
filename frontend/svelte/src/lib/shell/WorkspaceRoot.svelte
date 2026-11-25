@@ -18,6 +18,10 @@
   import IosHomeScreen from "./IosHomeScreen.svelte";
   import AndroidShell from "./AndroidShell.svelte";
   import DashboardShell from "./DashboardShell.svelte";
+  import AppleIcons from "./AppleIcons.svelte";
+  import AppleDeviceSwitcher from "./AppleDeviceSwitcher.svelte";
+  import { resolveAppleDevice, type AppleDeviceId } from "./apple-devices";
+  import { appleWallpaperFilter } from "./apple-theme";
   import DemoBanner from "../demo/DemoBanner.svelte";
   import { installDemoFetch, isDemoMode, uninstallDemoFetch, type PreviewDevice } from "../demo/demo-adapter";
   import { createNotificationStore, type NotificationItem } from "./notifications-store";
@@ -81,6 +85,56 @@
   let themeMode = $state<"system" | "light" | "dark">("system");
   let prefersDark = $state(false);
   let wallpaper = $state<WallpaperId>("auto");
+  let brightness = $state(74);
+  let volume = $state(42);
+  let nightShift = $state(false);
+  let accentColor = $state("#0a84ff");
+  let boldText = $state(false);
+  let textSize = $state(46);
+  let appearanceReady = $state(false);
+
+  const ACCENT_KEY = "mso.shell.accent";
+  const BOLD_TEXT_KEY = "mso.shell.boldText";
+  const TEXT_SIZE_KEY = "mso.shell.textSize";
+
+  function readStored(key: string): string | null {
+    try {
+      return typeof localStorage === "undefined" ? null : localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  function writeStored(key: string, value: string) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Private mode or full quota: appearance stays session-only.
+    }
+  }
+
+  function clampTextSize(value: number): number {
+    if (!Number.isFinite(value)) return 46;
+    return Math.max(0, Math.min(100, Math.round(value)));
+  }
+
+  let fontScale = $derived(0.85 + (clampTextSize(textSize) / 100) * 0.4);
+
+  $effect(() => {
+    if (!appearanceReady || DEMO_ACTIVE) return;
+    writeStored(ACCENT_KEY, accentColor);
+  });
+
+  $effect(() => {
+    if (!appearanceReady || DEMO_ACTIVE) return;
+    writeStored(BOLD_TEXT_KEY, boldText ? "true" : "false");
+  });
+
+  $effect(() => {
+    if (!appearanceReady || DEMO_ACTIVE) return;
+    writeStored(TEXT_SIZE_KEY, String(clampTextSize(textSize)));
+  });
+  let appleDeviceOverride = $state<"auto" | AppleDeviceId>("auto");
   let shellPrefs = $state<ShellPrefs>({ ...DEFAULT_SHELL_PREFS });
   let hadLocalShellChoice = $state(false);
   let demoPreviewDevice = $state<PreviewDevice>("desktop");
@@ -127,6 +181,27 @@
   let pinnedDockApps = $derived(dockApps.filter((item) => PINNED_DOCK_APPS.has(item.app) || openAppSet.has(item.app)));
   let isDesktopShell = $derived(resolvedChrome === "macos" || resolvedChrome === "windows");
   let isMobileShell = $derived(resolvedChrome === "ios" || resolvedChrome === "android");
+  let resolvedAppleDevice = $derived<AppleDeviceId>(resolveAppleDevice(effectiveViewportWidth));
+  let effectiveAppleDeviceMode = $derived<"auto" | AppleDeviceId>(
+    appleDeviceOverride === "ipad" && resolvedChrome === "ios"
+      ? "ipad"
+      : chromeChoice === "auto"
+        ? "auto"
+        : resolvedChrome === "ios"
+          ? "ios"
+          : resolvedChrome === "macos"
+            ? "mac"
+            : "auto",
+  );
+  let isPadPreview = $derived(resolvedChrome === "ios" && appleDeviceOverride === "ipad");
+  let workspaceFilter = $derived(
+    brightness !== 74 || nightShift ? appleWallpaperFilter(brightness, nightShift) : undefined,
+  );
+  let showAppleSwitcher = $derived(
+    (resolvedChrome === "macos" || resolvedChrome === "ios")
+      && Boolean(activeSession?.authenticated)
+      && !DEMO_ACTIVE,
+  );
   let activeDesign = $derived(designProfileFor(resolvedChrome));
   let activeMobileNav = $derived.by<MobileNavSpec | null>(() => {
     const id = layout.focused;
@@ -165,7 +240,22 @@
   }
 
   function setChrome(next: ChromeChoice) {
+    appleDeviceOverride =
+      next === "auto" ? "auto" : next === "macos" ? "mac" : next === "ios" ? "ios" : "auto";
     setShellPrefs(applyQuickShellChoice(shellPrefs, next, effectiveViewportWidth), true);
+  }
+
+  function handleAppleDeviceSelect(id: "auto" | AppleDeviceId) {
+    appleDeviceOverride = id;
+    if (id === "auto") {
+      setShellPrefs(applyQuickShellChoice(shellPrefs, "auto", effectiveViewportWidth), true);
+      return;
+    }
+    if (id === "mac") {
+      setShellPrefs(applyQuickShellChoice(shellPrefs, "macos", effectiveViewportWidth), true);
+      return;
+    }
+    setShellPrefs({ ...shellPrefs, override: "ios" }, true);
   }
 
   function setWallpaper(next: WallpaperId) {
@@ -196,9 +286,22 @@
 
   function openApp(app: string, title: string, payload?: unknown, multi = false) {
     closeShellOverlays();
-    const w = Math.min(820, Math.max(340, viewportWidth - 96));
-    const h = Math.min(560, Math.max(320, viewportHeight - 170));
-    winStore.openWindow(app, title, { w, h }, payload, multi ? { multi: true } : undefined);
+    const isMac = resolvedChrome === "macos";
+    const viewW = isMac ? effectiveViewportWidth : viewportWidth;
+    const maxW = isMac ? Math.min(1120, Math.max(340, viewW - 140)) : 980;
+    const maxH = isMac ? Math.max(320, viewportHeight - 200) : 680;
+    const w = Math.min(maxW, Math.max(340, viewW - 110));
+    const h = Math.min(maxH, Math.max(320, viewportHeight - 148));
+    const before = winStore.getState().order.length;
+    const id = winStore.openWindow(app, title, { w, h }, payload, multi ? { multi: true } : undefined);
+    const next = winStore.getState();
+    if (!isMac || next.order.length === before) return;
+    // Window-store new windows cascade from the top-left and collide with the Apple device switcher.
+    winStore.moveWindow(
+      id,
+      Math.max(88, Math.round((viewW - w) / 2)),
+      Math.max(24, Math.round((viewportHeight - 120 - h) / 2)),
+    );
   }
 
   function openAppById(app: string, payload?: unknown) {
@@ -412,6 +515,14 @@
   onMount(() => {
     viewportWidth = window.innerWidth;
     viewportHeight = window.innerHeight;
+    if (!DEMO_ACTIVE) {
+      const storedAccent = readStored(ACCENT_KEY);
+      if (storedAccent && /^#[0-9a-f]{6}$/i.test(storedAccent)) accentColor = storedAccent.toLowerCase();
+      boldText = readStored(BOLD_TEXT_KEY) === "true";
+      textSize = clampTextSize(Number(readStored(TEXT_SIZE_KEY) ?? 46));
+    }
+    appearanceReady = true;
+
     const local = DEMO_ACTIVE
       ? { prefs: { ...DEFAULT_SHELL_PREFS }, hadStored: false, corrupt: false }
       : readLocalShellPrefs();
@@ -478,6 +589,7 @@
         next.role === "owner"
         && !ownerDevicesOpened
         && !deepLinkApplied
+        && !DEMO_ACTIVE
         && resolvedChrome !== "ios"
         && resolvedChrome !== "android"
       ) {
@@ -509,7 +621,7 @@
 </script>
 
 {#snippet monitorSnippet()}
-  <Monitor bind:this={monitorRef} onSessionChange={handleSessionChange} />
+  <Monitor bind:this={monitorRef} onSessionChange={handleSessionChange} compact />
 {/snippet}
 
 {#snippet widgetsSnippet()}
@@ -578,6 +690,7 @@
 
 <svelte:window onkeydown={handleGlobalKeydown} />
 <svelte:head><title>MSO</title></svelte:head>
+<AppleIcons />
 <a class="skip-link" href="#main-content">Skip to content</a>
 <DemoBanner
   visible={DEMO_ACTIVE}
@@ -593,12 +706,22 @@
   inert={locked || undefined}
   data-chrome={resolvedChrome}
   data-ios-style={shellPrefs.iosStyle}
+  data-bold-text={boldText}
   data-build-sha={BUILD_SHA}
   data-build-mode={DEMO_ACTIVE ? "demo" : BUILD_MODE}
   style:background-image={wallpaperBg}
+  style:--tint={accentColor}
+  style:--accent={accentColor}
+  style:--font-scale={fontScale.toFixed(3)}
   style:max-width={DEMO_ACTIVE && demoPreviewDevice !== "desktop" ? `${effectiveViewportWidth}px` : undefined}
   style:margin-inline={DEMO_ACTIVE && demoPreviewDevice !== "desktop" ? "auto" : undefined}
 >
+  <div
+    class="os-wallpaper-layer"
+    aria-hidden="true"
+    style:background-image={wallpaperBg}
+    style:filter={workspaceFilter}
+  ></div>
   {#if resolvedChrome === "ios"}
     <IosHomeScreen
       authenticated={Boolean(activeSession?.authenticated)}
@@ -613,6 +736,8 @@
       {clockNow}
       {signingOut}
       {wallpaperUrl}
+      viewportWidth={effectiveViewportWidth}
+      {isPadPreview}
       onOpenApp={openApp}
       onRestoreWindow={(id) => winStore.restoreWindow(id)}
       onMinimizeWindow={(id) => winStore.minimizeWindow(id)}
@@ -805,14 +930,26 @@
   onClose={() => { startMenuOpen = false; }}
 />
 <WindowsRunDialog open={runDialogOpen} {dockApps} onOpenApp={openApp} onClose={() => { runDialogOpen = false; }} />
+<AppleDeviceSwitcher
+  visible={showAppleSwitcher}
+  modeOverride={effectiveAppleDeviceMode}
+  resolvedDevice={resolvedAppleDevice}
+  {isDark}
+  onSelectDevice={handleAppleDeviceSelect}
+  onSelectTheme={(mode) => applyTheme(mode)}
+/>
 <ContextMenu state={ctxState} onClose={() => ctxStore.close()} />
 <LazyModals
   {paletteOpen} {controlOpen} {forceQuitOpen} {shortcutsOpen} {locked}
   {commands} shortcuts={SHORTCUTS} theme={themeMode} {chromeChoice} {resolvedChrome}
   role={activeSession?.role ?? null} deviceLabel={activeSession?.deviceLabel ?? null} {openWindows}
+  {brightness} {volume} {nightShift} {isDark}
   onClosePalette={() => { paletteOpen = false; }} onCloseControl={() => { controlOpen = false; }}
   onCloseForceQuit={() => { forceQuitOpen = false; }} onCloseShortcuts={() => { shortcutsOpen = false; }}
   onThemeChange={applyTheme} onChromeChange={setChrome}
+  onBrightnessChange={(v) => { brightness = v; }}
+  onVolumeChange={(v) => { volume = v; }}
+  onNightShiftChange={(v) => { nightShift = v; }}
   onLock={() => { controlOpen = false; locked = true; }} onUnlock={() => { locked = false; }}
   onOpenForceQuit={() => { controlOpen = false; forceQuitOpen = true; }}
   onForceClose={forceCloseWindow} onCloseAll={forceCloseAll} onSignOut={() => void handleSignOut()}

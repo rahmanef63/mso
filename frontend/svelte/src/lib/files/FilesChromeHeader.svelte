@@ -50,7 +50,7 @@
 
   let editingPathBar = $state(false);
   let addressInput = $state("");
-
+  let iosTab = $state<"recents" | "browse" | "actions">("browse");
   function openAddressEdit() {
     addressInput = path;
     editingPathBar = true;
@@ -65,26 +65,54 @@
 </script>
 
 {#if variant === "finder"}
-  <header class="finder-toolbar">
+  <header class="finder-toolbar" role="toolbar" aria-label="Finder toolbar">
     <div class="finder-nav-group">
-      <button type="button" class="nav-toggle-btn" aria-expanded={sidebarOpen} onclick={() => { sidebarOpen = !sidebarOpen; }}>Sidebar</button>
-      <button type="button" class="finder-icon-btn" aria-label="Go to parent folder" disabled={!canGoParent || busy} onclick={onGoParent}>&#8249;</button>
-      <span class="finder-title" title={path}>{folderTitle}</span>
+      <button type="button" class="finder-icon-btn nav-toggle-btn" aria-expanded={sidebarOpen} aria-label="Toggle sidebar" onclick={() => { sidebarOpen = !sidebarOpen; }}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-list" /></svg>
+      </button>
+      <button type="button" class="finder-icon-btn" aria-label="Go to parent folder" disabled={!canGoParent || busy} onclick={onGoParent}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-chevron-left" /></svg>
+      </button>
+      <nav class="finder-crumbs" aria-label="Folder breadcrumbs">
+        {#each pathSegments as crumb, i (crumb.path)}
+          {#if i > 0}<span class="crumb-sep" aria-hidden="true">/</span>{/if}
+          <button type="button" class="finder-crumb" title={crumb.path} onclick={() => onNavigate(crumb.path)}>{crumb.label}</button>
+        {/each}
+      </nav>
     </div>
     <div class="finder-segment" role="group" aria-label="Finder view mode">
-      <button type="button" class:active={viewMode === "list"} aria-pressed={viewMode === "list"} onclick={() => onViewMode("list")}>List</button>
-      <button type="button" class:active={viewMode === "grid"} aria-pressed={viewMode === "grid"} onclick={() => onViewMode("grid")}>Icons</button>
-      <button type="button" class:active={viewMode === "columns"} aria-pressed={viewMode === "columns"} onclick={() => onViewMode("columns")}>Columns</button>
+      <button type="button" class:active={viewMode === "grid"} aria-pressed={viewMode === "grid"} aria-label="Icons" title="Icons" onclick={() => onViewMode("grid")}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-grid" /></svg>
+      </button>
+      <button type="button" class:active={viewMode === "list"} aria-pressed={viewMode === "list"} aria-label="List" title="List" onclick={() => onViewMode("list")}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-list" /></svg>
+      </button>
+      <button type="button" class:active={viewMode === "columns"} aria-pressed={viewMode === "columns"} aria-label="Columns" title="Columns" onclick={() => onViewMode("columns")}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-folder" /></svg>
+      </button>
     </div>
+    <label class="finder-search">
+      <span class="sr-only">Filter {folderTitle}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-search" /></svg>
+      <input id={`${uid}-finder-filter`} type="search" bind:value={filterText} placeholder="Search" />
+    </label>
     <div class="finder-actions">
+      <button type="button" class="finder-icon-btn" aria-label="New Folder" title="New Folder" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-plus" /></svg>
+      </button>
       {#if onTriggerUpload}
-        <button type="button" disabled={loading || busy} onclick={onTriggerUpload}>Upload</button>
+        <button type="button" class="finder-icon-btn" aria-label="Upload files" title="Upload" disabled={loading || busy} onclick={onTriggerUpload}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-arrowup" /></svg>
+        </button>
       {/if}
       {#if onTogglePreview}
-        <button type="button" class:active={previewOpen} aria-pressed={previewOpen} disabled={loading} onclick={onTogglePreview}>Quick Look</button>
+        <button type="button" class="finder-icon-btn" class:active={previewOpen} aria-label="Quick Look" title="Quick Look" aria-pressed={previewOpen} disabled={loading} onclick={onTogglePreview}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-photo" /></svg>
+        </button>
       {/if}
-      <button type="button" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>New folder</button>
-      <button type="button" disabled={loading || busy} onclick={onRefresh}>{loading ? "Loading..." : "Refresh"}</button>
+      <button type="button" class="finder-icon-btn" aria-label="Refresh" title="Refresh" disabled={loading || busy} onclick={onRefresh}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-clock" /></svg>
+      </button>
     </div>
   </header>
 {:else if variant === "explorer"}
@@ -126,21 +154,44 @@
   </div>
 {:else if variant === "ios-files"}
   <div class="ios-files-top">
-    <label class="sr-only" for={`${uid}-ios-filter`}>Filter folder</label>
-    <input id={`${uid}-ios-filter`} class="ios-files-search" type="search" bind:value={filterText} placeholder={`Search ${folderTitle}`} />
+    <label class="ios-files-search-wrap">
+      <span class="sr-only">Search {folderTitle}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-search" /></svg>
+      <input id={`${uid}-ios-filter`} class="ios-files-search" type="search" bind:value={filterText} placeholder={`Search ${folderTitle}`} />
+    </label>
     <div class="ios-files-bar">
+      <button type="button" class="ios-pill-btn" aria-label="Go to parent folder" disabled={!canGoParent || busy} onclick={onGoParent}>Up</button>
       <div class="ios-seg" role="group" aria-label="View style">
-        <button type="button" class:active={viewMode === "list"} onclick={() => onViewMode("list")}>List</button>
-        <button type="button" class:active={viewMode === "grid"} onclick={() => onViewMode("grid")}>Icons</button>
-      </div>
-      <div class="actions">
-        {#if onTriggerUpload}
-          <button type="button" disabled={loading || busy} onclick={onTriggerUpload}>Upload</button>
-        {/if}
-        <button type="button" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>+ New folder</button>
+        <button type="button" class:active={viewMode === "list"} aria-pressed={viewMode === "list"} onclick={() => onViewMode("list")}>List</button>
+        <button type="button" class:active={viewMode === "grid"} aria-pressed={viewMode === "grid"} onclick={() => onViewMode("grid")}>Icons</button>
       </div>
     </div>
   </div>
+  {#if iosTab === "actions"}
+    <div class="ios-actions-sheet" role="group" aria-label="Files actions">
+      {#if onTriggerUpload}
+        <button type="button" class="ios-action-row" aria-label="Upload files" disabled={loading || busy} onclick={onTriggerUpload}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-arrowup" /></svg>
+          <span>Upload files</span>
+        </button>
+      {/if}
+      <button type="button" class="ios-action-row" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-plus" /></svg>
+        <span>New folder</span>
+      </button>
+      {#if onTogglePreview}
+        <button type="button" class="ios-action-row" aria-pressed={previewOpen} disabled={loading} onclick={onTogglePreview}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-photo" /></svg>
+          <span>{previewOpen ? "Close Quick Look" : "Quick Look"}</span>
+        </button>
+      {/if}
+    </div>
+  {/if}
+  <nav class="ios-tabbar" aria-label="Files tabs">
+    <button type="button" class="ios-tab" class:active={iosTab === "recents"} aria-pressed={iosTab === "recents"} onclick={() => { iosTab = "recents"; }}>Recents</button>
+    <button type="button" class="ios-tab" class:active={iosTab === "browse"} aria-pressed={iosTab === "browse"} onclick={() => { iosTab = "browse"; }}>Browse</button>
+    <button type="button" class="ios-tab" class:active={iosTab === "actions"} aria-pressed={iosTab === "actions"} onclick={() => { iosTab = "actions"; }}>Actions</button>
+  </nav>
 {:else if variant === "android-files"}
   <div class="m3-files-top">
     <div class="m3-crumb-strip" role="navigation" aria-label="Folder breadcrumbs">
