@@ -45,6 +45,7 @@ const NOT_A_KNOB: Record<string, string> = {
   VITEST_MAX_WORKERS: "Vitest worker concurrency bound used by local smart-gate and shared-host test runs; tooling only",
   // Read by scripts/integrations-ui-evidence.mjs, the browser evidence harness.
   MSO_EVIDENCE_DIR: "output directory for the integrations UI evidence harness; local diagnostics only",
+  MSO_VISUAL_DIR: "output directory for the Finder and Apple visual QA harnesses; local diagnostics only",
   // The OS gives these to every process.
   SHELL: "the OS's",
   PATH: "standard executable search path inherited by the lifecycle test harness",

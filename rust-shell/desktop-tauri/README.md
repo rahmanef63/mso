@@ -66,14 +66,9 @@ cargo install tauri-cli --version "^2" --locked
    bun run svelte:build
    ```
 
-2. (Optional, before creating release installers) generate platform icon assets inside
-   `rust-shell/desktop-tauri/icons/` from the official MSO PNG icon and add `bundle.icon` to
-   `tauri.conf.json`:
-
-   ```sh
-   cd rust-shell/desktop-tauri
-   cargo tauri icon ../../public/icon-512.png
-   ```
+2. Clean-checkout native tests use the default PNG and ICO in `icons/`, rendered
+   from the repository's `public/icon.svg`. For release installers, generate and
+   configure the full platform icon set and signing separately.
 
 3. Run desktop unit tests and build the Tauri v2 bundle:
 

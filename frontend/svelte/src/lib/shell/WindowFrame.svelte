@@ -44,6 +44,7 @@
     onSnap,
     onTogglePin,
     onContextMenu,
+    toolbarActions,
     children,
   }: {
     win: WindowState;
@@ -62,6 +63,8 @@
     onSnap?: (id: string, zone: SnapZone) => void;
     onTogglePin?: (id: string) => void;
     onContextMenu?: (event: MouseEvent, win: WindowState) => void;
+    /** Rendered inside the 52px glass title bar, right of the title. */
+    toolbarActions?: Snippet;
     children: Snippet;
   } = $props();
 
@@ -421,7 +424,7 @@
   data-chrome={chrome}
   data-floating={floating}
   data-frameless-mobile={framelessMobile}
-  data-focused={focused}
+  data-focused={focused ? "true" : "false"}
   data-maximized={win.maximized}
   data-pinned={Boolean(win.pinned)}
   aria-label={win.title}
@@ -440,6 +443,12 @@
     oncontextmenu={handleTitlebarContextMenu}
   >
     <h2 class="win-title">{win.title}</h2>
+
+    {#if toolbarActions}
+      <div class="win-toolbar-slot">
+        {@render toolbarActions()}
+      </div>
+    {/if}
 
     {#if onTogglePin || win.pinned}
       <div class="win-pin-slot">
@@ -697,8 +706,102 @@
     flex-shrink: 0;
   }
 
+  .win-frame[data-chrome="macos"]:not(.frameless-mobile) {
+    border-radius: 12px;
+    background: var(--bg, var(--panel-solid, #ffffff));
+    border: 0.5px solid var(--sep, rgba(60, 60, 67, 0.16));
+    box-shadow:
+      0 26px 84px var(--glass-shadow, rgba(0, 0, 0, 0.16)),
+      0 0 0 0.5px var(--sep, rgba(60, 60, 67, 0.16));
+    overflow: hidden;
+  }
+
+  .win-frame[data-chrome="macos"]:not(.frameless-mobile).focused {
+    border-color: var(--sep, rgba(60, 60, 67, 0.18));
+    box-shadow:
+      0 40px 130px var(--glass-shadow, rgba(0, 0, 0, 0.22)),
+      0 0 0 0.5px var(--sep, rgba(60, 60, 67, 0.18));
+  }
+
+  .win-frame[data-chrome="macos"].floating.maximized {
+    border-radius: 8px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .win-frame[data-chrome="macos"]:not(.frameless-mobile) {
+      background: var(--bg, #1c1c1e);
+      border-color: var(--sep, rgba(255, 255, 255, 0.1));
+      box-shadow:
+        0 26px 84px var(--glass-shadow, rgba(0, 0, 0, 0.45)),
+        0 0 0 0.5px var(--sep, rgba(255, 255, 255, 0.1));
+    }
+    :global(:root:not([data-theme="light"])) .win-frame[data-chrome="macos"]:not(.frameless-mobile).focused {
+      box-shadow:
+        0 40px 130px var(--glass-shadow, rgba(0, 0, 0, 0.55)),
+        0 0 0 0.5px var(--sep, rgba(255, 255, 255, 0.12));
+    }
+  }
+
+  :global(:root[data-theme="dark"]) .win-frame[data-chrome="macos"]:not(.frameless-mobile) {
+    background: var(--bg, #1c1c1e);
+    border-color: var(--sep, rgba(255, 255, 255, 0.1));
+    box-shadow:
+      0 26px 84px var(--glass-shadow, rgba(0, 0, 0, 0.45)),
+      0 0 0 0.5px var(--sep, rgba(255, 255, 255, 0.1));
+  }
+
+  :global(:root[data-theme="dark"]) .win-frame[data-chrome="macos"]:not(.frameless-mobile).focused {
+    box-shadow:
+      0 40px 130px var(--glass-shadow, rgba(0, 0, 0, 0.55)),
+      0 0 0 0.5px var(--sep, rgba(255, 255, 255, 0.12));
+  }
+
+  .win-frame[data-chrome="macos"] .win-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    height: 52px;
+    min-height: 52px;
+    padding: 0 16px;
+    z-index: 30;
+    background: var(--glass-bg, rgba(252, 252, 254, 0.62));
+    -webkit-backdrop-filter: blur(var(--blur, 26px)) saturate(180%);
+    backdrop-filter: blur(var(--blur, 26px)) saturate(180%);
+    border-bottom: 0.5px solid var(--sep, rgba(60, 60, 67, 0.16));
+    box-shadow: inset 0 0.5px 0 var(--glass-hi, rgba(255, 255, 255, 0.95));
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .win-frame[data-chrome="macos"] .win-bar {
+      background: var(--glass-bg, rgba(44, 44, 50, 0.55));
+      border-bottom-color: var(--sep, rgba(255, 255, 255, 0.1));
+      box-shadow: inset 0 0.5px 0 var(--glass-hi, rgba(255, 255, 255, 0.2));
+    }
+  }
+
+  :global(:root[data-theme="dark"]) .win-frame[data-chrome="macos"] .win-bar {
+    background: var(--glass-bg, rgba(44, 44, 50, 0.55));
+    border-bottom-color: var(--sep, rgba(255, 255, 255, 0.1));
+    box-shadow: inset 0 0.5px 0 var(--glass-hi, rgba(255, 255, 255, 0.2));
+  }
+
+  .win-frame[data-chrome="macos"] .win-title {
+    order: 2;
+    flex: 1 1 auto;
+    grid-column: auto;
+    justify-self: start;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--label, var(--text));
+  }
+
   .win-frame[data-chrome="macos"] .win-pin-slot {
-    grid-column: 3;
+    order: 3;
+    grid-column: auto;
+    margin-left: auto;
     justify-self: end;
   }
 
@@ -726,6 +829,43 @@
     border-color: color-mix(in srgb, var(--accent, #1f6df0) 35%, transparent);
   }
 
+  .win-toolbar-slot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+  }
+
+  .win-frame[data-chrome="macos"] .win-toolbar-slot {
+    order: 4;
+    margin-left: 4px;
+    height: 100%;
+    align-items: center;
+  }
+
+  .win-frame[data-chrome="macos"] .win-toolbar-slot :global(button) {
+    min-height: 24px;
+    height: 24px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 7px;
+    background: var(--fill, rgba(118, 118, 128, 0.12));
+    color: var(--label, #1c1c1e);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .win-frame[data-chrome="macos"] .win-toolbar-slot :global(button:hover) {
+    background: var(--fill2, rgba(118, 118, 128, 0.24));
+  }
+
+  .win-frame[data-chrome="macos"] .win-toolbar-slot :global(svg) {
+    width: 14px;
+    height: 14px;
+  }
+
   .win-controls {
     display: flex;
     align-items: center;
@@ -733,17 +873,97 @@
     flex-shrink: 0;
   }
 
+  .win-frame[data-chrome="macos"] .win-controls {
+    order: 1;
+    grid-column: auto;
+    justify-self: start;
+    flex-direction: row;
+    gap: 8px;
+  }
+
   .win-frame[data-chrome="macos"] .win-btn-close {
-    order: 3;
+    order: 1;
+    background: #ff5f57;
   }
 
   .win-frame[data-chrome="macos"] .win-btn-min {
     order: 2;
+    background: #febc2e;
   }
 
   .win-frame[data-chrome="macos"] .win-max-wrap {
-    order: 1;
+    order: 3;
   }
+
+  .win-frame[data-chrome="macos"] .win-btn-max {
+    background: #28c840;
+  }
+
+  .win-frame[data-chrome="macos"] .win-btn {
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+    min-height: 12px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+    color: transparent;
+    display: inline-grid;
+    place-items: center;
+    transition: filter 120ms ease, color 120ms ease, background-color 120ms ease, opacity 120ms ease;
+  }
+
+  .win-frame[data-chrome="macos"] .win-btn svg {
+    width: 7px;
+    height: 7px;
+  }
+
+  /* Unfocused macOS windows keep grey lights until the cluster is hovered. */
+  .win-frame[data-chrome="macos"]:not(.focused) .win-btn {
+    background: var(--fill2, rgba(120, 120, 128, 0.36));
+    opacity: 0.82;
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  }
+
+  .win-frame[data-chrome="macos"]:not(.focused) .win-controls:hover .win-btn {
+    opacity: 1;
+  }
+
+  .win-frame[data-chrome="macos"]:not(.focused) .win-controls:hover .win-btn-close {
+    background: #ff5f57;
+  }
+
+  .win-frame[data-chrome="macos"]:not(.focused) .win-controls:hover .win-btn-min {
+    background: #febc2e;
+  }
+
+  .win-frame[data-chrome="macos"]:not(.focused) .win-controls:hover .win-btn-max {
+    background: #28c840;
+  }
+
+  .win-frame[data-chrome="macos"] .win-controls:hover .win-btn,
+  .win-frame[data-chrome="macos"] .win-btn:focus-visible {
+    color: rgba(0, 0, 0, 0.65);
+  }
+
+  .win-frame[data-chrome="macos"] .win-btn:active {
+    filter: brightness(0.88);
+  }
+
+  .win-frame[data-chrome="macos"] .win-close:hover {
+    border-color: transparent;
+    color: rgba(0, 0, 0, 0.65);
+  }
+
+  .win-frame[data-chrome="macos"] .resize-n { top: 0; height: 5px; }
+  .win-frame[data-chrome="macos"] .resize-s { bottom: 0; height: 5px; }
+  .win-frame[data-chrome="macos"] .resize-e { right: 0; width: 5px; }
+  .win-frame[data-chrome="macos"] .resize-w { left: 0; width: 5px; }
+  .win-frame[data-chrome="macos"] .resize-nw { top: 0; left: 0; width: 10px; height: 10px; }
+  .win-frame[data-chrome="macos"] .resize-ne { top: 0; right: 0; width: 10px; height: 10px; }
+  .win-frame[data-chrome="macos"] .resize-sw { bottom: 0; left: 0; width: 10px; height: 10px; }
+  .win-frame[data-chrome="macos"] .resize-se { bottom: 0; right: 0; width: 10px; height: 10px; }
 
   .win-max-wrap {
     position: relative;

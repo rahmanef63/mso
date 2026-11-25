@@ -7,7 +7,10 @@
   import { clampPct, pct, pushSample } from "./monitor/history";
   import LoginForm from "./LoginForm.svelte";
 
-  let { onSessionChange }: { onSessionChange?: (session: Session | null) => void } = $props();
+  let {
+    onSessionChange,
+    compact = false,
+  }: { onSessionChange?: (session: Session | null) => void; compact?: boolean } = $props();
 
   type Ready = { session: Session; stats: SysStats };
   const INTERVALS = [
@@ -93,26 +96,34 @@
     <LoginForm onSignedIn={() => void monitor?.refresh()} />
   </div>
 {:else}
-  <section class="monitor-widget" aria-labelledby="monitor-title" aria-busy={view === "loading"} data-monitor-state={view}>
-    <header class="feature-header">
+  <section
+    class="monitor-widget"
+    class:is-compact={compact}
+    aria-labelledby="monitor-title"
+    aria-busy={view === "loading"}
+    data-monitor-state={view}
+  >
+    <header class="feature-header monitor-header">
       <div class="monitor-head-copy">
         <h2 id="monitor-title">System Monitor</h2>
-        {#if snapshot}
+        {#if snapshot && !compact}
           <span class="device-line">{snapshot.session.deviceLabel ?? "Approved device"} · {snapshot.session.role}</span>
         {/if}
       </div>
       <div class="head-actions">
-        <div class="interval-group" role="group" aria-label="Auto refresh interval">
-          {#each INTERVALS as option (option.id)}
-            <button
-              type="button"
-              class="interval"
-              aria-pressed={interval === option.id}
-              onclick={() => chooseInterval(option.id)}
-            >{option.label}</button>
-          {/each}
-        </div>
-        <button disabled={view === "loading"} onclick={() => void monitor?.refresh()}>
+        {#if !compact}
+          <div class="interval-group" role="group" aria-label="Auto refresh interval">
+            {#each INTERVALS as option (option.id)}
+              <button
+                type="button"
+                class="interval"
+                aria-pressed={interval === option.id}
+                onclick={() => chooseInterval(option.id)}
+              >{option.label}</button>
+            {/each}
+          </div>
+        {/if}
+        <button class="refresh-btn" disabled={view === "loading"} onclick={() => void monitor?.refresh()}>
           {view === "loading" ? "Loading..." : "Refresh"}
         </button>
       </div>
@@ -165,42 +176,273 @@
           </article>
         </div>
 
-        <div class="chart-grid">
-          <Sparkline series={cpuSeries} label="CPU load" value={`${cpuPct.toFixed(1)}%`} tone="cpu" />
-          <Sparkline series={memSeries} label="Memory load" value={`${memPct.toFixed(0)}%`} tone="mem" />
-        </div>
+        {#if !compact}
+          <div class="chart-grid">
+            <Sparkline series={cpuSeries} label="CPU load" value={`${cpuPct.toFixed(1)}%`} tone="cpu" />
+            <Sparkline series={memSeries} label="Memory load" value={`${memPct.toFixed(0)}%`} tone="mem" />
+          </div>
+        {/if}
       {/if}
     </div>
   </section>
 {/if}
 
 <style>
-  .lock-host { width: 100%; display: flex; justify-content: center; }
-  .monitor-widget { box-shadow: var(--shadow-pop); }
-  .monitor-head-copy { display: flex; align-items: baseline; gap: 0.625rem; flex-wrap: wrap; min-width: 0; }
-  .device-line { font-size: 0.8125rem; color: var(--muted); }
-  .monitor-note { margin: 0.5rem 0 0; font-size: 0.875rem; }
-  .head-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .interval-group { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
-  .interval { border: 0; border-radius: 0; padding: 0.25rem 0.6rem; font-size: 0.8125rem; background: transparent; color: var(--muted); }
-  .interval[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); font-weight: 600; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr)); gap: 0.625rem; margin-top: 0.75rem; }
+  .lock-host {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .monitor-widget {
+    border-radius: 22px;
+    padding: 0.875rem 1rem;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);
+    backdrop-filter: blur(var(--blur)) saturate(180%);
+    border: 0.5px solid var(--glass-stroke);
+    box-shadow: inset 0 0.5px 0 var(--glass-hi), 0 12px 34px var(--glass-shadow);
+    color: var(--label);
+  }
+
+  .monitor-header {
+    gap: 0.5rem 0.75rem;
+  }
+
+  .monitor-head-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  .monitor-head-copy h2 {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--label);
+  }
+
+  .device-line {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .monitor-note {
+    margin: 0.5rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+
+  .head-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+  }
+
+  .interval-group {
+    display: inline-flex;
+    padding: 2px;
+    gap: 2px;
+    border-radius: 9px;
+    background: var(--fill);
+  }
+
+  .interval {
+    min-height: 1.75rem;
+    border: 0;
+    border-radius: 7px;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: transparent;
+    color: var(--muted);
+    transition: background var(--durF), color var(--durF);
+  }
+
+  .interval[aria-pressed="true"] {
+    background: var(--elev);
+    color: var(--label);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+    font-weight: 600;
+  }
+
+  .refresh-btn {
+    min-height: 1.875rem;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 0.5px solid var(--sep);
+    background: var(--fill);
+    color: var(--label);
+  }
+
+  .refresh-btn:hover:not(:disabled) {
+    background: var(--fill2);
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(8.5rem, 100%), 1fr));
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
   .kpi {
-    padding: 0.625rem 0.75rem; border: 1px solid var(--border); border-radius: 0.625rem;
-    background: color-mix(in srgb, var(--panel-solid) 62%, transparent); min-width: 0;
+    padding: 0.625rem 0.75rem;
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--card) 74%, transparent);
+    min-width: 0;
   }
-  .kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
-  .kpi-label { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
-  .kpi-value { margin: 0.15rem 0 0.35rem; font-size: 0.9375rem; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; color: var(--text); }
-  .kpi-sub { margin: 0.35rem 0 0; font-size: 0.75rem; color: var(--muted); }
+
+  .kpi-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+  }
+
+  .kpi-label {
+    color: var(--muted);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  .kpi-value {
+    margin: 0.2rem 0 0.4rem;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+    color: var(--label);
+  }
+
+  .kpi-sub {
+    margin: 0.3rem 0 0;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
   .pill {
-    display: inline-block; padding: 0.125rem 0.5rem; border: 1px solid var(--border);
-    border-radius: 999px; font-size: 0.7rem; color: var(--muted); white-space: nowrap;
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border: 0.5px solid var(--sep);
+    border-radius: 999px;
+    background: var(--fill);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
   }
-  .bar { height: 0.375rem; border-radius: 999px; background: var(--border); overflow: hidden; }
-  .bar > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 200ms ease; }
+
+  .bar {
+    height: 5px;
+    border-radius: 999px;
+    background: var(--fill2);
+    overflow: hidden;
+  }
+
+  .bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--tint);
+    transition: width var(--durF) ease;
+  }
+
   [data-tone="mem"] .bar > span { background: var(--ok); }
   [data-tone="disk"] .bar > span { background: var(--warn); }
-  .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
-  @media (prefers-reduced-motion: reduce) { .bar > span { transition: none; } }
+
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(10.5rem, 100%), 1fr));
+    gap: 0.625rem;
+    margin-top: 0.625rem;
+    padding-top: 0.625rem;
+    border-top: 0.5px solid var(--sep);
+  }
+
+  /* Apple Smart Stack widget: ~110px tall, no sparkline, no per-kpi chrome */
+  .monitor-widget.is-compact {
+    padding: 8px 10px;
+    border-radius: 18px;
+    max-height: 110px;
+  }
+
+  .is-compact .monitor-header {
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .is-compact .monitor-head-copy h2 {
+    font-size: 0.75rem;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .is-compact .refresh-btn {
+    min-height: 1.5rem;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.6875rem;
+  }
+
+  .is-compact .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 8px;
+    margin-top: 4px;
+  }
+
+  .is-compact .kpi {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0 4px;
+  }
+
+  .is-compact .kpi-head {
+    display: contents;
+  }
+
+  .is-compact .kpi-label {
+    font-size: 0.625rem;
+    letter-spacing: 0.02em;
+  }
+
+  .is-compact .pill,
+  .is-compact .kpi-sub,
+  .is-compact .bar {
+    display: none;
+  }
+
+  .is-compact .kpi-value {
+    margin: 0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-align: end;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+  }
+
+  .is-compact .monitor-note {
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bar > span { transition: none; }
+  }
 </style>

@@ -74,51 +74,93 @@
 </script>
 
 <div class="files-controls-wrap">
-  <div class="files-sortbar" role="toolbar" aria-label="Sort and filter options">
-    <div class="sort-group">
-      <label class="sort-label" for={`${uid}-sort-field`}>Sort</label>
-      <select
-        id={`${uid}-sort-field`}
-        class="sort-select"
-        value={sortField}
-        onchange={(e) => onSortField((e.currentTarget as HTMLSelectElement).value as SortField)}
-      >
-        <option value="name">Name</option>
-        <option value="size">Size</option>
-        <option value="mtime">Modified</option>
-        <option value="kind">Kind</option>
-      </select>
+  {#if variant === "finder"}
+    <details class="finder-overflow">
+      <summary aria-label="Sort and filter options" title="Sort and filter options">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-sliders" /></svg>
+        <span>View</span>
+      </summary>
+      <div class="overflow-panel" role="group" aria-label="Sort and filter options">
+        <div class="sort-group">
+          <label class="sort-label" for={`${uid}-sort-field`}>Sort</label>
+          <select
+            id={`${uid}-sort-field`}
+            class="sort-select"
+            value={sortField}
+            onchange={(e) => onSortField((e.currentTarget as HTMLSelectElement).value as SortField)}
+          >
+            <option value="name">Name</option>
+            <option value="size">Size</option>
+            <option value="mtime">Modified</option>
+            <option value="kind">Kind</option>
+          </select>
+          <button
+            type="button"
+            class="compact-btn"
+            aria-label={`Sort order: ${sortDir === "asc" ? "ascending" : "descending"}`}
+            onclick={onToggleSortDir}
+          >
+            {sortDir === "asc" ? "Asc" : "Desc"}
+          </button>
+        </div>
+        <button
+          type="button"
+          class="compact-btn"
+          class:active={showHidden}
+          aria-pressed={showHidden}
+          onclick={onToggleHidden}
+        >
+          {showHidden ? "Hide dotfiles" : "Show dotfiles"}
+        </button>
+      </div>
+    </details>
+  {:else}
+    <div class="files-sortbar" role="toolbar" aria-label="Sort and filter options">
+      <div class="sort-group">
+        <label class="sort-label" for={`${uid}-sort-field`}>Sort</label>
+        <select
+          id={`${uid}-sort-field`}
+          class="sort-select"
+          value={sortField}
+          onchange={(e) => onSortField((e.currentTarget as HTMLSelectElement).value as SortField)}
+        >
+          <option value="name">Name</option>
+          <option value="size">Size</option>
+          <option value="mtime">Modified</option>
+          <option value="kind">Kind</option>
+        </select>
+        <button
+          type="button"
+          class="compact-btn"
+          aria-label={`Sort order: ${sortDir === "asc" ? "ascending" : "descending"}`}
+          onclick={onToggleSortDir}
+        >
+          {sortDir === "asc" ? "Asc" : "Desc"}
+        </button>
+      </div>
+
       <button
         type="button"
         class="compact-btn"
-        aria-label={`Sort order: ${sortDir === "asc" ? "ascending" : "descending"}`}
-        onclick={onToggleSortDir}
+        class:active={showHidden}
+        aria-pressed={showHidden}
+        onclick={onToggleHidden}
       >
-        {sortDir === "asc" ? "Asc" : "Desc"}
+        {showHidden ? "Hide dotfiles" : "Show dotfiles"}
       </button>
+
+      {#if variant === "dashboard"}
+        <label class="sr-only" for={`${uid}-quick-filter`}>Quick filter current folder</label>
+        <input
+          id={`${uid}-quick-filter`}
+          class="quick-filter"
+          type="search"
+          bind:value={filterText}
+          placeholder="Filter folder..."
+        />
+      {/if}
     </div>
-
-    <button
-      type="button"
-      class="compact-btn"
-      class:active={showHidden}
-      aria-pressed={showHidden}
-      onclick={onToggleHidden}
-    >
-      {showHidden ? "Hide dotfiles" : "Show dotfiles"}
-    </button>
-
-    {#if variant === "finder" || variant === "dashboard"}
-      <label class="sr-only" for={`${uid}-quick-filter`}>Quick filter current folder</label>
-      <input
-        id={`${uid}-quick-filter`}
-        class="quick-filter"
-        type="search"
-        bind:value={filterText}
-        placeholder="Filter folder..."
-      />
-    {/if}
-  </div>
+  {/if}
 
   {#if selectedCount > 0}
     <div class="batch-bar" role="region" aria-label="Selected items actions" data-batch-bar>

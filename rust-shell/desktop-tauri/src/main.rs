@@ -2,6 +2,7 @@
 
 mod profiles;
 
+use mso_shell_core::apple_shell::{resolve_device_mode, ShellKind, APPLE_DEVICES, CHROME_GEOMETRY};
 use mso_shell_core::desktop::{
     parse_deep_link, render_bridge_bootstrap_json, DesktopError, DesktopHostProfile,
 };
@@ -11,7 +12,6 @@ use profiles::{
     DEFAULT_LOCAL_PROFILE_LABEL,
 };
 use std::sync::Mutex;
-use tauri::Manager;
 
 const DEFAULT_HOST_ORIGIN: &str = DEFAULT_LOCAL_HOST_ORIGIN;
 const HOST_ORIGIN_ENV: &str = "MSO_DESKTOP_HOST_ORIGIN";
@@ -120,6 +120,63 @@ fn list_host_profiles_json(
     Ok(store.to_json(SHELL_VERSION))
 }
 
+/// Largest frame among registry devices rendered with the desktop shell.
+///
+/// The macOS window must never be smaller than that frame, otherwise bezel and
+/// toolbar chrome overflow the viewport.
+fn desktop_frame_floor() -> (u32, u32) {
+    APPLE_DEVICES
+        .iter()
+        .filter(|spec| spec.shell == ShellKind::DesktopShell)
+        .filter_map(|spec| spec.frame)
+        .fold((0, 0), |acc, frame| (acc.0.max(frame.w), acc.1.max(frame.h)))
+}
+
+/// Validates the declared main window size against `CHROME_GEOMETRY` and `APPLE_DEVICES`.
+///
+/// Rejects a default window that would resolve to a mobile shell mode, a window
+/// smaller than the largest desktop bezel frame, and a minimum height that cannot
+/// hold the macOS menu bar plus toolbar.
+fn validate_main_window_geometry(
+    width: Option<f64>,
+    height: Option<f64>,
+    min_height: Option<f64>,
+) -> Result<(), String> {
+    let chrome_floor = CHROME_GEOMETRY.mac_menu_bar + CHROME_GEOMETRY.mac_toolbar;
+    if let Some(min_h) = min_height {
+        if (min_h.max(0.0) as u32) < chrome_floor {
+            return Err(format!(
+                "main window minHeight {min_h} is below Apple chrome floor {chrome_floor}"
+            ));
+        }
+    }
+
+    let (Some(width), Some(height)) = (width, height) else {
+        return Ok(());
+    };
+    let (w, h) = (width.max(0.0) as u32, height.max(0.0) as u32);
+    if w == 0 || h == 0 {
+        return Err(format!("main window size {w}x{h} must be positive"));
+    }
+
+    let mode = resolve_device_mode(w);
+    if mode.shell != ShellKind::DesktopShell {
+        return Err(format!(
+            "main window width {w} resolves to device {} with a mobile shell",
+            mode.id
+        ));
+    }
+
+    let (frame_w, frame_h) = desktop_frame_floor();
+    if w < frame_w || h < frame_h {
+        return Err(format!(
+            "main window size {w}x{h} is smaller than Apple desktop frame {frame_w}x{frame_h}"
+        ));
+    }
+
+    Ok(())
+}
+
 fn main() {
     let raw_env = std::env::var(HOST_ORIGIN_ENV).ok();
     let store = match build_initial_profile_store(raw_env.as_deref()) {
@@ -150,6 +207,13 @@ fn main() {
                         "missing main window definition in tauri.conf.json",
                     )
                 })?;
+
+            validate_main_window_geometry(
+                Some(window_config.width),
+                Some(window_config.height),
+                window_config.min_height,
+            )
+            .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))?;
 
             tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?
                 .initialization_script(init_script)
@@ -242,5 +306,40 @@ mod tests {
         assert!(resolve_deep_link("mso://open/api/auth/me".to_string()).is_err());
         assert!(resolve_deep_link("mso://open/files?path=../etc/passwd".to_string()).is_err());
         assert!(resolve_deep_link("https://mso.example.com/files".to_string()).is_err());
+    }
+
+    #[test]
+    fn desktop_frame_floor_derives_from_desktop_shell_devices() {
+        // Only the iPad registers a bezel frame on the desktop shell; the Mac spec
+        // renders a plain window, so it contributes no floor.
+        assert_eq!(desktop_frame_floor(), (1024, 768));
+    }
+
+    #[test]
+    fn main_window_geometry_accepts_declared_tauri_default() {
+        // Mirrors tauri.conf.json: 1280x820, minHeight 640.
+        assert!(validate_main_window_geometry(Some(1280.0), Some(820.0), Some(640.0)).is_ok());
+        // Unset dimensions defer to the Tauri default and are not rejected.
+        assert!(validate_main_window_geometry(None, None, Some(640.0)).is_ok());
+    }
+
+    #[test]
+    fn main_window_geometry_rejects_mobile_shell_undersized_and_short_windows() {
+        let mobile = validate_main_window_geometry(Some(400.0), Some(900.0), None)
+            .expect_err("mobile-shell width must be rejected");
+        assert!(mobile.contains("mobile shell"));
+
+        let undersized = validate_main_window_geometry(Some(1280.0), Some(700.0), None)
+            .expect_err("height below the desktop frame floor must be rejected");
+        assert!(undersized.contains("1024x768"));
+
+        let short_min = validate_main_window_geometry(Some(1280.0), Some(820.0), Some(40.0))
+            .expect_err("minHeight below menu bar plus toolbar must be rejected");
+        assert!(short_min.contains("chrome floor"));
+
+        assert_eq!(
+            validate_main_window_geometry(Some(0.0), Some(820.0), None),
+            Err("main window size 0x820 must be positive".to_string())
+        );
     }
 }

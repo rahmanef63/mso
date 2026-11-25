@@ -124,9 +124,11 @@
         >
           {#if thumb}
             <img class="icon-thumb" src={thumb} alt="" loading="lazy" />
+          {:else if entry.kind === "dir"}
+            <svg class="icon-folder" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-folder-fill" /></svg>
           {:else}
-            <span class="icon-art" class:dir={entry.kind === "dir"} aria-hidden="true">
-              {entryBadgeText(entry)}
+            <span class="icon-art" aria-hidden="true">
+              <span class="icon-art-ext">{entryBadgeText(entry)}</span>
             </span>
           {/if}
           <span class="icon-label">{entry.name}</span>

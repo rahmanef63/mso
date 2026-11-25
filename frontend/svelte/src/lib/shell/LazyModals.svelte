@@ -17,8 +17,10 @@
   let {
     paletteOpen, controlOpen, forceQuitOpen, shortcutsOpen, locked,
     commands, shortcuts, theme, chromeChoice, resolvedChrome, role, deviceLabel, openWindows,
+    brightness = 74, volume = 42, nightShift = false, isDark = false,
     onClosePalette, onCloseControl, onCloseForceQuit, onCloseShortcuts,
-    onThemeChange, onChromeChange, onLock, onUnlock, onOpenForceQuit,
+    onThemeChange, onChromeChange, onBrightnessChange, onVolumeChange, onNightShiftChange,
+    onLock, onUnlock, onOpenForceQuit,
     onForceClose, onCloseAll, onSignOut,
   }: {
     paletteOpen: boolean;
@@ -34,12 +36,19 @@
     role: string | null;
     deviceLabel: string | null;
     openWindows: readonly WindowState[];
+    brightness?: number;
+    volume?: number;
+    nightShift?: boolean;
+    isDark?: boolean;
     onClosePalette: () => void;
     onCloseControl: () => void;
     onCloseForceQuit: () => void;
     onCloseShortcuts: () => void;
     onThemeChange: (t: ThemeChoice) => void;
     onChromeChange: (c: ChromeChoice) => void;
+    onBrightnessChange?: (v: number) => void;
+    onVolumeChange?: (v: number) => void;
+    onNightShiftChange?: (v: boolean) => void;
     onLock: () => void;
     onUnlock: () => void;
     onOpenForceQuit: () => void;
@@ -132,8 +141,15 @@
       {resolvedChrome}
       {role}
       openWindowCount={openWindows.length}
+      {brightness}
+      {volume}
+      {nightShift}
+      {isDark}
       {onThemeChange}
       {onChromeChange}
+      {onBrightnessChange}
+      {onVolumeChange}
+      {onNightShiftChange}
       {onLock}
       {onOpenForceQuit}
       onClose={onCloseControl}
