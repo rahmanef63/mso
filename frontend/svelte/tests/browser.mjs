@@ -118,9 +118,6 @@ try {
     assert.equal(mcpStatusRequests, 3);
     console.log("PASS Settings MCP: status independent of activity; refresh and retry read status");
 
-    if (process.env.MSO_MCP_SCREENSHOT) {
-      await page.screenshot({ path: process.env.MSO_MCP_SCREENSHOT });
-    }
     await page.close();
     mode = "ready";
     const viewerPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
