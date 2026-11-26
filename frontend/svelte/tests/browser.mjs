@@ -27,6 +27,9 @@ let notesContent = "hello from mso";
 let mode = "ready", cookieSeen = false, copied = false;
 const devices = { approved: { "fixture-owner-0001": { label: "Owner fixture", approvedAt: 1_700_000_000_000, role: "owner" } }, pending: {} };
 const hosts = new Set();
+let mcpStatusRequests = 0;
+let mcpStatusAvailable = true;
+let heldMcpActivity;
 const readBody = (req) => new Promise((r) => { let s = ""; req.on("data", (c) => { s += c; }); req.on("end", () => { try { r(s ? JSON.parse(s) : {}); } catch { r({}); } }); });
 
 const backend = createServer(async (req, res) => {
@@ -41,6 +44,20 @@ const backend = createServer(async (req, res) => {
     else { res.statusCode = 401; res.end(JSON.stringify({ error: "bad_password" })); }
   } else if (url.pathname === "/api/auth/logout" && req.method === "POST") { mode = "signed-out"; res.setHeader("Set-Cookie", "session=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict"); res.end(JSON.stringify({ success: true })); }
   else if (url.pathname === "/api/auth/devices") res.end(JSON.stringify(devices));
+  else if (url.pathname === "/api/mcp/tokens" && req.method === "GET") {
+    mcpStatusRequests++;
+    if (!mcpStatusAvailable) res.statusCode = 503;
+    res.end(JSON.stringify(mcpStatusAvailable
+      ? { enabled: true, maxScope: "read", toolset: { count: 2 }, tokens: [] }
+      : { error: "MCP status temporarily unavailable." }));
+  }
+  else if (url.pathname === "/api/mcp/activity" && req.method === "GET") {
+    if (!heldMcpActivity) {
+      heldMcpActivity = res;
+      return;
+    }
+    res.end(JSON.stringify({ entries: [] }));
+  }
   else if (url.pathname === "/api/v1/sys/stats") res.end(JSON.stringify(stats));
   else if (url.pathname === "/api/v1/workflows") res.end(JSON.stringify(url.searchParams.get("runs") === "1" ? { runs: [], total: 0 } : workflows));
   else if (url.pathname === "/api/v1/fs/list") res.end(JSON.stringify({ path: "/home/demo", parent: "/home", entries: fsEntries }));
@@ -77,6 +94,52 @@ try {
   assert.ok(listening, output);
   browser = await launchChromium();
 
+  {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
+    mode = "owner";
+    await page.goto(base);
+    await page.getByRole("menuitem", { name: "MSO menu" }).click();
+    await page.getByRole("menuitem", { name: "System Settings..." }).click();
+    await Promise.all([
+      page.waitForRequest((request) => new URL(request.url()).pathname === "/api/mcp/activity", { timeout: 4_000 }),
+      page.locator('[data-settings-section="mcp"]').click(),
+    ]);
+    const mcp = page.locator(".mcp-section");
+    await mcp.getByRole("heading", { name: "MCP Server Status" }).waitFor({ timeout: 4_000 });
+    assert.ok(heldMcpActivity && !heldMcpActivity.writableEnded, "status rendered before activity returned");
+    assert.equal(mcpStatusRequests, 1);
+    mcpStatusAvailable = false;
+    await page.getByRole("button", { name: "Refresh MCP status" }).click();
+    await mcp.getByRole("alert").getByText("MCP status temporarily unavailable.").waitFor();
+    assert.equal(mcpStatusRequests, 2);
+    mcpStatusAvailable = true;
+    await mcp.getByRole("button", { name: "Retry" }).click();
+    await mcp.getByRole("heading", { name: "MCP Server Status" }).waitFor();
+    assert.equal(mcpStatusRequests, 3);
+    console.log("PASS Settings MCP: status independent of activity; refresh and retry read status");
+
+    await page.close();
+    mode = "ready";
+    const viewerPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await viewerPage.goto(base);
+    await viewerPage.getByRole("menuitem", { name: "MSO menu" }).click();
+    await viewerPage.getByRole("menuitem", { name: "System Settings..." }).click();
+    await viewerPage.locator('[data-settings-section="mcp"]').click();
+    await viewerPage.getByText("Owner role is required to manage MCP server connections", { exact: false }).waitFor();
+    assert.equal(mcpStatusRequests, 3, "opening MCP settings as viewer never fetches the token list");
+    await viewerPage.close();
+    console.log("PASS Settings MCP: owner-only UI and status requests");
+  }
+
+  if (!process.argv.includes("--mcp-only")) await runFullSuite(base, previewPort);
+} finally {
+  await browser?.close();
+  if (preview && preview.exitCode === null) { preview.kill("SIGTERM"); await once(preview, "exit"); }
+  backend.closeAllConnections();
+  await new Promise((resolve) => backend.close(resolve));
+}
+
+async function runFullSuite(base, previewPort) {
   for (const colorScheme of ["light", "dark"]) {
     for (const width of [320, 390, 1440]) {
       mode = "ready";
@@ -129,9 +192,4 @@ try {
   assert.deepEqual([...hosts], [`127.0.0.1:${previewPort}`]);
   assert.ok(cookieSeen);
   console.log("PASS Wave 9: Inc. 4 100% (Files Search/Copy/Move UI, Workflows SVG topology, 33/33 slices)");
-} finally {
-  await browser?.close();
-  if (preview && preview.exitCode === null) { preview.kill("SIGTERM"); await once(preview, "exit"); }
-  backend.closeAllConnections();
-  await new Promise((resolve) => backend.close(resolve));
 }

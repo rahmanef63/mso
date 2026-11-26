@@ -22,6 +22,7 @@
   let loadError = $state<string | null>(null);
   let status = $state<McpStatusPayload | null>(null);
   let activity = $state<McpActivityEntry[]>([]);
+  let activityLoading = $state(false);
   let activityError = $state<string | null>(null);
 
   // Client guide selection & copy state
@@ -76,6 +77,19 @@
     return err instanceof ApiError ? err.message : err instanceof Error ? err.message : fallback;
   }
 
+  async function refreshActivity(signal: AbortSignal) {
+    activityLoading = true;
+    activityError = null;
+    try {
+      const rows = await readMcpActivity(signal, fetch, undefined, 40);
+      if (!signal.aborted) activity = rows;
+    } catch (err) {
+      if (!signal.aborted) activityError = formatError(err, "Could not load recent MCP activity.");
+    } finally {
+      if (!signal.aborted) activityLoading = false;
+    }
+  }
+
   async function refreshAll() {
     if (!isOwner) return;
     abortCtrl?.abort();
@@ -83,18 +97,11 @@
     abortCtrl = ctrl;
     loading = true;
     loadError = null;
-    activityError = null;
+    void refreshActivity(ctrl.signal);
     try {
-      const [mcpData, activityData] = await Promise.all([
-        readMcpStatus(ctrl.signal),
-        readMcpActivity(ctrl.signal, fetch, undefined, 40).catch((err) => {
-          activityError = formatError(err, "Could not load recent MCP activity.");
-          return [] as McpActivityEntry[];
-        }),
-      ]);
+      const mcpData = await readMcpStatus(ctrl.signal);
       if (ctrl.signal.aborted) return;
       status = mcpData;
-      activity = activityData;
       if (!allowedScopes.includes(patScope)) patScope = "read";
     } catch (err) {
       if (ctrl.signal.aborted) return;
@@ -179,7 +186,10 @@
       Owner role is required to manage MCP server connections, access tokens, and tool activity.
     </p>
   {:else if loading}
-    <p class="status-msg" role="status">Loading MCP server status and tokens...</p>
+    <div class="card-head-row">
+      <p class="status-msg" role="status">Loading MCP server status and tokens...</p>
+      <button type="button" aria-label="Refresh MCP status" onclick={() => void refreshAll()}>Refresh</button>
+    </div>
   {:else if loadError}
     <div class="feedback error" role="alert">
       <p>{loadError}</p>
@@ -196,7 +206,7 @@
           <span class="pill" data-tone={status.enabled ? "ok" : "warn"}>
             {status.enabled ? "Enabled" : "Disabled"}
           </span>
-          <button type="button" onclick={() => void refreshAll()}>Refresh</button>
+          <button type="button" aria-label="Refresh MCP status" onclick={() => void refreshAll()}>Refresh</button>
         </div>
       </div>
 
@@ -399,7 +409,9 @@
         </div>
       </div>
 
-      {#if activityError}
+      {#if activityLoading}
+        <p class="status-msg" role="status">Loading recent MCP activity...</p>
+      {:else if activityError}
         <p class="feedback error" role="alert">{activityError}</p>
       {:else if filteredActivity.length === 0}
         <p class="status-msg">No recent MCP tool activity recorded.</p>
