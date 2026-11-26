@@ -25,12 +25,16 @@
   let memSeries = $state<number[]>([]);
   let interval = $state<(typeof INTERVALS)[number]["id"]>("10s");
   let lastUpdated = $state<number | null>(null);
+  // Compact shells start collapsed; expanding restores every metric and control in place.
+  let expanded = $state(false);
   let monitor: ReturnType<typeof createMonitor> | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
 
   export function refresh() {
     void monitor?.refresh();
   }
+
+  let collapsed = $derived(compact && !expanded);
 
   let intervalMs = $derived(INTERVALS.find((item) => item.id === interval)?.ms ?? 0);
   let view = $derived<"signed-out" | "loading" | "error" | "ready">(
@@ -98,20 +102,23 @@
 {:else}
   <section
     class="monitor-widget"
-    class:is-compact={compact}
+    class:is-compact={collapsed}
+    class:is-expanded={compact && expanded}
     aria-labelledby="monitor-title"
     aria-busy={view === "loading"}
     data-monitor-state={view}
+    data-monitor-compact={compact ? "true" : "false"}
+    data-monitor-expanded={expanded ? "true" : "false"}
   >
     <header class="feature-header monitor-header">
       <div class="monitor-head-copy">
         <h2 id="monitor-title">System Monitor</h2>
-        {#if snapshot && !compact}
+        {#if snapshot && !collapsed}
           <span class="device-line">{snapshot.session.deviceLabel ?? "Approved device"} · {snapshot.session.role}</span>
         {/if}
       </div>
       <div class="head-actions">
-        {#if !compact}
+        {#if !collapsed}
           <div class="interval-group" role="group" aria-label="Auto refresh interval">
             {#each INTERVALS as option (option.id)}
               <button
@@ -126,10 +133,21 @@
         <button class="refresh-btn" disabled={view === "loading"} onclick={() => void monitor?.refresh()}>
           {view === "loading" ? "Loading..." : "Refresh"}
         </button>
+        {#if compact}
+          <button
+            type="button"
+            class="expand-btn"
+            aria-expanded={expanded}
+            aria-controls="monitor-detail"
+            onclick={() => { expanded = !expanded; }}
+          >
+            {expanded ? "Collapse" : "Details"}
+          </button>
+        {/if}
       </div>
     </header>
 
-    <div role="status" aria-live="polite">
+    <div id="monitor-detail" role="status" aria-live="polite">
       {#if !snapshot && view === "loading"}
         <p class="monitor-note">Checking device session and host metrics...</p>
       {:else if !snapshot}
@@ -176,7 +194,7 @@
           </article>
         </div>
 
-        {#if !compact}
+        {#if !collapsed}
           <div class="chart-grid">
             <Sparkline series={cpuSeries} label="CPU load" value={`${cpuPct.toFixed(1)}%`} tone="cpu" />
             <Sparkline series={memSeries} label="Memory load" value={`${memPct.toFixed(0)}%`} tone="mem" />
@@ -284,6 +302,23 @@
     background: var(--fill2);
   }
 
+  .expand-btn {
+    min-height: 1.875rem;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 0.5px solid var(--sep);
+    background: var(--fill);
+    color: var(--tint);
+  }
+
+  .expand-btn:focus-visible,
+  .refresh-btn:focus-visible {
+    outline: 2px solid var(--tint);
+    outline-offset: 2px;
+  }
+
   .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(8.5rem, 100%), 1fr));
@@ -370,11 +405,15 @@
     border-top: 0.5px solid var(--sep);
   }
 
-  /* Apple Smart Stack widget: ~110px tall, no sparkline, no per-kpi chrome */
+  /* Apple Smart Stack widget: collapsed by default, expands to the full telemetry surface */
   .monitor-widget.is-compact {
     padding: 8px 10px;
     border-radius: 18px;
-    max-height: 110px;
+  }
+
+  .monitor-widget.is-expanded {
+    padding: 0.875rem 1rem;
+    border-radius: 22px;
   }
 
   .is-compact .monitor-header {
