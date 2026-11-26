@@ -2,6 +2,8 @@
   import { onMount, type Snippet } from "svelte";
   import MobileAppBar from "./MobileAppBar.svelte";
   import { resolveAppIcon } from "./app-icons.ts";
+  // iPhone Files surface overrides load only with the iOS shell.
+  import "../files/files-ios.css";
   import type { MobileNavSpec } from "./shell-design.ts";
   import {
     CHROME_PROFILES,
@@ -152,10 +154,41 @@
     return picked;
   });
 
+  // Springboard shows one primary page of apps; everything else lives in the App Library.
+  // Exactly 7 apps so the page is two 4-column rows with the App Library tile.
+  const PRIMARY_APP_IDS: readonly string[] = [
+    "assistant",
+    "files",
+    "editor",
+    "workflows",
+    "processes",
+    "services",
+    "settings",
+  ];
+
+  let primaryApps = $derived.by(() => {
+    const byApp = new Map(dockApps.map((item) => [item.app, item]));
+    const picked: DockAppDef[] = [];
+    const seen = new Set<string>();
+    for (const id of PRIMARY_APP_IDS) {
+      const found = byApp.get(id);
+      if (found && !seen.has(found.app)) {
+        seen.add(found.app);
+        picked.push(found);
+      }
+    }
+    return picked;
+  });
+
+  let libraryApps = $derived.by(() => {
+    const onHome = new Set(primaryApps.map((item) => item.app));
+    return dockApps.filter((item) => !onHome.has(item.app));
+  });
+
   let filteredLibrary = $derived.by(() => {
     const q = libraryQuery.trim().toLowerCase();
-    if (!q) return dockApps;
-    return dockApps.filter(
+    if (!q) return libraryApps;
+    return libraryApps.filter(
       (item) =>
         item.title.toLowerCase().includes(q) ||
         item.label.toLowerCase().includes(q) ||
@@ -369,7 +402,7 @@
         {#if authenticated && !padSplit}
           <section class="ios-grid-section" aria-label="Home screen apps">
             <div class="ios-app-grid" class:is-pad={isPadMode}>
-              {#each dockApps as item (item.app)}
+              {#each primaryApps as item (item.app)}
                 {@const visual = resolveAppIcon(item.app, "ios")}
                 <button
                   type="button"
@@ -391,6 +424,25 @@
                   {/if}
                 </button>
               {/each}
+
+              {#if libraryApps.length > 0}
+                <button
+                  type="button"
+                  class="ios-app-tile ios-library-tile-entry"
+                  aria-label={`App Library, ${libraryApps.length} more apps`}
+                  aria-expanded={libraryOpen}
+                  aria-controls="ios-app-library"
+                  title="App Library"
+                  onclick={() => { libraryOpen = true; }}
+                >
+                  <span class="ios-squircle ios-library-entry-glyph" aria-hidden="true">
+                    <span class="ios-dots-grid">
+                      <span></span><span></span><span></span><span></span>
+                    </span>
+                  </span>
+                  <span class="ios-app-label">App Library</span>
+                </button>
+              {/if}
             </div>
           </section>
 
@@ -401,15 +453,6 @@
                 <path d="M13 13L17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
               </svg>
               <span>Search</span>
-            </button>
-            <button
-              type="button"
-              class="ios-glass-pill"
-              aria-expanded={libraryOpen}
-              aria-controls="ios-app-library"
-              onclick={() => { libraryOpen = !libraryOpen; }}
-            >
-              <span>App Library</span>
             </button>
             {#each minimizedWindows as win (win.id)}
               <button
@@ -528,7 +571,10 @@
           onkeydown={handleWindowKeydown}
         >
           <header class="ios-library-head">
-            <h2 id="ios-library-title">App Library</h2>
+            <div class="ios-library-head-copy">
+              <h2 id="ios-library-title">App Library</h2>
+              <p class="ios-library-sub">{libraryApps.length} {libraryApps.length === 1 ? "app" : "apps"} not on your Home Screen</p>
+            </div>
             <div class="ios-library-head-actions">
               <button
                 type="button"
@@ -547,8 +593,8 @@
             <input
               type="search"
               class="ios-library-search"
-              aria-label="Filter App Library"
-              placeholder="Search App Library"
+              aria-label="Search all apps"
+              placeholder="Search apps"
               bind:value={libraryQuery}
             />
           </div>
@@ -573,7 +619,9 @@
               </button>
             {/each}
             {#if filteredLibrary.length === 0}
-              <p class="ios-library-empty">No matching apps</p>
+              <p class="ios-library-empty">
+                {libraryApps.length === 0 ? "Every app is already on your Home Screen." : "No matching apps"}
+              </p>
             {/if}
           </div>
 
@@ -942,7 +990,28 @@
     scrollbar-width: thin;
   }
 
+  /* D1: an open app owns the viewport. Without an explicit height the shell grows to
+     its content, so the document becomes the scroller and the sheet's own bounded
+     scroller never engages. Bound height and clear min-height down the chain
+     (.ios-shell -> .ios-device-screen -> .ios-main) so .ios-sheet-windows scrolls. */
+  .ios-shell.is-app-open {
+    height: 100dvh;
+    min-height: 0;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .ios-device-screen.is-app-open {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
   .ios-main.is-app-open {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
     overflow: hidden;
   }
 
@@ -1054,15 +1123,22 @@
   }
 
   .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget) {
-    padding: 8px 12px;
+    padding: 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    /* Smart Stack ceiling: no sparkline, no secondary rows, ~110px total */
-    max-height: 110px;
+  }
+
+  /* Collapsed Smart Stack strip: one stat row, no charts or secondary chrome */
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"]) {
+    padding: 8px 12px;
+  }
+
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="true"]) {
+    padding: 12px 14px;
   }
 
   .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget h2) {
@@ -1075,13 +1151,13 @@
   }
 
   .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .head-actions button) {
-    min-height: 24px;
-    padding: 2px 7px;
-    font-size: 11px;
+    min-height: 44px;
+    padding: 2px 12px;
+    font-size: 12px;
     border-radius: 999px;
   }
 
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .kpi-grid) {
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .kpi-grid) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px 10px;
     margin-top: 6px;
@@ -1091,7 +1167,7 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .kpi) {
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .kpi) {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -1102,13 +1178,13 @@
     border-radius: 0;
   }
 
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .kpi-head) {
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .kpi-head) {
     display: block;
     flex: 0 1 auto;
     min-width: 0;
   }
 
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .kpi-value) {
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .kpi-value) {
     font-size: 12.5px;
     line-height: 1.25;
     margin: 0;
@@ -1119,16 +1195,15 @@
     overflow-wrap: normal;
   }
 
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .pill),
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .chart-grid),
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .kpi-sub),
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .bar),
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .device-line),
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .interval-group) {
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .pill),
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .chart-grid),
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .kpi-sub),
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .bar),
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .device-line) {
     display: none;
   }
 
-  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget .kpi-label) {
+  .ios-widget-surface:not(.ios-login-wrap) :global(.monitor-widget[data-monitor-expanded="false"] .kpi-label) {
     font-size: 10px;
   }
 
@@ -1280,6 +1355,21 @@
     box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
   }
 
+  /* App Library entry tile closes the primary page: everything else lives in the sheet */
+  .ios-library-entry-glyph {
+    background: rgba(255, 255, 255, 0.24);
+    border: 0.5px solid rgba(255, 255, 255, 0.34);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+
+  .ios-library-tile-entry .ios-dots-grid span {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.92);
+  }
+
   /* Search & App Library Floating Glass Pills */
   .ios-home-pills {
     display: flex;
@@ -1352,9 +1442,12 @@
     gap: 0;
   }
 
+  /* D1: the sheet is the scroller. A 100%-tall window-area would absorb the overflow
+     into itself, so let the sheet own the scroll and keep rows in document order. */
   .ios-sheet-windows :global(.window-area) {
     gap: 0;
-    height: 100%;
+    height: auto;
+    min-height: 0;
   }
 
   .ios-sheet-windows :global(.win-frame) {
@@ -1589,9 +1682,21 @@
 
   .ios-library-head {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
+  }
+
+  .ios-library-head-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .ios-library-sub {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--muted);
   }
 
   .ios-library-head-actions {

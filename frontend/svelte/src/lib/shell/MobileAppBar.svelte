@@ -194,8 +194,8 @@
     align-items: center;
     justify-content: center;
     gap: 2px;
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 4px 6px;
     border: 0;
     border-radius: 999px;
@@ -205,6 +205,11 @@
     font-weight: 400;
     line-height: 1;
     transition: background-color 140ms ease, opacity 140ms ease;
+  }
+
+  .mab-btn:focus-visible {
+    outline: 2px solid var(--tint, var(--accent));
+    outline-offset: 2px;
   }
 
   .mobile-app-bar.is-android .mab-btn {
