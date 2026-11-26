@@ -151,7 +151,10 @@ describe("app host → that app's proxy, and nothing else", () => {
     );
   });
 
-
+  it("sends Permissions-Policy on the cockpit document", async () => {
+    const p = (await (await loadProxy(TEMPLATE))(req("mso.example.com", "/apps"))).headers.get("permissions-policy");
+    expect(p).toContain("camera=()"); expect(p).toContain("clipboard-write=(self)");
+  });
   it("ignores x-forwarded-host, which a client can set, in favour of Host", async () => {
     const proxy = await loadProxy(TEMPLATE);
     // Escaping the rewrite is the dangerous direction: this request is ON the app

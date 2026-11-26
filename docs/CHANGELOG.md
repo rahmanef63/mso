@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-27
+
+**Fixed**
+
+- `proxy` send Permissions-Policy on the cockpit document (ZAP 10063)
+
 ## 2026-11-26
 
 **Added**
@@ -1273,53 +1279,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `progress` preserve merged release order
 - `ci` document independent runner state directory
 - `security` document the hosted passive scan target
-
-## 2026-09-17
-
-**Added**
-
-- `workflows` add exact session artifact history
-- `store` unify VPS MCP and skills installation with dynamic host harness
-
-**Fixed**
-
-- `ci` reconcile dependency updates as matched toolchains
-- `security` retain cooldown for native dependency updates
-- `installer` lock isolated native build tool dependencies
-- `proxy` finish portable managed-app loopback relay
-- `workflows` pin private storage reads and atomic writes
-- `ci` preserve strict scanner coverage on hosted release
-- `forge` make sandbox bootstrap portable on hosted Linux
-- `integrations` preserve implicit direct connection compatibility
-- `doctor` respect no-systemd and remote runtimes
-- `workflows` harden reconciled artifact history reads
-- `integrations` prefer GitHub OAuth
-- `hosted` restore updates and Hermes runtime
-- `update` recover no-systemd container installs
-- `installer` build node-pty reliably on Codespaces
-- `managed-apps` support Hermes without systemd
-
-**Faster**
-
-- `workflows` keep runtime artifacts out of build tracing
-- `shell` defer optional surfaces and bound cold-load bundles
-
-**Changed**
-
-- `gateway` isolate provider adapter boundary
-- `gateway` make lifecycle provider agnostic
-
-**Tests**
-
-- `security` drain lock contenders before fixture cleanup
-- `gateway` reap lock holder fixtures without orphan processes
-- `workflows` stabilize repeated artifact inspection journeys
-
-**Docs**
-
-- `comparison` refresh product audit
-
-**Chores**
-
-- `release` bump app version to 0.2.18
-- `release` bump app version to 0.2.17
