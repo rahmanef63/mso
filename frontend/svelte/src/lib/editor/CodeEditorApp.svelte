@@ -2,7 +2,7 @@
   import "./CodeEditorApp.css";
   import { onMount } from "svelte";
   import { getWinState, setWinState } from "../shell/window-feature-state.ts";
-  import { countStats, defaultRunCommand, isMarkdownFile, runEditorFile, type EditorExecResult } from "./editor-api.ts";
+  import { countStats, isMarkdownFile } from "./editor-api.ts";
   import { findMatches, replaceAllMatches, replaceMatchAt } from "./editor-highlight.ts";
   import { createMultiTabEditor, type EditorWorkspaceSnapshot, type MultiTabState } from "./editor-tabs.ts";
   import EditorSurface from "./EditorSurface.svelte";
@@ -10,7 +10,6 @@
   import FileExplorerSidebar from "./FileExplorerSidebar.svelte";
   import FindReplaceBar from "./FindReplaceBar.svelte";
   import MarkdownPreview from "./MarkdownPreview.svelte";
-  import RunOutputDrawer from "./RunOutputDrawer.svelte";
   import StatusBar from "./StatusBar.svelte";
   import TabBar from "./TabBar.svelte";
 
@@ -33,13 +32,8 @@
   let caseSensitive = $state(false);
   let matchIndex = $state(0);
   let pendingClosePath = $state<string | null>(null);
-  let consoleOpen = $state(false);
-  let runCommand = $state("");
-  let running = $state(false);
-  let runResult = $state<EditorExecResult | null>(null);
   let surfaceRef = $state<{ focusSelection: (s: number, e: number) => void; jumpToLine: (ln: number) => void } | undefined>(undefined);
   let editor: ReturnType<typeof createMultiTabEditor> | undefined;
-  let runAbort: AbortController | undefined;
 
   let activeTab = $derived(ws.activePath ? ws.tabs.find((t) => t.path === ws.activePath) ?? null : null);
   let editorStateKind = $derived(
@@ -51,10 +45,7 @@
   let clampedMatchIndex = $derived(matches.length > 0 ? ((matchIndex % matches.length) + matches.length) % matches.length : 0);
 
   $effect(() => {
-    if (activeTab) {
-      pathInput = activeTab.path;
-      runCommand = defaultRunCommand(activeTab.path, activeTab.language);
-    }
+    if (activeTab) pathInput = activeTab.path;
   });
 
   export function open(path: string) {
@@ -98,19 +89,6 @@
     if (res.count > 0) editor?.updateContent(res.next);
   }
 
-  async function handleRunFile(): Promise<void> {
-    if (!activeTab || editorStateKind !== "ready" || running) return;
-    consoleOpen = true;
-    running = true;
-    runAbort?.abort();
-    const ctrl = (runAbort = new AbortController());
-    runResult = await runEditorFile(
-      { path: activeTab.path, language: activeTab.language, content: activeTab.content, command: runCommand },
-      ctrl.signal,
-    );
-    running = false;
-  }
-
   function handleKeydown(event: KeyboardEvent): void {
     if (!(event.ctrlKey || event.metaKey)) return;
     const key = event.key.toLowerCase();
@@ -136,12 +114,12 @@
       pathInput = initialPath.trim();
       void editor.openTab(initialPath.trim());
     }
-    return () => { runAbort?.abort(); editor?.dispose(); };
+    return () => { editor?.dispose(); };
   });
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<section class="ide-root" aria-labelledby="editor-title" aria-busy={editorStateKind === "loading" || Boolean(activeTab?.saving) || running} data-editor-state={editorStateKind} data-editor-dirty={String(ws.anyDirty)} onkeydown={handleKeydown}
+<section class="ide-root" aria-labelledby="editor-title" aria-busy={editorStateKind === "loading" || Boolean(activeTab?.saving)} data-editor-state={editorStateKind} data-editor-dirty={String(ws.anyDirty)} onkeydown={handleKeydown}
 >
   <EditorToolbar
     {pathInput} loading={editorStateKind === "loading"}
@@ -149,10 +127,9 @@
     {wordWrap}
     {barMode}
     {isMarkdown}
-    {showPreview} canRun={Boolean(activeTab && editorStateKind === "ready")}
-    {running}
-    {consoleOpen} onPathInput={(v) => { pathInput = v; }} onOpenSubmit={() => void editor?.openTab(pathInput)} onToggleExplorer={() => { explorerOpen = !explorerOpen; }} onToggleWrap={() => { wordWrap = !wordWrap; }} onDecreaseFont={() => { fontSize = Math.max(11, fontSize - 1); }} onIncreaseFont={() => { fontSize = Math.min(20, fontSize + 1); }}
-    onToggleFind={() => { barMode = barMode === "find" ? null : "find"; }} onToggleGoto={() => { barMode = barMode === "goto" ? null : "goto"; }} onTogglePreview={() => { showPreview = !showPreview; }} onRun={() => void handleRunFile()} onToggleConsole={() => { consoleOpen = !consoleOpen; }}
+    {showPreview}
+    onPathInput={(v) => { pathInput = v; }} onOpenSubmit={() => void editor?.openTab(pathInput)} onToggleExplorer={() => { explorerOpen = !explorerOpen; }} onToggleWrap={() => { wordWrap = !wordWrap; }} onDecreaseFont={() => { fontSize = Math.max(11, fontSize - 1); }} onIncreaseFont={() => { fontSize = Math.min(20, fontSize + 1); }}
+    onToggleFind={() => { barMode = barMode === "find" ? null : "find"; }} onToggleGoto={() => { barMode = barMode === "goto" ? null : "goto"; }} onTogglePreview={() => { showPreview = !showPreview; }}
   />
 
   <div class="ide-body" class:with-sidebar={explorerOpen}>
@@ -197,9 +174,6 @@
           {/if}
         {/if}
       </div>
-
-      <RunOutputDrawer open={consoleOpen} {running} command={runCommand} result={runResult} canRun={Boolean(activeTab && editorStateKind === "ready")} onCommandChange={(cmd) => { runCommand = cmd; }} onRun={() => void handleRunFile()} onClear={() => { runResult = null; }} onToggle={() => { consoleOpen = !consoleOpen; }}
-      />
 
       <StatusBar path={activeTab?.path ?? null} language={activeTab?.language ?? "Plain Text"} cursor={activeTab?.cursor ?? { ln: 1, col: 1 }} {stats} dirty={Boolean(activeTab?.dirty)} saving={Boolean(activeTab?.saving)} onLanguageChange={(lang) => editor?.setLanguage(lang)} onOpenGoto={() => { barMode = "goto"; }} onSave={() => void editor?.saveTab()} onRevert={() => editor?.revertTab()}
       />
