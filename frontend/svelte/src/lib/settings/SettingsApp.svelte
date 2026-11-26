@@ -139,7 +139,7 @@
   let roleLabel = $derived(role ? role[0].toUpperCase() + role.slice(1) : null);
   let updateChannelLabel = $derived(
     view.kind === "ready"
-      ? (view.prefs.updates?.channel === "beta" ? "Beta" : "Stable")
+      ? (view.prefs.updates?.channel === "main" ? "Main" : "Stable")
       : null,
   );
   let sectionValues = $derived<Partial<Record<SettingsSectionId, string>>>({
