@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-26
 
+**Added**
+
+- `shell` add T3 Connect workspace to Svelte MSO
+
 **Fixed**
 
 - `settings` load MCP status independently of recent activity

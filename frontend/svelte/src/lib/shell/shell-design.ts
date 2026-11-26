@@ -35,7 +35,7 @@ export type MobileNavSpec = {
 
 export type PointerKind = "fine" | "coarse";
 
-const EDGE_APPS = ["terminal", "editor", "workflows", "memory", "image-editor", "media-studio", "reel-editor", "camoufox", "n8n"] as const;
+const EDGE_APPS = ["terminal", "editor", "workflows", "memory", "image-editor", "media-studio", "reel-editor", "camoufox", "n8n", "t3"] as const;
 
 export const SHELL_DESIGN_PROFILES: Readonly<Record<ChromeProfile, ShellDesignProfile>> = {
   macos: {

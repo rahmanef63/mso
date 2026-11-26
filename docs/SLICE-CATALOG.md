@@ -32,7 +32,7 @@ removed during the Svelte 5 + Rust Shell full cutover.
 | `memory-graph` | Interactive knowledge and memory graph |
 | `monitor` | System Monitor, Processes, Services, and Packages |
 | `organization` | Owner-private organization chart and execution bindings |
-| `runtime-apps` | Camoufox Browser, Bot Desktops, and n8n workspace |
+| `runtime-apps` | Camoufox Browser, Bot Desktops, n8n, and T3 Code |
 | `settings` | MSO Settings, security, memory backup, and Software Update |
 | `shell` | Desktop/mobile window manager, dock, command palette, lock screen, and notifications |
 | `terminal` | Interactive PTY terminal |

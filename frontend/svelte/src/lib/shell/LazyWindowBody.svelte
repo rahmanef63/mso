@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Component } from "svelte";
+  import { hasOperatorAccess } from "./shell-registry";
   import type { Session } from "../host-api";
   import type { ChromeChoice, ChromeProfile } from "./chrome-profile";
   import type { MobileNavSpec } from "./shell-design";
@@ -65,6 +66,7 @@
     camoufox: () => import("../runtime-apps/CamoufoxApp.svelte"),
     "bot-desktops": () => import("../runtime-apps/BotDesktopsApp.svelte"),
     n8n: () => import("../runtime-apps/N8nApp.svelte"),
+    t3: () => import("../runtime-apps/T3Workspace.svelte"),
     "image-editor": () => import("../creative/ImageEditorApp.svelte"),
     "media-studio": () => import("../creative/MediaStudioApp.svelte"),
     "reel-editor": () => import("../creative/ReelEditorApp.svelte"),
@@ -137,7 +139,8 @@
   }
 
   let promise = $derived(
-    (win.app === "devices" || win.app === "terminal") && session.role !== "owner" ? null : getSlice(win.app),
+    ((win.app === "devices" || win.app === "terminal") && session.role !== "owner")
+    || (win.app === "t3" && !hasOperatorAccess(session.role)) ? null : getSlice(win.app),
   );
 </script>
 

@@ -44,3 +44,18 @@ its HTTP responses. MSO serves T3 Code strictly through its dedicated split-orig
   `t3 auth`) behind MSO's outer Operator/Owner device session gate.
 - **DNS / tunnel prerequisite**: embedded iframe access requires routing `t3.<managed-app-host>`
   (for example `t3-mso.example.com`) to the MSO server port with `Host` preserved.
+
+## 4. Svelte shell workspace
+
+An Operator or Owner can open **T3 Code** from the Svelte dock, app launcher, or
+command palette. **Open T3 Connect inside MSO** explicitly loads the official
+`https://app.t3.codes/` in a sandboxed cross-origin frame. The feature does not
+read or transfer credentials, start a server, or select an environment. Use the
+existing T3 Connect account to select a previously paired environment. If the
+browser or T3 blocks framing or embedded sign-in, use **Open T3 Connect in a new
+tab**. A frame being visible is not proof of authentication or pairing.
+
+A separate **Open managed T3 dashboard in a new tab** link appears only when MSO
+reports a running managed T3 with a safe HTTPS dashboard URL. This is distinct
+from T3 Connect. The managed backend, existing isolation rules, pairing flow,
+and DNS/tunnel requirements described above are unchanged.

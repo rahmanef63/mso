@@ -8,6 +8,7 @@ export type DockAppDef = {
   payload?: unknown;
   multi?: boolean;
   ownerOnly?: boolean;
+  operatorOrOwner?: boolean;
 };
 
 export const APP_SLUGS: AppSlugMap = {
@@ -17,7 +18,7 @@ export const APP_SLUGS: AppSlugMap = {
   packages: "packages", apps: "apps", settings: "settings", "shell-settings": "shell-settings",
   terminal: "terminal", devices: "devices", clipboard: "clipboard", inspector: "inspector",
   "agent-vault": "agent-vault", "agent-group": "agent-group", media: "media", pickers: "pickers",
-  "create-app": "create-app", camoufox: "camoufox", "bot-desktops": "bot-desktops", n8n: "n8n",
+  "create-app": "create-app", camoufox: "camoufox", "bot-desktops": "bot-desktops", n8n: "n8n", t3: "t3",
   "image-editor": "image-editor", "media-studio": "media-studio", "reel-editor": "reel-editor",
 };
 
@@ -35,6 +36,7 @@ export const DOCK_APPS: readonly DockAppDef[] = [
   { app: "docs", label: "Docs", title: "Docs" },
   { app: "workflows", label: "Workflows", title: "Workflows" },
   { app: "n8n", label: "n8n", title: "n8n" },
+  { app: "t3", label: "T3 Code", title: "T3 Code", operatorOrOwner: true },
   { app: "organization", label: "Organization", title: "Organization" },
   { app: "extensions", label: "Extensions", title: "Extensions" },
   { app: "media", label: "Media Viewer", title: "Media Viewer" },
@@ -64,8 +66,13 @@ export const DOCK_APPS: readonly DockAppDef[] = [
   { app: "devices", label: "Devices", title: "Devices", ownerOnly: true },
 ];
 
+export function hasOperatorAccess(role: string | null | undefined): boolean {
+  return role === "operator" || role === "owner";
+}
+
 export function visibleDockApps(role: string | null | undefined): DockAppDef[] {
-  return DOCK_APPS.filter((item) => !item.ownerOnly || role === "owner");
+  return DOCK_APPS.filter((item) =>
+    (!item.ownerOnly || role === "owner") && (!item.operatorOrOwner || hasOperatorAccess(role)));
 }
 
 export function buildShellCommands(args: {
