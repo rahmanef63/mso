@@ -31,6 +31,7 @@
     onSelectLayer,
     onCommitStroke,
     onMoveLayer,
+    onBeginMove,
     onCommitMove,
     onCommitShape,
     onPlaceTextAt,
@@ -48,6 +49,7 @@
     onSelectLayer: (id: string | null) => void;
     onCommitStroke: (stroke: DrawStroke) => void;
     onMoveLayer: (id: string, dx: number, dy: number) => void;
+    onBeginMove: (id: string) => void;
     onCommitMove: () => void;
     onCommitShape: (shape: ShapeLayer) => void;
     onPlaceTextAt: (pt: Point) => void;
@@ -122,7 +124,10 @@
     if (activeTool === "select") {
       const hit = hitTestLayer(doc, pt);
       onSelectLayer(hit ? hit.id : null);
-      if (hit) dragLayer = { id: hit.id, lastPt: pt, moved: false };
+      if (hit) {
+        onBeginMove(hit.id);
+        dragLayer = { id: hit.id, lastPt: pt, moved: false };
+      }
     } else if (activeTool === "brush" || activeTool === "eraser") {
       activeStroke = {
         id: createId("stroke"),
