@@ -47,6 +47,9 @@
   }
 </script>
 
+<!-- The wrapper is a composite of one trigger button and one popup; Escape is
+     handled at the wrapper so it works whichever child holds focus. -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="entry-menu-wrap" onkeydown={onMenuKeydown}>
   <button
     type="button"
