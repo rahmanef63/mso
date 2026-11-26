@@ -1,9 +1,12 @@
 /* iPhone Files: contents first, one search, secondary actions demoted.
-   Scoped to .files-shell.is-ios-files[data-files-variant] so no other shell variant is affected.
-   Plain global CSS (no Svelte scoping), so selectors are explicit about the
-   scope root; specificity beats the colocated scoped rules in the components. */
+   Triple-scoped so global loading is harmless:
+     1. `.ios-shell`          rendered only by IosHomeScreen.svelte
+     2. `.files-shell.is-ios-files`  the iPhone Files variant class
+     3. `[data-files-variant="ios-files"]`  its explicit variant value
+   Plain global CSS (no Svelte scoping), so selectors name the scope root
+   explicitly; specificity beats the colocated scoped rules in the components. */
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -21,11 +24,11 @@
    which is the superset capability (it also reaches subfolders).
    PARENT REQUEST: FilesChromeHeader.svelte should stop rendering the ios-files
    filter input outright; this CSS only hides it. */
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ios-files-top > .ios-files-search-wrap {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-files-top > .ios-files-search-wrap {
   display: none;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ios-files-top {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-files-top {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -34,7 +37,7 @@
   max-width: 100%;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ios-files-bar {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-files-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -44,28 +47,28 @@
   min-width: 0;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ios-files-bar .actions {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-files-bar .actions {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ios-seg {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-seg {
   padding: 2px;
   border-radius: 10px;
   background: var(--fill);
   gap: 2px;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ios-seg button {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-seg button {
   min-height: 44px;
   padding: 0 14px;
   font-size: 14px;
   border-radius: 8px;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ios-files-bar .actions button {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-files-bar .actions button {
   min-height: 44px;
   padding: 0 12px;
   border-radius: 10px;
@@ -76,14 +79,14 @@
   border: 0;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ios-files-bar .actions button:focus-visible,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ios-seg button:focus-visible {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-files-bar .actions button:focus-visible,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-seg button:focus-visible {
   outline: 2px solid var(--tint);
   outline-offset: 2px;
 }
 
 /* 2. Single search control in the ops row, sized for touch. */
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ops-bar {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ops-bar {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -95,7 +98,7 @@
   max-width: 100%;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ops-search {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ops-search {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -104,7 +107,7 @@
   max-width: 100%;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ops-search input[type="search"] {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ops-search input[type="search"] {
   flex: 1 1 11rem;
   min-width: 0;
   min-height: 44px;
@@ -116,7 +119,7 @@
   font-size: 16px;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ops-search button {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ops-search button {
   min-height: 44px;
   padding: 0 14px;
   border-radius: 10px;
@@ -124,25 +127,25 @@
   font-weight: 600;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ops-search input[type="search"]:focus-visible,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ops-search button:focus-visible,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .transfer-panel input:focus-visible,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .transfer-panel select:focus-visible {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ops-search input[type="search"]:focus-visible,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ops-search button:focus-visible,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .transfer-panel input:focus-visible,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .transfer-panel select:focus-visible {
   outline: 2px solid var(--tint);
   outline-offset: 2px;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .transfer-panel input,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .transfer-panel select {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .transfer-panel input,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .transfer-panel select {
   min-height: 44px;
   font-size: 16px;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .ops-results {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ops-results {
   min-width: 0;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .hit-btn {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .hit-btn {
   min-height: 44px;
   border-radius: 10px;
   background: var(--card);
@@ -150,12 +153,12 @@
   padding: 8px 10px;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .hit-path {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .hit-path {
   overflow-wrap: anywhere;
 }
 
 /* 3. Sort controls demoted to one compact scrollable row, not a stack. */
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-sortbar {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-sortbar {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -167,23 +170,23 @@
   max-width: 100%;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-sortbar::-webkit-scrollbar {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-sortbar::-webkit-scrollbar {
   display: none;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-sortbar .sort-group {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-sortbar .sort-group {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   flex: 0 0 auto;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-sortbar .sort-label {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-sortbar .sort-label {
   display: none;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-sortbar .sort-select,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-sortbar .compact-btn {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-sortbar .sort-select,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-sortbar .compact-btn {
   flex: 0 0 auto;
   min-height: 44px;
   padding: 0 12px;
@@ -191,82 +194,82 @@
   font-size: 14px;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-sortbar .compact-btn:focus-visible,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-sortbar .sort-select:focus-visible {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-sortbar .compact-btn:focus-visible,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-sortbar .sort-select:focus-visible {
   outline: 2px solid var(--tint);
   outline-offset: 2px;
 }
 
 /* 4. Contents over chrome: the list is the visual focus. */
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-body,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-main,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .entry-pane {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-body,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-main,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .entry-pane {
   min-width: 0;
   max-width: 100%;
   gap: 0;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .entry-list {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .entry-list {
   border-radius: 12px;
   overflow: hidden;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .entry-row {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .entry-row {
   min-height: 48px;
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .entry-label,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .entry-name {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .entry-label,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .entry-name {
   min-width: 0;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .entry-row:focus-visible {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .entry-row:focus-visible {
   outline: 2px solid var(--tint);
   outline-offset: -2px;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .mtime-badge {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .mtime-badge {
   display: none;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .empty-msg,
-.ios-shell .files-shell.is-ios-files[data-files-variant] .feedback {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .empty-msg,
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .feedback {
   font-size: 0.875rem;
   overflow-wrap: anywhere;
 }
 
 /* 5. Footer summary compact; disk check stays reachable, not dominant. */
-.ios-shell .files-shell.is-ios-files[data-files-variant] .files-compact-footer {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .files-compact-footer {
   padding: 4px 2px;
   border-top: 0;
   font-size: 0.78rem;
 }
 
-.ios-shell .files-shell.is-ios-files[data-files-variant] .usage-refresh-btn {
+.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .usage-refresh-btn {
   min-height: 32px;
 }
 
 /* 6. Narrow phones (320px): drop non-essential trailing metadata so rows and
    controls never force horizontal overflow. */
 @media (max-width: 24rem) {
-  .ios-shell .files-shell.is-ios-files[data-files-variant] {
+  .ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] {
     padding-inline: 10px;
   }
 
-  .ios-shell .files-shell.is-ios-files[data-files-variant] .size-badge,
-  .ios-shell .files-shell.is-ios-files[data-files-variant] .ios-chev {
+  .ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .size-badge,
+  .ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-chev {
     display: none;
   }
 
-  .ios-shell .files-shell.is-ios-files[data-files-variant] .ios-seg button {
+  .ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-seg button {
     padding: 0 10px;
     font-size: 13px;
   }
 
-  .ios-shell .files-shell.is-ios-files[data-files-variant] .ios-files-bar .actions button {
+  .ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"] .ios-files-bar .actions button {
     padding: 0 10px;
     font-size: 13px;
   }

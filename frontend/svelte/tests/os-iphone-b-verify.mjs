@@ -68,6 +68,9 @@ async function noOverflow(page, label) {
 }
 
 async function minTargets(page, selector, label, min = 44) {
+  // Entry animations scale the sheet (iosSpringIn 0.985 -> 1). Measure at rest so a
+  // mid-animation rect does not read as a sub-44px target.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
   const boxes = await page.evaluate((sel) => [...document.querySelectorAll(sel)]
     .filter((el) => {
       const r = el.getBoundingClientRect();
@@ -271,8 +274,17 @@ for (const vp of WIDTHS) {
   });
 
   await check(`files-targets-${vp.tag}`, async () => {
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
+    await page.waitForTimeout(150);
     const info = await minTargets(page, "[data-files-variant] .ops-search button", `files search buttons ${vp.tag}`);
     record(`files-targets-${vp.tag}`, info);
+  });
+
+  await check(`appbar-targets-${vp.tag}`, async () => {
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
+    await page.waitForTimeout(150);
+    const info = await minTargets(page, ".mobile-app-bar.is-ios .mab-btn", `ios app bar ${vp.tag}`);
+    record(`appbar-targets-${vp.tag}`, info);
   });
 
   await check(`files-focus-${vp.tag}`, async () => {

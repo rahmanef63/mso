@@ -2,7 +2,11 @@
   import { onMount, type Snippet } from "svelte";
   import MobileAppBar from "./MobileAppBar.svelte";
   import { resolveAppIcon } from "./app-icons.ts";
-  // iPhone Files surface overrides load only with the iOS shell.
+  // iPhone Files overrides. This is a static import, so the stylesheet ships with the
+  // shell bundle and is present for every chrome. That is safe because every rule in
+  // files-ios.css is scoped under
+  // `.ios-shell .files-shell.is-ios-files[data-files-variant="ios-files"]`,
+  // and `.ios-shell` is rendered only by this component.
   import "../files/files-ios.css";
   import type { MobileNavSpec } from "./shell-design.ts";
   import {
