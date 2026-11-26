@@ -22,6 +22,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Other**
 
+- Review/apple shell on f4347890 (#373)
 - Merge Apple OS Shell v2 and Finder fixes (#368)
 
 ## 2026-11-25
