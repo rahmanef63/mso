@@ -59,7 +59,7 @@
 
   let editingPathBar = $state(false);
   let addressInput = $state("");
-  let iosTab = $state<"recents" | "browse" | "actions">("browse");
+  let actionsOpen = $state(false);
   function openAddressEdit() {
     addressInput = path;
     editingPathBar = true;
@@ -164,20 +164,16 @@
   </div>
 {:else if variant === "ios-files"}
   <div class="ios-files-top">
-    <label class="ios-files-search-wrap">
-      <span class="sr-only">Search {folderTitle}</span>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-search" /></svg>
-      <input id={`${uid}-ios-filter`} class="ios-files-search" type="search" bind:value={filterText} placeholder={`Search ${folderTitle}`} />
-    </label>
     <div class="ios-files-bar">
       <button type="button" class="ios-pill-btn" aria-label="Go to parent folder" disabled={!canGoParent || busy} onclick={onGoParent}>Up</button>
       <div class="ios-seg" role="group" aria-label="View style">
         <button type="button" class:active={viewMode === "list"} aria-pressed={viewMode === "list"} onclick={() => onViewMode("list")}>List</button>
         <button type="button" class:active={viewMode === "grid"} aria-pressed={viewMode === "grid"} onclick={() => onViewMode("grid")}>Icons</button>
       </div>
+      <button type="button" class="ios-pill-btn" aria-expanded={actionsOpen} aria-pressed={actionsOpen} onclick={() => { actionsOpen = !actionsOpen; }}>Actions</button>
     </div>
   </div>
-  {#if iosTab === "actions"}
+  {#if actionsOpen}
     <div class="ios-actions-sheet" role="group" aria-label="Files actions">
       {#if onTriggerUpload}
         <button type="button" class="ios-action-row" aria-label="Upload files" disabled={loading || busy} onclick={onTriggerUpload}>
@@ -197,11 +193,6 @@
       {/if}
     </div>
   {/if}
-  <nav class="ios-tabbar" aria-label="Files tabs">
-    <button type="button" class="ios-tab" class:active={iosTab === "recents"} aria-pressed={iosTab === "recents"} onclick={() => { iosTab = "recents"; }}>Recents</button>
-    <button type="button" class="ios-tab" class:active={iosTab === "browse"} aria-pressed={iosTab === "browse"} onclick={() => { iosTab = "browse"; }}>Browse</button>
-    <button type="button" class="ios-tab" class:active={iosTab === "actions"} aria-pressed={iosTab === "actions"} onclick={() => { iosTab = "actions"; }}>Actions</button>
-  </nav>
 {:else if variant === "android-files"}
   <div class="m3-files-top">
     <div class="m3-crumb-strip" role="navigation" aria-label="Folder breadcrumbs">
