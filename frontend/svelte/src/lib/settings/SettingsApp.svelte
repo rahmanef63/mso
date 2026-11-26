@@ -585,9 +585,11 @@
               <h2 class="macos-section-title">{activeMeta.label}</h2>
             {/if}
           </div>
-          <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
-            {view.kind === "loading" ? "Loading..." : "Refresh"}
-          </button>
+          {#if effectiveDesktopSection !== "mcp"}
+            <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
+              {view.kind === "loading" ? "Loading..." : "Refresh"}
+            </button>
+          {/if}
         </header>
         <div class="split-detail">
           {@render sectionContent(effectiveDesktopSection)}
@@ -599,9 +601,11 @@
     <div class="dash-settings">
       <header class="feature-header dash-settings-head">
         <h2>Settings</h2>
-        <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
-          {view.kind === "loading" ? "Loading..." : "Refresh"}
-        </button>
+        {#if effectiveDesktopSection !== "mcp"}
+          <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
+            {view.kind === "loading" ? "Loading..." : "Refresh"}
+          </button>
+        {/if}
       </header>
       <div class="dash-tabs" role="tablist" aria-label="Settings sections">
         {#each SECTIONS as sec (sec.id)}
