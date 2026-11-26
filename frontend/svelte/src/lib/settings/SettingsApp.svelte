@@ -133,6 +133,20 @@
 
   let effectiveDesktopSection = $derived<SettingsSectionId>(activeSection ?? "appearance");
   let activeMeta = $derived(SECTIONS.find((s) => s.id === (isMobileStack ? activeSection : effectiveDesktopSection)) ?? SECTIONS[0]);
+  let themeModeLabel = $derived(
+    themeMode === "light" ? "Light" : themeMode === "dark" ? "Dark" : "System",
+  );
+  let roleLabel = $derived(role ? role[0].toUpperCase() + role.slice(1) : null);
+  let updateChannelLabel = $derived(
+    view.kind === "ready"
+      ? (view.prefs.updates?.channel === "beta" ? "Beta" : "Stable")
+      : null,
+  );
+  let sectionValues = $derived<Partial<Record<SettingsSectionId, string>>>({
+    appearance: themeModeLabel,
+    account: roleLabel ?? undefined,
+    updates: updateChannelLabel ?? undefined,
+  });
 
   function selectSection(next: SettingsSectionId | null) {
     activeSection = next;
@@ -540,19 +554,33 @@
     </div>
   {:else if navMode === "macos-sidebar" || navMode === "windows-rail"}
     <!-- Desktop split view: macOS translucent sidebar vs Windows Fluent NavigationView rail -->
-    <div class="split-settings" class:is-windows={navMode === "windows-rail"} class:is-macos={navMode === "macos-sidebar"}>
+    <div
+      class="split-settings"
+      class:is-windows={navMode === "windows-rail"}
+      class:is-macos={navMode === "macos-sidebar"}
+      class:nav-open={sidebarOpen}
+    >
       <aside class="settings-sidebar" class:open={sidebarOpen} aria-label="Settings navigation">
+        <button
+          type="button"
+          class="sidebar-narrow-close"
+          onclick={() => { sidebarOpen = false; }}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-chevron-left" /></svg>
+          Done
+        </button>
         <div class="sidebar-search">
           <label class="sr-only" for="desktop-settings-search">Search settings</label>
           <input id="desktop-settings-search" type="search" bind:value={query} placeholder={navMode === "windows-rail" ? "Find a setting" : "Search"} />
         </div>
-        <nav class="sidebar-nav" aria-label="Settings sections">
+        <nav class="sidebar-nav" id="settings-narrow-list" aria-label="Settings sections">
           {#each filteredSections as sec (sec.id)}
+            {@const selected = effectiveDesktopSection === sec.id}
             <button
               type="button"
               class="sidebar-item"
-              class:active={effectiveDesktopSection === sec.id}
-              aria-current={effectiveDesktopSection === sec.id ? "page" : undefined}
+              class:active={selected}
+              aria-current={selected ? "page" : undefined}
               data-settings-section={sec.id}
               onclick={() => selectSection(sec.id)}
             >
@@ -563,8 +591,15 @@
                 <svg class="sidebar-glyph-svg" viewBox="0 0 24 24"><use href={`#${sec.icon}`} /></svg>
               </span>
               <span class="sidebar-label">{sec.label}</span>
+              {#if sectionValues[sec.id]}
+                <span class="sidebar-value">{sectionValues[sec.id]}</span>
+              {/if}
+              <svg class="sidebar-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-chevron-right" /></svg>
             </button>
           {/each}
+          {#if filteredSections.length === 0}
+            <p class="sidebar-empty">No settings match "{query.trim()}".</p>
+          {/if}
         </nav>
       </aside>
 
@@ -575,8 +610,10 @@
               type="button"
               class="narrow-nav-toggle"
               aria-expanded={sidebarOpen}
+              aria-controls="settings-narrow-list"
               onclick={() => { sidebarOpen = !sidebarOpen; }}
             >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-chevron-left" /></svg>
               Sections
             </button>
             {#if navMode === "windows-rail"}
