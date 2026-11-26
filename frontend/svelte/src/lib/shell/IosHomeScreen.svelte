@@ -90,12 +90,17 @@
 
   type SlicePane = import("svelte").Component<Record<string, unknown>>;
   let paneCache = new Map<string, Promise<SlicePane>>();
+  // Two separate loaders on purpose. A ternary of two dynamic imports makes Vite emit
+  // one shared __vite__mapDeps array for both branches, so the iPad Settings pane
+  // received FilesManager's CSS and SettingsApp.css was never injected.
+  const settingsPaneLoader = () =>
+    import("../settings/SettingsApp.svelte").then((mod) => mod.default as unknown as SlicePane);
+  const filesPaneLoader = () =>
+    import("../files/FilesManager.svelte").then((mod) => mod.default as unknown as SlicePane);
   function loadPane(id: "settings" | "files"): Promise<SlicePane> {
     let pending = paneCache.get(id);
     if (!pending) {
-      pending = (id === "settings"
-        ? import("../settings/SettingsApp.svelte")
-        : import("../files/FilesManager.svelte")).then((mod) => mod.default as unknown as SlicePane);
+      pending = id === "settings" ? settingsPaneLoader() : filesPaneLoader();
       paneCache.set(id, pending);
     }
     return pending;
