@@ -1,8 +1,21 @@
 import type { PathCrumb } from "./FilesChromeHeader.svelte";
 
+/** Collapse repeated separators and drop a trailing one, keeping `/` and `~` intact. */
+export function normalizeFsPath(raw: string): string {
+  if (!raw) return "";
+  const collapsed = raw.replace(/\/{2,}/g, "/");
+  if (collapsed === "/" || collapsed === "~") return collapsed;
+  return collapsed.endsWith("/") ? collapsed.slice(0, -1) : collapsed;
+}
+
+/** Join a directory and an entry name into exactly one absolute pathname.
+ *  Idempotent: joining an already-absolute path returns it unchanged, so a
+ *  caller that re-joins (List rows, the entry pane, and the manager all did)
+ *  cannot produce `/a//a//a/notes.txt`. */
 export function joinFsPath(dir: string, name: string): string {
-  if (!dir || dir === "/") return `/${name}`;
-  return dir.endsWith("/") ? `${dir}${name}` : `${dir}/${name}`;
+  if (name.startsWith("/") || name.startsWith("~")) return normalizeFsPath(name);
+  if (!dir || dir === "/") return normalizeFsPath(`/${name}`);
+  return normalizeFsPath(`${dir}/${name}`);
 }
 
 export function validateEntryName(raw: string, label = "Folder"): string | null {

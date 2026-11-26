@@ -2,7 +2,6 @@
   import { bytes } from "../format.ts";
   import type { FsEntryMeta } from "./files-api.ts";
   import { entryBadgeText, formatMtime } from "./files-meta.ts";
-  import { joinFsPath } from "./files-path-utils.ts";
   import FilesEntryMenu from "./FilesEntryMenu.svelte";
 
   let {
@@ -103,7 +102,7 @@
             onOpen={() => onActivate(entry)}
             onPreview={() => onPreview(entry)}
             onRename={() => onStartRename(entry.name)}
-            onCopyPath={() => onCopyPath(joinFsPath(dirPath, entry.name))}
+            onCopyPath={() => onCopyPath(entry.name)}
             onZip={() => onZipEntry(entry.name)}
             onDelete={() => onStartDelete(entry.name)}
           />
