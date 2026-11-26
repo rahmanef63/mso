@@ -4,6 +4,20 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-26
+
+**Fixed**
+
+- `settings` load MCP status independently of recent activity
+
+**Tests**
+
+- `settings` keep MCP regression independent of environment
+
+**Other**
+
+- Merge Apple OS Shell v2 and Finder fixes (#368)
+
 ## 2026-11-25
 
 **Added**
@@ -1305,46 +1319,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `release` bump app version to 0.2.18
 - `release` bump app version to 0.2.17
-
-## 2026-09-16
-
-**Added**
-
-- `workflows` close session self-improvement loop
-- `mcp` add compact ChatGPT list surface
-- `plugins` add structured OpenAI skill contracts
-- `workflows` stabilize semantic action references
-- `workflows` add semantic session flows
-- `workflows` visualize agent sessions
-- `ai` add dynamic free provider discovery
-- `workflows` maximize script and search automation
-
-**Fixed**
-
-- `plugin` support optional connector bindings
-- `workflows` keep session nodes clear on compact canvas
-- `workflows` dismiss session inspector on handoff
-- `canvas` isolate react flow accessibility ids
-- `workflows` keep compact session nodes clickable
-
-**Changed**
-
-- `workflows` satisfy session graph release gates
-
-**Tests**
-
-- `workflows` count hidden terminal sessions during inspector
-- `workflows` expand semantic action receipt reliably
-- `workflows` target semantic action summary
-- `workflows` expand session actions before launch
-- `mcp` close mobile session windows
-- `canvas` scope graph controls per app
-- `mcp` clean workflow window after session journey
-- `mcp` restore settings after terminal handoff
-- `mcp` preserve preexisting terminal state
-- `mcp` close session terminal across shells
-- `mcp` close terminal after session graph check
-
-**Docs**
-
-- `plugin` clarify extension taxonomy
