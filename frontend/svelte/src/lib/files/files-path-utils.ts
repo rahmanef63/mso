@@ -11,9 +11,11 @@ export function normalizeFsPath(raw: string): string {
 /** Join a directory and an entry name into exactly one absolute pathname.
  *  Idempotent: joining an already-absolute path returns it unchanged, so a
  *  caller that re-joins (List rows, the entry pane, and the manager all did)
- *  cannot produce `/a//a//a/notes.txt`. */
+ *  cannot produce `/a//a//a/notes.txt`.
+ *  Only `/...` and `~/...` are absolute. A name like `~cache` or `~` is a
+ *  legal entry name and must still be joined onto the directory. */
 export function joinFsPath(dir: string, name: string): string {
-  if (name.startsWith("/") || name.startsWith("~")) return normalizeFsPath(name);
+  if (name.startsWith("/") || name.startsWith("~/")) return normalizeFsPath(name);
   if (!dir || dir === "/") return normalizeFsPath(`/${name}`);
   return normalizeFsPath(`${dir}/${name}`);
 }

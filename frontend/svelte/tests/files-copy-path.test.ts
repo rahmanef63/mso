@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { joinFsPath, normalizeFsPath } from "../src/lib/files/files-path-utils.ts";
+import { joinFsPath, normalizeFsPath, validateEntryName } from "../src/lib/files/files-path-utils.ts";
 
 // Finder/Explorer "Copy path" must yield exactly one normalized pathname from
 // every surface. The List view joined the directory itself and then the entry
@@ -35,6 +35,18 @@ test("home-relative paths stay home-relative and never gain a duplicate root", (
   assert.equal(joinFsPath("~", NAME), "~/notes.txt");
   assert.equal(joinFsPath("~", "~/notes.txt"), "~/notes.txt");
   assert.equal(normalizeFsPath("~/docs/"), "~/docs");
+});
+
+test("entry names that merely start with ~ are still joined, not treated as absolute", () => {
+  // `~` is a legal filename character and validateEntryName accepts "~cache".
+  // Only bare "~" and the "~/" prefix mean the home directory.
+  for (const name of ["~cache", "~backup.txt", "~"]) {
+    assert.equal(validateEntryName(name), null, `${name} is a legal entry name`);
+  }
+  assert.equal(joinFsPath(DIR, "~cache"), `${DIR}/~cache`);
+  assert.equal(joinFsPath(DIR, "~backup.txt"), `${DIR}/~backup.txt`);
+  assert.equal(joinFsPath("/", "~cache"), "/~cache");
+  assert.equal(joinFsPath(DIR, "~"), `${DIR}/~`);
 });
 
 test("root-level directories join without a doubled slash", () => {
