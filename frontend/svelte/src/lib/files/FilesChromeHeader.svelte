@@ -1,8 +1,17 @@
 <script lang="ts">
   import type { FilesPresentation } from "../shell/shell-design.ts";
+  import { viewModeLabel } from "./files-select-actions.ts";
 
+  // "columns" is the legacy persisted value for the third mode. It renders a flat
+  // details table, not a hierarchical Finder column browser, so the UI calls it
+  // "Details" while the stored value stays "columns" for saved window state.
+  // ponytail: real Finder columns needs per-column async listings; add only with
+  // browser coverage for multi-level browsing, not as a CSS rearrangement.
   export type FilesViewMode = "list" | "grid" | "columns";
   export type PathCrumb = { label: string; path: string };
+  // One list drives all three buttons so a visible label can never disagree with the
+  // mode it applies.
+  const VIEW_MODES: readonly FilesViewMode[] = ["grid", "list", "columns"];
 
   let {
     uid,
@@ -81,20 +90,21 @@
       </nav>
     </div>
     <div class="finder-segment" role="group" aria-label="Finder view mode">
-      <button type="button" class:active={viewMode === "grid"} aria-pressed={viewMode === "grid"} aria-label="Icons" title="Icons" onclick={() => onViewMode("grid")}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-grid" /></svg>
-      </button>
-      <button type="button" class:active={viewMode === "list"} aria-pressed={viewMode === "list"} aria-label="List" title="List" onclick={() => onViewMode("list")}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-list" /></svg>
-      </button>
-      <button type="button" class:active={viewMode === "columns"} aria-pressed={viewMode === "columns"} aria-label="Columns" title="Columns" onclick={() => onViewMode("columns")}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-folder" /></svg>
-      </button>
+      {#each VIEW_MODES as mode (mode)}
+        {@const label = viewModeLabel(mode)}
+        <button type="button" class:active={viewMode === mode} aria-pressed={viewMode === mode} aria-label={label} title={label} onclick={() => onViewMode(mode)}>
+          {#if mode === "columns"}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16M4 12h16M4 18.5h16M10.5 5.5v13" /></svg>
+          {:else}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href={mode === "grid" ? "#g-grid" : "#g-list"} /></svg>
+          {/if}
+        </button>
+      {/each}
     </div>
     <label class="finder-search">
       <span class="sr-only">Filter {folderTitle}</span>
       <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-search" /></svg>
-      <input id={`${uid}-finder-filter`} type="search" bind:value={filterText} placeholder="Search" />
+      <input id={`${uid}-finder-filter`} type="search" bind:value={filterText} placeholder={`Filter ${folderTitle}`} />
     </label>
     <div class="finder-actions">
       <button type="button" class="finder-icon-btn" aria-label="New Folder" title="New Folder" aria-expanded={creatingFolder} disabled={loading || busy} onclick={onToggleNewFolder}>

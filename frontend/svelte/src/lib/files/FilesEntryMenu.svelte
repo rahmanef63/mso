@@ -79,9 +79,7 @@
           Download
         </a>
       {/if}
-      <button type="button" class="menu-item" onclick={() => runAction(onZip)}>
-        {entry.kind === "dir" ? "Download as Zip" : "Zip archive"}
-      </button>
+      <button type="button" class="menu-item" onclick={() => runAction(onZip)}>Download as Zip</button>
       <button type="button" class="menu-item danger" onclick={() => runAction(onDelete)}>Delete</button>
     </div>
   {/if}
