@@ -428,7 +428,8 @@
               </tr>
             </thead>
             <tbody>
-              {#each filteredActivity as row (row.id)}
+              <!-- A capability call can emit multiple events with the same ID. -->
+              {#each filteredActivity as row}
                 <tr>
                   <td class="nowrap">{formatTimestamp(row.ts)}</td>
                   <td><code>{row.tool}</code></td>
