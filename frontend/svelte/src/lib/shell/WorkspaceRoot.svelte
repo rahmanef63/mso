@@ -174,7 +174,7 @@
   let focusedWin = $derived(layout.focused ? layout.windows[layout.focused] ?? null : null);
   let focusedTitle = $derived(focusedWin?.title ?? "Desktop");
   const PINNED_DOCK_APPS = new Set([
-    "assistant", "files", "editor", "terminal", "processes", "camoufox", "workflows",
+    "assistant", "files", "editor", "terminal", "processes", "camoufox", "workflows", "t3",
     "agent-group", "apps", "integrations", "settings", "devices", "inspector",
   ]);
   let dockApps = $derived(visibleDockApps(activeSession?.role));

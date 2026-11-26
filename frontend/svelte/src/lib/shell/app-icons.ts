@@ -41,6 +41,7 @@ const ICON_STYLE: Record<string, IconStyle> = {
   docs: { monogram: "DC", colors: ["#0284c7", "#0369a1"] },
   workflows: { monogram: "WF", colors: ["#7c3aed", "#4f46e5"] },
   n8n: { monogram: "N8", colors: ["#ea580c", "#dc2626"] },
+  t3: { monogram: "T3", colors: ["#334155", "#0f172a"] },
   organization: { monogram: "OR", colors: ["#0d9488", "#0284c7"] },
   extensions: { monogram: "EX", colors: ["#6366f1", "#8b5cf6"] },
   media: { monogram: "MV", colors: ["#ec4899", "#8b5cf6"] },

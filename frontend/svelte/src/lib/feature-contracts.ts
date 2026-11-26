@@ -20,7 +20,7 @@ export const FEATURE_CONTRACTS: Record<string, { surfaceKind: SurfaceKind; descr
   "memory-graph": { surfaceKind: "frame", description: "Interactive knowledge and memory graph" },
   monitor: { surfaceKind: "frame", description: "System monitor, processes, services, and packages" },
   organization: { surfaceKind: "frame", description: "Organization chart and execution bindings" },
-  "runtime-apps": { surfaceKind: "iframe", description: "Camoufox browser, Bot Desktops, and n8n runtimes" },
+  "runtime-apps": { surfaceKind: "iframe", description: "Camoufox browser, Bot Desktops, n8n, and T3 workspaces" },
   settings: { surfaceKind: "frame", description: "MSO Settings, security, backup, and updates" },
   shell: { surfaceKind: "shell", description: "Desktop/mobile window manager, dock, and command palette" },
   terminal: { surfaceKind: "frame", description: "Interactive PTY terminal" },
