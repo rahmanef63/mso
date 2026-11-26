@@ -56,7 +56,10 @@ const backend = createServer(async (req, res) => {
       heldMcpActivity = res;
       return;
     }
-    res.end(JSON.stringify({ entries: [] }));
+    res.end(JSON.stringify({ entries: [
+      { id: "fixture-shared-call", tool: "sys_stats", state: "completed", ts: "2026-11-22T00:00:00.000Z" },
+      { id: "fixture-shared-call", tool: "sys_stats", state: "started", ts: "2026-11-22T00:00:00.000Z" },
+    ] }));
   }
   else if (url.pathname === "/api/v1/sys/stats") res.end(JSON.stringify(stats));
   else if (url.pathname === "/api/v1/workflows") res.end(JSON.stringify(url.searchParams.get("runs") === "1" ? { runs: [], total: 0 } : workflows));
@@ -116,7 +119,11 @@ try {
     await mcp.getByRole("button", { name: "Retry" }).click();
     await mcp.getByRole("heading", { name: "MCP Server Status" }).waitFor();
     assert.equal(mcpStatusRequests, 3);
-    console.log("PASS Settings MCP: status independent of activity; refresh and retry read status");
+    const activity = mcp.getByRole("table", { name: "Recent MCP tool calls" });
+    await activity.getByRole("cell", { name: "completed", exact: true }).waitFor();
+    await activity.getByRole("cell", { name: "started", exact: true }).waitFor();
+    assert.equal(await activity.getByRole("cell", { name: "sys_stats", exact: true }).count(), 2);
+    console.log("PASS Settings MCP: status independent of activity; same-ID activity phases both render");
 
     await page.close();
     mode = "ready";

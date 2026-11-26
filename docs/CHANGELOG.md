@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `settings` render all phases of an MCP activity call
 - `mcp` complete OAuth in a separate callback navigation
 - `settings` load MCP status independently of recent activity
 
