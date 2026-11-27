@@ -243,6 +243,25 @@ export function createFixtureBackend() {
       res.end(JSON.stringify([]));
       return;
     }
+    // The Code Editor terminal drawer opens a real PTY on mount, so the fixture
+    // backend has to answer the allowlisted terminal routes instead of 404ing.
+    if (url.pathname === "/api/v1/term/open") {
+      res.end(JSON.stringify({ id: "pty-matrix-1" }));
+      return;
+    }
+    if (url.pathname === "/api/v1/term/input" || url.pathname === "/api/v1/term/resize" || url.pathname === "/api/v1/term/close") {
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    if (url.pathname === "/api/v1/term/stream") {
+      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      res.write("data: " + Buffer.from("matrix shell ready\r\n").toString("base64") + "\n\n");
+      // Hold the stream open like a live PTY so EventSource does not retry.
+      const keepAlive = setInterval(() => res.write(": keepalive\n\n"), 5_000);
+      keepAlive.unref?.();
+      req.on("close", () => clearInterval(keepAlive));
+      return;
+    }
     res.statusCode = 404;
     res.end(JSON.stringify({ error: "not_found" }));
   });

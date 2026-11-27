@@ -178,6 +178,29 @@ test("editor slice never posts to the headless image-doc endpoint", () => {
   }
 });
 
+test("editor integrates the real PTY terminal instead of a fake console", () => {
+  // The Run drawer was removed because /api/v1/editor/exec is the image-doc registry.
+  // The one honest console in this window is the terminal slice's PTY pane, which the
+  // host and both proxies already allowlist. This guard keeps that wiring in place and
+  // stops anyone re-adding a private fetch path.
+  const app = readFileSync(path.join(EDITOR_DIR, "CodeEditorApp.svelte"), "utf8");
+  const toolbar = readFileSync(path.join(EDITOR_DIR, "EditorToolbar.svelte"), "utf8");
+  const drawer = readFileSync(path.join(EDITOR_DIR, "EditorTerminalDrawer.svelte"), "utf8");
+
+  assert.ok(app.includes("EditorTerminalDrawer"), "editor must mount the terminal drawer");
+  assert.ok(app.includes("terminalCwd"), "editor must pass a working directory to the drawer");
+  assert.ok(toolbar.includes("onToggleTerminal"), "toolbar must expose the terminal toggle");
+
+  // The drawer delegates to the terminal slice so PTY lifecycle, resize, ANSI safety
+  // and the Owner-role hint stay in one implementation.
+  assert.ok(drawer.includes("../terminal/TerminalPane.svelte"), "drawer must reuse TerminalPane");
+  for (const file of [app, toolbar, drawer]) {
+    assert.equal(/\bfetch\s*\(/.test(file), false, "editor terminal wiring must not fetch directly");
+  }
+  const editorDirFiles = readdirSync(EDITOR_DIR).filter((f) => /\.(ts|svelte)$/.test(f));
+  assert.ok(editorDirFiles.includes("EditorTerminalDrawer.svelte"));
+});
+
 test("hard repo gates hold across all editor slice files", () => {
   const files = readdirSync(EDITOR_DIR).filter((f) => /\.(ts|svelte)$/.test(f));
   assert.ok(files.length >= 9);
