@@ -1,8 +1,10 @@
-  .ide-root { display: flex; flex-direction: column; min-width: 0; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 0.75rem; background: var(--panel); }
-  .ide-body { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 24rem; min-width: 0; }
+  .ide-root { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; max-height: 100%; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 0.75rem; background: var(--panel); }
+  /* The window body is the height budget. Every band below it shrinks instead of
+     pushing the terminal drawer (or the status bar) out of the window. */
+  .ide-body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; min-width: 0; flex: 1 1 auto; }
   .ide-body.with-sidebar { grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr); }
   .ide-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-  .workspace-split { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 auto; min-height: 17rem; min-width: 0; }
+  .workspace-split { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 0; min-height: 6rem; min-width: 0; }
   .workspace-split.split-active { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .preview-slot { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--border); }
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.65rem; padding: 1.5rem 1rem; text-align: center; color: var(--muted); background: var(--panel-solid); }
