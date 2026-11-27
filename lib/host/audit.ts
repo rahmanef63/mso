@@ -6,6 +6,7 @@ import os from "os";
 import path from "path";
 
 import type { AuditAction } from "@/lib/contracts/audit";
+import { redactText } from "@/lib/security/redact-text";
 export type { AuditAction } from "@/lib/contracts/audit";
 
 export interface AuditEntry {
@@ -34,7 +35,8 @@ function auditPath(): string {
 
 function trunc(s: string | undefined, max = 512): string | undefined {
   if (s == null) return undefined;
-  return s.length > max ? s.slice(0, max) + "…" : s;
+  const clean = redactText(s);
+  return clean.length > max ? clean.slice(0, max) + "…" : clean;
 }
 
 // Keep caller-supplied metadata bounded and scalar-only.
@@ -44,8 +46,10 @@ function clampMeta(
   if (!meta) return undefined;
   const out: Record<string, string | number | boolean> = {};
   for (const [k, v] of Object.entries(meta)) {
-    if (typeof v === "string")
-      out[k] = v.length > 256 ? v.slice(0, 256) + "…" : v;
+    if (typeof v === "string") {
+      const clean = redactText(v);
+      out[k] = clean.length > 256 ? clean.slice(0, 256) + "…" : clean;
+    }
     else if (typeof v === "number" || typeof v === "boolean") out[k] = v;
     // any other type: silently drop
   }

@@ -3,6 +3,7 @@ const SECRET_VALUE = new RegExp([
   "gh[pousr]_[A-Za-z0-9]{16,}", "github_pat_[A-Za-z0-9_]{20,}",
   "sk-[A-Za-z0-9_-]{16,}", "npm_[A-Za-z0-9]{20,}", "xox[abprs]-[A-Za-z0-9-]{10,}",
   "AKIA[0-9A-Z]{16}", "eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}",
+  "AIza[0-9A-Za-z_-]{35}", "glpat-[A-Za-z0-9_-]{20,}",
 ].map((shape) => `\\b${shape}`).join("|"), "g");
 const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]*:\/\/)([^\s/:@]+):([^\s/@]+)@/gi;
 
