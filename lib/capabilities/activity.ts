@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { pinSecurityStorePath } from "@/lib/security-store-path";
+import { redactText } from "@/lib/security/redact-text";
 
 export type CapabilityActivityState = "started" | "completed" | "failed" | "denied" | "rate_limited" | "invalid_args";
 export interface CapabilityActivityEntry {
@@ -18,10 +19,8 @@ function activityPath(): string {
   return env?.trim() ? env.replace(/^~(?=$|\/)/, os.homedir()) : path.join(os.homedir(), ".mso", "mcp-activity.log");
 }
 function safeActivityText(value: string): string {
-  return value.replace(/[\u0000-\u001f\u007f]/gu, " ")
-    .replace(/([?&](?:token|key|secret|password|code)=)[^&\s]+/gi, "$1[redacted]")
-    .replace(/\b(password|token|secret|api[_-]?key)\s*[:=]\s*\S+/gi, "$1=[redacted]")
-    .replace(/\b(?:bearer\s+)?(?:sk|pk|ghp|mso_mcp)_[a-z0-9_-]{8,}\b/gi, "[redacted]")
+  // One redactor for every MSO telemetry sink (telemetry-sinks invariant).
+  return redactText(value.replace(/[\u0000-\u001f\u007f]/gu, " "))
     .replace(/\b[a-f0-9]{48,}\b/gi, "[opaque-id]");
 }
 function text(value: unknown, limit = 180): string | undefined {
