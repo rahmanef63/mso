@@ -38,6 +38,7 @@ import {
   formatBytesCompact,
   isImportableMediaFile,
   joinHostPath,
+  parseDurationInput,
   removeTagFromAsset,
   summarizeStudioBatch,
 } from "../src/lib/creative/studio-model.ts";
@@ -166,6 +167,19 @@ test("studio-model handles assets, filtering, batch summaries, offsets, tags, an
   assert.equal(manifest.schema, "mso.media-studio.manifest.v1");
   assert.equal(manifest.queue.length, 3);
   assert.equal(manifest.queue[1]!.startSec, 5);
+});
+
+test("parseDurationInput accepts the number values bind:value produces and rejects junk", () => {
+  assert.equal(parseDurationInput(12), 12);
+  assert.equal(parseDurationInput("7.5"), 7.5);
+  assert.equal(parseDurationInput(0), 0);
+  assert.equal(parseDurationInput(""), undefined);
+  assert.equal(parseDurationInput("   "), undefined);
+  assert.equal(parseDurationInput(null), undefined);
+  assert.equal(parseDurationInput(undefined), undefined);
+  assert.equal(parseDurationInput("abc"), undefined);
+  assert.equal(parseDurationInput(-3), undefined);
+  assert.equal(parseDurationInput(Number.NaN), undefined);
 });
 
 test("all Reel Editor and Media Studio files comply with repo hard gates", () => {

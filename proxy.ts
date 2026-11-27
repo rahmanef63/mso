@@ -158,6 +158,13 @@ function contentSecurityPolicy(nonce: string, frameable = false): string {
   ].join("; ");
 }
 
+// The document path sent no Permissions-Policy, so browsers fell back to permissive
+// defaults (ZAP 10063). Deny the capabilities the app never uses and keep
+// clipboard-write for the copy buttons (navigator.clipboard.writeText).
+function permissionsPolicy(): string {
+  return "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=(), clipboard-write=(self)";
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const contentLength = request.headers.get("content-length");
@@ -363,6 +370,7 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set("content-security-policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  response.headers.set("Permissions-Policy", permissionsPolicy());
   // The static next.config header says DENY. It cannot see NODE_ENV or the request host,
   // and XFO has no "allow this specific parent" value, so for a loopback dev request the
   // header is removed and CSP frame-ancestors is the only, explicit gate. Production
