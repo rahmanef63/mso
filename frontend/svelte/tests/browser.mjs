@@ -48,7 +48,7 @@ const backend = createServer(async (req, res) => {
     mcpStatusRequests++;
     if (!mcpStatusAvailable) res.statusCode = 503;
     res.end(JSON.stringify(mcpStatusAvailable
-      ? { enabled: true, maxScope: "read", toolset: { count: 2 }, tokens: [] }
+      ? { enabled: true, maxScope: "read", toolset: { toolCount: 61, version: "2026.11.16.1" }, tokens: [] }
       : { error: "MCP status temporarily unavailable." }));
   }
   else if (url.pathname === "/api/mcp/activity" && req.method === "GET") {
@@ -109,6 +109,11 @@ try {
     ]);
     const mcp = page.locator(".mcp-section");
     await mcp.getByRole("heading", { name: "MCP Server Status" }).waitFor({ timeout: 4_000 });
+    // Regression guard: the fixture must serve the real backend shape (toolCount),
+    // and the Toolset row must render it. A legacy-only `count` field hid a live
+    // "0 tools" defect while this suite stayed green.
+    await mcp.getByText("61 tools", { exact: false }).waitFor({ timeout: 4_000 });
+    assert.ok(!(await mcp.locator("dl.metric-grid").innerText()).includes("0 tools"), "Toolset rendered 0 tools");
     assert.ok(heldMcpActivity && !heldMcpActivity.writableEnded, "status rendered before activity returned");
     assert.equal(mcpStatusRequests, 1);
     mcpStatusAvailable = false;

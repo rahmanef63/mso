@@ -45,7 +45,12 @@ export async function readMcpStatus(
     maxScope,
     origin: typeof raw.origin === "string" ? raw.origin : "",
     toolset: {
-      count: typeof tsRaw.count === "number" ? tsRaw.count : 0,
+      // The backend (/api/mcp/tokens) reports `toolCount`; `count` is the legacy field.
+      // Prefer toolCount so a real 61-tool server is not shown as "0 tools", but keep
+      // a genuine 0 (toolCount === 0) instead of falling through to a stale count.
+      count: typeof tsRaw.toolCount === "number"
+        ? tsRaw.toolCount
+        : typeof tsRaw.count === "number" ? tsRaw.count : 0,
       version: typeof tsRaw.version === "string" ? tsRaw.version : "",
       signature: typeof tsRaw.signature === "string" ? tsRaw.signature : "",
     },
