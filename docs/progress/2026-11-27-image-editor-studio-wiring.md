@@ -33,6 +33,22 @@ assembly step.
   image, apply a preset, drag an adjustment, add a layer, export to the VPS path, no horizontal
   overflow at 390px) and the existing `tests/browser.mjs`.
 
+## Rebased onto current main (2026-11-27)
+
+Merged `origin/main` (`17353589`, the #375 Finder copy path and MCP toolCount fix) into the
+branch, so PR #380 is no longer `BEHIND`. Re-ran the full gate on the merged tree:
+
+- `bun run check` → 0 errors, 3 warnings (same pre-existing warnings as `main`)
+- `bun run test` → 381 tests, 379 pass, the same 2 `cutover-drill` `cargo` ENOENT failures
+  that also fail on `main` (no Rust toolchain on this host)
+- `bun run build` → `Wrote site to "build"`
+- `node scripts/check-architecture.mjs`, `check-features.mjs`, `check-contrast.mjs` → all healthy
+- `node tests/creative-image-editor.browser.mjs` → PASS (load, Noir preset, brightness drag,
+  3 layers, canvas, VPS export, no horizontal overflow at 390px)
+- `node tests/browser.mjs` → PASS (33/33 slices at 320/390/1440, light and dark)
+
+Screenshot: `/tmp/opencode/image-editor-studio.png`
+
 ## Limits
 
 - The synthetic browser fixture serves one flat PNG. Brush, eraser, text, shape, and crop
