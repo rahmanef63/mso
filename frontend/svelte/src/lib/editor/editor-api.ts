@@ -4,7 +4,6 @@ import {
 
 export { ApiError };
 export type { ShellBridge };
-export { defaultRunCommand, runEditorFile, type EditorExecResult } from "./editor-exec.ts";
 
 export type EditorStats = { lines: number; chars: number; bytes: number };
 export type CursorPos = { ln: number; col: number };
