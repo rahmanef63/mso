@@ -214,7 +214,7 @@
   <ReelTimeline clips={project.clips} captions={project.captions} audio={project.audio}
     {playing}
     {totalSec} playheadSec={safePlayhead} selectedClipId={selectedClip?.id ?? null} selectedCaptionId={selectedCaption?.id ?? null} onSeek={(sec) => { playing = false; playheadSec = sec; }} onSelectClip={selectClip} onSelectCaption={(id) => { selectedCaptionId = id; }} onSplitClip={handleSplit} onDuplicateClip={handleDuplicate}
-    onReorderClip={(idx, delta) => commit((curr) => ({ ...curr, clips: moveItem(curr.clips, idx, delta) }))} onDeleteClip={handleDeleteClip} onTransitionChange={(id, transition: ClipTransition) => handlePatchClip(id, { transition })} onAddCaptionAtPlayhead={() => handleAddCaption("New caption")} onDeleteCaption={handleDeleteCaption}
+    onReorderClip={(idx, delta) => commit((curr) => ({ ...curr, clips: moveItem(curr.clips, idx, delta) }))} onDeleteClip={handleDeleteClip} onTrimCommit={handlePatchTrim} onTransitionChange={(id, transition: ClipTransition) => handlePatchClip(id, { transition })} onAddCaptionAtPlayhead={() => handleAddCaption("New caption")} onDeleteCaption={handleDeleteCaption}
     onAudioPatch={(patch: Partial<ReelAudioTrack>) => commit((curr) => ({ ...curr, audio: { ...curr.audio, ...patch } }))}
   />
 </section>
