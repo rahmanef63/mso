@@ -4,9 +4,11 @@ import { fileURLToPath } from "node:url";
 import { requireDastTarget } from "./check-dast-target.mjs";
 
 const CACHE_RULE = "10050";
+// SvelteKit's immutable build output. Content-hashed by the adapter, served from
+// frontend/svelte/build/_app/immutable, public and immutable. These were the dead
+// /_next/static/* shapes before the Svelte cutover.
 const STATIC_CACHE_PATHS = [
-  /^\/_next\/static\/chunks\/[^/?#]+\.(?:js|css)$/,
-  /^\/_next\/static\/media\/[^/?#]+\.woff2$/,
+  /^\/_app\/immutable\/(?:chunks|entry|nodes|assets)\/[^/?#]+\.(?:js|css|woff2)$/,
 ];
 const VERSIONED_ICON_QUERY = /^\?icon\.[a-z0-9_-]+\.svg$/i;
 

@@ -7,6 +7,7 @@ import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { attachSocketProxy } from "./server-sockets.mjs";
 import { requestBodyLimit } from "./server-body-policy.mjs";
+import { applyBaselineSecurityHeaders } from "./server-headers.mjs";
 
 if (!process.env.NEXT_PUBLIC_COMMIT_SHA || !process.env.NEXT_PUBLIC_BUILD_ID) {
   try {
@@ -81,6 +82,10 @@ const server = createServer(async (incoming, outgoing) => {
     const body = method === "GET" || method === "HEAD" ? undefined : Readable.toWeb(incoming);
     const req = new Request(url, { method, headers, body, duplex: body ? "half" : undefined });
     const res = await dispatchMsoRequest(req);
+
+    // One exit point, so every response (route, static asset, 404, error) carries
+    // the baseline. A route that set its own value keeps it.
+    applyBaselineSecurityHeaders(res.headers);
 
     const outHeaders = {};
     res.headers.forEach((v, k) => {

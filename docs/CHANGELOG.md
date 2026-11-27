@@ -6,8 +6,15 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-27
 
+**Added**
+
+- `svelte/creative` wire the Image Editor canvas studio into the app shell (#380)
+
 **Fixed**
 
+- `security` restore baseline response headers the Svelte cutover dropped
+- `svelte/editor` remove the Run console wired to the headless doc endpoint
+- `security` redact every persisted telemetry sink through one redactor (#381)
 - `ui` render real MCP toolCount and normalize Finder Copy path (#375)
 
 ## 2026-11-26

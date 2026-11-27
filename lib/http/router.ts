@@ -239,5 +239,9 @@ export async function dispatchMsoRequest(rawReq: Request, rootDir = process.cwd(
     copyProxyResponseHeaders(staticRes.headers, proxyRes);
     return staticRes;
   }
-  return new NextResponse("Not Found", { status: 404 });
+  // A miss must not be cached: Cloudflare stores the 404 with its own Browser Cache
+  // TTL, and the next probe then reads it as "Retrieved from Cache" (ZAP 10050).
+  const miss = new NextResponse("Not Found", { status: 404, headers: { "cache-control": "no-store" } });
+  copyProxyResponseHeaders(miss.headers, proxyRes);
+  return miss;
 }
