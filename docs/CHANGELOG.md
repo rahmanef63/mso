@@ -6,8 +6,17 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-11-27
 
+**Added**
+
+- `svelte/creative` wire the Image Editor canvas studio into the app shell (#380)
+
 **Fixed**
 
+- `proxy` send Permissions-Policy on the cockpit document (ZAP 10063)
+- `svelte/creative` Media Studio asset form threw on number-bound duration
+- `svelte/files` finish the interrupted Files Manager refactor
+- `svelte/editor` remove the Run console wired to the headless doc endpoint
+- `security` redact every persisted telemetry sink through one redactor (#381)
 - `ui` render real MCP toolCount and normalize Finder Copy path (#375)
 
 ## 2026-11-26
