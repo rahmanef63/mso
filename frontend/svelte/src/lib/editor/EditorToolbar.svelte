@@ -7,9 +7,6 @@
     barMode,
     isMarkdown,
     showPreview,
-    canRun,
-    running,
-    consoleOpen,
     onPathInput,
     onOpenSubmit,
     onToggleExplorer,
@@ -19,8 +16,6 @@
     onToggleFind,
     onToggleGoto,
     onTogglePreview,
-    onRun,
-    onToggleConsole,
   }: {
     pathInput: string;
     loading: boolean;
@@ -29,9 +24,6 @@
     barMode: "find" | "goto" | null;
     isMarkdown: boolean;
     showPreview: boolean;
-    canRun: boolean;
-    running: boolean;
-    consoleOpen: boolean;
     onPathInput: (value: string) => void;
     onOpenSubmit: () => void;
     onToggleExplorer: () => void;
@@ -41,8 +33,6 @@
     onToggleFind: () => void;
     onToggleGoto: () => void;
     onTogglePreview: () => void;
-    onRun: () => void;
-    onToggleConsole: () => void;
   } = $props();
 
   function handleSubmit(event: SubmitEvent): void {
@@ -83,8 +73,6 @@
     {#if isMarkdown}
       <button type="button" class="tb-btn" class:active={showPreview} aria-pressed={showPreview} onclick={onTogglePreview}>Preview</button>
     {/if}
-    <button type="button" class="tb-btn" disabled={!canRun || running} onclick={onRun}>Run</button>
-    <button type="button" class="tb-btn" class:active={consoleOpen} aria-pressed={consoleOpen} onclick={onToggleConsole}>Console</button>
   </div>
 </header>
 

@@ -122,7 +122,7 @@ For production static serving without Vite, build once (`bun run svelte:build`) 
 | docs | **Complete (Inc. 4B):** safe structured `GET /api/changelog` parser (zero `{@html}`) + filter + Quick Reference tab |
 | extensions | **Complete (Inc. 4C):** Modular Features (`GET /api/v1/features`) + Owner-only Skills & Recipes (`GET /api/skills`) with trust badges |
 | files-manager (`files`) | **Complete (Inc. 3-5):** `fs/list`, parent traversal, `fs/read`, `fs/write`, `fs/mkdir`, `fs/delete` 2-step confirm, `FilesOpsPanel` Search/Copy/Move UI, and 5-shell presentations (`finder`, `explorer`, `ios-files`, `android-files`, `dashboard`) |
-| image-editor | **Complete (Inc. 4E):** `/api/v1/fs/raw` loader, Brightness/Contrast/Saturation sliders, Rotate 90, Flip H/V, Reset, Canvas PNG & JSON export |
+| image-editor | **Complete (Inc. 4E + studio):** `/api/v1/fs/raw` loader, canvas studio with multi-layer stack (image/drawing/text/shape), Select/Crop/Brush/Eraser/Text/Shape tools, 9 tone sliders, 8 filter presets, undo/redo with `Ctrl/Cmd+Z` shortcuts, zoom Fit/50/100/200, PNG/JPEG/WebP export with quality slider and `/api/v1/fs/write` save to VPS |
 | pickers (icon + image) | **Complete (Inc. 4D):** searchable 24-icon curated catalog + live `GET /api/v1/stock/search` image grid inside `PickersApp.svelte` |
 | infrastructure (`infra`) | **Complete (Inc. 4C):** Owner-only `GET /api/v1/infra/providers`, single `convex` provider canonicalization, zero secret rendering |
 | integrations | **Complete (Inc. 4B):** Owner-only `GET /api/v1/integrations`, single `convex` provider canonicalization, zero secret rendering |
