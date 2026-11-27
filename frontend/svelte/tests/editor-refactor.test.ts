@@ -4,8 +4,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  baseName, defaultRunCommand, isMarkdownFile, joinFsPath,
-  lineColFromOffset, offsetForLine, parentDir, runEditorFile,
+  baseName, isMarkdownFile, joinFsPath,
+  lineColFromOffset, offsetForLine, parentDir,
 } from "../src/lib/editor/editor-api.ts";
 import {
   findMatches, replaceAllMatches, replaceMatchAt, tokenizeLines,
@@ -15,7 +15,7 @@ import { createMultiTabEditor, type MultiTabState } from "../src/lib/editor/edit
 
 const EDITOR_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/lib/editor");
 
-test("path, cursor, markdown detection, and default run command helpers", () => {
+test("path, cursor, and markdown detection helpers", () => {
   assert.equal(baseName("/home/demo/app.ts"), "app.ts");
   assert.equal(baseName("~/notes/"), "notes");
   assert.equal(parentDir("/home/demo/app.ts"), "/home/demo");
@@ -31,11 +31,6 @@ test("path, cursor, markdown detection, and default run command helpers", () => 
   assert.equal(offsetForLine(sample, 1), 0);
   assert.equal(offsetForLine(sample, 2), 6);
   assert.equal(offsetForLine(sample, 99), 12);
-
-  assert.equal(defaultRunCommand("~/a.py", "Python"), "python3 ~/a.py");
-  assert.equal(defaultRunCommand("~/a.sh", "Shell"), "sh ~/a.sh");
-  assert.equal(defaultRunCommand("~/a.ts", "TypeScript"), "bun ~/a.ts");
-  assert.equal(defaultRunCommand("~/a.js", "JavaScript"), "node ~/a.js");
 });
 
 test("multi-tab editor opens, switches, tracks aggregate dirty state, guards close, and restores snapshot", async () => {
@@ -169,35 +164,18 @@ test("markdown parser builds safe structured blocks and rejects unsafe link sche
   assert.ok(parseMdInlines("*italic*").some((i) => i.kind === "italic" && i.text === "italic"));
 });
 
-test("runEditorFile posts to /api/v1/editor/exec and handles stdout, stderr, and permission errors", async () => {
-  const signal = new AbortController().signal;
-  let capturedUrl = "";
-  let capturedBody: Record<string, unknown> = {};
-
-  const ok = await runEditorFile(
-    { path: "/home/demo/app.ts", language: "TypeScript", content: "console.log(1)" },
-    signal,
-    async (input, init) => {
-      capturedUrl = String(input);
-      assert.equal(init?.method, "POST");
-      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
-      return Response.json({ stdout: "1\n", stderr: "", exitCode: 0 });
-    },
-  );
-  assert.equal(capturedUrl, "/api/v1/editor/exec");
-  assert.equal(capturedBody.path, "/home/demo/app.ts");
-  assert.equal(ok.ok, true);
-  assert.equal(ok.exitCode, 0);
-  assert.equal(ok.stdout, "1\n");
-
-  const forbidden = await runEditorFile(
-    { path: "/home/demo/app.ts", language: "TypeScript", content: "" },
-    signal,
-    async () => Response.json({ error: "forbidden" }, { status: 403 }),
-  );
-  assert.equal(forbidden.ok, false);
-  assert.equal(forbidden.exitCode, 403);
-  assert.match(forbidden.error ?? "", /Permission denied/i);
+test("editor slice never posts to the headless image-doc endpoint", () => {
+  // /api/v1/editor/exec is the image-editor doc command registry: it JSON.parses the
+  // target file, and a non-JSON file is refused while a missing one is seeded with a
+  // blank canvas doc. Pointing the code editor's Run at it both reported the wrong
+  // thing (exit 0, no stdout) and offered to clobber the open file. The editor must
+  // reach the host only through fs/read and fs/write.
+  const files = readdirSync(EDITOR_DIR).filter((f) => /\.(ts|svelte)$/.test(f));
+  for (const file of files) {
+    const text = readFileSync(path.join(EDITOR_DIR, file), "utf8");
+    assert.equal(text.includes("/api/v1/editor/exec"), false, `${file} must not call the headless doc endpoint`);
+    assert.equal(/\/api\/v1\/exec\/run/.test(text), false, `${file} must not shell out from the editor window`);
+  }
 });
 
 test("hard repo gates hold across all editor slice files", () => {

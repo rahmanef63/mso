@@ -99,7 +99,7 @@
     get sortField() { return sortField; }, set sortField(v) { sortField = v; },
     get sortDir() { return sortDir; }, set sortDir(v) { sortDir = v; },
     get newFolderInput() { return newFolderInput; }, get editorEl() { return editorEl; },
-    get controller() { return controller; }, winId, navigateHref: setWinState,
+    get controller() { return controller; }, get winId() { return winId; }, navigateHref: setWinState,
   });
 
   const {
@@ -130,10 +130,10 @@
   });
 </script>
 
-<!-- List rows, rename inputs, and delete confirmations render through FilesEntryPane. -->
-<!-- Row activation hooks stay here for E2E selectors: data-entry-open, data-delete-entry. -->
-<!-- Header action labels: "New folder", "Edit", "Save", "Confirm delete". -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- List rows, rename inputs and delete confirmations render through FilesEntryPane. -->
+<!-- Row activation hooks stay for E2E: data-entry-open, data-delete-entry. Header actions: "New folder", "Edit", "Save", "Confirm delete". -->
+<!-- The section only dismisses popovers on a stray click; Escape lives on the focused child. -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_click_events_have_key_events -->
 <section class={`files-shell is-${variant}`} aria-labelledby={`${uid}-title`} aria-busy={view.kind === "loading" || (view.kind === "ready" && view.busy)} data-files-state={view.kind} data-files-variant={variant} data-shell-family={design.family} onclick={() => { openMenuName = null; }} ondragover={handleDragOver} ondragleave={handleDragLeave} ondrop={handleDrop}>
   <h2 id={`${uid}-title`} class="sr-only">Files ({variant})</h2>
 <FilesChromeHeader {uid} {variant} path={view.path} {folderTitle} {pathSegments} canGoParent={view.kind === "ready" && Boolean(view.parent)} loading={view.kind === "loading"} busy={view.kind === "ready" && view.busy} {viewMode} previewOpen={view.kind === "ready" && view.preview.kind !== "idle"} bind:filterText bind:sidebarOpen {creatingFolder} onGoParent={() => void
