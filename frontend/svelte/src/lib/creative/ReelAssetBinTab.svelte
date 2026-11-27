@@ -23,7 +23,7 @@
 
   let titleInput = $state("");
   let pathInput = $state("");
-  let durationInput = $state("5");
+  let durationInput = $state<number | string>(5);
   let captionInput = $state("");
   let stockQuery = $state("");
   let stockLoading = $state(false);
@@ -42,7 +42,7 @@
     });
     titleInput = "";
     pathInput = "";
-    durationInput = "5";
+    durationInput = 5;
     captionInput = "";
   }
 
