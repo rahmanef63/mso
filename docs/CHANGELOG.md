@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `proxy` send Permissions-Policy on the cockpit document (ZAP 10063)
+- `ui` render real MCP toolCount and normalize Finder Copy path (#375)
 
 ## 2026-11-26
 
@@ -18,6 +18,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `settings` render all phases of an MCP activity call
+- `mcp` complete OAuth in a separate callback navigation
 - `settings` load MCP status independently of recent activity
 
 **Tests**
@@ -26,6 +28,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Other**
 
+- Review/apple shell on f4347890 (#373)
 - Merge Apple OS Shell v2 and Finder fixes (#368)
 
 ## 2026-11-25

@@ -18,11 +18,15 @@ const TIERS: { value: Scope; label: string; blurb: string }[] = [
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-function htmlPage(title: string, body: string, status = 200): NextResponse {
-  const doc = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#0b0f17;color:#f3f4f6;display:grid;min-height:100dvh;place-items:center;padding:16px}.card{width:100%;max-width:440px;border:1px solid #1f2937;border-radius:16px;background:#111827;padding:24px;box-shadow:0 20px 25px -5px rgba(0,0,0,.5)}h1{font-size:18px;margin:0 0 8px}p{font-size:13px;color:#9ca3af;line-height:1.5;margin:8px 0}.box{border:1px solid #1f2937;background:#0b0f17;border-radius:8px;padding:12px;font-size:12px;margin:14px 0}.mono{font-family:ui-monospace,monospace;word-break:break-all;color:#e5e7eb;margin-top:4px}fieldset{border:0;padding:0;margin:14px 0}legend{font-size:13px;font-weight:600;margin-bottom:8px}.tier{display:flex;gap:10px;border:1px solid #1f2937;border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer}.actions{display:flex;gap:8px;margin-top:16px}button,.btn{flex:1;display:inline-flex;justify-content:center;align-items:center;min-height:40px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;border:1px solid #374151;background:#2563eb;color:#fff}.btn-secondary{background:transparent;color:#d1d5db}a{color:#60a5fa}</style></head><body><main id="main-content" class="card">${body}</main></body></html>`;
+function htmlPage(title: string, body: string, status = 200, callback?: string): NextResponse {
+  // Chromium can block a cross-origin redirect chained from a form with
+  // form-action 'self'. A fresh document ends that chain without relaxing CSP.
+  // The URL comes only from approve(), which validates the callback and issuer.
+  const handoff = callback ? `<meta http-equiv="refresh" content="1; url=${esc(callback)}">` : "";
+  const doc = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>${handoff}<style>body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#0b0f17;color:#f3f4f6;display:grid;grid-template-columns:minmax(0,1fr);min-height:100dvh;box-sizing:border-box;place-items:center;padding:16px}.card{box-sizing:border-box;width:100%;max-width:440px;min-width:0;border:1px solid #1f2937;border-radius:16px;background:#111827;padding:24px;box-shadow:0 20px 25px -5px rgba(0,0,0,.5)}h1{font-size:18px;margin:0 0 8px}p{font-size:13px;color:#9ca3af;line-height:1.5;margin:8px 0}.box{border:1px solid #1f2937;background:#0b0f17;border-radius:8px;padding:12px;font-size:12px;margin:14px 0}.mono{font-family:ui-monospace,monospace;word-break:break-all;color:#e5e7eb;margin-top:4px}fieldset{border:0;padding:0;margin:14px 0}legend{font-size:13px;font-weight:600;margin-bottom:8px}.tier{display:flex;gap:10px;border:1px solid #1f2937;border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer}.actions{display:flex;gap:8px;margin-top:16px}button,.btn{flex:1;display:inline-flex;justify-content:center;align-items:center;min-height:40px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;border:1px solid #374151;background:#2563eb;color:#fff}.btn-secondary{background:transparent;color:#d1d5db}a{color:#60a5fa}</style></head><body><main id="main-content" class="card">${body}</main></body></html>`;
   return new NextResponse(doc, {
     status,
-    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" },
   });
 }
 
@@ -118,5 +122,10 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (!result.ok) {
     return htmlPage("Authorization refused", `<h1>Authorization refused</h1><p role="alert">${esc(result.error)}</p>`, 400);
   }
-  return NextResponse.redirect(result.redirectTo, 303);
+  return htmlPage(
+    "Authorization approved",
+    `<h1>Authorization approved</h1><p>Returning to the app that requested access. If it does not open automatically, select Continue.</p><div class="actions"><a class="btn" href="${esc(result.redirectTo)}" rel="noreferrer">Continue</a></div>`,
+    200,
+    result.redirectTo,
+  );
 }

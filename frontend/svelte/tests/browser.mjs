@@ -48,7 +48,7 @@ const backend = createServer(async (req, res) => {
     mcpStatusRequests++;
     if (!mcpStatusAvailable) res.statusCode = 503;
     res.end(JSON.stringify(mcpStatusAvailable
-      ? { enabled: true, maxScope: "read", toolset: { count: 2 }, tokens: [] }
+      ? { enabled: true, maxScope: "read", toolset: { toolCount: 61, version: "2026.11.16.1" }, tokens: [] }
       : { error: "MCP status temporarily unavailable." }));
   }
   else if (url.pathname === "/api/mcp/activity" && req.method === "GET") {
@@ -56,7 +56,10 @@ const backend = createServer(async (req, res) => {
       heldMcpActivity = res;
       return;
     }
-    res.end(JSON.stringify({ entries: [] }));
+    res.end(JSON.stringify({ entries: [
+      { id: "fixture-shared-call", tool: "sys_stats", state: "completed", ts: "2026-11-22T00:00:00.000Z" },
+      { id: "fixture-shared-call", tool: "sys_stats", state: "started", ts: "2026-11-22T00:00:00.000Z" },
+    ] }));
   }
   else if (url.pathname === "/api/v1/sys/stats") res.end(JSON.stringify(stats));
   else if (url.pathname === "/api/v1/workflows") res.end(JSON.stringify(url.searchParams.get("runs") === "1" ? { runs: [], total: 0 } : workflows));
@@ -106,6 +109,11 @@ try {
     ]);
     const mcp = page.locator(".mcp-section");
     await mcp.getByRole("heading", { name: "MCP Server Status" }).waitFor({ timeout: 4_000 });
+    // Regression guard: the fixture must serve the real backend shape (toolCount),
+    // and the Toolset row must render it. A legacy-only `count` field hid a live
+    // "0 tools" defect while this suite stayed green.
+    await mcp.getByText("61 tools", { exact: false }).waitFor({ timeout: 4_000 });
+    assert.ok(!(await mcp.locator("dl.metric-grid").innerText()).includes("0 tools"), "Toolset rendered 0 tools");
     assert.ok(heldMcpActivity && !heldMcpActivity.writableEnded, "status rendered before activity returned");
     assert.equal(mcpStatusRequests, 1);
     mcpStatusAvailable = false;
@@ -116,7 +124,11 @@ try {
     await mcp.getByRole("button", { name: "Retry" }).click();
     await mcp.getByRole("heading", { name: "MCP Server Status" }).waitFor();
     assert.equal(mcpStatusRequests, 3);
-    console.log("PASS Settings MCP: status independent of activity; refresh and retry read status");
+    const activity = mcp.getByRole("table", { name: "Recent MCP tool calls" });
+    await activity.getByRole("cell", { name: "completed", exact: true }).waitFor();
+    await activity.getByRole("cell", { name: "started", exact: true }).waitFor();
+    assert.equal(await activity.getByRole("cell", { name: "sys_stats", exact: true }).count(), 2);
+    console.log("PASS Settings MCP: status independent of activity; same-ID activity phases both render");
 
     await page.close();
     mode = "ready";

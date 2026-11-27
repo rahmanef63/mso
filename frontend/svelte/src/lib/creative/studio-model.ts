@@ -41,6 +41,15 @@ export function createProjectAsset(
   };
 }
 
+// bind:value on <input type="number"> yields a number, so callers cannot assume a string.
+export function parseDurationInput(raw: string | number | null | undefined): number | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  const text = String(raw).trim();
+  if (text === "") return undefined;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
 export function duplicateStudioAsset(asset: StudioProjectAsset): StudioProjectAsset {
   const fresh = createStudioAsset(asset.path, asset.durationSec);
   return {

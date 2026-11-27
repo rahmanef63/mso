@@ -9,6 +9,7 @@
     createProjectAsset,
     duplicateStudioAsset,
     filterStudioAssets,
+    parseDurationInput,
     removeTagFromAsset,
     summarizeStudioBatch,
     type StudioKindFilter,
@@ -34,7 +35,7 @@
   let viewMode = $state<StudioViewMode>("grid");
   let showVpsBrowser = $state(false);
   let pathInput = $state("");
-  let durationInput = $state("5");
+  let durationInput = $state<number | string>(5);
   let notice = $state<{ tone: "ok" | "error"; text: string } | null>(null);
 
   let summary = $derived(summarizeStudioBatch(assets));
@@ -50,7 +51,7 @@
       notice = { tone: "error", text: "Enter a host media path to add to the project." };
       return;
     }
-    const parsed = durationInput.trim() === "" ? undefined : Number(durationInput);
+    const parsed = parseDurationInput(durationInput);
     try {
       const created = createProjectAsset(trimmed, parsed);
       assets = [...assets, created];

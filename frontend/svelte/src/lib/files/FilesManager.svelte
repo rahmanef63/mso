@@ -3,6 +3,7 @@
   import { syncFilesMobileNav } from "./files-nav.ts";
   import { createFilesActions } from "./files-actions.ts";
   import { joinFsPath, type FilesState } from "./files-controller.ts";
+  import { normalizeViewMode } from "./files-select-actions.ts";
   import { mountFilesWorkspace } from "./files-mount.ts";
   import { fetchFsUsage, type FsUsageInfo, type UploadProgressState } from "./files-extended-api.ts";
   import {
@@ -51,15 +52,15 @@
   let newFolderInput = $state<HTMLInputElement | undefined>(undefined);
   let editorEl = $state<HTMLTextAreaElement | undefined>(undefined);
   let uploadBar = $state<{ openPicker: () => void } | undefined>(undefined);
-
   let filteredEntries = $derived.by(() => (view.kind === "ready"
     ? filterAndSortEntries(view.entries, { query: filterText, showHidden, sort: { field: sortField, dir: sortDir } })
     : []));
   let pathSegments = $derived(buildPathSegments(view.path, view.kind === "ready" ? view.roots : []));
   let folderTitle = $derived(pathSegments.at(-1)?.label ?? "Files");
   let parentTitle = $derived(pathSegments.length > 1 ? pathSegments.at(-2)?.label ?? "Files" : "Home");
-  let isDirty = $derived(editing && view.kind === "ready" && view.preview.kind === "ready"
-    && view.preview.path === editPath && draft !== view.preview.content);
+  // Batch actions only see on-screen rows: a filter can hide a checked entry.
+  let visibleSelection = $derived(new Set([...selectedNames].filter((n) => filteredEntries.some((e) => e.name === n))));
+  let isDirty = $derived(editing && view.kind === "ready" && view.preview.kind === "ready" && view.preview.path === editPath && draft !== view.preview.content);
 
   $effect(() => {
     onDirtyChange?.(isDirty);
@@ -73,9 +74,8 @@
     }));
   });
 
-
   const actions = createFilesActions({
-    get view() { return view; }, get selectedNames() { return selectedNames; },
+    get view() { return view; }, get selectedNames() { return visibleSelection; },
     set selectedNames(v) { selectedNames = v; }, get selectedName() { return selectedName; },
     set selectedName(v) { selectedName = v; },
     get filteredEntries() { return filteredEntries; },
@@ -99,7 +99,7 @@
     get sortField() { return sortField; }, set sortField(v) { sortField = v; },
     get sortDir() { return sortDir; }, set sortDir(v) { sortDir = v; },
     get newFolderInput() { return newFolderInput; }, get editorEl() { return editorEl; },
-    get controller() { return controller; }, winId, navigateHref: setWinState,
+    get controller() { return controller; }, get winId() { return winId; }, navigateHref: setWinState,
   });
 
   const {
@@ -113,7 +113,7 @@
     const mounted = mountFilesWorkspace(
       { winId, initialPath, loadUsage, onState: (next) => { view = next; }, onPath: (p) => onPathChange?.(p) },
       {
-        get view() { return view; }, get viewMode() { return viewMode; }, set viewMode(v) { viewMode = v; },
+        get view() { return view; }, get viewMode() { return viewMode; }, set viewMode(v) { viewMode = normalizeViewMode(v); },
         get editing() { return editing; }, set editing(v) { editing = v; },
         get editPath() { return editPath; }, set editPath(v) { editPath = v; },
         get draft() { return draft; }, set draft(v) { draft = v; },
@@ -130,10 +130,10 @@
   });
 </script>
 
-<!-- List rows, rename inputs, and delete confirmations render through FilesEntryPane. -->
-<!-- Row activation hooks stay here for E2E selectors: data-entry-open, data-delete-entry. -->
-<!-- Header action labels: "New folder", "Edit", "Save", "Confirm delete". -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- List rows, rename inputs and delete confirmations render through FilesEntryPane. -->
+<!-- Row activation hooks stay for E2E: data-entry-open, data-delete-entry. Header actions: "New folder", "Edit", "Save", "Confirm delete". -->
+<!-- The section only dismisses popovers on a stray click; Escape lives on the focused child. -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_click_events_have_key_events -->
 <section class={`files-shell is-${variant}`} aria-labelledby={`${uid}-title`} aria-busy={view.kind === "loading" || (view.kind === "ready" && view.busy)} data-files-state={view.kind} data-files-variant={variant} data-shell-family={design.family} onclick={() => { openMenuName = null; }} ondragover={handleDragOver} ondragleave={handleDragLeave} ondrop={handleDrop}>
   <h2 id={`${uid}-title`} class="sr-only">Files ({variant})</h2>
 <FilesChromeHeader {uid} {variant} path={view.path} {folderTitle} {pathSegments} canGoParent={view.kind === "ready" && Boolean(view.parent)} loading={view.kind === "loading"} busy={view.kind === "ready" && view.busy} {viewMode} previewOpen={view.kind === "ready" && view.preview.kind !== "idle"} bind:filterText bind:sidebarOpen {creatingFolder} onGoParent={() => void
@@ -159,8 +159,8 @@
     {#if zipTargets && zipTargets.length > 0}<FilesZipPanel {uid} basePath={ready.path} names={zipTargets} onClose={() => { zipTargets = null; }} />{/if}
     {#if !(isMobileVariant && ready.preview.kind !== "idle")}
       <FilesOpsPanel currentPath={ready.path} onOpenResult={handleOpenResult} onMutated={() => void controller?.refresh()} />
-<FilesSortBar {uid} {variant} currentPath={ready.path} busy={ready.busy} {sortField} {sortDir} {showHidden} bind:filterText totalCount={filteredEntries.length} selectedCount={selectedNames.size} onSortField={(f) => { sortField = f; }} onToggleSortDir={() => { sortDir = sortDir === "asc" ? "desc" : "asc"; }} onToggleHidden={() => { showHidden = !showHidden; }}
-        onSelectAll={toggleSelectAll} onClearSelection={() => { selectedNames = new Set(); }} onBatchTransfer={(m, d) => void handleBatchTransfer(m, d)} onBatchZip={() => { zipTargets = [...selectedNames]; }} onBatchDelete={() => void handleBatchDelete()} />
+<FilesSortBar {uid} {variant} currentPath={ready.path} busy={ready.busy} {sortField} {sortDir} {showHidden} bind:filterText totalCount={filteredEntries.length} selectedCount={visibleSelection.size} onSortField={(f) => { sortField = f; }} onToggleSortDir={() => { sortDir = sortDir === "asc" ? "desc" : "asc"; }} onToggleHidden={() => { showHidden = !showHidden; }}
+        onSelectAll={toggleSelectAll} onClearSelection={() => { selectedNames = new Set(); }} onBatchTransfer={(m, d) => void handleBatchTransfer(m, d)} onBatchZip={() => { zipTargets = [...visibleSelection]; }} onBatchDelete={() => void handleBatchDelete()} />
     {/if}
 
     <div class="files-body" class:has-sidebar={variant === "finder" || variant === "explorer"}>
@@ -205,6 +205,6 @@
         {/if}
       </div>
     </div>
-    <FilesChromeParts mode="footer" {variant} currentPath={ready.path} parent={ready.parent} {parentTitle} {pathSegments} itemCount={filteredEntries.length} selectedCount={selectedNames.size} {selectedName} {diskUsage} {usageLoading} onRefreshUsage={() => void loadUsage(ready.path)} onNavigate={navigateTo} onGoParent={() => void controller?.goParent()} />
+    <FilesChromeParts mode="footer" {variant} currentPath={ready.path} parent={ready.parent} {parentTitle} {pathSegments} itemCount={filteredEntries.length} selectedCount={visibleSelection.size} {selectedName} {diskUsage} {usageLoading} onRefreshUsage={() => void loadUsage(ready.path)} onNavigate={navigateTo} onGoParent={() => void controller?.goParent()} />
   {/if}
 </section>

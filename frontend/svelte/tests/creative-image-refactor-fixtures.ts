@@ -59,6 +59,10 @@ export const imageEditorFiles = [
   "ImageEditorExportModal.svelte",
   "image-editor-types.ts",
   "image-editor-state.ts",
+  "image-editor-session.svelte.ts",
+  "image-editor-controller.svelte.ts",
+  "image-editor-layer-ops.ts",
+  "image-editor-keys.ts",
   "image-editor-render.ts",
   "image-editor-export.ts",
 ];

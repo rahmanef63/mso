@@ -141,11 +141,16 @@ export async function settingsAccessibilityJourney(page, base) {
 }
 
 export async function oauthRegistrationJourney(page, fixture) {
-  const callback = fixture.base + "/oauth-fixture-callback", verifier = "v".repeat(43);
+  // Exercise a real cross-origin navigation; same-origin callbacks miss a
+  // Chromium form-action failure after the authorization POST.
+  const callback = "https://oauth-callback.invalid/oauth-fixture-callback", verifier = "v".repeat(43);
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const consent = (clientId, redirectUri = callback) => fixture.base + "/oauth/authorize?" + new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, code_challenge: challenge, code_challenge_method: "S256", resource: fixture.base + "/mcp", state: "fixture-state", scope: "read" });
   // The synthetic OAuth client must receive the callback instead of mounting the MSO shell.
-  const receiveCallback = route => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>OAuth fixture callback</title>" });
+  const receiveCallback = async route => {
+    expect(await route.request().headerValue("referer")).toBeNull();
+    await route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>OAuth fixture callback</title>" });
+  };
   await page.route(callback + "?*", receiveCallback);
   try {
   for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
@@ -164,7 +169,15 @@ export async function oauthRegistrationJourney(page, fixture) {
     await expect(page.getByRole("heading", { name: "Connect Security fixture to your VPS" })).toBeVisible();
     await page.getByRole("radio", { name: /^Read only/ }).check();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    const approval = page.waitForResponse(response =>
+      response.url() === fixture.base + "/oauth/authorize" && response.request().method() === "POST");
     await page.getByRole("button", { name: "Allow", exact: true }).click();
+    const approved = await approval;
+    expect(approved.status()).toBe(200);
+    expect(await approved.headerValue("cache-control")).toContain("no-store");
+    expect(await approved.headerValue("referrer-policy")).toBe("no-referrer");
+    expect(await approved.headerValue("content-security-policy")).toContain("form-action 'self'");
+    expect(await approved.text()).toContain(">Continue</a>");
     await expect(page).toHaveURL(new RegExp("/oauth-fixture-callback\\?code="));
     const url = new URL(page.url()); expect(url.searchParams.get("state")).toBe("fixture-state");
     const exchanged = await page.request.post(fixture.base + "/oauth/token", { form: { grant_type: "authorization_code", code: url.searchParams.get("code"), code_verifier: verifier, client_id: clientId, redirect_uri: callback, resource: fixture.base + "/mcp" } });

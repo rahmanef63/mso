@@ -47,6 +47,9 @@
   }
 </script>
 
+<!-- The wrapper is a composite of one trigger button and one popup; Escape is
+     handled at the wrapper so it works whichever child holds focus. -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="entry-menu-wrap" onkeydown={onMenuKeydown}>
   <button
     type="button"
@@ -79,9 +82,7 @@
           Download
         </a>
       {/if}
-      <button type="button" class="menu-item" onclick={() => runAction(onZip)}>
-        {entry.kind === "dir" ? "Download as Zip" : "Zip archive"}
-      </button>
+      <button type="button" class="menu-item" onclick={() => runAction(onZip)}>Download as Zip</button>
       <button type="button" class="menu-item danger" onclick={() => runAction(onDelete)}>Delete</button>
     </div>
   {/if}
