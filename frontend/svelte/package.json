@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "test:browser": "node tests/browser.mjs && node tests/t3-workspace.browser.mjs",
+    "test:browser": "node tests/browser.mjs && node tests/t3-workspace.browser.mjs && node tests/creative-image-editor.browser.mjs",
     "test:rust-host": "node tests/rust-host-smoke.mjs",
     "perf:probe": "node tests/perf-probe.mjs"
   },
