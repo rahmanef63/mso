@@ -28,6 +28,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `security` assert the audit trail redacts real credentials, not benign text (#388)
 
+**Docs**
+
+- `progress` record the branch and PR consolidation triage (#402)
+
 **CI**
 
 - `codeql` never cancel a main analysis, which Scorecard counts as unscanned (#392)
