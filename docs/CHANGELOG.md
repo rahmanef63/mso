@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `svelte/settings` browser backup for the four keys v2 still reads (#400)
 - `svelte/creative` drag trim handles on the reel timeline (#386)
 - `svelte/editor` restore the integrated terminal the legacy IDE had (#390)
 
