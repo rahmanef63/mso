@@ -15,7 +15,8 @@ test("manual update sends only the intended operation and validates the server r
   for (const [action, body] of [
     ["check", { action: "check" }], ["update", { rebuildOnly: false }], ["rebuild", { rebuildOnly: true }],
   ] as const) {
-    const state = await requestSoftwareUpdate(action, signal, async (input, init) => {
+    const state = await requestSoftwareUpdate(action, signal, async function (this: unknown, input, init) {
+      assert.equal(this, undefined);
       assert.equal(String(input), "/api/v1/sys/update");
       assert.equal(init?.method, "POST");
       assert.equal(init?.credentials, "same-origin");

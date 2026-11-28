@@ -152,7 +152,7 @@ export async function requestSoftwareUpdate(
 ): Promise<SoftwareUpdateStatus> {
   const body = action === "check" ? { action } : { rebuildOnly: action === "rebuild" };
   return parseUpdateStatus(await requestJson("/api/v1/sys/update", {
-    method: "POST", body, signal, fetcher, bridge, label: "software update", timeoutMs: 60_000,
+    method: "POST", body, signal, fetcher: (...args) => fetcher(...args), bridge, label: "software update", timeoutMs: 60_000,
   }));
 }
 
