@@ -190,6 +190,7 @@ test("all Reel Editor and Media Studio files comply with repo hard gates", () =>
     "ReelProjectBar.svelte",
     "ReelStagePreview.svelte",
     "ReelTimeline.svelte",
+    "ReelTrimHandle.svelte",
     "ReelAudioLane.svelte",
     "ReelInspectorBin.svelte",
     "ReelAssetBinTab.svelte",

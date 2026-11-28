@@ -9,6 +9,7 @@
     type ReelTimelineClip,
   } from "./reel-model.ts";
   import ReelAudioLane from "./ReelAudioLane.svelte";
+  import ReelTrimHandle from "./ReelTrimHandle.svelte";
 
   type Props = {
     clips: readonly ReelTimelineClip[];
@@ -26,6 +27,7 @@
     onDuplicateClip: (id: string) => void;
     onReorderClip: (index: number, delta: number) => void;
     onDeleteClip: (id: string) => void;
+    onTrimCommit: (id: string, trimInSec: number, trimOutSec: number) => void;
     onTransitionChange: (id: string, transition: ClipTransition) => void;
     onAddCaptionAtPlayhead: () => void;
     onDeleteCaption: (id: string) => void;
@@ -48,6 +50,7 @@
     onDuplicateClip,
     onReorderClip,
     onDeleteClip,
+    onTrimCommit,
     onTransitionChange,
     onAddCaptionAtPlayhead,
     onDeleteCaption,
@@ -133,6 +136,7 @@
                   </select>
                 {/if}
                 <div class="clip-block" class:selected={selectedClipId === clip.id}>
+                  <ReelTrimHandle edge="in" clipId={clip.id} clipTitle={clip.title} durationSec={dur} trimInSec={clip.trimInSec} trimOutSec={clip.trimOutSec} {onTrimCommit} />
                   <button type="button" class="clip-select" onclick={() => onSelectClip(clip.id)}>
                     <span class="clip-name">{index + 1}. {clip.title}</span>
                     <span class="clip-dur">{dur}s{clip.trimInSec || clip.trimOutSec ? " trimmed" : ""}</span>
@@ -142,6 +146,7 @@
                     <button type="button" aria-label="Move {clip.title} right" disabled={index === clips.length - 1} onclick={() => onReorderClip(index, 1)}>&gt;</button>
                     <button type="button" class="danger" aria-label="Delete {clip.title}" onclick={() => onDeleteClip(clip.id)}>x</button>
                   </div>
+                  <ReelTrimHandle edge="out" clipId={clip.id} clipTitle={clip.title} durationSec={dur} trimInSec={clip.trimInSec} trimOutSec={clip.trimOutSec} {onTrimCommit} />
                 </div>
               </div>
             {/each}
