@@ -68,9 +68,37 @@ surfaced as a 404 console error in the multi-window check. The fixture now answe
 `data` event, because an immediate close is a transport error by design: the drawer
 reaches `data-terminal-state="connected"` and renders `$ echo fixture`.
 
-Measured on the macOS shell at 1440x900: drawer top 375, bottom 727, height 352,
-editor root bottom 765, so the drawer sits inside the window with the status bar
-below it.
+## Height budget: the regression the first pass missed
+
+The first pass only measured 1440x900, where a fixed `min-height: 19.5rem` happens to fit.
+At 1280x620 the drawer bottom was 610 against a window body bottom of 485: it hung 125px
+outside its own frame, with the prompt and Close button out of reach.
+
+Three things stacked up to overflow:
+
+| Cause | Measured |
+|---|---|
+| `.editor-terminal` `min-height: 19.5rem` beat `max-height: 70%` | 312px floor in a 366px body |
+| `.workspace-split` `min-height: 6rem` never yielded | code band refused to shrink |
+| `TerminalPane` repeats chrome the drawer already renders | `.pane-head` pill + Disconnect, `.keybar` |
+
+Fix: the drawer is `height: min(22rem, 55%)` with `min-height: min(12.5rem, 100%)` and
+`max-height: 60%`, so it can never exceed the window body it lives in. `.ide-main.terminal-open`
+drops the code band floor to `3rem`. The drawer hides `.pane-head` and `.keybar` inside
+`.term-body`, because the drawer head already carries status and Close.
+
+Measured after the fix (drawer inside window, prompt reachable, zero console errors):
+
+| Shell / viewport | drawer height | inside window |
+|---|---|---|
+| macOS 1440x900 | 329 | yes |
+| macOS 1280x620 | 200 | yes |
+| Windows 1024x700 | 249 | yes |
+| Android 390x844 | 200 | yes |
+
+The multi-window journey now re-runs the same assertions after resizing to 1280x620, so a
+fixed drawer floor fails on the size that exposed it rather than only on the roomy one.
+
 
 ## Remaining, not done here
 

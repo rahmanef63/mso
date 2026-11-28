@@ -186,6 +186,30 @@ export async function runShellsAndStateSuite({ chromiumBrowser, vite, fixtureSta
         assert.equal(drawerLayout.insideBody, true, `terminal drawer escapes the window body: ${JSON.stringify(drawerLayout)}`);
         assert.equal(drawerLayout.promptVisible, true, `terminal prompt is clipped by the drawer: ${JSON.stringify(drawerLayout)}`);
         assert.ok(drawerLayout.height >= 120, `terminal drawer collapsed to ${drawerLayout.height}px`);
+
+        // Same assertion in a short window. A hard drawer min-height plus a 6rem code band
+        // exceeded the window body here (drawer bottom 610 vs body 485), so this size is
+        // the one that caught the regression.
+        await pMulti.setViewportSize({ width: 1280, height: 620 });
+        await editorAfter.evaluate((el) => el.getBoundingClientRect());
+        await drawer.waitFor({ state: "visible", timeout: 5_000 });
+        const shortLayout = await drawer.evaluate((el) => {
+          const root = el.closest(".ide-root")?.getBoundingClientRect();
+          const own = el.getBoundingClientRect();
+          const prompt = el.querySelector(".input-row")?.getBoundingClientRect();
+          const body = el.closest(".win-body")?.getBoundingClientRect();
+          return {
+            insideWindow: Boolean(root) && own.bottom <= root.bottom + 1,
+            insideBody: Boolean(body) && own.bottom <= body.bottom + 1,
+            promptVisible: Boolean(prompt) && prompt.bottom <= own.bottom + 1,
+            height: Math.round(own.height),
+          };
+        });
+        assert.equal(shortLayout.insideWindow, true, `short window: drawer escapes the editor window: ${JSON.stringify(shortLayout)}`);
+        assert.equal(shortLayout.insideBody, true, `short window: drawer escapes the window body: ${JSON.stringify(shortLayout)}`);
+        assert.equal(shortLayout.promptVisible, true, `short window: prompt is clipped by the drawer: ${JSON.stringify(shortLayout)}`);
+        await pMulti.setViewportSize({ width: 1440, height: 900 });
+
         await editorAfter.getByRole("button", { name: "Close terminal" }).click();
         await drawer.waitFor({ state: "detached", timeout: 5_000 });
 

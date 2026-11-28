@@ -5,6 +5,9 @@
   .ide-body.with-sidebar { grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr); }
   .ide-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   .workspace-split { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 0; min-height: 6rem; min-width: 0; }
+  /* With the terminal drawer open the editor keeps a smaller code band, otherwise the
+     drawer's floor plus a 6rem workspace exceeds a short window body (1280x620). */
+  .ide-main.terminal-open .workspace-split { min-height: 3rem; }
   .workspace-split.split-active { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .preview-slot { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--border); }
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.65rem; padding: 1.5rem 1rem; text-align: center; color: var(--muted); background: var(--panel-solid); }

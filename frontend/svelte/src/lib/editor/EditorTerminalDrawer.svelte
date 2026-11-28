@@ -29,13 +29,14 @@
 </section>
 
 <style>
-  /* The terminal pane needs ~250px for its head, toolbar, output stage and prompt.
-     Inside a shell window the height budget is the window body, not the viewport, so
-     the drawer takes a clamped share of it and the pane is allowed to shrink. */
+  /* The height budget is the window body, not the viewport. A hard min-height here is what
+     pushed a short window past its own frame (1280x620: drawer bottom 610 vs body 485).
+     The floor is the space the pane really needs once its redundant bands are gone,
+     clamped so it can never exceed the body it lives in. */
   .editor-terminal {
-    display: flex; flex-direction: column; min-height: 19.5rem; min-width: 0;
-    flex: 0 0 auto; height: 22rem; max-height: 70%; overflow: hidden;
-    border-top: 1px solid var(--border); background: var(--panel-solid);
+    display: flex; flex-direction: column; min-width: 0;
+    flex: 0 1 auto; height: min(22rem, 55%); min-height: min(12.5rem, 100%); max-height: 60%;
+    overflow: hidden; border-top: 1px solid var(--border); background: var(--panel-solid);
   }
   .term-head {
     display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
@@ -51,16 +52,19 @@
   /* Scroll as the last resort: a short window must never push the prompt or the
      Close button outside the drawer, and the pane must never be silently cropped. */
   .term-body { flex: 1 1 auto; min-height: 0; min-width: 0; padding: 0.4rem 0.55rem; overflow: auto; }
-  /* The pane is built for a full window. Inside the drawer the body scrolls instead of
-     compressing the output stage to nothing, so the prompt and Close button stay
-     reachable at every window height. */
-  .term-body :global(.pane) { gap: 0.25rem; height: 100%; }
+  /* The pane is built for a full window and repeats chrome the drawer already has:
+     its own status pill + Disconnect sit in the drawer head, and the on-screen keybar
+     is a full-window affordance. Dropping both leaves the search toolbar, the output
+     stage and the prompt inside the drawer's real height budget. */
+  .term-body :global(.pane-head) { display: none; }
+  .term-body :global(.keybar) { display: none; }
+  .term-body :global(.pane) { gap: 0.3rem; height: 100%; }
   .term-body :global(.toolbar) { flex-wrap: nowrap; }
   .term-body :global(.search) { flex: 1 1 4rem; }
-  .term-body :global(.stage) { min-height: 3rem; }
-  .term-body :global(.term-output) { min-height: 2.75rem; }
+  .term-body :global(.stage) { min-height: 2.5rem; }
+  .term-body :global(.term-output) { min-height: 2.25rem; }
   @media (max-width: 40rem) {
-    .editor-terminal { height: clamp(11rem, 45%, 16rem); }
+    .editor-terminal { height: min(16rem, 55%); }
     .term-cwd { max-width: 8rem; }
   }
 </style>

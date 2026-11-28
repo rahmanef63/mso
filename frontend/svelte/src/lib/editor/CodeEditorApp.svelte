@@ -143,7 +143,7 @@
       />
     {/if}
 
-    <div class="ide-main">
+    <div class="ide-main" class:terminal-open={terminalOpen}>
       <TabBar tabs={ws.tabs} activePath={ws.activePath}
         {pendingClosePath} onSelect={(p) => { editor?.selectTab(p); pendingClosePath = null; }} onRequestClose={handleRequestClose} onSaveAndClose={(p) => void handleSaveAndClose(p)} onDiscardClose={(p) => { editor?.closeTab(p, true); pendingClosePath = null; }} onCancelClose={() => { pendingClosePath = null; }} onNewFile={() => handleCreateTab()}
       />
