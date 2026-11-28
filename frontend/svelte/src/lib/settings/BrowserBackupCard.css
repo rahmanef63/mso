@@ -1,0 +1,23 @@
+  .settings-card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    background: var(--panel-solid);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    min-width: 0;
+  }
+  .card-head-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+  .card-heading { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--text); }
+  .status-msg { margin: 0; font-size: 0.875rem; color: var(--muted); }
+  .meta-line { margin: 0; font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }
+  .action-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .confirm-box {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--danger);
+    border-radius: 0.5rem;
+    background: var(--danger-bg);
+  }
+  .confirm-box p { margin: 0; font-size: 0.84rem; color: var(--text); }

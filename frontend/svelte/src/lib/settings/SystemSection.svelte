@@ -1,5 +1,6 @@
 <script lang="ts">
   import "./SystemSection.css";
+  import BrowserBackupCard from "./BrowserBackupCard.svelte";
   import {
     ApiError,
     formatBytes,
@@ -167,6 +168,7 @@
   {:else if loading}
     <p class="status-msg" role="status">Loading system maintenance status...</p>
   {:else}
+    <BrowserBackupCard {role} />
     <div class="settings-card">
       <div class="card-head-row">
         <h3 class="card-heading">Storage Cleanup</h3>

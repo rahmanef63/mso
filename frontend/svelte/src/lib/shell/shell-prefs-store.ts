@@ -86,7 +86,7 @@ export function readLocalShellPrefs(storage?: StorageLike | null): {
   hadStored: boolean;
   corrupt: boolean;
 } {
-  const target = storage === undefined ? getDefaultStorage() : storage;
+  const target = storage === undefined ? getShellStorage() : storage;
   if (!target) return { prefs: { ...DEFAULT_SHELL_PREFS }, hadStored: false, corrupt: false };
   try {
     const raw = target.getItem(SHELL_STORAGE_KEY);
@@ -112,7 +112,7 @@ export function readLocalShellPrefs(storage?: StorageLike | null): {
 }
 
 export function writeLocalShellPrefs(prefs: ShellPrefs, storage?: StorageLike | null): boolean {
-  const target = storage === undefined ? getDefaultStorage() : storage;
+  const target = storage === undefined ? getShellStorage() : storage;
   if (!target) return false;
   try {
     target.setItem(SHELL_STORAGE_KEY, JSON.stringify(normalizeShellPrefs(prefs)));
@@ -280,7 +280,10 @@ export function applyAppearanceToDom(appearance: Partial<AppearanceRuntime>): vo
   }
 }
 
-function getDefaultStorage(): StorageLike | null {
+/** The browser storage these preferences live in, or null when the getter itself
+ *  throws (site data blocked, sandboxed frame). Exported so a backup surface reads
+ *  through the same guard instead of opening a second raw `localStorage` path. */
+export function getShellStorage(): StorageLike | null {
   try {
     return typeof localStorage !== "undefined" ? localStorage : null;
   } catch {
