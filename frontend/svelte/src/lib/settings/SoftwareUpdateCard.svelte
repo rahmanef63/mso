@@ -1,6 +1,11 @@
 <script lang="ts">
+  import { untrack } from "svelte";
+  import { finishedSoftwareUpdate } from "./update-outcome.ts";
+  import { isDemoMode } from "../demo/demo-adapter.ts";
   import {
     createSoftwareUpdateController,
+    readSoftwareUpdate,
+    requestSoftwareUpdate,
     type SoftwareUpdateState,
     type SoftwareUpdateStatus,
   } from "./host-ops-api.ts";
@@ -10,7 +15,71 @@
   let view = $state<SoftwareUpdateState>({ kind: "loading" });
   let controller: ReturnType<typeof createSoftwareUpdateController> | undefined;
 
+  type UpdateAction = "check" | "update" | "rebuild";
+  let busy = $state<UpdateAction | null>(null);
+  let confirmAction = $state<"update" | "rebuild" | null>(null);
+  let actionError = $state("");
+  let result = $state("");
+  let actionController: AbortController | undefined;
+  const demo = isDemoMode();
   let isOwner = $derived(role === "owner");
+  let polling = $derived(isOwner && view.kind === "ready" && view.status.running);
+
+  function canStart(info: SoftwareUpdateStatus) {
+    return info.supported && !info.running && !info.dirty && info.ahead === 0
+      && info.remoteChecked && info.conflict?.safe !== false;
+  }
+
+  async function act(action: UpdateAction) {
+    if (demo || !isOwner || busy || polling) return;
+    if (action !== "check" && (view.kind !== "ready" || !canStart(view.status)
+      || (action === "update" ? view.status.behind === 0 : view.status.behind !== 0))) return;
+    const ctrl = new AbortController();
+    actionController = ctrl;
+    busy = action;
+    confirmAction = null;
+    actionError = "";
+    result = "";
+    try {
+      const status = await requestSoftwareUpdate(action, ctrl.signal);
+      if (!ctrl.signal.aborted) view = { kind: "ready", status };
+    } catch (err) {
+      if (!ctrl.signal.aborted) actionError = err instanceof Error ? err.message : "Could not reach the host.";
+    } finally {
+      if (actionController === ctrl) { actionController = undefined; busy = null; }
+    }
+  }
+
+  // Poll without reaching GitHub, only while the host reports an active job.
+  // Bound the loop, tolerate the service restart and never re-submit the POST.
+  $effect(() => {
+    if (demo || !polling) return;
+    const initialLog = untrack(() => view.kind === "ready" ? view.status.log : "");
+    const ctrl = new AbortController();
+    const deadline = Date.now() + 15 * 60_000;
+    let timer: ReturnType<typeof setTimeout>;
+    async function tick() {
+      if (ctrl.signal.aborted) return;
+      if (Date.now() >= deadline) {
+        actionError = "Stopped checking automatically. Refresh status to see whether the update finished.";
+        return;
+      }
+      try {
+        const status = await readSoftwareUpdate(ctrl.signal);
+        if (ctrl.signal.aborted) return;
+        view = { kind: "ready", status };
+        if (!status.running) {
+          result = finishedSoftwareUpdate(status, initialLog)
+            ? "Update finished. The running build matches the checkout."
+            : "Update stopped. Check the running build and build log before retrying.";
+          return;
+        }
+      } catch { /* the service can briefly disappear during a restart */ }
+      if (!ctrl.signal.aborted) timer = setTimeout(() => void tick(), 3000);
+    }
+    timer = setTimeout(() => void tick(), 3000);
+    return () => { ctrl.abort(); clearTimeout(timer); };
+  });
 
   function statusSummary(info: SoftwareUpdateStatus): { label: string; detail: string; tone: "ok" | "warn" | "neutral" } {
     if (info.running) return { label: "Updating", detail: "An update job is currently running on the host.", tone: "warn" };
@@ -50,7 +119,7 @@
   });
 
   export function refresh() {
-    if (isOwner) void controller?.refresh();
+    if (isOwner && !busy) void controller?.refresh();
   }
 
   $effect(() => {
@@ -64,6 +133,7 @@
     void next.refresh();
     return () => {
       next.dispose();
+      actionController?.abort();
       if (controller === next) controller = undefined;
     };
   });
@@ -78,7 +148,7 @@
       {/if}
     </div>
     {#if isOwner}
-      <button type="button" disabled={view.kind === "loading"} onclick={refresh}>
+      <button type="button" disabled={view.kind === "loading" || busy !== null} onclick={refresh}>
         {view.kind === "loading" ? "Checking..." : "Refresh"}
       </button>
     {/if}
@@ -89,6 +159,8 @@
       Owner role is required to inspect software updates. Sign in from an Owner device to check version status.
     </p>
   {:else}
+    {#if actionError}<p class="feedback error" role="alert">{actionError}</p>{/if}
+    {#if result}<p role="status">{result}</p>{/if}
     <div role="status" aria-live="polite">
       {#if view.kind === "loading"}
         <p>Checking host software update status...</p>
@@ -123,6 +195,34 @@
           </p>
         {/if}
 
+        {#if !demo}
+        <div class="update-actions">
+          <button type="button" disabled={busy !== null || polling || !view.status.supported} onclick={() => void act("check")}>
+            {busy === "check" ? "Checking..." : "Check for updates"}
+          </button>
+          {#if canStart(view.status)}
+            {#if view.status.behind > 0}
+              <button type="button" disabled={busy !== null} onclick={() => { confirmAction = "update"; }}>Update version</button>
+            {:else}
+              <button type="button" disabled={busy !== null} onclick={() => { confirmAction = "rebuild"; }}>Rebuild and restart</button>
+            {/if}
+          {/if}
+        </div>
+        {#if confirmAction && canStart(view.status)}
+          <div class="feedback pending">
+            <p>{confirmAction === "update" ? "Install the available update" : "Rebuild the current checkout"} and restart MSO?</p>
+            <button type="button" disabled={busy !== null} onclick={() => { if (confirmAction) void act(confirmAction); }}>Confirm and restart</button>
+            <button type="button" onclick={() => { confirmAction = null; }}>Cancel</button>
+          </div>
+        {/if}
+        {/if}
+        {#if view.status.log}
+          <details>
+            <summary>Build log</summary>
+            <pre class="update-log">{view.status.log}</pre>
+          </details>
+        {/if}
+
         {#if view.status.commits.length > 0}
           <div class="commits-block">
             <h3>Incoming commits ({view.status.commits.length})</h3>
@@ -143,6 +243,8 @@
 </section>
 
 <style>
+  .update-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-block: 1rem; }
+  .update-log { max-height: 18rem; overflow: auto; white-space: pre-wrap; }
   .update-title-group { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .update-pill { display: inline-block; padding: 0.125rem 0.5rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.75rem; color: var(--muted); }
   .update-pill[data-tone="ok"] { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }

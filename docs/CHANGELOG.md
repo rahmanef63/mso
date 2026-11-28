@@ -13,9 +13,15 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `settings` preserve browser fetch receiver for update actions
+- `settings` restore guarded MSO software updates
 - `security` restore baseline response headers the Svelte cutover dropped (#383)
 - `e2e` point the deploy probe at the immutable build namespace (#385)
 - `svelte/creative` undo no longer skips a step after a half-open edit (#387)
+
+**Changed**
+
+- `settings` isolate update outcome and regression tests
 
 **Tests**
 

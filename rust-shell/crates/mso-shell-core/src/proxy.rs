@@ -75,7 +75,7 @@ const ROUTE_POLICIES: &[RoutePolicy] = &[
     RoutePolicy { path: "/api/v1/fs/search", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
     RoutePolicy { path: "/api/v1/fs/usage", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
     RoutePolicy { path: "/api/v1/stock/search", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
-    RoutePolicy { path: "/api/v1/sys/update", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
+    RoutePolicy { path: "/api/v1/sys/update", prefix: false, methods: &["GET", "POST"], max_body_bytes: 4096, forward_authorization: false },
     // Wave 3 / Stage R3F cockpit routes
     RoutePolicy { path: "/api/v1/desktop/screenshot", prefix: false, methods: &["GET"], max_body_bytes: 0, forward_authorization: false },
     RoutePolicy { path: "/api/v1/fs/copy", prefix: false, methods: &["POST"], max_body_bytes: 64 * 1024, forward_authorization: false },
@@ -813,7 +813,7 @@ mod tests {
             ("/api/v1/fs/search", &["GET"], 0),
             ("/api/v1/fs/usage", &["GET"], 0),
             ("/api/v1/stock/search", &["GET"], 0),
-            ("/api/v1/sys/update", &["GET"], 0),
+            ("/api/v1/sys/update", &["GET", "POST"], 4096),
         ];
 
         for &(path, methods, max_body) in expected {
@@ -850,6 +850,7 @@ mod tests {
                 ("POST /api/v1/desktop/lifecycle HTTP/1.1", r#"{"state":"started"}"#),
                 ("GET /api/v1/fs/raw?path=notes.txt HTTP/1.1", r#"{"raw":"ok"}"#),
                 ("GET /api/v1/sys/update HTTP/1.1", r#"{"upToDate":true}"#),
+                ("POST /api/v1/sys/update HTTP/1.1", r#"{"running":true}"#),
             ];
             for (expected_line, body) in cases {
                 let (mut conn, _) = listener.accept().unwrap();
@@ -878,7 +879,7 @@ mod tests {
             ("POST", "/api/v1/fs/search", "GET"),
             ("POST", "/api/v1/fs/usage", "GET"),
             ("POST", "/api/v1/stock/search", "GET"),
-            ("POST", "/api/v1/sys/update", "GET"),
+            ("DELETE", "/api/v1/sys/update", "GET, POST"),
         ] {
             let r = forward_api_request(&origin, &ForwardRequest {
                 method, target, host: Some("mso.example.com"), cookie: None, authorization: None,
@@ -940,6 +941,15 @@ mod tests {
         });
         assert_eq!(r_upd.status, 200);
         assert_eq!(r_upd.body, br#"{"upToDate":true}"#);
+
+        let post = forward_api_request(&origin, &ForwardRequest {
+            method: "POST", target: "/api/v1/sys/update", host: Some("mso.example.com"),
+            cookie: Some("session=r3e"), authorization: Some("Bearer strip-me"),
+            content_type: Some("application/json"), accept: None, origin: Some("http://mso.example.com"),
+            sec_fetch_site: Some("same-origin"), body: br#"{"rebuildOnly":true}"#,
+        });
+        assert_eq!(post.status, 200);
+        assert_eq!(post.body, br#"{"running":true}"#);
 
         handle.join().unwrap();
     }

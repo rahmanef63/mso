@@ -33,7 +33,7 @@ function sameOrigin(req: Request): boolean {
 }
 
 export async function handleGetSysUpdate(req: Request): Promise<Response> {
-  if (!(await verifyAuth(req))) return json({ error: "unauthorized" }, 401);
+  if (!(await verifyAuth(req, "owner"))) return json({ error: "unauthorized" }, 401);
   try {
     return json(await getUpdateStatus(false));
   } catch (e) {
@@ -42,16 +42,19 @@ export async function handleGetSysUpdate(req: Request): Promise<Response> {
 }
 
 export async function handlePostSysUpdate(req: Request): Promise<Response> {
-  if (!(await verifyAuth(req))) return json({ error: "unauthorized" }, 401);
+  if (!(await verifyAuth(req, "owner"))) return json({ error: "unauthorized" }, 401);
+  if (!sameOrigin(req)) return json({ error: "same_origin_required" }, 403);
   try {
-    const body = (await readJson(req).catch(() => ({}))) as { rebuildOnly?: unknown; action?: unknown; channel?: unknown };
+    const raw = await readJson(req).catch(() => null);
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return json({ error: "invalid_update_request" }, 400);
+    const body = raw as { rebuildOnly?: unknown; action?: unknown; channel?: unknown };
+    if (body.action !== undefined && body.action !== "check") return json({ error: "invalid_update_action" }, 400);
     if (body.action === "check") {
       // A browser on this host is same-origin even when OS_PUBLIC_ORIGIN names the
       // public hostname: comparing only against the configured origin rejected
       // every loopback visit with 403, which the UI then reported as "Sign in as
       // an Owner". Accept the request's own host as well, exactly like
       // /api/v1/fs/upload; the configured origin stays allowed for a proxied browse.
-      if (!sameOrigin(req)) return json({ error: "same_origin_required" }, 403);
       if (rateLimited("sys-update-check", 6, 60_000)) return json({ error: "rate_limited" }, 429);
       const status = await getUpdateStatus(true);
       audit({ action: "sys.update", target: "check", ok: true });

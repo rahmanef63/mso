@@ -54,7 +54,7 @@ const post = (body: unknown) =>
   new Request("http://localhost/api/v1/sys/update", {
     method: "POST",
     body: JSON.stringify(body),
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", origin: "http://localhost" },
   });
 
 beforeEach(() => {
@@ -88,7 +88,7 @@ describe("/api/v1/sys/update", () => {
   });
   it("requires an explicit same-origin POST and limits remote refreshes", async () => {
     for (const origin of [null, "http://evil.test"]) {
-      const req = post({ action: "check" }); if (origin) req.headers.set("origin", origin);
+      const req = post({ action: "check" }); if (origin) req.headers.set("origin", origin); else req.headers.delete("origin");
       expect((await POST(req)).status).toBe(403);
     }
     expect(getStatus).not.toHaveBeenCalled(); expect(startUpdate).not.toHaveBeenCalled();
@@ -98,6 +98,18 @@ describe("/api/v1/sys/update", () => {
     expect(auditMock).toHaveBeenCalledWith(expect.objectContaining({ action: "sys.update", target: "check", ok: true }));
     getStatus.mockClear(); limited.value = true;
     expect((await POST(request())).status).toBe(429); expect(getStatus).not.toHaveBeenCalled();
+  });
+
+  it("refuses an untrusted origin or malformed body before starting", async () => {
+    const foreign = post({ rebuildOnly: true });
+    foreign.headers.set("origin", "http://foreign.invalid");
+    expect((await POST(foreign)).status).toBe(403);
+    const missing = post({ rebuildOnly: false });
+    missing.headers.delete("origin");
+    expect((await POST(missing)).status).toBe(403);
+    expect((await POST(post(null))).status).toBe(400);
+    expect((await POST(post({ action: "unknown" }))).status).toBe(400);
+    expect(startUpdate).not.toHaveBeenCalled();
   });
 
   it("passes rebuildOnly through only when it is exactly true", async () => {

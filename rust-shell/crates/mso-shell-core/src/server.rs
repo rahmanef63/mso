@@ -2133,7 +2133,7 @@ mod tests {
         let r = send("POST /api/v1/desktop/lifecycle HTTP/1.1\r\nHost: mso.example.com\r\nCookie: session=r3e-tok\r\nAuthorization: Bearer strip\r\nSec-Fetch-Site: same-origin\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}");
         assert!(r.starts_with("HTTP/1.1 200 OK") && r.contains(r#"{"state":"started"}"#));
 
-        // GET-only Stage R3E routes: /api/v1/fs/raw, /api/v1/fs/search, /api/v1/fs/usage, /api/v1/stock/search, /api/v1/sys/update
+        // Read routes; software update also allows an explicitly authorized POST.
         for (target, body_fragment) in [
             ("/api/v1/fs/raw?path=notes.txt", r#"{"content":"hi"}"#),
             ("/api/v1/fs/search?q=readme", r#"{"hits":[]}"#),
@@ -2149,6 +2149,12 @@ mod tests {
             assert!(send(&format!(
                 "POST {path_only} HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: cross-site\r\nContent-Length: 2\r\n\r\n{{}}"
             )).starts_with("HTTP/1.1 403 Forbidden"));
+            if path_only == "/api/v1/sys/update" {
+                let refused = send("DELETE /api/v1/sys/update HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\n\r\n");
+                assert!(refused.starts_with("HTTP/1.1 405 Method Not Allowed") && refused.contains("Allow: GET, POST\r\n"));
+                assert!(send("POST /api/v1/sys/update HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 4097\r\n\r\n").starts_with("HTTP/1.1 413 Payload Too Large"));
+                continue;
+            }
             let r_post = send(&format!(
                 "POST {path_only} HTTP/1.1\r\nHost: mso.example.com\r\nSec-Fetch-Site: same-origin\r\nContent-Length: 2\r\n\r\n{{}}"
             ));
