@@ -4,6 +4,23 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-11-28
+
+**Added**
+
+- `svelte/creative` drag trim handles on the reel timeline (#386)
+- `svelte/editor` restore the integrated terminal the legacy IDE had (#390)
+
+**Fixed**
+
+- `security` restore baseline response headers the Svelte cutover dropped (#383)
+- `e2e` point the deploy probe at the immutable build namespace (#385)
+- `svelte/creative` undo no longer skips a step after a half-open edit (#387)
+
+**Tests**
+
+- `security` assert the audit trail redacts real credentials, not benign text (#388)
+
 ## 2026-11-27
 
 **Added**
@@ -1240,54 +1257,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Chores**
 
 - `mcp` advance graph toolset signature
-
-## 2026-09-18
-
-**Added**
-
-- `install` add cross-platform host adapters
-- `integrations` add safe Convex Cloud deploy runner
-- `ci` add independent exact-SHA verification runner
-- `workflows` add reviewed external editor tabs
-- `graph` add selected custom nodes and readable connection routing
-- `organization` add internal project flows with callable CRUD
-
-**Fixed**
-
-- `browser` isolate sibling Camoufox viewer auth
-- `integrations` allow Convex snapshot imports
-- `security` cover reviewed static asset variants
-- `review` preserve session and surface store invariants
-- `security` validate cache exceptions from raw report
-- `security` scope passive cache review by path
-- `auth` permanently revoke retired cookie sessions
-- `workflows` preserve explicit empty sandbox
-- `security` review cache-only passive signal
-- `graph` close routing and compact focus review
-- `auth` bind sessions to cookie scope
-- `workflows` remount editors when sandbox policy changes
-- `workflows` retain approved shared surface placements
-- `browser` keep Camoufox automation on demand
-- `workflows` isolate external editors from cockpit session cookies
-- `ci` preserve repository-owned local gate environment
-- `graph` reconcile controlled selection and preserve routing groundwork
-- `workflows` keep runtime registry out of deployment tracing
-- `security` apply existing ZAP informational policy explicitly
-- `security` require executed passive scan evidence
-- `security` restore native dependency update cooldown
-- `browser` retain private viewer connectivity without server access
-- `release` align Node support and read-only browser reconnects
-- `extensions` lock project controls until initial inspection
-- `browser` diagnose secure viewer failures without losing power state
-
-**Tests**
-
-- `security` track reviewed cache signal
-- `browser` make viewer fixtures independent of host configuration
-- `security` inspect organization fixture through one descriptor
-
-**Docs**
-
-- `progress` preserve merged release order
-- `ci` document independent runner state directory
-- `security` document the hosted passive scan target
