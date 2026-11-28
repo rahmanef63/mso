@@ -12,9 +12,12 @@ on:
 permissions:
   contents: read
 
+# A cancelled main run is a commit without SAST, which is exactly what Scorecard
+# reports as "SAST tool detected but not run on all commits" (alert 137). Back-to-back
+# pushes to main must all finish, so only pull requests may cancel their predecessor.
 concurrency:
   group: codeql-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   analyze:
