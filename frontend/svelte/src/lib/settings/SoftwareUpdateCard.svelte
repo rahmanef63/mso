@@ -1,10 +1,10 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { finishedSoftwareUpdate } from "./update-outcome.ts";
   import { isDemoMode } from "../demo/demo-adapter.ts";
   import {
     createSoftwareUpdateController,
     readSoftwareUpdate,
-    finishedSoftwareUpdate,
     requestSoftwareUpdate,
     type SoftwareUpdateState,
     type SoftwareUpdateStatus,

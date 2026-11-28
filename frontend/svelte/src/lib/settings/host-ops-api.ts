@@ -146,13 +146,6 @@ export async function readSoftwareUpdate(
   return parseUpdateStatus(await fetchHostJson("/api/v1/sys/update", "update", signal, fetcher, bridge));
 }
 
-// A previous terminal marker is not evidence for the current attempt.
-export function finishedSoftwareUpdate(status: SoftwareUpdateStatus, initialLog: string): boolean {
-  const newLog = status.log.startsWith(initialLog) ? status.log.slice(initialLog.length) : status.log;
-  const lastMarker = newLog.match(/(?:^|\n)[^\n]*UPDATE (OK|FAILED)[^\n]*/g)?.at(-1);
-  return !status.running && !status.pendingBuild && lastMarker?.includes("UPDATE OK") === true;
-}
-
 export async function requestSoftwareUpdate(
   action: "check" | "update" | "rebuild",
   signal: AbortSignal, fetcher: typeof fetch = fetch, bridge: ShellBridge = detectShellBridge(),
