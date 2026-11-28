@@ -79,6 +79,19 @@ try {
   await page.getByRole("button", { name: "Open", exact: true }).click();
   await page.locator(".image-editor-root[data-image-loaded='true']").waitFor();
 
+  // A press on an overlay that never drags must not leave a half-open history edit
+  // behind: one undo after the next action has to revert that action only.
+  await page.keyboard.press("t");
+  await page.getByRole("button", { name: "Add Text" }).click();
+  await page.keyboard.press("v");
+  await delay(120);
+  const stageBox = await page.locator("canvas.editor-canvas").boundingBox();
+  assert.ok(stageBox, "stage canvas must render before the click probe");
+  await page.mouse.move(stageBox.x + stageBox.width / 2, stageBox.y + stageBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.up();
+  await delay(120);
+
   await page.getByRole("tab", { name: "Filters" }).click();
   await page.getByRole("button", { name: "Noir" }).click();
   await page.getByRole("tab", { name: "Adjust" }).click();
@@ -86,6 +99,28 @@ try {
     el.value = "180";
     el.dispatchEvent(new Event("input", { bubbles: true }));
   });
+  await page.getByLabel("Brightness").evaluate((el) => {
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await delay(120);
+  const activeFilterTag = () => page.locator(".active-tag");
+  await page.getByRole("button", { name: "Undo" }).click();
+  await delay(150);
+  await page.getByRole("tab", { name: "Filters" }).click();
+  assert.equal(
+    (await activeFilterTag().innerText()).trim().toLowerCase(),
+    "noir",
+    "one undo after a slider drag must restore the preset that preceded the drag",
+  );
+  await page.getByRole("tab", { name: "Adjust" }).click();
+  assert.equal(
+    await page.getByLabel("Brightness").inputValue(),
+    "98",
+    "one undo must revert the drag, not the preset",
+  );
+  await page.getByRole("button", { name: "Redo" }).click();
+  await delay(150);
+  assert.equal(await page.getByLabel("Brightness").inputValue(), "180", "redo restores the drag");
 
   await page.getByRole("tab", { name: "Layers" }).click();
   const layers = await page.locator(".layer-item").count();

@@ -27,6 +27,7 @@ function loadHtmlImage(url: string): Promise<HTMLImageElement> {
 
 export function createImageEditorActions(s: ImageEditorSession) {
   function commit(next: EditorDocument) {
+    s.preEdit = null; // a discrete action discards a half-open slider edit, else undo restores it
     s.history = pushHistory(s.history, s.doc);
     s.doc = next;
   }
@@ -140,7 +141,7 @@ export function createImageEditorActions(s: ImageEditorSession) {
     },
 
     beginMove(id: string) { beginEdit(); s.selectedLayerId = id; },
-    commitMove() { endEdit(); },
+    commitMove(moved = true) { if (moved) endEdit(); else s.preEdit = null; },
     moveLayer(id: string, dx: number, dy: number) { s.doc = moveLayerBy(s.doc, id, dx, dy); },
 
     patchAdj(key: keyof StudioAdjustments, value: number) {

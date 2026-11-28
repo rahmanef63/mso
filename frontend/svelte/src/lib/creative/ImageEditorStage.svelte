@@ -50,7 +50,7 @@
     onCommitStroke: (stroke: DrawStroke) => void;
     onMoveLayer: (id: string, dx: number, dy: number) => void;
     onBeginMove: (id: string) => void;
-    onCommitMove: () => void;
+    onCommitMove: (moved?: boolean) => void;
     onCommitShape: (shape: ShapeLayer) => void;
     onPlaceTextAt: (pt: Point) => void;
     onApplyCrop: () => void;
@@ -178,7 +178,7 @@
 
   function handleCanvasUp() {
     if (dragLayer) {
-      if (dragLayer.moved) onCommitMove();
+      onCommitMove(dragLayer.moved);
       dragLayer = null;
     }
     if (activeStroke) {

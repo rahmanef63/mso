@@ -85,7 +85,7 @@
       onCommitStroke={(stroke) => ed.commitStroke(stroke)}
       onMoveLayer={(id, dx, dy) => ed.moveLayer(id, dx, dy)}
       onBeginMove={(id) => ed.beginMove(id)}
-      onCommitMove={() => ed.commitMove()}
+      onCommitMove={(moved) => ed.commitMove(moved)}
       onCommitShape={(shape) => ed.commitShape(shape)}
       onPlaceTextAt={(pt) => ed.placeTextAt(pt)}
       onApplyCrop={() => ed.applyCrop()}
