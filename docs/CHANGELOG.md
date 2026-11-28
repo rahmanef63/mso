@@ -30,6 +30,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `progress` record the cleanup that actually ran
 - `progress` record the branch and PR consolidation triage (#402)
 
 **CI**

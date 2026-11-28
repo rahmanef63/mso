@@ -79,3 +79,40 @@ Tracked here so it is not lost again:
 work, which is why 28 branches looked unmerged. Comparing blob SHAs per file
 (`git rev-parse <branch>:<path>` vs `origin/main:<path>`) is the only test that survives
 squash, and it is what this triage is based on.
+
+## Cleanup actually executed (2026-11-29)
+
+Remote branches 24 to 14. Deleted only after proving each one adds nothing main lacks.
+
+**Deleted, 10 proven ancestors of main** (the `agent/nightly/mso/*` fleet plus one
+already-squashed fix):
+
+`alert-210-stacktrace-callers`, `codeql-210-211-http-shim`, `dependabot-green-train`,
+`gitignore-results-rebase`, `native-host-svelte-launcher`, `openclaw-install-dedupe-209`,
+`release-fixture-changelog-rebase`, `semgrep-case-parser-branch-protection`,
+`fix/oauth-cross-origin-handoff-20261126`, `fix/v2-settings-update-parity-20261128`
+
+**Deleted, 3 with zero differing files** against main: `t3/refactor-files-manager-ux`,
+`fix/ux-mcp-toolset-count-finder-copy-path-20261127`, `docs/branch-pr-consolidation`.
+
+**Kept, still has unique content:** `release/apple-shell-v2-lara` (13 files),
+`review/apple-shell-on-f4347890` (2), `t3/refactor-code-editor-ide-1` (5),
+`t3/refactor-image-editor-studio-1` (5), `t3/refactor-image-editor-studio-3`,
+`t3/refactor-reel-media-studio-1` (1), `fix/348-hermetic-release-fixture`,
+`agent/nightly/mso/baseline-header-smoke`, `agent/nightly/mso/alert-210-managedapps`,
+`agent/nightly/mso/ignore-playwright-results`, plus two single-line changelog branches.
+
+**Local branches left alone.** 34 of them are checked out in worktrees under
+`~/.t3/worktrees` and `~/.cache/mso-worktrees`, which belong to other T3 threads. Deleting
+those would break live sessions, so local pruning needs a separate, deliberate pass per
+worktree.
+
+## The changelog guard cannot catch itself
+
+`gen-changelog.mjs` defers on any non-main branch by design, so `--check` only ever runs on
+main after a squash. A docs-only PR therefore merges green and breaks main's `bun run check`
+afterwards. This happened three times (#400, #402, and the fix for both). `bun run ship`
+regenerates; a plain squash-merge does not.
+
+If that keeps biting, the cheapest durable fix is a `main`-only post-merge step (or a
+pre-push regeneration on main), not a stricter PR check that would defer anyway.
