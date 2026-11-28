@@ -51,14 +51,21 @@ Behaviour that is deliberate rather than incidental:
 
 ## Verification
 
-    cd frontend/svelte && node --experimental-strip-types --test tests/browser-backup.test.ts
-    # tests 10, pass 10, fail 0
+    cd frontend/svelte && node --experimental-strip-types --test tests/browser-backup.test.ts tests/browser-backup-flow.test.ts
+    # tests 16, pass 16, fail 0
 
-Covered: allowlist exactness, `sv:shell` normalization and strict per-field validation,
-out-of-range/malformed appearance values, non-string JSON values, export filtering with
-corrupt stored rows, the legacy v1 envelope with denied and unknown keys, partial-invalid
-imports, unsupported schema / wrong kind / malformed / oversized refusal, rollback on a
-mid-write quota failure, and the guarantee that restore never deletes absent keys.
+Pure module (`browser-backup.ts`): allowlist exactness, `sv:shell` normalization and strict
+per-field validation, out-of-range/malformed appearance values, non-string JSON values,
+export filtering with corrupt stored rows, the legacy v1 envelope with denied and unknown
+keys, partial-invalid imports, unsupported schema / wrong kind / malformed / oversized
+refusal, rollback on a mid-write quota failure, and the guarantee that restore never
+deletes absent keys.
+
+Flow (`browser-backup-flow.ts`, extracted so the confirm path is provable without a
+browser): staging writes nothing, cancel leaves preferences and reload count untouched, a
+refused file never reaches confirm, confirm writes every key and reloads exactly once, a
+failed write reloads nothing and keeps the old values, and export counts only allowlisted
+keys.
 
     node scripts/check-architecture.mjs   # filesOver220 47/47, filesOver500 0/0, healthy
     node scripts/check-features.mjs       # rawLocalStorageSlices 1/12, healthy
