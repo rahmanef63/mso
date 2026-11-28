@@ -1,3 +1,4 @@
+import { requestJson } from "./settings-request.ts";
 import { ApiError } from "../host-api.ts";
 import { detectShellBridge, resolveApiUrl, type ShellBridge } from "../shell-bridge.ts";
 
@@ -143,6 +144,23 @@ export async function readSoftwareUpdate(
   signal: AbortSignal, fetcher: typeof fetch = fetch, bridge: ShellBridge = detectShellBridge(),
 ): Promise<SoftwareUpdateStatus> {
   return parseUpdateStatus(await fetchHostJson("/api/v1/sys/update", "update", signal, fetcher, bridge));
+}
+
+// A previous terminal marker is not evidence for the current attempt.
+export function finishedSoftwareUpdate(status: SoftwareUpdateStatus, initialLog: string): boolean {
+  const newLog = status.log.startsWith(initialLog) ? status.log.slice(initialLog.length) : status.log;
+  const lastMarker = newLog.match(/(?:^|\n)[^\n]*UPDATE (OK|FAILED)[^\n]*/g)?.at(-1);
+  return !status.running && !status.pendingBuild && lastMarker?.includes("UPDATE OK") === true;
+}
+
+export async function requestSoftwareUpdate(
+  action: "check" | "update" | "rebuild",
+  signal: AbortSignal, fetcher: typeof fetch = fetch, bridge: ShellBridge = detectShellBridge(),
+): Promise<SoftwareUpdateStatus> {
+  const body = action === "check" ? { action } : { rebuildOnly: action === "rebuild" };
+  return parseUpdateStatus(await requestJson("/api/v1/sys/update", {
+    method: "POST", body, signal, fetcher, bridge, label: "software update", timeoutMs: 60_000,
+  }));
 }
 
 export async function readAuditLog(
