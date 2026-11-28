@@ -41,12 +41,14 @@ describe("live deploy probe", () => {
     expect([401, 403]).toContain(res.status);
   });
 
-  it("every root-referenced _next/static JS/CSS asset serves with correct MIME", async () => {
+  it("every root-referenced immutable JS/CSS asset serves with correct MIME", async () => {
     const homeRes = await get("/");
     expect(homeRes.status).toBe(200);
     const html = await homeRes.text();
-    const assets = [...new Set(html.match(/\/_next\/static\/[^"'\s)<>]+\.(?:js|css)(?:\?[^"'\s)<>]*)?/g) ?? [])];
-    expect(assets.length, "no _next/static JS/CSS assets found in home HTML").toBeGreaterThan(0);
+    // SvelteKit adapter-static writes content-hashed output to _app/immutable/. The
+    // pre-cutover /_next/static/* namespace no longer exists on any response.
+    const assets = [...new Set(html.match(/\/_app\/immutable\/[^"'\s)<>]+\.(?:js|css)(?:\?[^"'\s)<>]*)?/g) ?? [])];
+    expect(assets.length, "no _app/immutable JS/CSS assets found in home HTML").toBeGreaterThan(0);
     expect(assets.length).toBeLessThanOrEqual(120);
     for (const asset of assets) {
       const res = await get(asset, { method: "HEAD" });
