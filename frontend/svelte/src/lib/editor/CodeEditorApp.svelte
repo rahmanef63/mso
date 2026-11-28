@@ -2,10 +2,11 @@
   import "./CodeEditorApp.css";
   import { onMount } from "svelte";
   import { getWinState, setWinState } from "../shell/window-feature-state.ts";
-  import { countStats, isMarkdownFile } from "./editor-api.ts";
+  import { countStats, isMarkdownFile, parentDir } from "./editor-api.ts";
   import { findMatches, replaceAllMatches, replaceMatchAt } from "./editor-highlight.ts";
   import { createMultiTabEditor, type EditorWorkspaceSnapshot, type MultiTabState } from "./editor-tabs.ts";
   import EditorSurface from "./EditorSurface.svelte";
+  import EditorTerminalDrawer from "./EditorTerminalDrawer.svelte";
   import EditorToolbar from "./EditorToolbar.svelte";
   import FileExplorerSidebar from "./FileExplorerSidebar.svelte";
   import FindReplaceBar from "./FindReplaceBar.svelte";
@@ -26,6 +27,7 @@
   let wordWrap = $state(false);
   let fontSize = $state(13);
   let showPreview = $state(false);
+  let terminalOpen = $state(false);
   let barMode = $state<"find" | "goto" | null>(null);
   let findQuery = $state("");
   let replaceText = $state("");
@@ -41,6 +43,7 @@
   );
   let stats = $derived(activeTab && !activeTab.loading && !activeTab.error ? countStats(activeTab.content) : { lines: 0, chars: 0, bytes: 0 });
   let isMarkdown = $derived(activeTab ? isMarkdownFile(activeTab.path, activeTab.language) : false);
+  let terminalCwd = $derived(parentDir(activeTab?.path ?? pathInput.trim()) || "~");
   let matches = $derived(activeTab && findQuery ? findMatches(activeTab.content, findQuery, caseSensitive) : []);
   let clampedMatchIndex = $derived(matches.length > 0 ? ((matchIndex % matches.length) + matches.length) % matches.length : 0);
 
@@ -128,8 +131,10 @@
     {barMode}
     {isMarkdown}
     {showPreview}
+    {terminalOpen}
     onPathInput={(v) => { pathInput = v; }} onOpenSubmit={() => void editor?.openTab(pathInput)} onToggleExplorer={() => { explorerOpen = !explorerOpen; }} onToggleWrap={() => { wordWrap = !wordWrap; }} onDecreaseFont={() => { fontSize = Math.max(11, fontSize - 1); }} onIncreaseFont={() => { fontSize = Math.min(20, fontSize + 1); }}
     onToggleFind={() => { barMode = barMode === "find" ? null : "find"; }} onToggleGoto={() => { barMode = barMode === "goto" ? null : "goto"; }} onTogglePreview={() => { showPreview = !showPreview; }}
+    onToggleTerminal={() => { terminalOpen = !terminalOpen; }}
   />
 
   <div class="ide-body" class:with-sidebar={explorerOpen}>
@@ -138,7 +143,7 @@
       />
     {/if}
 
-    <div class="ide-main">
+    <div class="ide-main" class:terminal-open={terminalOpen}>
       <TabBar tabs={ws.tabs} activePath={ws.activePath}
         {pendingClosePath} onSelect={(p) => { editor?.selectTab(p); pendingClosePath = null; }} onRequestClose={handleRequestClose} onSaveAndClose={(p) => void handleSaveAndClose(p)} onDiscardClose={(p) => { editor?.closeTab(p, true); pendingClosePath = null; }} onCancelClose={() => { pendingClosePath = null; }} onNewFile={() => handleCreateTab()}
       />
@@ -174,6 +179,10 @@
           {/if}
         {/if}
       </div>
+
+      {#if terminalOpen}
+        <EditorTerminalDrawer cwd={terminalCwd} onClose={() => { terminalOpen = false; }} />
+      {/if}
 
       <StatusBar path={activeTab?.path ?? null} language={activeTab?.language ?? "Plain Text"} cursor={activeTab?.cursor ?? { ln: 1, col: 1 }} {stats} dirty={Boolean(activeTab?.dirty)} saving={Boolean(activeTab?.saving)} onLanguageChange={(lang) => editor?.setLanguage(lang)} onOpenGoto={() => { barMode = "goto"; }} onSave={() => void editor?.saveTab()} onRevert={() => editor?.revertTab()}
       />

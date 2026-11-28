@@ -7,6 +7,7 @@
     barMode,
     isMarkdown,
     showPreview,
+    terminalOpen,
     onPathInput,
     onOpenSubmit,
     onToggleExplorer,
@@ -16,6 +17,7 @@
     onToggleFind,
     onToggleGoto,
     onTogglePreview,
+    onToggleTerminal,
   }: {
     pathInput: string;
     loading: boolean;
@@ -24,6 +26,7 @@
     barMode: "find" | "goto" | null;
     isMarkdown: boolean;
     showPreview: boolean;
+    terminalOpen: boolean;
     onPathInput: (value: string) => void;
     onOpenSubmit: () => void;
     onToggleExplorer: () => void;
@@ -33,6 +36,7 @@
     onToggleFind: () => void;
     onToggleGoto: () => void;
     onTogglePreview: () => void;
+    onToggleTerminal: () => void;
   } = $props();
 
   function handleSubmit(event: SubmitEvent): void {
@@ -70,6 +74,7 @@
     <button type="button" class="tb-btn" aria-label="Increase font size" onclick={onIncreaseFont}>A+</button>
     <button type="button" class="tb-btn" class:active={barMode === "find"} onclick={onToggleFind}>Find</button>
     <button type="button" class="tb-btn" class:active={barMode === "goto"} onclick={onToggleGoto}>Line</button>
+    <button type="button" class="tb-btn" class:active={terminalOpen} aria-pressed={terminalOpen} onclick={onToggleTerminal}>Terminal</button>
     {#if isMarkdown}
       <button type="button" class="tb-btn" class:active={showPreview} aria-pressed={showPreview} onclick={onTogglePreview}>Preview</button>
     {/if}

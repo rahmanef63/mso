@@ -77,6 +77,7 @@ function normalizeFixturePath(raw) {
 export function createFixtureBackend() {
   const state = {
     role: "viewer",
+    termSeq: 0,
     prefs: {
       tweaks: {},
       quicklinks: [],
@@ -241,6 +242,26 @@ export function createFixtureBackend() {
     }
     if (url.pathname === "/api/v1/fs/search") {
       res.end(JSON.stringify([]));
+      return;
+    }
+    // Integrated editor terminal reuses the real PTY client, so the fixture has to
+    // answer its four JSON routes and the SSE stream. Without these a 404 surfaces as
+    // a browser console error and the drawer shows a transport failure.
+    if (url.pathname === "/api/v1/term/open" && req.method === "POST") {
+      state.termSeq += 1;
+      res.end(JSON.stringify({ id: `fixture-pty-${state.termSeq}` }));
+      return;
+    }
+    if (url.pathname === "/api/v1/term/stream") {
+      // Hold the stream open: the pane treats an immediate close as a transport error.
+      // One base64 `data` event is enough to prove the output path renders.
+      res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store" });
+      res.write(`event: data\ndata: ${Buffer.from("$ echo fixture\n$ ").toString("base64")}\n\n`);
+      req.on("close", () => res.end());
+      return;
+    }
+    if (url.pathname.startsWith("/api/v1/term/") && req.method === "POST") {
+      res.end(JSON.stringify({ ok: true }));
       return;
     }
     res.statusCode = 404;
