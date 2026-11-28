@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BASELINE_SECURITY_HEADERS } from "../../scripts/server-headers.mjs";
 
 const BASE = process.env.E2E_BASE_URL ?? "";
 if (!BASE) throw new Error("E2E_BASE_URL is required; run the release suite against a built fixture");
@@ -55,6 +56,33 @@ describe("live deploy probe", () => {
       expect(res.status, asset).toBe(200);
       const ct = (res.headers.get("content-type") ?? "").toLowerCase();
       expect(ct, asset).toContain(asset.split("?", 1)[0].endsWith(".css") ? "text/css" : "javascript");
+    }
+  });
+
+  it("every response carries the baseline security headers (document, chunk, 404)", async () => {
+    const homeRes = await get("/");
+    const html = await homeRes.text();
+    const [chunk] = html.match(/\/_app\/immutable\/[^"'\s)<>]+\.(?:js|css)(?:\?[^"'\s)<>]*)?/g) ?? [];
+    // The 404 probe is expected to be missing; only its headers are asserted.
+    const probes: Array<[string, Response]> = [["/", homeRes]];
+    if (chunk) probes.push([chunk, await get(chunk)]);
+    probes.push(["/api/__nightshift_probe_header_check", await get("/api/__nightshift_probe_header_check")]);
+
+    for (const [path, res] of probes) {
+      for (const [name, value] of Object.entries(BASELINE_SECURITY_HEADERS)) {
+        const actual = res.headers.get(name);
+        expect(actual, `${path} is missing ${name}`).not.toBeNull();
+        // These two are emitted verbatim, so a stricter or looser deploy fails here.
+        if (name === "strict-transport-security" || name === "x-content-type-options") {
+          expect(actual, `${path} ${name} should be ${value}`).toBe(value);
+        }
+        if (name === "permissions-policy") {
+          expect(actual, `${path} permissions-policy should deny camera`).toContain("camera=()");
+        }
+        if (name === "x-robots-tag") {
+          expect(actual, `${path} x-robots-tag should stay private`).toContain("noindex");
+        }
+      }
     }
   });
   },
