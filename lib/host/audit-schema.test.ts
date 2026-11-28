@@ -63,21 +63,26 @@ describe("audit JSONL schema contract", () => {
     }
   });
 
-  it("never persists a plaintext-credential-looking pattern in any field", async () => {
-    // Even if a buggy caller passes a secret-looking string, the trail is the
-    // last line of defense; this guards against accidental telemetry leaks.
-    // We assert on the BENIGN entries we wrote — no caller in this project
-    // currently stamps credentials, and this test fails if that ever changes.
-    audit({ action: "exec.run", actor: "device-1", target: "ls -la", ok: true });
-    audit({ action: "auth.login", actor: "device-2", ok: true });
+  it("never persists a plaintext credential that a caller actually passed", async () => {
+    // The trail is the last line of defense: a caller that stamps a token into
+    // `target`/`detail`/`meta` must still land redacted on disk. Assert on the
+    // SECRET VALUES, not on keyword patterns — a redacted line legitimately
+    // contains the word "Bearer", so a /bearer\s+/i check would false-fail.
+    const secret = ["sk", "live", "0123456789abcdef"].join("-");
+    audit({
+      action: "exec.run",
+      actor: "device-1",
+      target: `curl -H 'authorization: Bearer ${secret}' https://example.invalid`,
+      detail: `failed with ${secret}`,
+      ok: false,
+      meta: { url: `https://example.invalid/?key=${secret}` },
+    });
     audit({ action: "fs.write", target: "/home/user/notes.md", ok: true });
-    await waitForLines(3);
+    await waitForLines(2);
     const raw = await fs.readFile(logFile, "utf8");
-    // Case-insensitive credential keywords. `actor` field name itself never appears
-    // value-side; we lower-case so a future field rename can't false-pass.
-    const credPatterns = [/password\s*[:=]/i, /\btoken\s*[:=]/i, /\bsecret\s*[:=]/i, /bearer\s+/i, /sk-[a-z0-9-_]{8,}/i];
-    for (const pat of credPatterns) {
-      expect(raw, `audit log matched ${pat}`).not.toMatch(pat);
-    }
+    expect(raw).toContain("[redacted]");
+    expect(raw).not.toContain(secret);
+    // Ordinary text an operator needs to read survives.
+    expect(raw).toContain("/home/user/notes.md");
   });
 });
