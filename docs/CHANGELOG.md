@@ -21,6 +21,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `security` assert the audit trail redacts real credentials, not benign text (#388)
 
+**CI**
+
+- `codeql` never cancel a main analysis, which Scorecard counts as unscanned (#392)
+
 ## 2026-11-27
 
 **Added**
